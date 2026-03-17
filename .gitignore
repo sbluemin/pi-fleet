@@ -1,0 +1,5 @@
+node_modules/
+session-maps/
+selected-models.json
+*.bak
+.DS_Store

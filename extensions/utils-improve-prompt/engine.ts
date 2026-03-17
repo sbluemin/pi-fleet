@@ -1,0 +1,91 @@
+/**
+ * utils-improve-prompt/engine.ts — LLM 엔진
+ *
+ * 메타 프롬프팅 LLM 호출 + BorderedLoader UI 로직.
+ */
+
+import { completeSimple } from "@mariozechner/pi-ai";
+import type { Api, Model, ThinkingLevel } from "@mariozechner/pi-ai";
+import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
+import { BorderedLoader } from "@mariozechner/pi-coding-agent";
+
+import type { ReasoningLevel } from "./constants.js";
+import { REASONING_LABELS, SYSTEM_INSTRUCTION } from "./constants.js";
+import type { MetaPromptSettings } from "./settings.js";
+
+/** 설정 파일 기반 모델 resolve */
+export function resolveModel(ctx: ExtensionContext, settings: MetaPromptSettings): Model<Api> | null {
+  const { provider, model: modelId } = settings;
+  const resolved =
+    provider && modelId
+      ? ctx.modelRegistry.find(provider, modelId)
+      : ctx.model;
+
+  if (!resolved) {
+    const hint =
+      provider && modelId
+        ? `모델을 찾을 수 없습니다: ${provider}/${modelId} — /mp-settings 로 재설정하세요.`
+        : "모델이 선택되지 않았습니다. /mp-settings 로 설정하세요.";
+    ctx.ui.notify(hint, "error");
+  }
+
+  return resolved ?? null;
+}
+
+/** 메타 프롬프팅 + BorderedLoader 스피너 */
+export async function metaPromptWithLoader(
+  ctx: ExtensionContext,
+  model: NonNullable<ExtensionContext["model"]>,
+  userPrompt: string,
+  reasoning: ReasoningLevel,
+): Promise<string | null> {
+  const reasoningLabel = REASONING_LABELS[reasoning];
+
+  return ctx.ui.custom<string | null>((tui, theme, _kb, done) => {
+    const loader = new BorderedLoader(
+      tui,
+      theme,
+      `프롬프트 개선 중... (${model.id} · reasoning: ${reasoningLabel})`,
+    );
+    loader.onAbort = () => done(null);
+
+    const doMetaPrompt = async () => {
+      const apiKey = await ctx.modelRegistry.getApiKey(model);
+      if (!apiKey) throw new Error(`API 키를 가져올 수 없습니다: ${model.id}`);
+
+      const response = await completeSimple(
+        model,
+        {
+          systemPrompt: SYSTEM_INSTRUCTION,
+          messages: [{ role: "user", content: userPrompt, timestamp: Date.now() }],
+        },
+        {
+          apiKey,
+          signal: loader.signal,
+          ...(reasoning !== "off" && { reasoning: reasoning as ThinkingLevel }),
+        },
+      );
+
+      if (response.stopReason === "aborted") return null;
+
+      const improved = response.content
+        .filter((c): c is { type: "text"; text: string } => c.type === "text")
+        .map((c) => c.text)
+        .join("\n");
+
+      return improved.trim() || null;
+    };
+
+    doMetaPrompt()
+      .then(done)
+      .catch((e) => {
+        ctx.ui.notify(
+          `프롬프트 개선 실패: ${e instanceof Error ? e.message : String(e)}`,
+          "error",
+        );
+        done(null);
+      });
+
+    return loader;
+  });
+}

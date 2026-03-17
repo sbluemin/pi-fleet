@@ -1,0 +1,14 @@
+{
+  "providers": {
+    "github-copilot": {
+      "modelOverrides": {
+        "claude-opus-4.6": {
+          "contextWindow": 192000
+        },
+        "claude-sonnet-4.6": {
+          "contextWindow": 160000
+        }
+      }
+    }
+  }
+}

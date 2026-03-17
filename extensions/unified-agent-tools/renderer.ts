@@ -1,0 +1,183 @@
+/**
+ * unified-agent-tools — 스트리밍 위젯 렌더러
+ *
+ * 도구 실행 중 aboveEditor 위젯으로 에이전트 응답을 실시간 표시합니다.
+ * 100ms 애니메이션 타이머로 갱신하며, destroy() 시 위젯을 제거합니다.
+ */
+
+import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
+import { visibleWidth, truncateToWidth, wrapTextWithAnsi } from "@mariozechner/pi-tui";
+import type { AgentStatus } from "../unified-agent-core/types";
+import {
+  DIRECT_MODE_COLORS,
+  DIRECT_MODE_BG_COLORS,
+  CLI_DISPLAY_NAMES,
+  SPINNER_FRAMES,
+  ANIM_INTERVAL_MS,
+  ANSI_RESET,
+  STREAMING_PREVIEW_LINES,
+  PREVIEW_LINES,
+} from "../unified-agent-direct/constants";
+
+// ─── 스트리밍 위젯 상태 ──────────────────────────────────
+
+interface StreamState {
+  responseText: string;
+  thinkingText: string;
+  toolCalls: { title: string; status: string }[];
+  agentStatus: AgentStatus;
+  frame: number;
+  timer: ReturnType<typeof setInterval> | null;
+}
+
+// ─── 공개 API ────────────────────────────────────────────
+
+export interface StreamingWidget {
+  onMessage(text: string): void;
+  onThought(text: string): void;
+  onToolCall(title: string, status: string): void;
+  onStatus(status: AgentStatus): void;
+  finish(): void;
+  fail(error: string): void;
+  destroy(): void;
+}
+
+/**
+ * aboveEditor 위젯으로 에이전트 실행 스트리밍을 표시합니다.
+ */
+export function createStreamingWidget(
+  ctx: ExtensionContext,
+  cli: string,
+): StreamingWidget {
+  const widgetKey = `ua-tool-${cli}`;
+  const state: StreamState = {
+    responseText: "",
+    thinkingText: "",
+    toolCalls: [],
+    agentStatus: "connecting",
+    frame: 0,
+    timer: null,
+  };
+
+  const sync = () => {
+    ctx.ui.setWidget(widgetKey, (_tui: any, theme: any) => ({
+      render(width: number): string[] {
+        return renderStream(state, cli, width, theme);
+      },
+      invalidate() {},
+    }));
+  };
+
+  // 애니메이션 타이머
+  state.timer = setInterval(() => {
+    state.frame++;
+    sync();
+  }, ANIM_INTERVAL_MS);
+  sync();
+
+  return {
+    onMessage(text) { state.responseText += text; },
+    onThought(text) { state.thinkingText += text; },
+    onToolCall(title, status) {
+      const existing = state.toolCalls.find((tc) => tc.title === title);
+      if (existing) existing.status = status;
+      else state.toolCalls.push({ title, status });
+    },
+    onStatus(status) { state.agentStatus = status; },
+    finish() { state.agentStatus = "done"; sync(); },
+    fail(_error) { state.agentStatus = "error"; sync(); },
+    destroy() {
+      if (state.timer) {
+        clearInterval(state.timer);
+        state.timer = null;
+      }
+      ctx.ui.setWidget(widgetKey, undefined);
+    },
+  };
+}
+
+// ─── 렌더링 ──────────────────────────────────────────────
+
+function renderStream(
+  state: StreamState,
+  cli: string,
+  width: number,
+  theme: any,
+): string[] {
+  const color = DIRECT_MODE_COLORS[cli] ?? "";
+  const bgColor = DIRECT_MODE_BG_COLORS[cli] ?? "";
+  const name = CLI_DISPLAY_NAMES[cli] ?? cli;
+  const isRunning = state.agentStatus === "connecting" || state.agentStatus === "running";
+
+  const lines: string[] = [];
+
+  // ── 헤더: 아이콘 + 이름 ──
+  const spinner = isRunning
+    ? SPINNER_FRAMES[state.frame % SPINNER_FRAMES.length] + " "
+    : "";
+  const statusIcon = state.agentStatus === "done"
+    ? theme.fg("success", "✓")
+    : state.agentStatus === "error"
+      ? theme.fg("error", "✗")
+      : spinner;
+  const nameStyled = color
+    ? `${color}${theme.bold(name)}${ANSI_RESET}`
+    : theme.bold(name);
+  lines.push(`${statusIcon} ${nameStyled}`);
+  lines.push("");
+
+  // ── thinking (한 줄 프리뷰) ──
+  if (state.thinkingText) {
+    const firstLine = state.thinkingText.split("\n").find((l) => l.trim()) ?? "";
+    const preview = firstLine.length > 60 ? firstLine.slice(0, 57) + "..." : firstLine;
+    lines.push(theme.fg("dim", `◇ ${preview}`));
+    lines.push("");
+  }
+
+  // ── toolCalls (요약) ──
+  if (state.toolCalls.length > 0) {
+    const completed = state.toolCalls.filter((tc) => tc.status === "completed").length;
+    lines.push(theme.fg("dim", `◆ ${state.toolCalls.length} tools (${completed} done)`));
+    lines.push("");
+  }
+
+  // ── 응답 텍스트 ──
+  if (state.responseText.trim()) {
+    const wrapped = wrapTextWithAnsi(state.responseText, width);
+
+    if (isRunning) {
+      // 스트리밍 중: 마지막 N줄 표시 (최신 내용 추적)
+      const display = wrapped.length > STREAMING_PREVIEW_LINES
+        ? wrapped.slice(-STREAMING_PREVIEW_LINES)
+        : wrapped;
+      lines.push(...display);
+    } else {
+      // 완료 후: 처음 PREVIEW_LINES줄 표시, 초과 시 마지막 줄을 ...으로 교체
+      if (wrapped.length > PREVIEW_LINES) {
+        lines.push(...wrapped.slice(0, PREVIEW_LINES - 1));
+        lines.push("...");
+      } else {
+        lines.push(...wrapped);
+      }
+    }
+  } else if (isRunning) {
+    lines.push(theme.fg("dim", "waiting for response..."));
+  }
+
+  // ── 헤더/메타 라인을 터미널 너비로 truncate (응답은 이미 wrap됨) ──
+  const truncated = lines.map((line) =>
+    visibleWidth(line) > width ? truncateToWidth(line, width) : line,
+  );
+
+  // ── 배경색 래핑 ──
+  if (!bgColor) return truncated;
+
+  return truncated.map((line) => {
+    const restored = line.replaceAll("\x1b[0m", "\x1b[0m" + bgColor);
+    const vw = visibleWidth(restored);
+    const pad = Math.max(0, width - vw);
+    const result = bgColor + restored + " ".repeat(pad) + ANSI_RESET;
+    // 안전장치: 배경색 래핑 후에도 너비 초과 방지
+    return visibleWidth(result) > width ? truncateToWidth(result, width) : result;
+  });
+}
