@@ -210,7 +210,7 @@ function renderWelcomeBox(
   const lines: string[] = [];
   
   // Top border with title
-  const title = " SBLUEMIN Cockpit ";
+  const title = " Fleet ";
   const titlePrefix = dim(hChar.repeat(3));
   const titleStyled = titlePrefix + fgOnly("model", title);
   const titleVisLen = 3 + visibleWidth(title);

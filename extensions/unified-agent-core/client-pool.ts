@@ -58,6 +58,31 @@ export function cleanIdleClients(): void {
   }
 }
 
+/**
+ * 특정 CLI의 풀 클라이언트를 강제로 종료하고 풀에서 제거합니다.
+ * expectedClient가 주어지면 현재 풀 엔트리가 해당 인스턴스일 때만 종료합니다.
+ */
+export async function disconnectClient(
+  cli: CliType,
+  expectedClient?: UnifiedAgentClient,
+): Promise<boolean> {
+  const pool = getClientPool();
+  const entry = pool.get(cli);
+  if (!entry) return false;
+  if (expectedClient && entry.client !== expectedClient) return false;
+
+  pool.delete(cli);
+  entry.busy = false;
+
+  try {
+    await entry.client.disconnect();
+  } catch {
+    // 강제 정리 경로이므로 disconnect 실패는 무시합니다.
+  }
+  entry.client.removeAllListeners();
+  return true;
+}
+
 /** 전체 풀 정리 (session_end용) */
 export async function disconnectAll(): Promise<void> {
   const pool = getClientPool();

@@ -11,7 +11,7 @@ export const PRESETS: Record<StatusLinePreset, PresetDef> = {
     separator: "chevron",
     colors: getGeekColors(),
     segmentOptions: {
-      pi: { label: "Cockpit" },
+      pi: { label: "Fleet" },
       model: { showThinkingLevel: false },
       path: { mode: "abbreviated", maxLength: 35 },
       git: { showBranch: true, showStaged: true, showUnstaged: true, showUntracked: true },

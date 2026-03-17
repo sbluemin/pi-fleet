@@ -177,7 +177,7 @@ export function registerCustomDirectMode(
 
   if (!gs.cancelShortcutRegistered) {
     gs.cancelShortcutRegistered = true;
-    pi.registerShortcut("alt+escape", {
+    pi.registerShortcut("alt+x", {
       description: "활성 다이렉트 모드 실행 취소",
       handler: async (ctx) => {
         const activeModeId = getState().activeModeId;
@@ -187,7 +187,7 @@ export function registerCustomDirectMode(
         if (!activeState?.busy || !activeState.abortController) return;
 
         activeState.abortController.abort();
-        ctx.ui.notify(`${activeState.config.displayName} 요청 취소 중...`, "info");
+        ctx.ui.notify(`${activeState.config.displayName} 요청/연결 종료 중...`, "info");
       },
     });
   }

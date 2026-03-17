@@ -18,6 +18,8 @@ import {
   DIRECT_MODE_KEYS,
   PANEL_COLOR,
   PANEL_DIM_COLOR,
+  THINKING_COLOR,
+  TOOLS_COLOR,
 } from "./constants";
 
 // ─── 에이전트 칼럼 타입 ──────────────────────────────────
@@ -44,10 +46,10 @@ const COL_CLIS = ["claude", "codex", "gemini"];
 // ─── 렌더링 헬퍼 ────────────────────────────────────────
 
 /** 상태별 아이콘 */
-export function sIcon(status: string, frame: number): string {
+export function sIcon(status: string, frame: number, cli?: string): string {
   if (status === "wait") return PANEL_DIM_COLOR + "○" + ANSI_RESET;
   if (status === "conn" || status === "stream")
-    return PANEL_COLOR + SPINNER_FRAMES[frame % SPINNER_FRAMES.length] + ANSI_RESET;
+    return (DIRECT_MODE_COLORS[cli ?? ""] ?? PANEL_COLOR) + SPINNER_FRAMES[frame % SPINNER_FRAMES.length] + ANSI_RESET;
   if (status === "done") return "\x1b[38;2;100;200;100m✓" + ANSI_RESET;
   return "\x1b[38;2;255;80;80m✗" + ANSI_RESET;
 }
@@ -130,10 +132,10 @@ function buildHeaderLabel(
   if (isStreaming && !options?.dimName) {
     // 스트리밍 중: 스피너 아이콘 + 이름에 파도 그라데이션
     const rgb = MODE_RGB[col.cli] ?? [180, 160, 220];
-    return `${sIcon(col.status, frame)} ${waveText(name, rgb, frame, 0, { speed: 0.5 })}${ANSI_RESET}${sessionSuffix}`;
+    return `${sIcon(col.status, frame, col.cli)} ${waveText(name, rgb, frame, 0, { speed: 0.5 })}${ANSI_RESET}${sessionSuffix}`;
   }
 
-  return `${sIcon(col.status, frame)} ${nameColor}${name}${ANSI_RESET}${sessionSuffix}`;
+  return `${sIcon(col.status, frame, col.cli)} ${nameColor}${name}${ANSI_RESET}${sessionSuffix}`;
 }
 
 function pickHeaderLabel(
@@ -195,22 +197,34 @@ function placeholder(col: AgentCol, frame: number): string {
   return "";
 }
 
+/** 칼럼 콘텐츠 빌드 결과 (라인 + 라인별 색상) */
+interface ColContentResult {
+  lines: string[];
+  /** 각 라인에 대응하는 ANSI 색상 prefix (빈 문자열 = 기본 색상) */
+  colors: string[];
+}
+
 /**
  * 칼럼의 thinking + 도구 호출 + 응답을 통합 콘텐츠로 빌드합니다.
+ * 각 라인에 대응하는 색상 정보를 함께 반환합니다.
  * @param compact - true이면 thinking/도구를 한 줄로 축약
  */
-function buildColContent(col: AgentCol, frame: number, compact: boolean): string[] {
+function buildColContent(col: AgentCol, frame: number, compact: boolean): ColContentResult {
   const lines: string[] = [];
+  const colors: string[] = [];
 
   if (col.thinking) {
     if (compact || col.text) {
       const first = col.thinking.split("\n").find((l) => l.trim()) ?? "";
       const preview = first.length > 55 ? first.slice(0, 52) + "..." : first;
       lines.push(`◇ ${preview}`);
+      colors.push(THINKING_COLOR);
     } else {
       lines.push("◇ thinking");
+      colors.push(THINKING_COLOR);
       for (const l of col.thinking.split("\n")) {
         lines.push(`  ${l}`);
+        colors.push(THINKING_COLOR);
       }
     }
   }
@@ -219,26 +233,58 @@ function buildColContent(col: AgentCol, frame: number, compact: boolean): string
     if (compact) {
       const done = col.toolCalls.filter((tc) => tc.status === "completed").length;
       lines.push(`◆ ${col.toolCalls.length} tools (${done}✓)`);
+      colors.push(TOOLS_COLOR);
     } else {
       lines.push("◆ tools");
+      colors.push(TOOLS_COLOR);
       for (const tc of col.toolCalls) {
         const icon = tc.status === "completed" ? "✓" : tc.status === "error" ? "✗" : "▶";
         lines.push(`  ${icon} ${tc.title}`);
+        colors.push(TOOLS_COLOR);
       }
     }
   }
 
-  if (lines.length > 0 && col.text) lines.push("");
-
-  if (col.text) {
-    lines.push(...col.text.split("\n"));
-  } else if (col.status === "wait" || col.status === "conn") {
-    lines.push(placeholder(col, frame));
-  } else if (col.status === "err" && !col.thinking) {
-    lines.push(placeholder(col, frame));
+  if (lines.length > 0 && col.text) {
+    lines.push("");
+    colors.push("");
   }
 
-  return lines;
+  if (col.text) {
+    for (const l of col.text.split("\n")) {
+      lines.push(l);
+      colors.push("");
+    }
+  } else if (col.status === "wait" || col.status === "conn") {
+    lines.push(placeholder(col, frame));
+    colors.push("");
+  } else if (col.status === "err" && !col.thinking) {
+    lines.push(placeholder(col, frame));
+    colors.push("");
+  }
+
+  return { lines, colors };
+}
+
+/** wrapAllLines와 동일하되 색상 배열을 동기화하여 확장합니다. */
+function wrapAllLinesColored(lines: string[], colors: string[], maxW: number): ColContentResult {
+  const outLines: string[] = [];
+  const outColors: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const color = colors[i] ?? "";
+    if (!line) {
+      outLines.push("");
+      outColors.push(color);
+      continue;
+    }
+    const wrapped = wrapLines(line, maxW);
+    for (const w of wrapped) {
+      outLines.push(w);
+      outColors.push(color);
+    }
+  }
+  return { lines: outLines, colors: outColors };
 }
 
 // ─── 공통 보더 헬퍼 ─────────────────────────────────────
@@ -327,18 +373,20 @@ function renderExclusive(
   R.push(hBorder("├" + BORDER.horizontal.repeat(iw) + "┤", FC, wave, ri) + ANSI_RESET);
   ri++;
 
-  // ── 본문 (compact=false → thinking/tools 상세) ──
+  // ── 본문 (compact=false → thinking/tools 상세, 영역별 색상) ──
   const contentW = iw - 2;
   const content = buildColContent(col, frame, false);
-  const wrapped = wrapAllLines(content, contentW);
+  const wrapped = wrapAllLinesColored(content.lines, content.colors, contentW);
 
   for (let row = 0; row < BODY_H; row++) {
-    const startLine = Math.max(0, wrapped.length - BODY_H);
+    const startLine = Math.max(0, wrapped.lines.length - BODY_H);
     const lineIdx = startLine + row;
-    const line = wrapped[lineIdx] ?? "";
+    const line = wrapped.lines[lineIdx] ?? "";
+    const lineColor = wrapped.colors[lineIdx] ?? "";
+    const coloredLine = lineColor ? lineColor + line + ANSI_RESET : line;
     R.push(
       vBorder(FC, wave, ri) + ANSI_RESET +
-      " " + pad(line, iw - 1) +
+      " " + pad(coloredLine, iw - 1) +
       vBorder(FC, wave, w - 1 + ri) + ANSI_RESET,
     );
     ri++;
@@ -394,20 +442,22 @@ function renderMultiCol(
   R.push(hBorder(sepStr, FC, wave, ri) + ANSI_RESET);
   ri++;
 
-  // ── 본문 (auto-tail) ──
-  const wrapped = cols.map((col, i) => {
+  // ── 본문 (auto-tail, 영역별 색상) ──
+  const wrappedCols = cols.map((col, i) => {
     const contentW = cw[i] - 2;
     const content = buildColContent(col, frame, true);
-    return wrapAllLines(content, contentW);
+    return wrapAllLinesColored(content.lines, content.colors, contentW);
   });
 
   for (let row = 0; row < BODY_H; row++) {
     const cells = cols.map((_col, i) => {
-      const lines = wrapped[i];
+      const { lines, colors } = wrappedCols[i];
       const startLine = Math.max(0, lines.length - BODY_H);
       const lineIdx = startLine + row;
       const line = lines[lineIdx] ?? "";
-      return " " + pad(line, cw[i] - 1);
+      const lineColor = colors[lineIdx] ?? "";
+      const coloredLine = lineColor ? lineColor + line + ANSI_RESET : line;
+      return " " + pad(coloredLine, cw[i] - 1);
     });
     let line = vBorder(FC, wave, vx[0] + ri) + ANSI_RESET;
     for (let i = 0; i < cells.length; i++) {
@@ -646,7 +696,7 @@ export function renderPanelCompact(w: number, cols: AgentCol[], frame: number): 
 
   for (const col of cols) {
     const nm = CLI_DISPLAY_NAMES[col.cli] ?? col.cli;
-    const icon = sIcon(col.status, frame);
+    const icon = sIcon(col.status, frame, col.cli);
     const clr = DIRECT_MODE_COLORS[col.cli] ?? "";
 
     let info = "";

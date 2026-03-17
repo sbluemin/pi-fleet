@@ -341,7 +341,7 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
       shortcutKey,
       color: DIRECT_MODE_COLORS[cli] ?? "",
       bgColor: DIRECT_MODE_BG_COLORS[cli],
-      bottomHint: ` ${shortcutKey} exit · alt+esc cancel · alt+shift+m model `,
+      bottomHint: ` ${shortcutKey} exit · alt+x cancel · alt+shift+m model `,
 
       onExecute: async (
         request: string,
@@ -489,7 +489,7 @@ function registerAllMode(pi: ExtensionAPI, sdkDir: string) {
     shortcutKey: "alt+0",
     color: DIRECT_MODE_COLORS["all"]!,
     bgColor: DIRECT_MODE_BG_COLORS["all"],
-    bottomHint: " alt+0 exit · alt+esc cancel · alt+shift+m model ",
+    bottomHint: " alt+0 exit · alt+x cancel · alt+shift+m model ",
 
     onExecute: async (request, ctx, helpers) => {
       startAgentStreaming(ctx, { expand: true });

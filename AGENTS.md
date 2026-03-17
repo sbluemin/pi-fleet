@@ -1,8 +1,8 @@
-# Cockpit
+# Fleet
 
 > **SBLUEMIN의 개인 에이전트 도구**
 >
-> [pi-coding-agent](https://github.com/badlogic/pi-mono)를 기반으로 커스터마이징한 중앙 에이전트 조종실.
+> [pi-coding-agent](https://github.com/badlogic/pi-mono)를 기반으로 커스터마이징한 중앙 에이전트 플릿.
 > Claude Code, Codex CLI, Gemini CLI를 단일 인터페이스에서 통합 운용하는 것이 핵심 목적이다.
 
 ---

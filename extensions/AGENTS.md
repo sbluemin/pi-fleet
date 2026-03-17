@@ -17,6 +17,7 @@ TUI 공식 API(`setWidget`, `setFooter`, `setEditorComponent` 등)를 단순히 
 | `unified-agent-direct/` | 다이렉트 모드 4종 (alt+1~4) | `index.ts` (배선), `agent-panel.ts`, `agent-panel-renderer.ts` 등 |
 | `unified-agent-tools/` | 개별 에이전트 도구 (claude/codex/gemini) | `index.ts` (배선), `renderer.ts` (스트리밍 위젯) |
 | `utils-improve-prompt/` | 메타 프롬프팅 (alt+shift+m) | `index.ts` (배선), `ui.ts` (상태바 위젯) |
+| `hud-thinking-timer/` | Thinking 블록 경과 시간 인라인 표시 | `index.ts` (배선), `timer.ts` (패치/스토어/티커) |
 | `utils-summarize/` | 세션 한 줄 자동 요약 | `index.ts` (배선), `ui.ts` (상태바 위젯) |
 
 ### 공유 라이브러리 — `index.ts`가 없는 디렉토리

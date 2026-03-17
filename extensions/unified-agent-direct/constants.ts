@@ -84,3 +84,9 @@ export const PANEL_COLOR = "\x1b[38;2;180;160;220m";
 
 /** 에이전트 패널 dim 색상 (힌트, 보조 텍스트) */
 export const PANEL_DIM_COLOR = "\x1b[38;2;100;90;120m";
+
+/** Thinking 블록 색상 (라벤더) */
+export const THINKING_COLOR = "\x1b[38;2;180;140;255m";
+
+/** Tools 블록 색상 (틸/청록) */
+export const TOOLS_COLOR = "\x1b[38;2;80;200;180m";

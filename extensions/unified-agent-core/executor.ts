@@ -15,7 +15,7 @@ import type {
   ToolCallInfo,
   ConnectionInfo,
 } from "./types";
-import { getClientPool, isClientAlive, type PooledClient } from "./client-pool";
+import { disconnectClient, getClientPool, isClientAlive, type PooledClient } from "./client-pool";
 import { getSubSessionId, setSubSessionId, clearSubSessionId } from "./session-map";
 import { buildConnectOptions } from "./model-config";
 
@@ -96,8 +96,10 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
     aborted = true;
     status = "aborted";
     opts.onStatusChange?.("aborted");
-    client.cancelPrompt().catch(() => {});
-    if (isTemporary) cleanupTemporary().catch(() => {});
+    void Promise.allSettled([
+      client.cancelPrompt(),
+      isTemporary ? cleanupTemporary() : disconnectClient(cli, client),
+    ]);
   };
 
   if (signal?.aborted) {
@@ -298,6 +300,18 @@ export async function executeOneShot(opts: ExecuteOptions): Promise<ExecuteResul
   opts.onStatusChange?.("connecting");
 
   const client = new UnifiedAgentClient();
+  let aborted = false;
+
+  const onAbort = () => {
+    if (aborted) return;
+    aborted = true;
+    status = "aborted";
+    opts.onStatusChange?.("aborted");
+    void Promise.allSettled([
+      client.cancelPrompt(),
+      client.disconnect(),
+    ]);
+  };
 
   try {
     // 연결 옵션 구성
@@ -333,11 +347,7 @@ export async function executeOneShot(opts: ExecuteOptions): Promise<ExecuteResul
 
     // abort 처리
     if (signal) {
-      signal.addEventListener(
-        "abort",
-        () => client.cancelPrompt().catch(() => {}),
-        { once: true },
-      );
+      signal.addEventListener("abort", onAbort, { once: true });
     }
 
     await client.sendMessage(request);
@@ -346,11 +356,14 @@ export async function executeOneShot(opts: ExecuteOptions): Promise<ExecuteResul
     if (!responseText.trim()) responseText = "(no output)";
     opts.onStatusChange?.("done");
   } catch (e) {
-    status = "error";
-    error = e instanceof Error ? e.message : String(e);
-    if (!responseText) responseText = `Error: ${error}`;
-    opts.onStatusChange?.("error");
+    if (!aborted) {
+      status = "error";
+      error = e instanceof Error ? e.message : String(e);
+      if (!responseText) responseText = `Error: ${error}`;
+      opts.onStatusChange?.("error");
+    }
   } finally {
+    if (signal) signal.removeEventListener("abort", onAbort);
     try { await client.disconnect(); } catch { /* 정리 실패 무시 */ }
     client.removeAllListeners();
   }
