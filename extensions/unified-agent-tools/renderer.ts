@@ -21,13 +21,88 @@ import {
 
 // ─── 스트리밍 위젯 상태 ──────────────────────────────────
 
-interface StreamState {
+export interface StreamState {
   responseText: string;
   thinkingText: string;
   toolCalls: { title: string; status: string }[];
   agentStatus: AgentStatus;
   frame: number;
   timer: ReturnType<typeof setInterval> | null;
+}
+
+// ─── 합성 위젯 매니저 (globalThis 싱글턴) ────────────────
+//
+// 여러 도구가 동시 실행될 때 개별 위젯/타이머 충돌로 인한
+// 깜빡임을 방지합니다. 단일 위젯 + 단일 타이머로 합성 렌더링.
+
+const TOOL_MANAGER_KEY = "__pi_tool_stream_manager__";
+const TOOL_WIDGET_KEY = "ua-tool-stream";
+
+interface ToolStreamManager {
+  /** CLI별 스트림 상태 */
+  streams: Map<string, StreamState>;
+  /** 공유 애니메이션 타이머 */
+  timer: ReturnType<typeof setInterval> | null;
+  /** 공유 프레임 카운터 */
+  frame: number;
+  /** 위젯 갱신에 사용할 ctx */
+  ctx: ExtensionContext | null;
+}
+
+function getToolManager(): ToolStreamManager {
+  let m = (globalThis as any)[TOOL_MANAGER_KEY] as ToolStreamManager | undefined;
+  if (!m) {
+    m = { streams: new Map(), timer: null, frame: 0, ctx: null };
+    (globalThis as any)[TOOL_MANAGER_KEY] = m;
+  }
+  return m;
+}
+
+/** 합성 위젯을 갱신합니다. */
+function syncToolWidget(mgr: ToolStreamManager): void {
+  if (!mgr.ctx) return;
+  const ctx = mgr.ctx;
+
+  if (mgr.streams.size === 0) {
+    ctx.ui.setWidget(TOOL_WIDGET_KEY, undefined);
+    return;
+  }
+
+  ctx.ui.setWidget(TOOL_WIDGET_KEY, (_tui: any, theme: any) => ({
+    render(width: number): string[] {
+      const allLines: string[] = [];
+      let first = true;
+      for (const [cli, state] of mgr.streams) {
+        if (!first) allLines.push(""); // 스트림 간 구분선
+        first = false;
+        state.frame = mgr.frame;
+        allLines.push(...renderStream(state, cli, width, theme));
+      }
+      return allLines;
+    },
+    invalidate() {},
+  }));
+}
+
+/** 공유 타이머를 시작합니다 (이미 실행 중이면 무시). */
+function ensureToolTimer(mgr: ToolStreamManager): void {
+  if (mgr.timer) return;
+  mgr.timer = setInterval(() => {
+    mgr.frame++;
+    syncToolWidget(mgr);
+  }, ANIM_INTERVAL_MS);
+}
+
+/** 스트림이 없으면 타이머를 정지하고 위젯을 제거합니다. */
+function cleanupToolIfEmpty(mgr: ToolStreamManager): void {
+  if (mgr.streams.size > 0) return;
+  if (mgr.timer) {
+    clearInterval(mgr.timer);
+    mgr.timer = null;
+  }
+  if (mgr.ctx) {
+    mgr.ctx.ui.setWidget(TOOL_WIDGET_KEY, undefined);
+  }
 }
 
 // ─── 공개 API ────────────────────────────────────────────
@@ -43,37 +118,28 @@ export interface StreamingWidget {
 }
 
 /**
- * aboveEditor 위젯으로 에이전트 실행 스트리밍을 표시합니다.
+ * aboveEditor 합성 위젯으로 에이전트 실행 스트리밍을 표시합니다.
+ * 여러 도구가 동시 실행되어도 단일 위젯/타이머로 합성 렌더링합니다.
  */
 export function createStreamingWidget(
   ctx: ExtensionContext,
   cli: string,
 ): StreamingWidget {
-  const widgetKey = `ua-tool-${cli}`;
+  const mgr = getToolManager();
+  mgr.ctx = ctx;
+
   const state: StreamState = {
     responseText: "",
     thinkingText: "",
     toolCalls: [],
     agentStatus: "connecting",
-    frame: 0,
-    timer: null,
+    frame: mgr.frame,
+    timer: null, // 개별 타이머 미사용 — 매니저 공유 타이머
   };
 
-  const sync = () => {
-    ctx.ui.setWidget(widgetKey, (_tui: any, theme: any) => ({
-      render(width: number): string[] {
-        return renderStream(state, cli, width, theme);
-      },
-      invalidate() {},
-    }));
-  };
-
-  // 애니메이션 타이머
-  state.timer = setInterval(() => {
-    state.frame++;
-    sync();
-  }, ANIM_INTERVAL_MS);
-  sync();
+  mgr.streams.set(cli, state);
+  ensureToolTimer(mgr);
+  syncToolWidget(mgr);
 
   return {
     onMessage(text) { state.responseText += text; },
@@ -84,21 +150,19 @@ export function createStreamingWidget(
       else state.toolCalls.push({ title, status });
     },
     onStatus(status) { state.agentStatus = status; },
-    finish() { state.agentStatus = "done"; sync(); },
-    fail(_error) { state.agentStatus = "error"; sync(); },
+    finish() { state.agentStatus = "done"; syncToolWidget(mgr); },
+    fail(_error) { state.agentStatus = "error"; syncToolWidget(mgr); },
     destroy() {
-      if (state.timer) {
-        clearInterval(state.timer);
-        state.timer = null;
-      }
-      ctx.ui.setWidget(widgetKey, undefined);
+      mgr.streams.delete(cli);
+      cleanupToolIfEmpty(mgr);
+      if (mgr.streams.size > 0) syncToolWidget(mgr);
     },
   };
 }
 
 // ─── 렌더링 ──────────────────────────────────────────────
 
-function renderStream(
+export function renderStream(
   state: StreamState,
   cli: string,
   width: number,

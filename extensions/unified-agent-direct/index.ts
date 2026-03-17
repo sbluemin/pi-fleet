@@ -45,7 +45,7 @@ import {
   DIRECT_MODE_BG_COLORS,
   DIRECT_MODE_KEYS,
 } from "./constants";
-import { createDirectPanelMirror } from "./direct-panel-mirror";
+import { createDirectStreamingRouter } from "./direct-streaming-router";
 
 import type { DirectModeResult } from "./framework";
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
@@ -348,12 +348,9 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
         ctx: ExtensionContext,
         helpers,
       ): Promise<DirectModeResult> => {
-        let responseText = "";
-        let thoughtText = "";
-        const toolCalls: { title: string; status: string }[] = [];
-        const panelMirror = createDirectPanelMirror(ctx, cli);
+        const router = createDirectStreamingRouter(ctx, cli);
 
-        panelMirror.start();
+        router.start();
 
         try {
           const result = await executeWithPool({
@@ -362,45 +359,28 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
             cwd: ctx.cwd,
             configDir: sdkDir,
             signal: helpers.signal,
-            onMessageChunk: (text) => {
-              responseText += text;
-              panelMirror.onMessageChunk(text);
-            },
-            onThoughtChunk: (text) => {
-              thoughtText += text;
-              panelMirror.onThoughtChunk(text);
-            },
-            onToolCall: (title, status) => {
-              const existing = toolCalls.find((tc) => tc.title === title);
-              if (existing) {
-                existing.status = status;
-              } else {
-                toolCalls.push({ title, status });
-              }
-              panelMirror.onToolCall(title, status);
-            },
-            onStatusChange: (status) => {
-              panelMirror.onStatusChange(status);
-            },
+            onMessageChunk: (text) => router.onMessageChunk(text),
+            onThoughtChunk: (text) => router.onThoughtChunk(text),
+            onToolCall: (title, status) => router.onToolCall(title, status),
+            onStatusChange: (status) => router.onStatusChange(status),
           });
 
-          panelMirror.finish(result);
+          router.finish(result);
 
           return {
             content: result.responseText || (result.status === "aborted" ? "(aborted)" : "(no output)"),
             details: {
               cli,
               sessionId: result.connectionInfo?.sessionId ?? undefined,
-              // thinking/toolCalls는 스트리밍 패널에서만 표시, 최종 응답에는 포함하지 않음
               error: result.status !== "done" ? true : undefined,
             },
           };
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
-          panelMirror.fail(message);
+          router.fail(message);
           throw error;
         } finally {
-          panelMirror.stop();
+          router.stop();
         }
       },
     });

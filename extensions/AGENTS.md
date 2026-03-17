@@ -1,86 +1,86 @@
-# Pi Extensions 개발 지침
+# Pi Extensions Development Guidelines
 
-이 디렉토리는 pi-coding-agent의 커스텀 extension들을 모아 관리하는 곳이다.
-`~/.pi/agent/extensions` → 이 디렉토리로 심볼릭 링크되어 있어 pi 실행 시 자동 로드된다.
+This directory is where custom extensions for pi-coding-agent are collected and managed.
+It is symlinked to `~/.pi/agent/extensions`, so they are automatically loaded when pi is executed.
 
-## 디렉토리 구조 및 도메인 규칙
+## Directory Structure and Domain Rules
 
-### 확장 (Extension) — `index.ts`가 있는 디렉토리
+### Extensions — Directories with `index.ts`
 
-pi가 자동 로드하는 확장 단위. 각 확장은 **독자적인 UI 기능을 제공**해야 한다.
-TUI 공식 API(`setWidget`, `setFooter`, `setEditorComponent` 등)를 단순히 래핑하는 중간 레이어는 만들지 않는다.
+These are extension units automatically loaded by pi. Each extension must provide **independent UI features**.
+Do not create intermediate layers that simply wrap official TUI APIs (e.g., `setWidget`, `setFooter`, `setEditorComponent`).
 
-| 확장 | 역할 | 주요 파일 |
-|------|------|-----------|
-| `hud-editor/` | 커스텀 에디터 + 상태바 + footer | `index.ts` (배선), `editor.ts` (에디터/footer/위젯 UI) |
-| `hud-welcome/` | 웰컴 오버레이/헤더 | `index.ts` (배선), `welcome.ts` (UI), `types.ts` (globalThis 타입) |
-| `unified-agent-direct/` | 다이렉트 모드 4종 (alt+1~4) | `index.ts` (배선), `agent-panel.ts`, `agent-panel-renderer.ts` 등 |
-| `unified-agent-tools/` | 개별 에이전트 도구 (claude/codex/gemini) | `index.ts` (배선), `renderer.ts` (스트리밍 위젯) |
-| `utils-improve-prompt/` | 메타 프롬프팅 (alt+shift+m) | `index.ts` (배선), `ui.ts` (상태바 위젯) |
-| `hud-thinking-timer/` | Thinking 블록 경과 시간 인라인 표시 | `index.ts` (배선), `timer.ts` (패치/스토어/티커) |
-| `utils-summarize/` | 세션 한 줄 자동 요약 | `index.ts` (배선), `ui.ts` (상태바 위젯) |
-
-### 공유 라이브러리 — `index.ts`가 없는 디렉토리
-
-pi가 확장으로 인식하지 않는 순수 라이브러리.
-
-| 라이브러리 | 역할 | 주요 소비자 |
+| Extension | Role | Main Files |
 |-----------|------|------------|
-| `hud-core/` | 상태바 렌더링 엔진 (세그먼트, 레이아웃, 색상, 테마, 프리셋) | `hud-editor`, `hud-welcome` |
-| `unified-agent-core/` | 통합 에이전트 공유 로직 | `unified-agent-direct` |
+| `hud-editor/` | Custom editor + status bar + footer | `index.ts` (wiring), `editor.ts` (editor/footer/widget UI) |
+| `hud-welcome/` | Welcome overlay/header | `index.ts` (wiring), `welcome.ts` (UI), `types.ts` (globalThis types) |
+| `unified-agent-direct/` | 4 Direct modes (alt+1~4) | `index.ts` (wiring), `agent-panel.ts`, `agent-panel-renderer.ts`, etc. |
+| `unified-agent-tools/` | Individual agent tools (claude/codex/gemini) | `index.ts` (wiring), `renderer.ts` (streaming widget) |
+| `utils-improve-prompt/` | Meta-prompting (alt+m), reasoning level cycle (alt+r) | `index.ts` (wiring), `ui.ts` (status bar widget) |
+| `hud-thinking-timer/` | Inline elapsed-time display for Thinking blocks | `index.ts` (wiring), `timer.ts` (patch/store/ticker) |
+| `utils-summarize/` | Auto one-line session summary | `index.ts` (wiring), `ui.ts` (status bar widget) |
 
-### 확장 분리 기준
+### Shared Libraries — Directories without `index.ts`
 
-새 확장을 만들거나 기존 확장을 분리할 때 이 기준을 적용한다:
+These are pure libraries not recognized as extensions by pi.
 
-1. **자체 UI 기능을 제공하는가?** — 독자적인 렌더링 로직, 자체 컴포넌트, 독립 기능이 있으면 **확장으로 분리**
-2. **TUI API를 래핑하는 수준인가?** — `setWidget`/`setFooter` 등의 라우팅/중계 역할이면 **분리하지 않고 소비자 확장에 인라인**
-3. **여러 확장이 공유하는 순수 로직인가?** — `index.ts` 없는 **공유 라이브러리 디렉토리**로 분리
+| Library | Role | Main Consumers |
+|---------|------|----------------|
+| `hud-core/` | Status bar rendering engine (segments, layout, colors, themes, presets) | `hud-editor`, `hud-welcome` |
+| `unified-agent-core/` | Shared logic for unified agents | `unified-agent-direct` |
 
-## 모듈화 원칙
+### Extension Separation Criteria
 
-- **`index.ts`는 배선(wiring)만** — `registerTool`, `registerCommand`, `on`, `registerShortcut` 호출과 import만 둔다. 비즈니스 로직, UI 코드를 인라인하지 않는다.
-- **UI/렌더링은 반드시 별도 파일로 분리** — `ui.ts`, `editor.ts`, `welcome.ts` 등. `index.ts`에 TUI 컴포넌트 조립 코드를 넣지 않는다.
-- **상수/타입은 `types.ts`로 분리** — 여러 모듈에서 공유되는 값(특히 globalThis 키/브릿지 인터페이스)은 반드시 별도 파일.
-- **`globalThis`는 "독자적 기능의 액션/데이터 공유"에만 사용** — 확장이 자신의 기능을 다른 확장에 노출할 때만 사용한다 (예: welcome의 dismiss 액션). TUI 데이터를 중계하기 위한 globalThis는 사용하지 않는다.
+Apply these criteria when creating a new extension or separating an existing one:
 
-### globalThis 사용 규칙
+1. **Does it provide its own UI feature?** — If it has independent rendering logic, its own components, or standalone functionality, **separate it into an extension**.
+2. **Is it just wrapping TUI APIs?** — If it acts as a router/relay for `setWidget`/`setFooter`, **inline it in the consumer extension instead of separating it**.
+3. **Is it pure logic shared by multiple extensions?** — Separate it into a **shared library directory** without an `index.ts`.
+
+## Modularization Principles
+
+- **`index.ts` is for wiring only** — Keep only `registerTool`, `registerCommand`, `on`, `registerShortcut` calls, and imports. Do not inline business logic or UI code here.
+- **UI/Rendering must be in separate files** — Such as `ui.ts`, `editor.ts`, `welcome.ts`. Do not put TUI component assembly code in `index.ts`.
+- **Constants/Types must be in `types.ts`** — Values shared across modules (especially globalThis keys/bridge interfaces) must be in a separate file.
+- **Use `globalThis` only for "sharing actions/data of independent features"** — Use it only when an extension exposes its functionality to other extensions (e.g., the dismiss action of welcome). Do not use globalThis to relay TUI framework data.
+
+### globalThis Usage Rules
 
 ```
-허용: hud-welcome → globalThis["__pi_hud_welcome__"] = { dismiss }
-      (독자적 기능의 액션을 노출)
+Allowed: hud-welcome → globalThis["__pi_hud_welcome__"] = { dismiss }
+         (Exposes actions of an independent feature)
 
-금지: hud-footer → globalThis["__pi_hud_footer__"] = { footerDataRef, tuiRef }
-      (TUI 프레임워크 데이터를 중계하는 래핑)
+Forbidden: hud-footer → globalThis["__pi_hud_footer__"] = { footerDataRef, tuiRef }
+           (Wraps and relays TUI framework data)
 ```
 
-globalThis 키와 브릿지 인터페이스는 **해당 기능을 소유한 확장의 `types.ts`에 정의**한다 (공유 라이브러리가 아닌 소유자 확장에).
+The globalThis key and bridge interface should be **defined in the `types.ts` of the extension that owns the feature** (not in shared libraries, but in the owner extension).
 
-## Extension 작성 가이드
+## Extension Authoring Guide
 
-### 기본 구조
+### Basic Structure
 
 ```
 extensions/
 ├── AGENTS.md
 ├── <extension-name>/
-│   └── index.ts          ← 진입점 (필수)
+│   └── index.ts          ← Entry point (required)
 ├── <extension-name>/
 │   ├── index.ts
-│   ├── ui.ts             ← UI/렌더링 분리
-│   └── types.ts          ← 타입/상수
-└── <shared-lib>/         ← index.ts 없음 = 확장이 아닌 순수 라이브러리
+│   ├── ui.ts             ← UI/Rendering separated
+│   └── types.ts          ← Types/Constants
+└── <shared-lib>/         ← No index.ts = Pure library, not an extension
     ├── types.ts
     └── utils.ts
 ```
 
-### 규칙
+### Rules
 
-- **각 extension은 반드시 서브디렉토리 + `index.ts` 형태**로 만든다.
-- 루트에 `.ts` 파일을 두지 않는다 — pi가 extension으로 인식해버린다.
-- `index.ts`는 `(pi: ExtensionAPI) => void` 형태의 default export 함수를 가진다.
+- **Each extension must be a subdirectory with an `index.ts` file**.
+- Do not place `.ts` files in the root — pi will mistakenly recognize them as extensions.
+- `index.ts` must have a default export function of type `(pi: ExtensionAPI) => void`.
 
-### 기본 템플릿
+### Basic Template
 
 ```typescript
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -92,64 +92,64 @@ export default function (pi: ExtensionAPI) {
 }
 ```
 
-### 사용 가능한 import
+### Allowed Imports
 
-| 패키지 | 용도 |
-|--------|------|
-| `@mariozechner/pi-coding-agent` | Extension 타입 (`ExtensionAPI`, `ExtensionContext` 등) |
-| `@sinclair/typebox` | 도구 파라미터 스키마 정의 (`Type.Object`, `Type.String` 등) |
-| `@mariozechner/pi-ai` | AI 유틸리티 (`StringEnum` — Google API 호환 enum) |
-| `@mariozechner/pi-tui` | TUI 컴포넌트 (커스텀 렌더링) |
+| Package | Purpose |
+|---------|---------|
+| `@mariozechner/pi-coding-agent` | Extension types (`ExtensionAPI`, `ExtensionContext`, etc.) |
+| `@sinclair/typebox` | Tool parameter schema definition (`Type.Object`, `Type.String`, etc.) |
+| `@mariozechner/pi-ai` | AI utilities (`StringEnum` — Google API compatible enum) |
+| `@mariozechner/pi-tui` | TUI components (custom rendering) |
 
-이들은 pi 런타임이 자동 제공하므로 별도 `npm install` 불필요.
-외부 npm 패키지가 필요하면 해당 extension 서브디렉토리에 `package.json`을 두고 `npm install`한다.
+These are automatically provided by the pi runtime, so `npm install` is not needed.
+If an external npm package is required, place a `package.json` in the respective extension subdirectory and run `npm install`.
 
-### 주의사항
+### Notes
 
-- string enum은 반드시 `StringEnum` (`@mariozechner/pi-ai`)을 사용한다. `Type.Union`/`Type.Literal`은 Google API에서 동작하지 않는다.
-- 도구 출력은 **50KB / 2000줄** 제한을 지킨다. 초과 시 `truncateHead`/`truncateTail` 유틸리티를 사용한다.
-- 에러는 `throw new Error()`로 시그널링한다 (return으로는 `isError`가 설정되지 않음).
+- String enums must use `StringEnum` (`@mariozechner/pi-ai`). `Type.Union`/`Type.Literal` do not work with the Google API.
+- Tool outputs must adhere to the **50KB / 2000 lines** limit. Use `truncateHead`/`truncateTail` utilities if exceeded.
+- Signal errors using `throw new Error()` (returning an object won't set `isError`).
 
-## 주요 API 패턴 레퍼런스
+## Key API Pattern Reference
 
-### 메시지 전송
+### Sending Messages
 
-| 메서드 | 용도 | 에이전트 트리거 |
-|--------|------|----------------|
-| `pi.sendUserMessage(text)` | 사용자 메시지로 에이전트에 전송 (에이전트가 응답함) | **Yes** |
-| `pi.sendMessage({...})` | 커스텀 메시지를 TUI에 표시만 함 | **No** (기본값) |
+| Method | Purpose | Triggers Agent |
+|--------|---------|----------------|
+| `pi.sendUserMessage(text)` | Sends a user message to the agent (agent will respond) | **Yes** |
+| `pi.sendMessage({...})` | Custom message displayed only on TUI | **No** (default) |
 
-#### `pi.sendUserMessage()` — 에이전트에 전달
+#### `pi.sendUserMessage()` — Send to Agent
 
 ```typescript
-// 기본 (idle 상태에서만 동작)
-pi.sendUserMessage("분석해줘");
+// Default (only works in idle state)
+pi.sendUserMessage("Analyze this");
 
-// 에이전트가 응답 중일 때 즉시 전송
-pi.sendUserMessage("방향을 바꿔줘", { deliverAs: "steer" });
+// Send immediately while the agent is responding
+pi.sendUserMessage("Change direction", { deliverAs: "steer" });
 
-// 현재 턴 완료 후 큐에 대기
-pi.sendUserMessage("다음 작업", { deliverAs: "followUp" });
+// Queue up after the current turn completes
+pi.sendUserMessage("Next task", { deliverAs: "followUp" });
 ```
 
-#### `pi.sendMessage()` — TUI에 표시만 (에이전트 미트리거)
+#### `pi.sendMessage()` — Display on TUI only (Agent not triggered)
 
 ```typescript
 pi.sendMessage({
-  customType: "my-result",    // 커스텀 식별자
-  content: "표시할 텍스트",     // string 또는 (TextContent | ImageContent)[]
-  display: true,              // true여야 TUI에 표시됨
-  details: { /* 선택적 메타데이터 */ },
+  customType: "my-result",    // Custom identifier
+  content: "Text to display", // string or (TextContent | ImageContent)[]
+  display: true,              // Must be true to display on TUI
+  details: { /* optional metadata */ },
 });
-// triggerTurn 옵션을 true로 주면 에이전트도 트리거 가능
+// Can also trigger the agent if triggerTurn option is set to true
 ```
 
-### LLM 호출 (`complete`)
+### LLM Call (`complete`)
 
 ```typescript
 import { complete } from "@mariozechner/pi-ai";
 
-// ctx.model로 현재 세션 모델 사용
+// Use the current session model with ctx.model
 const apiKey = await ctx.modelRegistry.getApiKey(ctx.model);
 const response = await complete(
   ctx.model,
@@ -157,74 +157,74 @@ const response = await complete(
   { apiKey }
 );
 
-// 응답 텍스트 추출
+// Extract response text
 const text = response.content
   .filter((c): c is { type: "text"; text: string } => c.type === "text")
   .map((c) => c.text)
   .join("\n");
 ```
 
-### UI 알림
+### UI Notifications
 
 ```typescript
-ctx.ui.notify("메시지", "info");     // "info" | "warning" | "error"
+ctx.ui.notify("Message", "info");     // "info" | "warning" | "error"
 ```
 
-## 개발 워크플로
+## Development Workflow
 
-1. 새 extension: `mkdir <name> && touch <name>/index.ts`
-2. 테스트: `pi -e ./<name>/index.ts` (단독) 또는 그냥 `pi` 실행 (전체 로드)
-3. 수정 후 반영: pi 내에서 `/reload` (재시작 불필요)
-4. 비활성화: 디렉토리명 앞에 `_` 붙이기 (예: `_memo/`) — pi는 `index.ts`가 있는 디렉토리만 로드
+1. New extension: `mkdir <name> && touch <name>/index.ts`
+2. Test: `pi -e ./<name>/index.ts` (standalone) or just run `pi` (loads all)
+3. Apply changes: run `/reload` inside pi (no restart needed)
+4. Disable: prefix directory name with `_` (e.g., `_memo/`) — pi only loads directories with `index.ts`
 
-## 참고 문서
+## Reference Documents
 
-### 로컬 경로 (AI Agent가 직접 읽을 수 있음)
+### Local Paths (Can be read directly by AI Agents)
 
-pi 설치 루트 확인 명령어:
+Command to check pi installation root:
 
 ```bash
 npm ls -g @mariozechner/pi-coding-agent --parseable 2>/dev/null | head -1
 ```
 
-| 문서 | 경로 (pi 설치 루트 기준) | 설명 |
-|------|--------------------------|------|
-| **Extension 전체 문서** | `docs/extensions.md` | API, 이벤트, 도구 등록, 커스텀 UI 등 전체 레퍼런스 |
-| **예제 목록 (README)** | `examples/extensions/README.md` | 모든 예제 extension 카탈로그 |
-| **TUI 컴포넌트** | `docs/tui.md` | 커스텀 렌더링, 컴포넌트 API |
-| **세션 관리** | `docs/session.md` | SessionManager, 상태 저장/복원, 브랜치 |
-| **커스텀 프로바이더** | `docs/custom-provider.md` | 모델 프로바이더 등록, OAuth, 스트리밍 |
-| **모델 설정** | `docs/models.md` | 모델 추가/커스텀 설정 |
-| **테마** | `docs/themes.md` | 테마 커스터마이징 |
-| **키바인딩** | `docs/keybindings.md` | 단축키 등록, 기본 키바인딩 |
-| **패키지 배포** | `docs/packages.md` | npm/git으로 extension 배포 |
-| **Skills** | `docs/skills.md` | Skill 시스템 |
-| **설정** | `docs/settings.md` | settings.json 옵션 |
-| **SDK** | `docs/sdk.md` | 프로그래밍 방식으로 pi 사용 |
-| **RPC** | `docs/rpc.md` | RPC 프로토콜, extension UI sub-protocol |
+| Document | Path (Relative to pi root) | Description |
+|----------|----------------------------|-------------|
+| **Full Extension Docs** | `docs/extensions.md` | Full reference for API, events, tool registration, custom UI, etc. |
+| **Examples List (README)**| `examples/extensions/README.md` | Catalog of all example extensions |
+| **TUI Components** | `docs/tui.md` | Custom rendering, component API |
+| **Session Management** | `docs/session.md` | SessionManager, save/restore state, branching |
+| **Custom Providers** | `docs/custom-provider.md` | Model provider registration, OAuth, streaming |
+| **Model Configuration** | `docs/models.md` | Add/customize models |
+| **Themes** | `docs/themes.md` | Theme customization |
+| **Keybindings** | `docs/keybindings.md` | Register shortcuts, default keybindings |
+| **Package Distribution**| `docs/packages.md` | Distribute extensions via npm/git |
+| **Skills** | `docs/skills.md` | Skill system |
+| **Settings** | `docs/settings.md` | settings.json options |
+| **SDK** | `docs/sdk.md` | Programmatically use pi |
+| **RPC** | `docs/rpc.md` | RPC protocol, extension UI sub-protocol |
 
-### 예제 Extension (자주 참고하는 패턴)
+### Example Extensions (Commonly referenced patterns)
 
-경로: `examples/extensions/` (pi 설치 루트 기준)
+Path: `examples/extensions/` (Relative to pi root)
 
-| 파일 | 패턴 |
-|------|------|
-| `hello.ts` | 최소 커스텀 도구 |
-| `todo.ts` | 상태 저장/복원 + 커스텀 렌더링 + 명령 |
-| `tools.ts` | 커스텀 UI (SettingsList) + 세션 퍼시스턴스 |
-| `permission-gate.ts` | tool_call 이벤트 차단 |
-| `dynamic-tools.ts` | 런타임 도구 등록/해제 |
-| `tool-override.ts` | 빌트인 도구 오버라이드 |
-| `truncated-tool.ts` | 출력 truncation 처리 |
-| `ssh.ts` | 원격 실행 (pluggable operations) |
-| `custom-footer.ts` | 커스텀 footer UI |
-| `message-renderer.ts` | 커스텀 메시지 렌더링 |
-| `with-deps/` | npm 의존성이 있는 extension |
-| `subagent/` | 서브에이전트 위임 |
+| File | Pattern |
+|------|---------|
+| `hello.ts` | Minimal custom tool |
+| `todo.ts` | State save/restore + custom rendering + commands |
+| `tools.ts` | Custom UI (SettingsList) + session persistence |
+| `permission-gate.ts` | Block tool_call events |
+| `dynamic-tools.ts` | Runtime tool registration/deregistration |
+| `tool-override.ts` | Override built-in tools |
+| `truncated-tool.ts` | Handle output truncation |
+| `ssh.ts` | Remote execution (pluggable operations) |
+| `custom-footer.ts` | Custom footer UI |
+| `message-renderer.ts` | Custom message rendering |
+| `with-deps/` | Extension with npm dependencies |
+| `subagent/` | Sub-agent delegation |
 
 ### GitHub
 
-- 모노레포: https://github.com/badlogic/pi-mono
-- Extension 문서: https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/extensions.md
-- Extension 예제: https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent/examples/extensions
-- 빌트인 도구 구현: https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent/src/core/tools
+- Monorepo: https://github.com/badlogic/pi-mono
+- Extension Docs: https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/extensions.md
+- Extension Examples: https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent/examples/extensions
+- Built-in Tool Implementations: https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent/src/core/tools

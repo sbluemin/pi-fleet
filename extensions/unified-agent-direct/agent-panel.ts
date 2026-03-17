@@ -71,6 +71,8 @@ interface AgentPanelState {
   bottomHint: string;
   /** CLI별 모델/추론 설정 (footer 표시용) */
   modelConfig: Record<string, FooterModelInfo>;
+  /** 패널 토글 리스너 */
+  toggleCallbacks: Array<(expanded: boolean) => void>;
 }
 
 function getState(): AgentPanelState {
@@ -87,6 +89,7 @@ function getState(): AgentPanelState {
       activeMode: null,
       bottomHint: " alt+p to toggle ",
       modelConfig: {},
+      toggleCallbacks: [],
     };
     (globalThis as any)[STATE_KEY] = s;
   }
@@ -94,6 +97,7 @@ function getState(): AgentPanelState {
   if (s.activeMode === undefined) s.activeMode = null;
   if (s.bottomHint === undefined) s.bottomHint = " alt+p to toggle ";
   if (!s.modelConfig) s.modelConfig = {};
+  if (!s.toggleCallbacks) s.toggleCallbacks = [];
   return s;
 }
 
@@ -342,12 +346,21 @@ export function stopAgentStreaming(ctx: ExtensionContext): void {
 
 // ─── UI 토글 ─────────────────────────────────────────────
 
+/** 등록된 토글 리스너에 expanded 상태를 전파합니다. */
+function notifyToggle(expanded: boolean): void {
+  const s = getState();
+  for (const cb of s.toggleCallbacks) {
+    try { cb(expanded); } catch { /* 리스너 에러 무시 */ }
+  }
+}
+
 /** 패널을 펼칩니다. */
 export function showAgentPanel(ctx: ExtensionContext): void {
   const s = getState();
   s.expanded = true;
   s.lastCtx = ctx;
   syncWidget(ctx);
+  notifyToggle(true);
 }
 
 /** 패널을 접습니다. 스트리밍 중이면 컴팩트 뷰로 전환됩니다. */
@@ -355,6 +368,7 @@ export function hideAgentPanel(ctx: ExtensionContext): void {
   const s = getState();
   s.expanded = false;
   syncWidget(ctx);
+  notifyToggle(false);
 }
 
 /** 패널 표시를 토글합니다. 반환값은 토글 후의 expanded 상태. */
@@ -362,7 +376,21 @@ export function toggleAgentPanel(ctx: ExtensionContext): boolean {
   const s = getState();
   s.expanded = !s.expanded;
   syncWidget(ctx);
+  notifyToggle(s.expanded);
   return s.expanded;
+}
+
+/**
+ * 패널 토글 리스너를 등록합니다.
+ * 반환값을 호출하면 구독이 해제됩니다.
+ */
+export function onPanelToggle(callback: (expanded: boolean) => void): () => void {
+  const s = getState();
+  s.toggleCallbacks.push(callback);
+  return () => {
+    const idx = s.toggleCallbacks.indexOf(callback);
+    if (idx >= 0) s.toggleCallbacks.splice(idx, 1);
+  };
 }
 
 /**
