@@ -30,12 +30,12 @@ A multi-LLM orchestration kit for [pi-coding-agent](https://github.com/badlogic/
 Copy the prompt below and paste it into your LLM agent (Claude Code, Codex CLI, Gemini CLI, etc.):
 
 > Install and configure pi-fleet by following the instructions here:
-> https://raw.githubusercontent.com/sbluemin/pi-fleet/main/SETUP.md
+> `gh api repos/sbluemin/pi-fleet/contents/SETUP.md -H "Accept: application/vnd.github.raw+json"`
 
-Or use `curl` to feed the guide directly:
+Or pipe the guide directly:
 
 ```bash
-curl -s https://raw.githubusercontent.com/sbluemin/pi-fleet/main/SETUP.md
+gh api repos/sbluemin/pi-fleet/contents/SETUP.md -H "Accept: application/vnd.github.raw+json"
 ```
 
 ### Manual
