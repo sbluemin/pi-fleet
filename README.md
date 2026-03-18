@@ -25,47 +25,22 @@ A multi-LLM orchestration kit for [pi-coding-agent](https://github.com/badlogic/
 
 ## Setup
 
-### 1. Clone
+### With LLM Agent (Recommended)
+
+Copy the prompt below and paste it into your LLM agent (Claude Code, Codex CLI, Gemini CLI, etc.):
+
+> Install and configure pi-fleet by following the instructions here:
+> https://raw.githubusercontent.com/sbluemin/pi-fleet/main/SETUP.md
+
+Or use `curl` to feed the guide directly:
 
 ```bash
-git clone https://github.com/sbluemin/pi-fleet.git ~/workspace/pi-fleet
+curl -s https://raw.githubusercontent.com/sbluemin/pi-fleet/main/SETUP.md
 ```
 
-### 2. Install dependencies
+### Manual
 
-```bash
-cd ~/workspace/pi-fleet/extensions/unified-agent-core
-npm install
-```
-
-### 3. Register extensions in pi settings
-
-Add the `extensions` field to your pi settings file.
-
-**Global** (`~/.pi/agent/settings.json`):
-
-```json
-{
-  "extensions": ["~/workspace/pi-fleet/extensions"]
-}
-```
-
-**Or project-local** (`.pi/settings.json` in your project root):
-
-```json
-{
-  "extensions": ["~/workspace/pi-fleet/extensions"]
-}
-```
-
-### 4. Verify
-
-Launch `pi` and run `/reload` — all extensions should load automatically.
-
-## Requirements
-
-- [pi-coding-agent](https://github.com/badlogic/pi-mono) installed globally
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Codex CLI](https://github.com/openai/codex), [Gemini CLI](https://github.com/google-gemini/gemini-cli) installed and authenticated
+See [SETUP.md](SETUP.md) for step-by-step instructions.
 
 ## License
 
