@@ -46,6 +46,7 @@ import {
   DIRECT_MODE_KEYS,
 } from "./constants";
 import { createDirectStreamingRouter } from "./direct-streaming-router";
+import { attachStatusContext, refreshStatusNow } from "./status/index.js";
 
 import type { DirectModeResult } from "./framework";
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
@@ -241,12 +242,13 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
     restoreSessionMap(ctx.sessionManager.getSessionId());
     cleanIdleClients();
     refreshAgentPanelFooter(ctx);
+    await attachStatusContext(ctx);
   };
 
   pi.on("session_start", async (_event, ctx) => { await onSessionChange(ctx); syncModelConfig(); });
   pi.on("session_switch", async (_event, ctx) => { await onSessionChange(ctx); syncModelConfig(); });
-  pi.on("session_fork", async (_event, ctx) => { await onSessionChange(ctx); });
-  pi.on("session_tree", async (_event, ctx) => { await onSessionChange(ctx); });
+  pi.on("session_fork", async (_event, ctx) => { await onSessionChange(ctx); syncModelConfig(); });
+  pi.on("session_tree", async (_event, ctx) => { await onSessionChange(ctx); syncModelConfig(); });
 
   // ── Direct Mode 전용 세션 강제 저장 ──
   // pi 코어의 _persist()는 assistant 메시지가 없으면 디스크에 쓰지 않음.
@@ -327,6 +329,13 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
       // 상태바 갱신 (자체 + 외부 확장)
       syncModelConfig();
       notifyStatusUpdate();
+    },
+  });
+
+  pi.registerCommand("ua-status-refresh", {
+    description: "Claude/Codex/Gemini 상태를 즉시 새로고침",
+    handler: async (_args, ctx) => {
+      await refreshStatusNow(ctx);
     },
   });
 

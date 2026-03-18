@@ -32,6 +32,8 @@ import {
   MODE_RGB,
 } from "./agent-panel-renderer";
 import type { AgentCol } from "./agent-panel-renderer";
+import { renderServiceStatusToken } from "./status/ui.js";
+import type { ServiceSnapshot } from "./status/types.js";
 
 // 편의를 위한 re-export
 export type { AgentCol } from "./agent-panel-renderer";
@@ -71,6 +73,12 @@ interface AgentPanelState {
   bottomHint: string;
   /** CLI별 모델/추론 설정 (footer 표시용) */
   modelConfig: Record<string, FooterModelInfo>;
+  /** 서비스 상태 스냅샷 (Claude/Codex/Gemini) */
+  serviceSnapshots: ServiceSnapshot[];
+  /** 서비스 상태 마지막 갱신 시각 */
+  serviceLastUpdatedAt: number | null;
+  /** 서비스 상태 로딩 중 여부 */
+  serviceLoading: boolean;
   /** 패널 토글 리스너 */
   toggleCallbacks: Array<(expanded: boolean) => void>;
 }
@@ -89,6 +97,9 @@ function getState(): AgentPanelState {
       activeMode: null,
       bottomHint: " alt+p to toggle ",
       modelConfig: {},
+      serviceSnapshots: [],
+      serviceLastUpdatedAt: null,
+      serviceLoading: false,
       toggleCallbacks: [],
     };
     (globalThis as any)[STATE_KEY] = s;
@@ -97,6 +108,9 @@ function getState(): AgentPanelState {
   if (s.activeMode === undefined) s.activeMode = null;
   if (s.bottomHint === undefined) s.bottomHint = " alt+p to toggle ";
   if (!s.modelConfig) s.modelConfig = {};
+  if (!s.serviceSnapshots) s.serviceSnapshots = [];
+  if (s.serviceLastUpdatedAt === undefined) s.serviceLastUpdatedAt = null;
+  if (s.serviceLoading === undefined) s.serviceLoading = false;
   if (!s.toggleCallbacks) s.toggleCallbacks = [];
   return s;
 }
@@ -168,6 +182,11 @@ function renderFooterStatus(state: AgentPanelState): string | undefined {
     const cliColor = DIRECT_MODE_COLORS[col.cli] ?? PANEL_COLOR;
     const name = CLI_DISPLAY_NAMES[col.cli] ?? col.cli;
     const detail = footerDetail(footerCol);
+    const serviceStatus = renderServiceStatusToken(
+      col.cli as ServiceSnapshot["provider"],
+      state.serviceSnapshots,
+      state.serviceLoading,
+    );
 
     // 모델/effort 정보
     const sel = state.modelConfig[col.cli];
@@ -185,7 +204,7 @@ function renderFooterStatus(state: AgentPanelState): string | undefined {
       ? `${footerIcon(footerCol, state.frame)} ${waveText(name, MODE_RGB[col.cli] ?? [180, 160, 220], state.frame)}${ANSI_RESET}`
       : `${footerIcon(footerCol, state.frame)} ${cliColor}${name}${ANSI_RESET}`;
 
-    return `${namePrefix}${modelSuffix}${
+    return `${namePrefix}${serviceStatus ?? ""}${modelSuffix}${
       footerSessionId(footerCol.sessionId)
     }${
       detail ? `${PANEL_DIM_COLOR}${detail}${ANSI_RESET}` : ""
@@ -514,6 +533,29 @@ export function setAgentPanelModelConfig(
 ): void {
   const s = getState();
   s.modelConfig = config;
+  syncFooterStatus(s.lastCtx);
+}
+
+/**
+ * 서비스 상태를 패널 footer 상태에 반영합니다.
+ */
+export function setAgentPanelServiceStatus(
+  snapshots: ServiceSnapshot[],
+  lastUpdatedAt: number | null,
+): void {
+  const s = getState();
+  s.serviceSnapshots = snapshots;
+  s.serviceLastUpdatedAt = lastUpdatedAt;
+  s.serviceLoading = false;
+  syncFooterStatus(s.lastCtx);
+}
+
+/**
+ * 서비스 상태 로딩 중 표시를 footer 상태에 반영합니다.
+ */
+export function setAgentPanelServiceLoading(): void {
+  const s = getState();
+  s.serviceLoading = true;
   syncFooterStatus(s.lastCtx);
 }
 
