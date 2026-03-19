@@ -22,6 +22,8 @@ import type {
   AcpFileReadResponse,
   AcpFileWriteParams,
   AcpFileWriteResponse,
+  AcpToolCall,
+  AcpToolCallUpdate,
 } from '../types/acp.js';
 import type { ConnectionState } from '../types/common.js';
 import type { PromptResponse } from '@agentclientprotocol/sdk';
@@ -40,7 +42,9 @@ export interface UnifiedClientEvents {
   /** AI 사고 과정 청크 */
   thoughtChunk: [text: string, sessionId: string];
   /** 도구 호출 */
-  toolCall: [title: string, status: string, sessionId: string];
+  toolCall: [title: string, status: string, sessionId: string, data?: AcpToolCall];
+  /** 도구 호출 업데이트 */
+  toolCallUpdate: [title: string, status: string, sessionId: string, data?: AcpToolCallUpdate];
   /** 계획 업데이트 */
   plan: [plan: string, sessionId: string];
   /** ACP 세션 업데이트 (원자적) */

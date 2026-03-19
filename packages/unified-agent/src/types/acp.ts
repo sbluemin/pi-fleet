@@ -54,6 +54,15 @@ export type {
   Stream as AcpStream,
 } from '@agentclientprotocol/sdk';
 
+// 도구 호출 관련 타입 re-export
+export type {
+  ToolCall as AcpToolCall,
+  ToolCallUpdate as AcpToolCallUpdate,
+  ToolCallContent as AcpToolCallContent,
+  ToolCallStatus as AcpToolCallStatus,
+  ToolKind as AcpToolKind,
+} from '@agentclientprotocol/sdk';
+
 /** session/update의 sessionUpdate 타입 (하위 호환) */
 export type AcpSessionUpdateType =
   | 'user_message_chunk'

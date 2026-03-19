@@ -34,6 +34,7 @@ import {
 import { readFile, writeFile, mkdir, access } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import type { ConnectionState } from '../types/common.js';
+import type { AcpToolCall, AcpToolCallUpdate } from '../types/acp.js';
 import { BaseConnection, type BaseConnectionOptions } from './BaseConnection.js';
 
 /** AcpConnection 생성 옵션 */
@@ -54,8 +55,8 @@ export interface AcpConnectionEventMap {
   userMessageChunk: [text: string, sessionId: string];
   messageChunk: [text: string, sessionId: string];
   thoughtChunk: [text: string, sessionId: string];
-  toolCall: [title: string, status: string, sessionId: string];
-  toolCallUpdate: [title: string, status: string, sessionId: string];
+  toolCall: [title: string, status: string, sessionId: string, data?: AcpToolCall];
+  toolCallUpdate: [title: string, status: string, sessionId: string, data?: AcpToolCallUpdate];
   plan: [plan: string, sessionId: string];
   sessionUpdate: [update: SessionNotification];
   permissionRequest: [params: RequestPermissionRequest, resolve: (response: RequestPermissionResponse) => void];
@@ -458,21 +459,27 @@ export class AcpConnection extends BaseConnection {
       }
 
       case 'tool_call': {
+        // sessionUpdate 필드를 제외한 나머지를 ToolCall 데이터로 전달
+        const { sessionUpdate: _tc, ...toolCallData } = update;
         this.emit(
           'toolCall',
           update.title ?? '',
           update.status ?? '',
           sessionId,
+          toolCallData as AcpToolCall,
         );
         break;
       }
 
       case 'tool_call_update': {
+        // sessionUpdate 필드를 제외한 나머지를 ToolCallUpdate 데이터로 전달
+        const { sessionUpdate: _tcu, ...toolCallUpdateData } = update;
         this.emit(
           'toolCallUpdate',
-          update.title ?? '',
-          update.status ?? '',
+          toolCallUpdateData.title ?? '',
+          toolCallUpdateData.status ?? '',
           sessionId,
+          toolCallUpdateData as AcpToolCallUpdate,
         );
         break;
       }

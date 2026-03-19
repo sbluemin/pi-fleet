@@ -15,6 +15,7 @@ import type { CliType } from './types/config.js';
 import { getModelsRegistry, getProviderModels } from './models/ModelRegistry.js';
 
 import picocolors from 'picocolors';
+import { CliRenderer } from './cli-renderer.js';
 
 // stdout에 데이터를 쓰고 flush가 완료된 후 resolve하는 헬퍼
 // process.stdout.write()는 파이프 환경(non-TTY)에서 비동기이므로,
@@ -219,6 +220,7 @@ const directMode = values.direct as boolean;
 // ─── 통합 실행 (ACP + Direct) ────────────────────────────
 
 const client = new UnifiedAgentClient();
+const renderer = new CliRenderer({ color: c, colorErr: ce });
 let fullResponse = '';
 let isLivePrompt = false;
 
@@ -226,29 +228,28 @@ let isLivePrompt = false;
 client.on('messageChunk', (text) => {
   if (!isLivePrompt) return;
   fullResponse += text;
-  if (!jsonMode) {
-    process.stdout.write(text);
-  }
+  if (!jsonMode) renderer.renderMessageChunk(text);
 });
 
 // error 리스너는 모드 무관하게 항상 등록 (미등록 시 Unhandled 'error' event crash)
 client.on('error', (err) => {
-  if (!jsonMode) {
-    process.stderr.write(`\n${ce.red('오류')}: ${err.message}\n`);
-  }
+  if (!jsonMode) renderer.renderError(err);
 });
 
 if (!jsonMode) {
   client.on('thoughtChunk', (text) => {
     if (!isLivePrompt) return;
-    process.stderr.write(ce.dim(text));
+    renderer.renderThoughtChunk(text);
   });
 
-  client.on('toolCall', (title, status) => {
+  client.on('toolCall', (title, status, _sid, data) => {
     if (!isLivePrompt) return;
-    if (status === 'running' || status === 'pending') {
-      process.stderr.write(ce.dim(`  ▶ ${title}\n`));
-    }
+    renderer.renderToolCall(title, status, data);
+  });
+
+  client.on('toolCallUpdate', (title, status, _sid, data) => {
+    if (!isLivePrompt) return;
+    renderer.renderToolCallUpdate(title, status, data);
   });
 }
 
@@ -256,10 +257,9 @@ try {
   const cwd = (values.cwd as string) || process.cwd();
 
   if (!jsonMode) {
-    const directLabel = directMode ? ' direct' : '';
     const resumeLabel = sessionOpt ? `, resume: ${sessionOpt.slice(0, 8)}…` : '';
     const cliLabel = selectedCli ?? '자동 감지';
-    process.stderr.write(`${ce.bold(ce.cyan('●'))} ${ce.bold('unified-agent')} ${ce.dim(`(${cliLabel}${directLabel}${resumeLabel})`)}\n\n`);
+    renderer.renderHeader(cliLabel, directMode, resumeLabel);
   }
 
   const result = await client.connect({
@@ -283,10 +283,9 @@ try {
   }
 
   if (!jsonMode) {
-    const cliName = result.cli;
     // 헤더에 실제 연결된 CLI 표시 (자동 감지된 경우)
     if (!selectedCli) {
-      process.stderr.write(`${ce.dim(`  → ${cliName} 연결됨`)}\n\n`);
+      renderer.renderAutoDetected(result.cli);
     }
   }
 
@@ -299,8 +298,7 @@ try {
   if (!jsonMode) {
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     const sid = client.getConnectionInfo().sessionId;
-    const sessionInfo = sid ? ` ${ce.dim('|')} ${ce.dim(`세션: ${sid}`)}` : '';
-    process.stderr.write(`\n\n${ce.bold(ce.green('●'))} ${ce.dim(`완료 (${elapsed}s)`)}${sessionInfo}\n`);
+    renderer.renderComplete(elapsed, sid);
   }
 
   if (jsonMode) {

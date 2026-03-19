@@ -120,6 +120,11 @@ export type {
   AcpModelInfo,
   AcpModelId,
   AcpEvents,
+  AcpToolCall,
+  AcpToolCallUpdate,
+  AcpToolCallContent,
+  AcpToolCallStatus,
+  AcpToolKind,
 } from './types/acp.js';
 
 export type {

@@ -21,6 +21,8 @@ import type {
   AcpFileWriteParams,
   AcpFileWriteResponse,
   AcpSessionNewResult,
+  AcpToolCall,
+  AcpToolCallUpdate,
 } from '../types/acp.js';
 import type { ConnectionState } from '../types/common.js';
 import type {
@@ -538,8 +540,11 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
     this.acpConnection.on('thoughtChunk', (text: string, sessionId: string) => {
       this.emitTyped('thoughtChunk', text, sessionId);
     });
-    this.acpConnection.on('toolCall', (title: string, status: string, sessionId: string) => {
-      this.emitTyped('toolCall', title, status, sessionId);
+    this.acpConnection.on('toolCall', (title: string, status: string, sessionId: string, data?: AcpToolCall) => {
+      this.emitTyped('toolCall', title, status, sessionId, data);
+    });
+    this.acpConnection.on('toolCallUpdate', (title: string, status: string, sessionId: string, data?: AcpToolCallUpdate) => {
+      this.emitTyped('toolCallUpdate', title, status, sessionId, data);
     });
     this.acpConnection.on('plan', (plan: string, sessionId: string) => {
       this.emitTyped('plan', plan, sessionId);
