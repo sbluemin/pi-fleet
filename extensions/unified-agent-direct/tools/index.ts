@@ -11,6 +11,7 @@ import type { CliType } from "../../unified-agent-core/types";
 import { Type } from "@sinclair/typebox";
 
 import type { SessionMapStore } from "../../unified-agent-core/session-map";
+import { toolDescription, toolPromptSnippet, toolPromptGuidelines } from "./prompts.js";
 import { executeWithPool } from "../../unified-agent-core/executor";
 import { createStreamingWidget } from "./streaming-widget";
 import { Text } from "@mariozechner/pi-tui";
@@ -43,16 +44,9 @@ export function registerAgentTools({ pi, configDir, sessionStore }: RegisterAgen
     pi.registerTool({
       name: cli,
       label: displayName,
-      description:
-        `Delegate a task to the ${displayName} coding agent. ` +
-        "The agent processes the request independently and returns the result.",
-      promptSnippet:
-        `Delegate task to ${displayName} — independent agent execution with live streaming`,
-      promptGuidelines: [
-        `Use this tool to delegate a coding task to ${displayName}.`,
-        "The agent has full access to the codebase and can read, write, and execute commands.",
-        "Provide a clear, self-contained request — the agent does not share your conversation context.",
-      ],
+      description: toolDescription(displayName),
+      promptSnippet: toolPromptSnippet(displayName),
+      promptGuidelines: toolPromptGuidelines(displayName),
       parameters: Type.Object({
         request: Type.String({
           description: "The prompt/request to send to the agent",

@@ -41,7 +41,25 @@ Apply these criteria when creating a new extension or separating an existing one
 - **`index.ts` is for wiring only** — Keep only `registerTool`, `registerCommand`, `on`, `registerShortcut` calls, and imports. Do not inline business logic or UI code here.
 - **UI/Rendering must be in separate files** — Such as `ui.ts`, `editor.ts`, `welcome.ts`. Do not put TUI component assembly code in `index.ts`.
 - **Constants/Types must be in `types.ts`** — Values shared across modules (especially globalThis keys/bridge interfaces) must be in a separate file.
+- **AI prompts must be in `prompts.ts`** — All prompts sent to AI models (system prompts, instructions, tool descriptions, guidelines, etc.) must be defined in a dedicated `prompts.ts` file. Do not embed prompt text inline in business logic, tool registration, or constants files.
 - **Use `globalThis` only for "sharing actions/data of independent features"** — Use it only when an extension exposes its functionality to other extensions (e.g., the dismiss action of welcome). Do not use globalThis to relay TUI framework data.
+
+### Prompt Separation Rules (`prompts.ts`)
+
+Any string that is ultimately consumed by an AI model must live in `prompts.ts`:
+
+| Category | Examples | Location |
+|----------|----------|----------|
+| System prompt / instruction | `SYSTEM_PROMPT`, `SYSTEM_INSTRUCTION` | `prompts.ts` (export const) |
+| Tool prompt fields | `description`, `promptSnippet`, `promptGuidelines` | `prompts.ts` (export function) |
+| Short UI-only labels | button text, notification messages | `constants.ts` or inline (NOT `prompts.ts`) |
+
+**Why separate?** Prompt text often needs independent review, A/B testing, or iteration without touching business logic. Keeping prompts in a single file per extension makes them easy to locate, audit, and modify.
+
+**Naming conventions:**
+- Static prompts → `export const SYSTEM_PROMPT = \`...\``
+- Dynamic prompts (parameterized) → `export function toolDescription(name: string): string`
+- Re-export from `constants.ts` if consumers currently import from there → `export { SYSTEM_PROMPT } from "./prompts.js"`
 
 ### globalThis Usage Rules
 
@@ -67,6 +85,7 @@ extensions/
 ├── <extension-name>/
 │   ├── index.ts
 │   ├── ui.ts             ← UI/Rendering separated
+│   ├── prompts.ts        ← AI prompts (if the extension uses LLM calls or registers tools with prompt fields)
 │   └── types.ts          ← Types/Constants
 └── <shared-lib>/         ← No index.ts = Pure library, not an extension
     ├── types.ts
