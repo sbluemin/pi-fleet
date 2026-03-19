@@ -27,12 +27,24 @@ import {
 
 // ─── 에이전트 칼럼 타입 ──────────────────────────────────
 
+/**
+ * 순서가 보존된 이벤트 블록.
+ * 도구 호출과 응답 텍스트를 발생 순서대로 기록합니다.
+ */
+export type ColBlock =
+  | { type: "text"; text: string }
+  | { type: "tool"; title: string; status: string; rawOutput?: string };
+
 export interface AgentCol {
   cli: string;
   sessionId?: string;
-  text: string;
+  /** 순서 있는 이벤트 로그 (도구 호출 + 응답 텍스트 혼합) */
+  blocks: ColBlock[];
+  /** thinking/추론 텍스트 — 항상 상단에 고정 표시 */
   thinking: string;
-  toolCalls: { title: string; status: string }[];
+  // 하위 호환 및 CollectedStreamData 공급용 (blocks에서 파생)
+  text: string;
+  toolCalls: { title: string; status: string; rawOutput?: string }[];
   status: "wait" | "conn" | "stream" | "done" | "err";
   error?: string;
   scroll: number;
@@ -42,6 +54,9 @@ export interface AgentCol {
 
 /** 칼럼 CLI 순서 */
 const COL_CLIS = ["claude", "codex", "gemini"];
+
+/** 도구 결과 줄 접기 최대 줄 수 */
+const MAX_RESULT_LINES = 4;
 
 // ─── 렌더링 헬퍼 ────────────────────────────────────────
 
@@ -206,61 +221,72 @@ interface ColContentResult {
 
 /**
  * 칼럼의 thinking + 도구 호출 + 응답을 통합 콘텐츠로 빌드합니다.
- * 각 라인에 대응하는 색상 정보를 함께 반환합니다.
- * @param compact - true이면 thinking/도구를 한 줄로 축약
+ * - thinking은 항상 상단 고정
+ * - blocks[]의 text/tool 항목을 발생 순서대로 렌더링 (all 모드 포함)
  */
-function buildColContent(col: AgentCol, frame: number, compact: boolean): ColContentResult {
+function buildColContent(col: AgentCol, frame: number, _compact: boolean): ColContentResult {
   const lines: string[] = [];
   const colors: string[] = [];
+  const errorToolColor = "\x1b[38;2;255;80;80m";
 
+  const pushResponseLines = (text: string) => {
+    // leading \n 제거 — CLI의 renderMessageChunk와 동일하게 처리
+    const trimmed = text.replace(/^\n+/, "");
+    if (!trimmed) return;
+    trimmed.split("\n").forEach((line, index) => {
+      lines.push(index === 0 ? `${SYM_INDICATOR} ${line}` : `  ${line}`);
+      colors.push("");
+    });
+  };
+
+  const pushToolResultLines = (text: string, isError: boolean) => {
+    const rawLines = text.split("\n");
+    const displayLines = rawLines.length > MAX_RESULT_LINES
+      ? rawLines.slice(0, MAX_RESULT_LINES - 1)
+      : rawLines;
+    const foldedCount = rawLines.length > MAX_RESULT_LINES
+      ? rawLines.length - (MAX_RESULT_LINES - 1)
+      : 0;
+    const resultColor = isError ? errorToolColor : PANEL_DIM_COLOR;
+
+    displayLines.forEach((line, index) => {
+      lines.push(index === 0 ? `  ${SYM_RESULT}  ${line}` : `     ${line}`);
+      colors.push(resultColor);
+    });
+    if (foldedCount > 0) {
+      lines.push(`     … +${foldedCount} lines`);
+      colors.push(PANEL_DIM_COLOR);
+    }
+  };
+
+  // ── thinking: 항상 상단 고정 ──────────────────────────
   if (col.thinking) {
-    if (compact || col.text) {
-      const first = col.thinking.split("\n").find((l) => l.trim()) ?? "";
-      const preview = first.length > 55 ? first.slice(0, 52) + "..." : first;
-      lines.push(`${SYM_THINKING} ${preview}`);
-      colors.push(THINKING_COLOR);
-    } else {
-      lines.push(`${SYM_THINKING} thinking`);
-      colors.push(THINKING_COLOR);
-      for (const l of col.thinking.split("\n")) {
-        lines.push(`  ${l}`);
-        colors.push(THINKING_COLOR);
-      }
-    }
-  }
-
-  if (col.toolCalls.length > 0) {
-    if (compact) {
-      // 3칼럼 compact: 축약 한 줄
-      const done = col.toolCalls.filter((tc) => tc.status === "completed").length;
-      lines.push(`${SYM_INDICATOR} ${col.toolCalls.length} tools (${done}${SYM_RESULT})`);
-      colors.push(TOOLS_COLOR);
-    } else {
-      // 독점뷰: 도구별 ⏺ 헤더 + ⎿ 상태
-      for (const tc of col.toolCalls) {
-        lines.push(`${SYM_INDICATOR} ${tc.title}`);
-        colors.push(TOOLS_COLOR);
-        if (tc.status === "completed") {
-          lines.push(`  ${SYM_RESULT}  completed`);
-          colors.push(TOOLS_COLOR);
-        } else if (tc.status === "error") {
-          lines.push(`  ${SYM_RESULT}  error`);
-          colors.push("\x1b[38;2;255;80;80m");
-        }
-        // running 상태는 헤더만 표시
-      }
-    }
-  }
-
-  if (lines.length > 0 && col.text) {
+    const first = col.thinking.split("\n").find((l) => l.trim()) ?? "";
+    const preview = first.length > 55 ? first.slice(0, 52) + "..." : first;
+    lines.push(`${SYM_THINKING} ${preview}`);
+    colors.push(THINKING_COLOR);
     lines.push("");
     colors.push("");
   }
 
-  if (col.text) {
-    for (const l of col.text.split("\n")) {
-      lines.push(l);
-      colors.push("");
+  // ── blocks: 이벤트 발생 순서대로 렌더링 ─────────────────
+  if (col.blocks?.length) {
+    for (const block of col.blocks) {
+      if (block.type === "text") {
+        pushResponseLines(block.text);
+      } else {
+        // tool 블록
+        lines.push(`${SYM_INDICATOR} ${block.title}`);
+        colors.push(TOOLS_COLOR);
+        const statusText = block.rawOutput?.trim()
+          ? block.rawOutput
+          : (block.status === "completed" || block.status === "failed" || block.status === "error"
+            ? block.status
+            : "");
+        if (statusText) {
+          pushToolResultLines(statusText, block.status === "failed" || block.status === "error");
+        }
+      }
     }
   } else if (col.status === "wait" || col.status === "conn") {
     lines.push(placeholder(col, frame));
@@ -454,7 +480,8 @@ function renderMultiCol(
   // ── 본문 (auto-tail, 영역별 색상) ──
   const wrappedCols = cols.map((col, i) => {
     const contentW = cw[i] - 2;
-    const content = buildColContent(col, frame, true);
+    // All 모드도 독점 모드와 동일하게 compact=false로 렌더링
+    const content = buildColContent(col, frame, false);
     return wrapAllLinesColored(content.lines, content.colors, contentW);
   });
 

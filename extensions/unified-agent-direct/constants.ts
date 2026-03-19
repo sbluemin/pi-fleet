@@ -86,7 +86,7 @@ export const CODEX_POPUP_KEY = "alt+t";
 export const PANEL_COLOR = "\x1b[38;2;180;160;220m";
 
 /** 에이전트 패널 dim 색상 (힌트, 보조 텍스트) */
-export const PANEL_DIM_COLOR = "\x1b[38;2;100;90;120m";
+export const PANEL_DIM_COLOR = "\x1b[38;2;160;150;180m";
 
 /** Thinking 블록 색상 (라벤더) */
 export const THINKING_COLOR = "\x1b[38;2;180;140;255m";
@@ -114,7 +114,7 @@ export const DEFAULT_BODY_H = 10;
 export const MIN_BODY_H = 4;
 
 /** 패널 본문 높이 최댓값 */
-export const MAX_BODY_H = 30;
+export const MAX_BODY_H = 50;
 
 /** 높이 조절 1회당 증감량 */
 export const BODY_H_STEP = 2;

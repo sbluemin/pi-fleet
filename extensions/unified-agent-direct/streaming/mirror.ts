@@ -11,6 +11,7 @@
 import type { CliType } from "@sbluemin/unified-agent";
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import type { AgentStatus, ExecuteResult } from "../../unified-agent-core/types";
+import type { ColBlock } from "../render/panel-renderer";
 import {
   beginColStreaming,
   endColStreaming,
@@ -27,7 +28,7 @@ export interface CollectedStreamData {
   /** 누적된 thinking 텍스트 */
   thinking: string;
   /** 누적된 도구 호출 목록 */
-  toolCalls: { title: string; status: string }[];
+  toolCalls: { title: string; status: string; rawOutput?: string }[];
   /** 마지막 에이전트 상태 */
   lastStatus: AgentStatus;
 }
@@ -63,7 +64,7 @@ export function createStreamingMirror(ctx: ExtensionContext, cli: CliType) {
   // ── 누적 상태 ──
   let accText = "";
   let accThinking = "";
-  const accToolCalls: { title: string; status: string }[] = [];
+  const accToolCalls: { title: string; status: string; rawOutput?: string }[] = [];
   let lastStatus: AgentStatus = "connecting";
 
   return {
@@ -88,9 +89,22 @@ export function createStreamingMirror(ctx: ExtensionContext, cli: CliType) {
       accText += text;
 
       const col = readCol(colIndex);
+      if (!col) return;
+
+      // blocks에서 마지막 text 블록에 이어붙이거나 새 블록 추가
+      const blocks = col.blocks ?? [];
+      const last = blocks[blocks.length - 1];
+      let newBlocks: ColBlock[];
+      if (last?.type === "text") {
+        newBlocks = [...blocks.slice(0, -1), { type: "text", text: last.text + text }];
+      } else {
+        newBlocks = [...blocks, { type: "text", text }];
+      }
+
       updateAgentCol(colIndex, {
         status: "stream",
-        text: (col?.text ?? "") + text,
+        text: (col.text ?? "") + text,  // 하위 호환 유지
+        blocks: newBlocks,
       });
     },
 
@@ -105,25 +119,58 @@ export function createStreamingMirror(ctx: ExtensionContext, cli: CliType) {
     },
 
     /** 도구 호출 이벤트를 누적 + 패널 칼럼에 반영합니다. */
-    onToolCall(title: string, status: string) {
+    onToolCall(title: string, status: string, rawOutput?: string) {
       // 자체 누적
       const accExisting = accToolCalls.find((tc) => tc.title === title);
-      if (accExisting) accExisting.status = status;
-      else accToolCalls.push({ title, status });
+      if (accExisting) {
+        accExisting.status = status;
+        if (rawOutput !== undefined) {
+          accExisting.rawOutput = rawOutput;
+        }
+      } else {
+        accToolCalls.push({ title, status, rawOutput });
+      }
 
       // 패널 칼럼 반영
       const col = readCol(colIndex);
       if (!col) return;
 
+      // ── blocks 업데이트: 이벤트 순서 보존 ──────────────────
+      const blocks = col.blocks ?? [];
+      const toolBlockIdx = blocks.findIndex(
+        (b): b is Extract<ColBlock, { type: "tool" }> => b.type === "tool" && b.title === title,
+      );
+      let newBlocks: ColBlock[];
+      if (toolBlockIdx >= 0) {
+        // 기존 tool 블록 업데이트 (status, rawOutput)
+        newBlocks = blocks.map((b, i) => {
+          if (i === toolBlockIdx && b.type === "tool") {
+            return {
+              type: "tool" as const,
+              title: b.title,
+              status,
+              ...(rawOutput !== undefined ? { rawOutput } : {}),
+            };
+          }
+          return b;
+        });
+      } else {
+        // 새 tool 블록 추가
+        newBlocks = [...blocks, { type: "tool" as const, title, status, rawOutput }];
+      }
+
+      // toolCalls 동기화 (하위 호환)
       const toolCalls = [...(col.toolCalls ?? [])];
       const existing = toolCalls.find((tc) => tc.title === title);
       if (existing) {
         existing.status = status;
+        if (rawOutput !== undefined) existing.rawOutput = rawOutput;
       } else {
-        toolCalls.push({ title, status });
+        toolCalls.push({ title, status, rawOutput });
       }
 
       updateAgentCol(colIndex, {
+        blocks: newBlocks,
         toolCalls,
         status: col.status === "conn" || col.status === "wait" ? "stream" : col.status,
       });

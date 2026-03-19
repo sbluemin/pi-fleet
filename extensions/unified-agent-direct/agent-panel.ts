@@ -159,6 +159,7 @@ function makeCols(clis?: string[]): AgentCol[] {
     cli,
     sessionId: sessionMap[cli],
     text: "",
+    blocks: [],
     thinking: "",
     toolCalls: [],
     status: "wait" as const,
@@ -268,8 +269,8 @@ function buildOverlayOptions(_state: AgentPanelState): OverlayOptions {
   return {
     nonCapturing: true,
     anchor: "center",
-    width: "85%",
-    maxHeight: "85%",
+    width: "95%",
+    maxHeight: "95%",
     margin: 1,
   };
 }
@@ -604,6 +605,7 @@ export function beginColStreaming(ctx: ExtensionContext, colIndex: number): void
       cli: s.cols[colIndex].cli,
       sessionId: s.cols[colIndex].sessionId,
       text: "",
+      blocks: [],
       thinking: "",
       toolCalls: [],
       status: "conn",
