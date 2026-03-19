@@ -23,6 +23,11 @@ import {
   PANEL_COLOR,
   PANEL_DIM_COLOR,
   SPINNER_FRAMES,
+  SYM_INDICATOR,
+  DEFAULT_BODY_H,
+  MIN_BODY_H,
+  MAX_BODY_H,
+  BODY_H_STEP,
 } from "./constants";
 import {
   renderPanelFull,
@@ -83,6 +88,8 @@ interface AgentPanelState {
   toggleCallbacks: Array<(expanded: boolean) => void>;
   /** 세션 매핑 저장소 (호출처가 주입) */
   sessionStore: SessionMapStore | null;
+  /** 패널 본문 높이 (줄 수) — 런타임 조절 가능 */
+  bodyH: number;
 }
 
 function getState(): AgentPanelState {
@@ -97,25 +104,27 @@ function getState(): AgentPanelState {
       animTimer: null,
       lastCtx: null,
       activeMode: null,
-      bottomHint: " alt+p to toggle ",
+      bottomHint: " alt+p toggle · j↑ k↓",
       modelConfig: {},
       serviceSnapshots: [],
       serviceLastUpdatedAt: null,
       serviceLoading: false,
       toggleCallbacks: [],
       sessionStore: null,
+      bodyH: DEFAULT_BODY_H,
     };
     (globalThis as any)[STATE_KEY] = s;
   }
   // 기존 상태에 새 필드가 없을 수 있으므로 마이그레이션
   if (s.activeMode === undefined) s.activeMode = null;
-  if (s.bottomHint === undefined) s.bottomHint = " alt+p to toggle ";
+  if (s.bottomHint === undefined) s.bottomHint = " alt+p toggle · j↑ k↓";
   if (!s.modelConfig) s.modelConfig = {};
   if (!s.serviceSnapshots) s.serviceSnapshots = [];
   if (s.serviceLastUpdatedAt === undefined) s.serviceLastUpdatedAt = null;
   if (s.serviceLoading === undefined) s.serviceLoading = false;
   if (!s.toggleCallbacks) s.toggleCallbacks = [];
   if (s.sessionStore === undefined) s.sessionStore = null;
+  if (s.bodyH === undefined) s.bodyH = DEFAULT_BODY_H;
   return s;
 }
 
@@ -148,9 +157,9 @@ function syncColSessionIds(): void {
 function footerIcon(col: AgentCol, frame: number): string {
   const cliColor = DIRECT_MODE_COLORS[col.cli] ?? PANEL_COLOR;
   const icon = col.status === "done"
-    ? "✓"
+    ? SYM_INDICATOR
     : col.status === "err"
-      ? "✗"
+      ? SYM_INDICATOR
       : col.status === "conn" || col.status === "stream"
         ? SPINNER_FRAMES[frame % SPINNER_FRAMES.length]
         : "○";
@@ -274,7 +283,7 @@ function syncWidget(ctx: ExtensionContext): void {
           ? (DIRECT_MODE_COLORS[state.activeMode] ?? PANEL_COLOR)
           : PANEL_COLOR;
         return renderPanelFull(
-          width, state.cols, state.frame, frameColor, state.bottomHint, state.activeMode,
+          width, state.cols, state.frame, frameColor, state.bottomHint, state.activeMode, state.bodyH,
         );
       }
       // 스트리밍 중 compact 상태바
@@ -304,7 +313,7 @@ export function setAgentPanelMode(
   if (options?.bottomHint) {
     s.bottomHint = options.bottomHint;
   } else if (mode === null) {
-    s.bottomHint = " alt+p to toggle ";
+    s.bottomHint = " alt+p toggle · j↑ k↓";
   }
 
   syncWidget(ctx);
@@ -574,10 +583,40 @@ export function setAgentPanelServiceLoading(): void {
   syncFooterStatus(s.lastCtx);
 }
 
+// ─── 패널 높이 조절 ──────────────────────────────────────
+
+/**
+ * 패널 본문 높이를 delta만큼 조절합니다.
+ * MIN_BODY_H ~ MAX_BODY_H 범위 내로 클램핑됩니다.
+ * @returns 조절 후 높이
+ */
+export function adjustPanelHeight(ctx: ExtensionContext, delta: number): number {
+  const s = getState();
+  const prev = s.bodyH;
+  s.bodyH = Math.max(MIN_BODY_H, Math.min(MAX_BODY_H, s.bodyH + delta));
+  // 높이 변경 시 bottomHint에 현재 높이 표시 (피드백용)
+  s.bottomHint = ` alt+p toggle · j↑ k↓ [h=${s.bodyH}]`;
+  if (prev !== s.bodyH) {
+    // setWidget(undefined) 없이 바로 교체 — 중간 상태 렌더링을 방지
+    // (undefined 먼저 호출하면 clearOnShrink=false 환경에서 잔상이 남음)
+    syncWidget(ctx);
+  }
+  return s.bodyH;
+}
+
+/** 현재 패널 본문 높이를 반환합니다. */
+export function getPanelBodyHeight(): number {
+  return getState().bodyH;
+}
+
 // ─── 단축키 등록 ─────────────────────────────────────────
 
 /**
- * `alt+p` 단축키로 에이전트 패널 토글을 등록합니다.
+ * 에이전트 패널 단축키를 등록합니다.
+ * - alt+p: 패널 표시/숨김 토글
+ * - alt+j: 패널 높이 증가
+ * - alt+k: 패널 높이 감소
+ *
  * unified-agent-direct/index.ts에서 호출됩니다.
  */
 export function registerAgentPanelShortcut(pi: ExtensionAPI): void {
@@ -585,6 +624,20 @@ export function registerAgentPanelShortcut(pi: ExtensionAPI): void {
     description: "에이전트 패널 표시/숨김 토글",
     handler: async (ctx) => {
       toggleAgentPanel(ctx);
+    },
+  });
+
+  pi.registerShortcut("alt+j", {
+    description: "에이전트 패널 높이 증가",
+    handler: async (ctx) => {
+      adjustPanelHeight(ctx, BODY_H_STEP);
+    },
+  });
+
+  pi.registerShortcut("alt+k", {
+    description: "에이전트 패널 높이 감소",
+    handler: async (ctx) => {
+      adjustPanelHeight(ctx, -BODY_H_STEP);
     },
   });
 }
