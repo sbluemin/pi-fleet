@@ -73,14 +73,24 @@ export class CliRenderer {
     }
 
     if (this.isFirstChunk) {
-      // 첫 청크: ⏺ 인디케이터 출력
+      // 첫 청크: 앞쪽 빈 줄(leading newlines) 제거 후 실제 텍스트가 있을 때만 ⏺ 출력
+      // Claude API가 \n\n텍스트 형태로 첫 청크를 전송하는 경우 대비
+      const trimmed = text.replace(/^\n+/, '');
+      if (!trimmed) {
+        // 아직 실제 텍스트 없음 — ⏺ 출력 보류
+        this.phase = 'streaming';
+        return;
+      }
       process.stdout.write(`⏺ `);
       this.isFirstChunk = false;
+      // 줄바꿈마다 2칸 들여쓰기 삽입 (마지막 줄바꿈 제외)
+      const indented = trimmed.replace(/\n(?!$)/g, '\n  ');
+      process.stdout.write(indented);
+    } else {
+      // 줄바꿈마다 2칸 들여쓰기 삽입 (마지막 줄바꿈 제외)
+      const indented = text.replace(/\n(?!$)/g, '\n  ');
+      process.stdout.write(indented);
     }
-
-    // 줄바꿈마다 2칸 들여쓰기 삽입 (마지막 줄바꿈 제외)
-    const indented = text.replace(/\n(?!$)/g, '\n  ');
-    process.stdout.write(indented);
 
     this.phase = 'streaming';
   }
