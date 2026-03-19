@@ -341,6 +341,10 @@ function registerInputHandler(pi: ExtensionAPI) {
     // 활성 모드가 없으면 패스
     if (!gs.activeModeId) return { action: "continue" as const };
 
+    // 확장(sendUserMessage)에서 보낸 메시지는 PI 기본 처리로 전달
+    // → 다이렉트 모드를 우회하여 PI의 메인 LLM이 직접 처리
+    if ((event as any).source === "extension") return { action: "continue" as const };
+
     const state = gs.modes.get(gs.activeModeId);
     if (!state || !state.active) return { action: "continue" as const };
 

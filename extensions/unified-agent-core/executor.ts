@@ -23,6 +23,28 @@ import { buildConnectOptions } from "./model-config";
 
 const MAX_TOOL_CALLS_TO_KEEP = 30;
 
+// ─── AbortSignal 경합 헬퍼 ───────────────────────────────
+
+/**
+ * promise와 AbortSignal을 경합시켜, signal abort 시 즉시 reject합니다.
+ * connect() 등 내부적으로 signal을 지원하지 않는 비동기 작업에서
+ * abort 반응성을 확보하기 위해 사용합니다.
+ */
+function raceAbort<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.reject(new Error("Aborted"));
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => {
+      signal.addEventListener(
+        "abort",
+        () => reject(new Error("Aborted")),
+        { once: true },
+      );
+    }),
+  ]);
+}
+
 // ─── executeWithPool: 풀 기반 실행 ─────────────────────
 
 /**
@@ -182,8 +204,10 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
 
       let connectResult;
       try {
-        connectResult = await client.connect(connectOpts as any);
+        connectResult = await raceAbort(client.connect(connectOpts as any), signal);
       } catch (connectError) {
+        // abort로 인한 reject이면 재시도하지 않고 즉시 전파
+        if (aborted) throw connectError;
         // sessionId로 resume 실패 시 새 세션으로 재시도
         if (!savedSessionId) throw connectError;
 
@@ -208,7 +232,7 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
           });
         }
         attachListeners();
-        connectResult = await client.connect(connectOpts as any);
+        connectResult = await raceAbort(client.connect(connectOpts as any), signal);
       }
 
       connectionInfo.protocol = connectResult.protocol;
@@ -249,6 +273,10 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
       if (connectionInfo.sessionId) {
         store.set(cli, connectionInfo.sessionId);
       }
+    }
+
+    if (aborted) {
+      return { responseText, thoughtText, toolCalls, connectionInfo, status, error };
     }
 
     opts.onConnected?.(connectionInfo);
@@ -324,10 +352,22 @@ export async function executeOneShot(opts: ExecuteOptions): Promise<ExecuteResul
   };
 
   try {
+    if (signal?.aborted) {
+      return { responseText: "", thoughtText: "", toolCalls: [], connectionInfo, status: "aborted" };
+    }
+
+    if (signal) {
+      signal.addEventListener("abort", onAbort, { once: true });
+    }
+
     // 연결 옵션 구성
     const connectOpts = buildConnectOptions(cli, cwd, configDir);
 
-    await client.connect(connectOpts as any);
+    await raceAbort(client.connect(connectOpts as any), signal);
+
+    if (aborted) {
+      return { responseText, thoughtText, toolCalls, connectionInfo, status, error };
+    }
 
     connectionInfo.protocol = (client.getConnectionInfo() as any).protocol ?? undefined;
     connectionInfo.sessionId = (client.getConnectionInfo() as any).sessionId ?? undefined;
@@ -355,16 +395,13 @@ export async function executeOneShot(opts: ExecuteOptions): Promise<ExecuteResul
       opts.onToolCall?.(title, tcStatus);
     });
 
-    // abort 처리
-    if (signal) {
-      signal.addEventListener("abort", onAbort, { once: true });
-    }
-
     await client.sendMessage(request);
 
-    status = "done";
-    if (!responseText.trim()) responseText = "(no output)";
-    opts.onStatusChange?.("done");
+    if (!aborted) {
+      status = "done";
+      if (!responseText.trim()) responseText = "(no output)";
+      opts.onStatusChange?.("done");
+    }
   } catch (e) {
     if (!aborted) {
       status = "error";

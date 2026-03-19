@@ -18,6 +18,8 @@ import {
   ANSI_RESET,
   STREAMING_PREVIEW_LINES,
   PREVIEW_LINES,
+  SYM_INDICATOR,
+  SYM_THINKING,
 } from "../constants";
 
 // ─── 스트리밍 위젯 상태 ──────────────────────────────────
@@ -191,9 +193,9 @@ export function renderStream(
     ? SPINNER_FRAMES[state.frame % SPINNER_FRAMES.length] + " "
     : "";
   const statusIcon = state.agentStatus === "done"
-    ? theme.fg("success", "✓")
+    ? theme.fg("success", SYM_INDICATOR)
     : state.agentStatus === "error"
-      ? theme.fg("error", "✗")
+      ? theme.fg("error", SYM_INDICATOR)
       : spinner;
   const nameStyled = color
     ? `${color}${theme.bold(name)}${ANSI_RESET}`
@@ -205,14 +207,14 @@ export function renderStream(
   if (state.thinkingText) {
     const firstLine = state.thinkingText.split("\n").find((l) => l.trim()) ?? "";
     const preview = firstLine.length > 60 ? firstLine.slice(0, 57) + "..." : firstLine;
-    lines.push(theme.fg("dim", `◇ ${preview}`));
+    lines.push(theme.fg("dim", `${SYM_THINKING} ${preview}`));
     lines.push("");
   }
 
   // ── toolCalls (요약) ──
   if (state.toolCalls.length > 0) {
     const completed = state.toolCalls.filter((tc) => tc.status === "completed").length;
-    lines.push(theme.fg("dim", `◆ ${state.toolCalls.length} tools (${completed} done)`));
+    lines.push(theme.fg("dim", `${SYM_INDICATOR} ${state.toolCalls.length} tools (${completed} done)`));
     lines.push("");
   }
 

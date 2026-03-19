@@ -77,6 +77,9 @@ export const DIRECT_MODE_KEYS: Record<string, string> = {
   all:    "alt+0",
 };
 
+/** 현재 활성 에이전트 팝업 단축키 */
+export const CODEX_POPUP_KEY = "alt+t";
+
 // ─── 에이전트 패널 스타일 ────────────────────────────────
 
 /** 에이전트 패널 기본 프레임색 (비활성 시) */
@@ -90,3 +93,28 @@ export const THINKING_COLOR = "\x1b[38;2;180;140;255m";
 
 /** Tools 블록 색상 (틸/청록) */
 export const TOOLS_COLOR = "\x1b[38;2;80;200;180m";
+
+// ─── Claude Code 스타일 심볼 ─────────────────────────────
+
+/** 메시지/도구 시작 인디케이터 (⏺) */
+export const SYM_INDICATOR = "⏺";
+
+/** 도구 결과 프리픽스 (⎿) */
+export const SYM_RESULT = "⎿";
+
+/** Thinking 블록 심볼 (◇) — TUI 패널 전용 */
+export const SYM_THINKING = "◇";
+
+// ─── 패널 높이 ──────────────────────────────────────────
+
+/** 패널 본문 높이 기본값 (줄 수) */
+export const DEFAULT_BODY_H = 10;
+
+/** 패널 본문 높이 최솟값 */
+export const MIN_BODY_H = 4;
+
+/** 패널 본문 높이 최댓값 */
+export const MAX_BODY_H = 30;
+
+/** 높이 조절 1회당 증감량 */
+export const BODY_H_STEP = 2;

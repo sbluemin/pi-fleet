@@ -20,6 +20,9 @@ import {
   PANEL_DIM_COLOR,
   THINKING_COLOR,
   TOOLS_COLOR,
+  SYM_INDICATOR,
+  SYM_RESULT,
+  SYM_THINKING,
 } from "../constants";
 
 // ─── 에이전트 칼럼 타입 ──────────────────────────────────
@@ -37,9 +40,6 @@ export interface AgentCol {
 
 // ─── 레이아웃 상수 ───────────────────────────────────────
 
-/** 본문 높이 (줄 수) */
-const BODY_H = 10;
-
 /** 칼럼 CLI 순서 */
 const COL_CLIS = ["claude", "codex", "gemini"];
 
@@ -50,8 +50,8 @@ export function sIcon(status: string, frame: number, cli?: string): string {
   if (status === "wait") return PANEL_DIM_COLOR + "○" + ANSI_RESET;
   if (status === "conn" || status === "stream")
     return (DIRECT_MODE_COLORS[cli ?? ""] ?? PANEL_COLOR) + SPINNER_FRAMES[frame % SPINNER_FRAMES.length] + ANSI_RESET;
-  if (status === "done") return "\x1b[38;2;100;200;100m✓" + ANSI_RESET;
-  return "\x1b[38;2;255;80;80m✗" + ANSI_RESET;
+  if (status === "done") return "\x1b[38;2;100;200;100m" + SYM_INDICATOR + ANSI_RESET;
+  return "\x1b[38;2;255;80;80m" + SYM_INDICATOR + ANSI_RESET;
 }
 
 /** 텍스트를 줄 단위로 분리 + 칼럼 폭에 맞게 하드 wrap */
@@ -217,10 +217,10 @@ function buildColContent(col: AgentCol, frame: number, compact: boolean): ColCon
     if (compact || col.text) {
       const first = col.thinking.split("\n").find((l) => l.trim()) ?? "";
       const preview = first.length > 55 ? first.slice(0, 52) + "..." : first;
-      lines.push(`◇ ${preview}`);
+      lines.push(`${SYM_THINKING} ${preview}`);
       colors.push(THINKING_COLOR);
     } else {
-      lines.push("◇ thinking");
+      lines.push(`${SYM_THINKING} thinking`);
       colors.push(THINKING_COLOR);
       for (const l of col.thinking.split("\n")) {
         lines.push(`  ${l}`);
@@ -231,16 +231,23 @@ function buildColContent(col: AgentCol, frame: number, compact: boolean): ColCon
 
   if (col.toolCalls.length > 0) {
     if (compact) {
+      // 3칼럼 compact: 축약 한 줄
       const done = col.toolCalls.filter((tc) => tc.status === "completed").length;
-      lines.push(`◆ ${col.toolCalls.length} tools (${done}✓)`);
+      lines.push(`${SYM_INDICATOR} ${col.toolCalls.length} tools (${done}${SYM_RESULT})`);
       colors.push(TOOLS_COLOR);
     } else {
-      lines.push("◆ tools");
-      colors.push(TOOLS_COLOR);
+      // 독점뷰: 도구별 ⏺ 헤더 + ⎿ 상태
       for (const tc of col.toolCalls) {
-        const icon = tc.status === "completed" ? "✓" : tc.status === "error" ? "✗" : "▶";
-        lines.push(`  ${icon} ${tc.title}`);
+        lines.push(`${SYM_INDICATOR} ${tc.title}`);
         colors.push(TOOLS_COLOR);
+        if (tc.status === "completed") {
+          lines.push(`  ${SYM_RESULT}  completed`);
+          colors.push(TOOLS_COLOR);
+        } else if (tc.status === "error") {
+          lines.push(`  ${SYM_RESULT}  error`);
+          colors.push("\x1b[38;2;255;80;80m");
+        }
+        // running 상태는 헤더만 표시
       }
     }
   }
@@ -350,6 +357,7 @@ function renderExclusive(
   FC: string,
   bottomHint: string,
   activeIndex: number,
+  bodyH: number,
   wave?: WaveConfig,
 ): string[] {
   const col = cols[activeIndex];
@@ -378,8 +386,8 @@ function renderExclusive(
   const content = buildColContent(col, frame, false);
   const wrapped = wrapAllLinesColored(content.lines, content.colors, contentW);
 
-  for (let row = 0; row < BODY_H; row++) {
-    const startLine = Math.max(0, wrapped.lines.length - BODY_H);
+  for (let row = 0; row < bodyH; row++) {
+    const startLine = Math.max(0, wrapped.lines.length - bodyH);
     const lineIdx = startLine + row;
     const line = wrapped.lines[lineIdx] ?? "";
     const lineColor = wrapped.colors[lineIdx] ?? "";
@@ -405,6 +413,7 @@ function renderMultiCol(
   frame: number,
   FC: string,
   bottomHint: string,
+  bodyH: number,
   wave?: WaveConfig,
   activeMode?: string | null,
 ): string[] {
@@ -449,10 +458,10 @@ function renderMultiCol(
     return wrapAllLinesColored(content.lines, content.colors, contentW);
   });
 
-  for (let row = 0; row < BODY_H; row++) {
+  for (let row = 0; row < bodyH; row++) {
     const cells = cols.map((_col, i) => {
       const { lines, colors } = wrappedCols[i];
-      const startLine = Math.max(0, lines.length - BODY_H);
+      const startLine = Math.max(0, lines.length - bodyH);
       const lineIdx = startLine + row;
       const line = lines[lineIdx] ?? "";
       const lineColor = colors[lineIdx] ?? "";
@@ -489,12 +498,13 @@ export function renderPanelFull(
   frameColor: string,
   bottomHint: string,
   activeMode: string | null,
+  bodyH: number,
 ): string[] {
   const FC = frameColor || PANEL_COLOR;
   const activeIndex = activeMode ? COL_CLIS.indexOf(activeMode) : -1;
 
-  // 패널 높이: top(1) + header(1) + sep(1) + body(BODY_H) + bottom(1)
-  const panelH = 3 + BODY_H + 1;
+  // 패널 높이: top(1) + header(1) + sep(1) + body(bodyH) + bottom(1)
+  const panelH = 3 + bodyH + 1;
   const totalDiag = (w - 1) + (panelH - 1);
 
   // 스트리밍 중이면 보더에 대각선 스위프 애니메이션 적용
@@ -504,10 +514,10 @@ export function renderPanelFull(
     : undefined;
 
   if (activeIndex >= 0) {
-    return renderExclusive(w, cols, frame, FC, bottomHint, activeIndex, wave);
+    return renderExclusive(w, cols, frame, FC, bottomHint, activeIndex, bodyH, wave);
   }
 
-  return renderMultiCol(w, cols, frame, FC, bottomHint, wave, activeMode);
+  return renderMultiCol(w, cols, frame, FC, bottomHint, bodyH, wave, activeMode);
 }
 
 
@@ -653,7 +663,7 @@ export function renderModeBanner(
   }
 
   // 우측: 단축키 힌트
-  const rightText = ` ${exitKey} exit · alt+p panel `;
+  const rightText = ` ${exitKey} exit · alt+p panel · j↑ k↓ `;
 
   // 전체 폭 기준 가운데 정렬, 우측 힌트와 겹치면 폴백
   const centerW = visibleWidth(centerPlain);

@@ -8,6 +8,7 @@
  * │ alt+2 → Codex      (에이전트 패널 독점 뷰)            │
  * │ alt+3 → Gemini     (에이전트 패널 독점 뷰)            │
  * │ alt+0 → All        (에이전트 패널 3분할 뷰)           │
+ * │ alt+t → Agent Popup(PTY 네이티브 팝업)               │
  * │ 같은 키 재입력 → 기본 모드 원복                        │
  * │ alt+p → 에이전트 패널 토글                            │
  * │ alt+shift+m → 활성 CLI 모델/추론 설정 변경             │
@@ -47,6 +48,7 @@ import {
 } from "./framework";
 import {
   CLI_DISPLAY_NAMES,
+  CODEX_POPUP_KEY,
   DIRECT_MODE_COLORS,
   DIRECT_MODE_BG_COLORS,
   DIRECT_MODE_KEYS,
@@ -54,9 +56,13 @@ import {
 import { createDirectStreamingRouter } from "./streaming/router";
 import { attachStatusContext, refreshStatusNow } from "./status/index.js";
 import { registerAgentTools } from "./tools/index";
+import { crossReportPrompt } from "./tools/prompts";
+import { buildAgentPopupCommand } from "./popup-command.js";
 
 import type { DirectModeResult } from "./framework";
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
+import { SHELL_POPUP_BRIDGE_KEY } from "../utils-interactive-shell/types.js";
+import type { ShellPopupBridge } from "../utils-interactive-shell/types.js";
 
 // SDK imports — 모델 설정
 import {
@@ -254,6 +260,40 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
 
       syncModelConfig();
       notifyStatusUpdate();
+    },
+  });
+
+  pi.registerShortcut(CODEX_POPUP_KEY, {
+    description: "현재 에이전트 네이티브 팝업 열기",
+    handler: async (ctx) => {
+      const bridge = (globalThis as Record<string, unknown>)[SHELL_POPUP_BRIDGE_KEY] as ShellPopupBridge | undefined;
+      if (!bridge) {
+        ctx.ui.notify("utils-interactive-shell 확장이 로드되지 않았습니다.", "warning");
+        return;
+      }
+
+      if (bridge.isOpen()) {
+        return;
+      }
+
+      const modeId = getActiveModeId();
+      if (modeId !== "claude" && modeId !== "codex" && modeId !== "gemini") {
+        ctx.ui.notify("먼저 다이렉트 모드를 활성화하세요 (alt+1/2/3)", "warning");
+        return;
+      }
+      const agentId = modeId;
+
+      // 현재 활성 CLI의 세션 ID로 resume (없으면 신규 실행)
+      const sessionId = sessionStore.get(agentId as import("@sbluemin/unified-agent").CliType);
+      const command = buildAgentPopupCommand({ agentId: agentId as import("@sbluemin/unified-agent").CliType, sessionId }, ctx, extensionDir);
+      const title = CLI_DISPLAY_NAMES[agentId] ?? agentId;
+
+      try {
+        await bridge.open({ command, title, cwd: ctx.cwd });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        ctx.ui.notify(`팝업 실행 실패: ${message}`, "error");
+      }
     },
   });
 
@@ -521,8 +561,31 @@ function registerAllMode(
       stopAgentStreaming(ctx);
 
       const finalCols = getAgentPanelCols();
+      const rawContent = colsToMarkdown(finalCols);
+
+      // 모든 에이전트가 성공적으로 응답한 경우, PI가 교차 보고서를 자동 생성
+      const doneCount = finalCols.filter((c) => c.status === "done").length;
+      if (doneCount >= 2) {
+        const prompt = crossReportPrompt(
+          request,
+          finalCols
+            .filter((c) => c.status === "done")
+            .map((c) => ({
+              cli: c.cli,
+              displayName: CLI_DISPLAY_NAMES[c.cli] ?? c.cli,
+              text: c.text,
+            })),
+        );
+        // executeDirectMode가 all-response 메시지를 전송한 후 실행되도록 지연
+        // source="extension"이므로 다이렉트 모드 input 핸들러를 우회하여
+        // PI의 현재 프로바이더/모델이 직접 교차 보고서를 생성
+        setTimeout(() => {
+          pi.sendUserMessage(prompt);
+        }, 0);
+      }
+
       return {
-        content: colsToMarkdown(finalCols),
+        content: rawContent,
         details: {
           cli: "all",
           columns: finalCols.map((c) => ({ cli: c.cli, status: c.status })),

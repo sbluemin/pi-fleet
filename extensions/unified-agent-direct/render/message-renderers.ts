@@ -7,7 +7,7 @@
 
 import { getMarkdownTheme } from "@mariozechner/pi-coding-agent";
 import { Container, Markdown, Spacer, Text, visibleWidth } from "@mariozechner/pi-tui";
-import { ANSI_RESET, PREVIEW_LINES } from "../constants";
+import { ANSI_RESET, PREVIEW_LINES, SYM_INDICATOR, SYM_RESULT, SYM_THINKING } from "../constants";
 import type { DirectModeConfig } from "../framework";
 
 /**
@@ -48,7 +48,7 @@ export function createDefaultResponseRenderer(config: DirectModeConfig) {
     const toolCalls = details?.toolCalls ?? [];
 
     // 아이콘 + 이름 헤더 (세션 정보 포함)
-    const icon = isError ? theme.fg("error", "✗") : theme.fg("success", "✓");
+    const icon = isError ? theme.fg("error", SYM_INDICATOR) : theme.fg("success", SYM_INDICATOR);
     const nameStyled = color
       ? `${color}${theme.bold(config.displayName)}${ANSI_RESET}`
       : theme.fg("accent", theme.bold(config.displayName));
@@ -72,13 +72,13 @@ export function createDefaultResponseRenderer(config: DirectModeConfig) {
     // thinking 블록
     if (thinkingText) {
       if (options.expanded) {
-        inner.addChild(new Text(theme.fg("muted", "◇ thinking"), 0, 0));
+        inner.addChild(new Text(theme.fg("muted", `${SYM_THINKING} thinking`), 0, 0));
         inner.addChild(new Text(theme.fg("dim", thinkingText), 0, 0));
         inner.addChild(new Spacer(1));
       } else {
         const firstLine = thinkingText.split("\n").find((l: string) => l.trim()) ?? "";
         const preview = firstLine.length > 60 ? firstLine.slice(0, 57) + "..." : firstLine;
-        inner.addChild(new Text(theme.fg("dim", `◇ ${preview}`), 0, 0));
+        inner.addChild(new Text(theme.fg("dim", `${SYM_THINKING} ${preview}`), 0, 0));
         inner.addChild(new Spacer(1));
       }
     }
@@ -86,20 +86,22 @@ export function createDefaultResponseRenderer(config: DirectModeConfig) {
     // toolCalls 블록
     if (toolCalls.length > 0) {
       if (options.expanded) {
-        inner.addChild(new Text(theme.fg("muted", "◆ tools"), 0, 0));
         for (const tc of toolCalls) {
-          const statusIcon = tc.status === "completed"
-            ? theme.fg("success", "✓")
-            : tc.status === "error"
-              ? theme.fg("error", "✗")
-              : theme.fg("dim", "▶");
-          inner.addChild(new Text(`  ${statusIcon} ${theme.fg("dim", tc.title)}`, 0, 0));
+          // 각 도구마다 ⏺ 헤더
+          const toolColor = tc.status === "error" ? "error" : "muted";
+          inner.addChild(new Text(theme.fg(toolColor, `${SYM_INDICATOR} ${tc.title}`), 0, 0));
+          // 완료/에러 시 ⎿ 결과 줄
+          if (tc.status === "completed") {
+            inner.addChild(new Text(theme.fg("dim", `  ${SYM_RESULT}  completed`), 0, 0));
+          } else if (tc.status === "error") {
+            inner.addChild(new Text(theme.fg("error", `  ${SYM_RESULT}  error`), 0, 0));
+          }
         }
         inner.addChild(new Spacer(1));
       } else {
         const completed = toolCalls.filter((tc: any) => tc.status === "completed").length;
         inner.addChild(new Text(
-          theme.fg("dim", `◆ ${toolCalls.length} tool calls (${completed} completed)`),
+          theme.fg("dim", `${SYM_INDICATOR} ${toolCalls.length} tools (${completed} completed)`),
           0, 0,
         ));
         inner.addChild(new Spacer(1));

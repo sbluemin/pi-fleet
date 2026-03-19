@@ -3,7 +3,7 @@
  */
 
 import { visibleWidth } from "@mariozechner/pi-tui";
-import { ANSI_RE, ANSI_RESET, BORDER } from "../constants";
+import { ANSI_RE, ANSI_RESET, BORDER, SYM_INDICATOR, SYM_RESULT, SYM_THINKING } from "../constants";
 
 /**
  * ANSI 코드 포함 문자열을 터미널 width에 맞게 잘라냅니다.
@@ -91,19 +91,24 @@ export function buildStreamingPreview(state: StreamingState): string {
     if (state.response) {
       const firstLine = state.thinking.split("\n").find((l) => l.trim()) ?? "";
       const preview = firstLine.length > 60 ? firstLine.slice(0, 57) + "..." : firstLine;
-      sections.push(`◇ ${preview}`);
+      sections.push(`${SYM_THINKING} ${preview}`);
     } else {
-      sections.push("◇ thinking\n" + state.thinking);
+      sections.push(`${SYM_THINKING} thinking\n` + state.thinking);
     }
   }
 
-  // 도구 호출 (항상 표시)
+  // 도구 호출 (항상 표시) — Claude Code 스타일 (⏺/⎿)
   if (state.toolCalls.length > 0) {
-    const toolLines = state.toolCalls.map((tc) => {
-      const icon = tc.status === "completed" ? "✓" : tc.status === "error" ? "✗" : "▶";
-      return `  ${icon} ${tc.title}`;
-    });
-    sections.push("◆ tools\n" + toolLines.join("\n"));
+    const toolLines: string[] = [];
+    for (const tc of state.toolCalls) {
+      toolLines.push(`${SYM_INDICATOR} ${tc.title}`);
+      if (tc.status === "completed") {
+        toolLines.push(`  ${SYM_RESULT}  completed`);
+      } else if (tc.status === "error") {
+        toolLines.push(`  ${SYM_RESULT}  error`);
+      }
+    }
+    sections.push(toolLines.join("\n"));
   }
 
   // 응답 텍스트
