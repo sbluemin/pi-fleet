@@ -1,5 +1,5 @@
 /**
- * unified-agent-tools — 스트리밍 위젯 렌더러
+ * unified-agent-direct/tools — 스트리밍 위젯 렌더러
  *
  * 도구 실행 중 aboveEditor 위젯으로 에이전트 응답을 실시간 표시합니다.
  * 100ms 애니메이션 타이머로 갱신하며, destroy() 시 위젯을 제거합니다.
@@ -7,7 +7,8 @@
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { visibleWidth, truncateToWidth, wrapTextWithAnsi } from "@mariozechner/pi-tui";
-import type { AgentStatus } from "../unified-agent-core/types";
+import type { AgentStatus } from "../../unified-agent-core/types";
+import type { CollectedStreamData } from "../streaming/mirror";
 import {
   DIRECT_MODE_COLORS,
   DIRECT_MODE_BG_COLORS,
@@ -17,7 +18,7 @@ import {
   ANSI_RESET,
   STREAMING_PREVIEW_LINES,
   PREVIEW_LINES,
-} from "../unified-agent-direct/constants";
+} from "../constants";
 
 // ─── 스트리밍 위젯 상태 ──────────────────────────────────
 
@@ -115,6 +116,8 @@ export interface StreamingWidget {
   finish(): void;
   fail(error: string): void;
   destroy(): void;
+  /** 누적된 스트리밍 데이터를 반환합니다. */
+  getCollectedData(): CollectedStreamData;
 }
 
 /**
@@ -156,6 +159,14 @@ export function createStreamingWidget(
       mgr.streams.delete(cli);
       cleanupToolIfEmpty(mgr);
       if (mgr.streams.size > 0) syncToolWidget(mgr);
+    },
+    getCollectedData(): CollectedStreamData {
+      return {
+        text: state.responseText,
+        thinking: state.thinkingText,
+        toolCalls: state.toolCalls.map((tc) => ({ ...tc })),
+        lastStatus: state.agentStatus,
+      };
     },
   };
 }

@@ -18,7 +18,7 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { setAgentPanelMode, hideAgentPanel } from "./agent-panel";
-import { createDefaultUserRenderer, createDefaultResponseRenderer } from "./renderers";
+import { createDefaultUserRenderer, createDefaultResponseRenderer } from "./render/message-renderers";
 
 // ─── 공개 타입 ───────────────────────────────────────────
 

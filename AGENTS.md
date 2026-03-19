@@ -9,6 +9,7 @@
 
 | Path | Description |
 |------|-------------|
+| `packages/` | Embedded first-party libraries (e.g., `unified-agent`) |
 | `extensions/` | Collection of pi extensions and shared libraries (refer to its own `AGENTS.md`) |
 
 > Currently, there is no `pi/` directory — symlink setup is not required.

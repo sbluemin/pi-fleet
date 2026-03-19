@@ -36,18 +36,24 @@ import {
   updateAgentCol,
   getAgentPanelCols,
 } from "./agent-panel";
-import type { AgentCol } from "./agent-panel-renderer";
+import type { AgentCol } from "./render/panel-renderer";
 
 // 프레임워크 + 상수
-import { registerCustomDirectMode, notifyStatusUpdate, onStatusUpdate, getActiveModeId } from "./framework";
+import {
+  registerCustomDirectMode,
+  notifyStatusUpdate,
+  onStatusUpdate,
+  getActiveModeId,
+} from "./framework";
 import {
   CLI_DISPLAY_NAMES,
   DIRECT_MODE_COLORS,
   DIRECT_MODE_BG_COLORS,
   DIRECT_MODE_KEYS,
 } from "./constants";
-import { createDirectStreamingRouter } from "./direct-streaming-router";
+import { createDirectStreamingRouter } from "./streaming/router";
 import { attachStatusContext, refreshStatusNow } from "./status/index.js";
+import { registerAgentTools } from "./tools/index";
 
 import type { DirectModeResult } from "./framework";
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
@@ -204,6 +210,9 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
 
   // ── 에이전트 패널 단축키 등록 ──
   registerAgentPanelShortcut(pi);
+
+  // ── 개별 에이전트 도구 등록 (claude, codex, gemini) ──
+  registerAgentTools({ pi, configDir: extensionDir, sessionStore });
 
   // ── Per-CLI 모델 변경 단축키 ──
   pi.registerShortcut("alt+shift+m", {
@@ -388,12 +397,15 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
 
           router.finish(result);
 
+          const collected = router.getCollectedData();
           return {
             content: result.responseText || (result.status === "aborted" ? "(aborted)" : "(no output)"),
             details: {
               cli,
               sessionId: result.connectionInfo?.sessionId ?? undefined,
               error: result.status !== "done" ? true : undefined,
+              thinking: collected.thinking || undefined,
+              toolCalls: collected.toolCalls.length > 0 ? collected.toolCalls : undefined,
             },
           };
         } catch (error) {

@@ -30,13 +30,13 @@ import {
   renderModeBanner,
   waveText,
   MODE_RGB,
-} from "./agent-panel-renderer";
-import type { AgentCol } from "./agent-panel-renderer";
+} from "./render/panel-renderer";
+import type { AgentCol } from "./render/panel-renderer";
 import { renderServiceStatusToken } from "./status/ui.js";
 import type { ServiceSnapshot } from "./status/types.js";
 
 // 편의를 위한 re-export
-export type { AgentCol } from "./agent-panel-renderer";
+export type { AgentCol } from "./render/panel-renderer";
 
 // ─── 상수 ────────────────────────────────────────────────
 

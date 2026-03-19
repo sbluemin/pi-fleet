@@ -3,7 +3,7 @@
  */
 
 import { visibleWidth } from "@mariozechner/pi-tui";
-import { ANSI_RE, ANSI_RESET, BORDER } from "./constants";
+import { ANSI_RE, ANSI_RESET, BORDER } from "../constants";
 
 /**
  * ANSI 코드 포함 문자열을 터미널 width에 맞게 잘라냅니다.

@@ -14,8 +14,7 @@ Do not create intermediate layers that simply wrap official TUI APIs (e.g., `set
 |-----------|------|------------|
 | `hud-editor/` | Custom editor + status bar + footer | `index.ts` (wiring), `editor.ts` (editor/footer/widget UI) |
 | `hud-welcome/` | Welcome overlay/header | `index.ts` (wiring), `welcome.ts` (UI), `types.ts` (globalThis types) |
-| `unified-agent-direct/` | 4 Direct modes (alt+1~4) | `index.ts` (wiring), `agent-panel.ts`, `agent-panel-renderer.ts`, etc. |
-| `unified-agent-tools/` | Individual agent tools (claude/codex/gemini) | `index.ts` (wiring), `renderer.ts` (streaming widget) |
+| `unified-agent-direct/` | 4 Direct modes (alt+1~4) + individual agent tools | `index.ts` (wiring), `agent-panel.ts`, `render/`, `tools/`, etc. |
 | `utils-improve-prompt/` | Meta-prompting (alt+m), reasoning level cycle (alt+r) | `index.ts` (wiring), `ui.ts` (status bar widget) |
 | `hud-thinking-timer/` | Inline elapsed-time display for Thinking blocks | `index.ts` (wiring), `timer.ts` (patch/store/ticker) |
 | `utils-summarize/` | Auto one-line session summary | `index.ts` (wiring), `ui.ts` (status bar widget) |

@@ -8,8 +8,7 @@ A multi-LLM orchestration kit for [pi-coding-agent](https://github.com/badlogic/
 
 | Extension | Description |
 |-----------|-------------|
-| `unified-agent-direct` | Direct mode — `Alt+1/2/3` exclusive view, `Alt+0` tri-split view, `Alt+P` panel toggle |
-| `unified-agent-tools` | Register `claude`, `codex`, `gemini` as individual pi tools with streaming widget |
+| `unified-agent-direct` | Direct mode — `Alt+1/2/3` exclusive view, `Alt+0` tri-split view, `Alt+P` panel toggle + individual agent tools |
 | `hud-editor` | Custom status bar editor + footer |
 | `hud-welcome` | Welcome overlay on session start |
 | `hud-thinking-timer` | Inline elapsed-time display next to collapsed Thinking blocks |
@@ -21,7 +20,7 @@ A multi-LLM orchestration kit for [pi-coding-agent](https://github.com/badlogic/
 | Library | Description | Used by |
 |---------|-------------|---------|
 | `hud-core` | Status bar rendering engine (segments, layout, colors, themes, git-status, icons, context builder) | `hud-editor`, `hud-welcome` |
-| `unified-agent-core` | Shared agent logic (client pool, executor, session map, model config) | `unified-agent-direct`, `unified-agent-tools` |
+| `unified-agent-core` | Shared agent logic (client pool, executor, session map, model config) | `unified-agent-direct` |
 
 ## Setup
 

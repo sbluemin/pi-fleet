@@ -20,7 +20,7 @@ import {
   PANEL_DIM_COLOR,
   THINKING_COLOR,
   TOOLS_COLOR,
-} from "./constants";
+} from "../constants";
 
 // ─── 에이전트 칼럼 타입 ──────────────────────────────────
 

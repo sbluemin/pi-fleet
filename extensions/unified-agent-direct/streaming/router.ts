@@ -2,21 +2,22 @@
  * unified-agent-direct — 스트리밍 출력 라우터
  *
  * 패널 상태에 따라 스트리밍 출력을 동적으로 라우팅합니다:
- * - 패널 펼침 → 패널 칼럼에만 반영 (panelMirror)
- * - 패널 접힘 → 패널 칼럼 + 독립 aboveEditor 합성 위젯 동시 반영
+ * - 패널 펼침 → mirror(패널 칼럼)에만 반영
+ * - 패널 접힘 → mirror + 독립 aboveEditor 합성 위젯 동시 반영
  *
- * 동시 실행되는 여러 CLI 스트림을 하나의 위젯(하나의 타이머)으로
- * 합성 렌더링하여 깜빡임을 방지합니다.
+ * 데이터 누적은 mirror가 단일 책임으로 관리하며,
+ * 라우터는 위젯 라우팅과 getCollectedData() 위임만 담당합니다.
  */
 
 import type { CliType } from "@sbluemin/unified-agent";
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
-import type { AgentStatus, ExecuteResult } from "../unified-agent-core/types";
-import type { StreamState } from "../unified-agent-tools/renderer";
-import { renderStream } from "../unified-agent-tools/renderer";
-import { ANIM_INTERVAL_MS } from "./constants";
-import { createDirectPanelMirror } from "./direct-panel-mirror";
-import { isAgentPanelExpanded, onPanelToggle } from "./agent-panel";
+import type { AgentStatus, ExecuteResult } from "../../unified-agent-core/types";
+import type { StreamState } from "../tools/streaming-widget";
+import { renderStream } from "../tools/streaming-widget";
+import { ANIM_INTERVAL_MS } from "../constants";
+import { createStreamingMirror } from "./mirror";
+import type { CollectedStreamData } from "./mirror";
+import { isAgentPanelExpanded, onPanelToggle } from "../agent-panel";
 
 // ─── 합성 위젯 매니저 (globalThis 싱글턴) ────────────────
 
@@ -121,13 +122,7 @@ function unregisterStream(cli: string): void {
 // ─── 라우터 공개 API ──────────────────────────────────────
 
 export function createDirectStreamingRouter(ctx: ExtensionContext, cli: CliType) {
-  const panelMirror = createDirectPanelMirror(ctx, cli);
-
-  // 누적 상태 (패널 토글 시 합성 위젯에 리플레이)
-  let accText = "";
-  let accThinking = "";
-  const accToolCalls: { title: string; status: string }[] = [];
-  let lastStatus: AgentStatus = "connecting";
+  const mirror = createStreamingMirror(ctx, cli);
 
   let streamState: StreamState | null = null;
   let unsubToggle: (() => void) | null = null;
@@ -135,15 +130,16 @@ export function createDirectStreamingRouter(ctx: ExtensionContext, cli: CliType)
   function activateWidget() {
     if (streamState) return;
     streamState = registerStream(ctx, cli);
-    // 누적 데이터 리플레이
-    if (accThinking) streamState.thinkingText = accThinking;
-    for (const tc of accToolCalls) {
+    // mirror에서 누적 데이터 가져와 위젯에 리플레이
+    const collected = mirror.getCollectedData();
+    if (collected.thinking) streamState.thinkingText = collected.thinking;
+    for (const tc of collected.toolCalls) {
       const existing = streamState.toolCalls.find((t) => t.title === tc.title);
       if (existing) existing.status = tc.status;
       else streamState.toolCalls.push({ ...tc });
     }
-    if (accText) streamState.responseText = accText;
-    streamState.agentStatus = lastStatus;
+    if (collected.text) streamState.responseText = collected.text;
+    streamState.agentStatus = collected.lastStatus;
   }
 
   function deactivateWidget() {
@@ -162,7 +158,7 @@ export function createDirectStreamingRouter(ctx: ExtensionContext, cli: CliType)
 
   return {
     start() {
-      panelMirror.start();
+      mirror.start();
       if (!isAgentPanelExpanded()) {
         activateWidget();
       }
@@ -170,29 +166,22 @@ export function createDirectStreamingRouter(ctx: ExtensionContext, cli: CliType)
     },
 
     onStatusChange(status: AgentStatus) {
-      lastStatus = status;
-      panelMirror.onStatusChange(status);
+      mirror.onStatusChange(status);
       if (streamState) streamState.agentStatus = status;
     },
 
     onMessageChunk(text: string) {
-      accText += text;
-      panelMirror.onMessageChunk(text);
+      mirror.onMessageChunk(text);
       if (streamState) streamState.responseText += text;
     },
 
     onThoughtChunk(text: string) {
-      accThinking += text;
-      panelMirror.onThoughtChunk(text);
+      mirror.onThoughtChunk(text);
       if (streamState) streamState.thinkingText += text;
     },
 
     onToolCall(title: string, status: string) {
-      const existing = accToolCalls.find((tc) => tc.title === title);
-      if (existing) existing.status = status;
-      else accToolCalls.push({ title, status });
-
-      panelMirror.onToolCall(title, status);
+      mirror.onToolCall(title, status);
       if (streamState) {
         const stExisting = streamState.toolCalls.find((tc) => tc.title === title);
         if (stExisting) stExisting.status = status;
@@ -201,22 +190,27 @@ export function createDirectStreamingRouter(ctx: ExtensionContext, cli: CliType)
     },
 
     finish(result: ExecuteResult) {
-      panelMirror.finish(result);
+      mirror.finish(result);
       if (streamState) streamState.agentStatus = "done";
     },
 
     fail(error: string) {
-      panelMirror.fail(error);
+      mirror.fail(error);
       if (streamState) streamState.agentStatus = "error";
     },
 
     stop() {
-      panelMirror.stop();
+      mirror.stop();
       deactivateWidget();
       if (unsubToggle) {
         unsubToggle();
         unsubToggle = null;
       }
+    },
+
+    /** 누적된 스트리밍 데이터를 반환합니다 (mirror에 위임). */
+    getCollectedData(): CollectedStreamData {
+      return mirror.getCollectedData();
     },
   };
 }

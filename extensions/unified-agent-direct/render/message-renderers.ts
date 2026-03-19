@@ -7,8 +7,8 @@
 
 import { getMarkdownTheme } from "@mariozechner/pi-coding-agent";
 import { Container, Markdown, Spacer, Text, visibleWidth } from "@mariozechner/pi-tui";
-import { ANSI_RESET, PREVIEW_LINES } from "./constants";
-import type { DirectModeConfig } from "./framework";
+import { ANSI_RESET, PREVIEW_LINES } from "../constants";
+import type { DirectModeConfig } from "../framework";
 
 /**
  * 기본 사용자 입력 렌더러를 생성합니다.

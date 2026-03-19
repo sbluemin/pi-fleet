@@ -1,5 +1,5 @@
 /**
- * unified-agent-tools — 개별 에이전트 도구 등록 확장
+ * unified-agent-direct/tools — 개별 에이전트 도구 등록
  *
  * claude, codex, gemini 3개의 LLM 도구를 등록합니다.
  * 각 도구는 해당 에이전트에 작업을 위임하고,
@@ -7,15 +7,12 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
-import type { CliType } from "../unified-agent-core/types";
+import type { CliType } from "../../unified-agent-core/types";
 import { Type } from "@sinclair/typebox";
-import * as path from "node:path";
-import { fileURLToPath } from "node:url";
 
-import { createSessionMapStore, migrateSessionMaps } from "../unified-agent-core/session-map";
-import { migrateSelectedModels } from "../unified-agent-core/model-config";
-import { executeWithPool } from "../unified-agent-core/executor";
-import { createStreamingWidget } from "./renderer";
+import type { SessionMapStore } from "../../unified-agent-core/session-map";
+import { executeWithPool } from "../../unified-agent-core/executor";
+import { createStreamingWidget } from "./streaming-widget";
 import { Text } from "@mariozechner/pi-tui";
 
 const CLI_NAMES: Record<string, string> = {
@@ -24,26 +21,20 @@ const CLI_NAMES: Record<string, string> = {
   gemini: "Gemini",
 };
 
-export default function unifiedAgentToolsExtension(pi: ExtensionAPI) {
-  const extensionDir = path.dirname(fileURLToPath(import.meta.url));
-  // 레거시 마이그레이션 소스
-  const legacySdkDir = path.resolve(extensionDir, "../unified-agent-core");
+export interface RegisterAgentToolsConfig {
+  /** pi ExtensionAPI 인스턴스 */
+  pi: ExtensionAPI;
+  /** 확장 디렉토리 (모델 설정 파일 경로) */
+  configDir: string;
+  /** 세션 매핑 저장소 (부모와 공유) */
+  sessionStore: SessionMapStore;
+}
 
-  // 세션 스토어 초기화 (이 확장 자체 디렉토리에 저장)
-  const sessionDir = path.join(extensionDir, "session-maps");
-  migrateSessionMaps(path.join(legacySdkDir, "session-maps"), sessionDir);
-  const sessionStore = createSessionMapStore(sessionDir);
-
-  // 모델 설정 마이그레이션 (레거시 SDK → 확장 디렉토리)
-  migrateSelectedModels(legacySdkDir, extensionDir);
-
-  // 세션 변경 시 매핑 복원
-  for (const event of ["session_start", "session_switch", "session_fork", "session_tree"] as const) {
-    pi.on(event, async (_event, ctx) => {
-      sessionStore.restore(ctx.sessionManager.getSessionId());
-    });
-  }
-
+/**
+ * 개별 에이전트 도구(claude, codex, gemini)를 pi에 등록합니다.
+ * unified-agent-direct의 진입점에서 호출됩니다.
+ */
+export function registerAgentTools({ pi, configDir, sessionStore }: RegisterAgentToolsConfig): void {
   const cliTypes: CliType[] = ["claude", "codex", "gemini"];
 
   for (const cli of cliTypes) {
@@ -91,7 +82,7 @@ export default function unifiedAgentToolsExtension(pi: ExtensionAPI) {
             cli,
             request,
             cwd: ctx.cwd,
-            configDir: extensionDir,
+            configDir,
             sessionStore,
             signal,
             onMessageChunk: (text) => widget.onMessage(text),
@@ -102,12 +93,15 @@ export default function unifiedAgentToolsExtension(pi: ExtensionAPI) {
 
           widget.finish();
 
+          const collected = widget.getCollectedData();
           return {
             content: [{ type: "text" as const, text: result.responseText || "(no output)" }],
             details: {
               cli,
               sessionId: result.connectionInfo?.sessionId ?? undefined,
               error: result.status !== "done" ? true : undefined,
+              thinking: collected.thinking || undefined,
+              toolCalls: collected.toolCalls.length > 0 ? collected.toolCalls : undefined,
             },
           };
         } catch (error) {

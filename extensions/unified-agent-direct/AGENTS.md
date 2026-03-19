@@ -1,6 +1,6 @@
 # unified-agent-direct
 
-Direct mode **framework** + Direct modes for 4 CLIs (claude/codex/gemini/all) + model selection + status bar + agent panel.
+Direct mode **framework** + Direct modes for 4 CLIs (claude/codex/gemini/all) + individual agent tools + model selection + status bar + agent panel.
 
 ## Core Rules
 
@@ -26,11 +26,14 @@ Direct mode **framework** + Direct modes for 4 CLIs (claude/codex/gemini/all) + 
 
 | File | Role |
 |------|------|
-| `index.ts` | Entry point: Registers 4 CLI modes (claude/codex/gemini/all), model selection command, status bar |
+| `index.ts` | Entry point: Registers 4 CLI modes, agent tools, model selection command, status bar |
 | `framework.ts` | Public API (`registerCustomDirectMode`, `activateMode`, `onStatusUpdate`, etc.). Links agent panel on mode switch |
 | `constants.ts` | Shared constants (colors, spinners, border characters, panel colors) |
-| `renderers.ts` | Default user/response message renderer factory (for chat history) |
-| `ui-utils.ts` | TUI utilities (`makeBorderLine`, `wrapWithSideBorder`, `buildStreamingPreview`) |
 | `agent-panel.ts` | Agent panel state management + API (`setAgentPanelMode`, `show/hide/toggle`, `startStreaming/stop`, `beginCol/endCol`, `updateCol`) |
-| `agent-panel-renderer.ts` | Agent panel rendering (`renderPanelFull` — dynamic switch between 1 col/3 cols based on activeMode, `renderPanelCompact`), `AgentCol` type |
-| `direct-panel-mirror.ts` | Individual CLI execution → Agent panel column streaming bridge (`createDirectPanelMirror`). Reflects thinking/tool calls/responses onto the panel |
+| `streaming/mirror.ts` | Single accumulation point for streaming data + Agent panel column bridge (`createStreamingMirror`, `CollectedStreamData`) |
+| `streaming/router.ts` | Streaming output router — routes to mirror and/or standalone widget based on panel state, delegates data access to mirror |
+| `render/message-renderers.ts` | Default user/response message renderer factory (for chat history) |
+| `render/panel-renderer.ts` | Agent panel rendering (`renderPanelFull`, `renderPanelCompact`, `renderModeBanner`), `AgentCol` type |
+| `render/ui-utils.ts` | TUI utilities (`makeBorderLine`, `wrapWithSideBorder`, `buildStreamingPreview`) |
+| `tools/index.ts` | Registers `claude`, `codex`, `gemini` as individual pi tools with streaming widget |
+| `tools/streaming-widget.ts` | Streaming widget renderer for tool execution (`createStreamingWidget`, composite widget manager) |
