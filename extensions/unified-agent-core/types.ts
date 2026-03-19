@@ -44,6 +44,8 @@ export interface ExecuteOptions {
   cwd: string;
   /** 설정 파일 디렉토리 (selected-models.json 등) */
   configDir: string;
+  /** 세션 매핑 저장소 (executeWithPool 전용, executeOneShot에서는 미사용) */
+  sessionStore?: import("./session-map").SessionMapStore;
   /** 취소 시그널 */
   signal?: AbortSignal;
   /** 메시지 청크 스트리밍 콜백 */

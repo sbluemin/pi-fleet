@@ -14,7 +14,7 @@
 
 import type { ExtensionContext, ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { UA_DIRECT_FOOTER_STATUS_KEY } from "../unified-agent-core/footer-status";
-import { getSessionMap } from "../unified-agent-core/session-map";
+import type { SessionMapStore } from "../unified-agent-core/session-map";
 import {
   ANIM_INTERVAL_MS,
   ANSI_RESET,
@@ -81,6 +81,8 @@ interface AgentPanelState {
   serviceLoading: boolean;
   /** 패널 토글 리스너 */
   toggleCallbacks: Array<(expanded: boolean) => void>;
+  /** 세션 매핑 저장소 (호출처가 주입) */
+  sessionStore: SessionMapStore | null;
 }
 
 function getState(): AgentPanelState {
@@ -101,6 +103,7 @@ function getState(): AgentPanelState {
       serviceLastUpdatedAt: null,
       serviceLoading: false,
       toggleCallbacks: [],
+      sessionStore: null,
     };
     (globalThis as any)[STATE_KEY] = s;
   }
@@ -112,11 +115,15 @@ function getState(): AgentPanelState {
   if (s.serviceLastUpdatedAt === undefined) s.serviceLastUpdatedAt = null;
   if (s.serviceLoading === undefined) s.serviceLoading = false;
   if (!s.toggleCallbacks) s.toggleCallbacks = [];
+  if (s.sessionStore === undefined) s.sessionStore = null;
   return s;
 }
 
 function makeCols(clis?: string[]): AgentCol[] {
-  const sessionMap = getSessionMap() as Readonly<Record<string, string | undefined>>;
+  // getState()를 호출하면 상호 재귀가 발생하므로 globalThis에서 직접 읽음
+  const existing = (globalThis as any)[STATE_KEY] as AgentPanelState | undefined;
+  const store = existing?.sessionStore ?? null;
+  const sessionMap = (store ? store.getAll() : {}) as Readonly<Record<string, string | undefined>>;
   return (clis ?? DEFAULT_CLIS).map((cli) => ({
     cli,
     sessionId: sessionMap[cli],
@@ -129,8 +136,9 @@ function makeCols(clis?: string[]): AgentCol[] {
 }
 
 function syncColSessionIds(): void {
-  const sessionMap = getSessionMap() as Readonly<Record<string, string | undefined>>;
   const s = getState();
+  const store = s.sessionStore;
+  const sessionMap = (store ? store.getAll() : {}) as Readonly<Record<string, string | undefined>>;
 
   for (const col of s.cols) {
     col.sessionId = sessionMap[col.cli];
@@ -520,6 +528,13 @@ export function resetAgentPanel(ctx: ExtensionContext): void {
   }
 
   syncWidget(ctx);
+}
+
+// ─── 세션 스토어 주입 ─────────────────────────────────────
+
+/** 세션 매핑 저장소를 패널 상태에 주입합니다. */
+export function setAgentPanelSessionStore(store: SessionMapStore): void {
+  getState().sessionStore = store;
 }
 
 // ─── 모델 설정 동기화 ──────────────────────────────────────

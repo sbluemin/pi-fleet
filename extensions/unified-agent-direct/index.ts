@@ -21,7 +21,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 // SDK imports
-import { initSessionMap, restoreSessionMap } from "../unified-agent-core/session-map";
+import { createSessionMapStore, migrateSessionMaps } from "../unified-agent-core/session-map";
 import { cleanIdleClients } from "../unified-agent-core/client-pool";
 import { executeWithPool } from "../unified-agent-core/executor";
 
@@ -30,6 +30,7 @@ import {
   refreshAgentPanelFooter,
   registerAgentPanelShortcut,
   setAgentPanelModelConfig,
+  setAgentPanelSessionStore,
   startAgentStreaming,
   stopAgentStreaming,
   updateAgentCol,
@@ -55,6 +56,7 @@ import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import {
   loadSelectedModels,
   saveSelectedModels,
+  migrateSelectedModels,
   getAvailableModels,
   getEffortLevels,
   getDefaultBudgetTokens,
@@ -70,10 +72,10 @@ import type { ModelSelection, SelectedModelsConfig } from "../unified-agent-core
 async function selectModelForCli(
   cli: CliType,
   ctx: ExtensionContext,
-  sdkDir: string,
+  configDir: string,
 ): Promise<ModelSelection | undefined> {
   const cliName = CLI_DISPLAY_NAMES[cli] ?? cli;
-  const previousSelection = loadSelectedModels(sdkDir);
+  const previousSelection = loadSelectedModels(configDir);
   const prev = previousSelection[cli];
 
   let provider;
@@ -183,13 +185,22 @@ async function selectModelForCli(
 
 export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
   const cliTypes: CliType[] = ["claude", "codex", "gemini"];
-  // 설정/세션 데이터는 SDK 디렉토리에 공유 저장 (확장 간 configDir 통일)
-  const sdkDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../unified-agent-core");
+  const extensionDir = path.dirname(fileURLToPath(import.meta.url));
+  // 레거시 마이그레이션 소스 (세션 맵 + 모델 설정)
+  const legacySdkDir = path.resolve(extensionDir, "../unified-agent-core");
 
-  // ── SDK 초기화 ──
-  initSessionMap(sdkDir);
+  // ── 세션 스토어 초기화 (이 확장 자체 디렉토리에 저장) ──
+  const sessionDir = path.join(extensionDir, "session-maps");
+  migrateSessionMaps(path.join(legacySdkDir, "session-maps"), sessionDir);
+  const sessionStore = createSessionMapStore(sessionDir);
+
+  // ── 모델 설정 마이그레이션 (레거시 SDK → 확장 디렉토리) ──
+  migrateSelectedModels(legacySdkDir, extensionDir);
+
+  // 에이전트 패널에 세션 스토어 주입
+  setAgentPanelSessionStore(sessionStore);
   // 초기 모델 설정을 footer에 반영
-  setAgentPanelModelConfig(loadSelectedModels(sdkDir));
+  setAgentPanelModelConfig(loadSelectedModels(extensionDir));
 
   // ── 에이전트 패널 단축키 등록 ──
   registerAgentPanelShortcut(pi);
@@ -216,13 +227,13 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
       }
 
       // 2. Per-CLI 모델 선택
-      const selection = await selectModelForCli(targetCli, ctx, sdkDir);
+      const selection = await selectModelForCli(targetCli, ctx, extensionDir);
       if (!selection) return;
 
       // 3. 기존 설정에 merge 저장 (다른 CLI 설정 보존)
-      const existing = loadSelectedModels(sdkDir);
+      const existing = loadSelectedModels(extensionDir);
       existing[targetCli] = selection;
-      saveSelectedModels(sdkDir, existing);
+      saveSelectedModels(extensionDir, existing);
       cleanIdleClients();
 
       // 4. 알림 + 상태바 갱신
@@ -239,7 +250,7 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
 
   // ── 세션 변경 핸들러 ──
   const onSessionChange = async (ctx: import("@mariozechner/pi-coding-agent").ExtensionContext) => {
-    restoreSessionMap(ctx.sessionManager.getSessionId());
+    sessionStore.restore(ctx.sessionManager.getSessionId());
     cleanIdleClients();
     refreshAgentPanelFooter(ctx);
     await attachStatusContext(ctx);
@@ -290,7 +301,7 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
 
   // ── 모델 설정 → footer 동기화 ──
   function syncModelConfig() {
-    setAgentPanelModelConfig(loadSelectedModels(sdkDir));
+    setAgentPanelModelConfig(loadSelectedModels(extensionDir));
   }
 
   // 외부 확장에서 notifyStatusUpdate 호출 시 footer 갱신
@@ -304,7 +315,7 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
       const selectedModels: SelectedModelsConfig = {};
 
       for (const cli of selectionOrder) {
-        const selection = await selectModelForCli(cli, ctx, sdkDir);
+        const selection = await selectModelForCli(cli, ctx, extensionDir);
         if (selection === undefined) {
           ctx.ui.notify("모델 선택이 취소되었습니다.", "warning");
           return;
@@ -313,7 +324,7 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
       }
 
       // 저장
-      saveSelectedModels(sdkDir, selectedModels);
+      saveSelectedModels(extensionDir, selectedModels);
       cleanIdleClients();
 
       // 요약 알림
@@ -366,7 +377,8 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
             cli,
             request,
             cwd: ctx.cwd,
-            configDir: sdkDir,
+            configDir: extensionDir,
+            sessionStore,
             signal: helpers.signal,
             onMessageChunk: (text) => router.onMessageChunk(text),
             onThoughtChunk: (text) => router.onThoughtChunk(text),
@@ -396,7 +408,7 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
   }
 
   // ── All 모드 (3에이전트 동시 질의) ──
-  registerAllMode(pi, sdkDir);
+  registerAllMode(pi, extensionDir, sessionStore);
 }
 
 // ─── All 모드 헬퍼 ───────────────────────────────────────
@@ -409,7 +421,8 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
 async function queryAgent(
   colIndex: number,
   request: string,
-  sdkDir: string,
+  configDir: string,
+  sessionStore: import("../unified-agent-core/session-map").SessionMapStore,
   cwd: string,
   signal?: AbortSignal,
 ): Promise<void> {
@@ -420,7 +433,8 @@ async function queryAgent(
     cli: col.cli as any,
     request,
     cwd,
-    configDir: sdkDir,
+    configDir,
+    sessionStore,
     signal,
     onMessageChunk: (text) => {
       const c = getAgentPanelCols()[colIndex];
@@ -470,7 +484,11 @@ function colsToMarkdown(cols: AgentCol[]): string {
 }
 
 /** All 다이렉트 모드 등록 */
-function registerAllMode(pi: ExtensionAPI, sdkDir: string) {
+function registerAllMode(
+  pi: ExtensionAPI,
+  configDir: string,
+  sessionStore: import("../unified-agent-core/session-map").SessionMapStore,
+) {
   // ── All 다이렉트 모드 등록 (다른 CLI와 동일한 패턴) ──
   registerCustomDirectMode(pi, {
     id: "all",
@@ -485,7 +503,7 @@ function registerAllMode(pi: ExtensionAPI, sdkDir: string) {
 
       const cols = getAgentPanelCols();
       await Promise.all(
-        cols.map((_, i) => queryAgent(i, request, sdkDir, ctx.cwd, helpers.signal)),
+        cols.map((_, i) => queryAgent(i, request, configDir, sessionStore, ctx.cwd, helpers.signal)),
       );
 
       stopAgentStreaming(ctx);

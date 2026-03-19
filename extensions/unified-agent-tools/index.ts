@@ -12,7 +12,8 @@ import { Type } from "@sinclair/typebox";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { initSessionMap } from "../unified-agent-core/session-map";
+import { createSessionMapStore, migrateSessionMaps } from "../unified-agent-core/session-map";
+import { migrateSelectedModels } from "../unified-agent-core/model-config";
 import { executeWithPool } from "../unified-agent-core/executor";
 import { createStreamingWidget } from "./renderer";
 import { Text } from "@mariozechner/pi-tui";
@@ -24,11 +25,24 @@ const CLI_NAMES: Record<string, string> = {
 };
 
 export default function unifiedAgentToolsExtension(pi: ExtensionAPI) {
-  const sdkDir = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    "../unified-agent-core",
-  );
-  initSessionMap(sdkDir);
+  const extensionDir = path.dirname(fileURLToPath(import.meta.url));
+  // 레거시 마이그레이션 소스
+  const legacySdkDir = path.resolve(extensionDir, "../unified-agent-core");
+
+  // 세션 스토어 초기화 (이 확장 자체 디렉토리에 저장)
+  const sessionDir = path.join(extensionDir, "session-maps");
+  migrateSessionMaps(path.join(legacySdkDir, "session-maps"), sessionDir);
+  const sessionStore = createSessionMapStore(sessionDir);
+
+  // 모델 설정 마이그레이션 (레거시 SDK → 확장 디렉토리)
+  migrateSelectedModels(legacySdkDir, extensionDir);
+
+  // 세션 변경 시 매핑 복원
+  for (const event of ["session_start", "session_switch", "session_fork", "session_tree"] as const) {
+    pi.on(event, async (_event, ctx) => {
+      sessionStore.restore(ctx.sessionManager.getSessionId());
+    });
+  }
 
   const cliTypes: CliType[] = ["claude", "codex", "gemini"];
 
@@ -77,7 +91,8 @@ export default function unifiedAgentToolsExtension(pi: ExtensionAPI) {
             cli,
             request,
             cwd: ctx.cwd,
-            configDir: sdkDir,
+            configDir: extensionDir,
+            sessionStore,
             signal,
             onMessageChunk: (text) => widget.onMessage(text),
             onThoughtChunk: (text) => widget.onThought(text),

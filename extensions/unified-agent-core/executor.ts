@@ -16,7 +16,7 @@ import type {
   ConnectionInfo,
 } from "./types";
 import { disconnectClient, getClientPool, isClientAlive, type PooledClient } from "./client-pool";
-import { getSubSessionId, setSubSessionId, clearSubSessionId } from "./session-map";
+import type { SessionMapStore } from "./session-map";
 import { buildConnectOptions } from "./model-config";
 
 // ─── 도구 호출 최대 보관 수 (메모리 보호) ────────────────
@@ -29,14 +29,24 @@ const MAX_TOOL_CALLS_TO_KEEP = 30;
  * 풀 기반 실행 (agent-tool + direct-mode 공통)
  *
  * 세션 관리 완전 캡슐화:
- *  1. getSubSessionId(cli) → 매핑된 세션이 있으면 connectOpts.sessionId에 설정
- *  2. 연결 성공 → setSubSessionId(cli, id) 자동 저장
- *  3. resume 실패 → clearSubSessionId(cli) + 새 세션 자동 재시도
+ *  1. store.get(cli) → 매핑된 세션이 있으면 connectOpts.sessionId에 설정
+ *  2. 연결 성공 → store.set(cli, id) 자동 저장
+ *  3. resume 실패 → store.clear(cli) + 새 세션 자동 재시도
  *  4. 이미 연결된 경우 direct 프로토콜 세션 ID도 자동 복원
  */
 export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResult> {
   const { cli, request, cwd, configDir, signal } = opts;
   const clientPool = getClientPool();
+
+  // sessionStore가 없으면 no-op (하위 호환 / executeOneShot 경유 방지)
+  const noopStore: SessionMapStore = {
+    restore() {},
+    get() { return undefined; },
+    set() {},
+    clear() {},
+    getAll() { return {}; },
+  };
+  const store = opts.sessionStore ?? noopStore;
 
   // 결과 상태
   let responseText = "";
@@ -165,7 +175,7 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
       const connectOpts = buildConnectOptions(cli, cwd, configDir);
 
       // 세션 매핑에서 저장된 sessionId를 우선 사용
-      const savedSessionId = getSubSessionId(cli) ?? poolEntry?.sessionId;
+      const savedSessionId = store.get(cli) ?? poolEntry?.sessionId;
       if (savedSessionId) {
         connectOpts.sessionId = savedSessionId;
       }
@@ -182,7 +192,7 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
           connectError instanceof Error ? connectError.message : connectError,
         );
 
-        clearSubSessionId(cli);
+        store.clear(cli);
         delete connectOpts.sessionId;
 
         // 실패한 연결 정리 후 클라이언트 재생성
@@ -215,7 +225,7 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
         poolEntry.sessionId = connectionInfo.sessionId;
       }
       if (connectionInfo.sessionId) {
-        setSubSessionId(cli, connectionInfo.sessionId);
+        store.set(cli, connectionInfo.sessionId);
       }
     } else {
       // 이미 연결됨 — 기존 연결 정보 사용
@@ -225,7 +235,7 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
 
       // direct 모드: 세션 매핑에서 복원된 sessionId를 SDK에 반영
       if (info.protocol === "direct") {
-        const savedSessionId = getSubSessionId(cli) ?? poolEntry?.sessionId;
+        const savedSessionId = store.get(cli) ?? poolEntry?.sessionId;
         if (savedSessionId && savedSessionId !== info.sessionId) {
           client.setDirectSessionId(savedSessionId);
           connectionInfo.sessionId = savedSessionId;
@@ -237,7 +247,7 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
         poolEntry.sessionId = connectionInfo.sessionId;
       }
       if (connectionInfo.sessionId) {
-        setSubSessionId(cli, connectionInfo.sessionId);
+        store.set(cli, connectionInfo.sessionId);
       }
     }
 
@@ -254,7 +264,7 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
     if (postSendInfo.sessionId && postSendInfo.sessionId !== connectionInfo.sessionId) {
       connectionInfo.sessionId = postSendInfo.sessionId;
       if (poolEntry) poolEntry.sessionId = postSendInfo.sessionId;
-      setSubSessionId(cli, postSendInfo.sessionId);
+      store.set(cli, postSendInfo.sessionId);
     }
 
     if (!aborted) {

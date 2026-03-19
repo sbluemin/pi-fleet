@@ -62,6 +62,24 @@ export function saveSelectedModels(configDir: string, config: SelectedModelsConf
   fs.writeFileSync(filePath, JSON.stringify(config, null, 2), "utf-8");
 }
 
+// ─── 마이그레이션 유틸 ───────────────────────────────────
+
+/**
+ * 레거시 디렉토리의 selected-models.json을 새 디렉토리로 복사합니다.
+ * 새 디렉토리에 이미 파일이 존재하면 덮어쓰지 않습니다.
+ */
+export function migrateSelectedModels(legacyDir: string, newDir: string): void {
+  try {
+    const legacyFile = path.join(legacyDir, SELECTED_MODELS_FILE);
+    const newFile = path.join(newDir, SELECTED_MODELS_FILE);
+    if (fs.existsSync(legacyFile) && !fs.existsSync(newFile)) {
+      fs.copyFileSync(legacyFile, newFile);
+    }
+  } catch {
+    // 마이그레이션 실패 무시
+  }
+}
+
 // ─── 프로바이더 정보 조회 ───────────────────────────────
 
 /**

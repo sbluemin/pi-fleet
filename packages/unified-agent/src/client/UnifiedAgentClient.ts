@@ -60,11 +60,6 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
   private sessionCwd: string | null = null;
   private detector = new CliDetector();
 
-  /** 현재 프롬프트에서 텍스트가 emit된 적 있는지 */
-  private hasPendingText = false;
-  /** 다음 messageChunk 앞에 턴 구분자(\n\n) 삽입이 필요한지 */
-  private needsTurnSeparator = false;
-
   /** 타입 안전한 이벤트 리스너 등록 */
   on<K extends keyof UnifiedClientEvents>(
     event: K,
@@ -95,24 +90,6 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
     ...args: UnifiedClientEvents[K]
   ): boolean {
     return super.emit(event, ...args);
-  }
-
-  /** messageChunk 전파 (턴 경계 구분자 삽입 포함) */
-  private forwardMessageChunk(text: string, sessionId: string): void {
-    if (this.needsTurnSeparator) {
-      this.needsTurnSeparator = false;
-      text = '\n\n' + text;
-    }
-    this.hasPendingText = true;
-    this.emitTyped('messageChunk', text, sessionId);
-  }
-
-  /** toolCall 전파 (텍스트가 있었으면 턴 경계 플래그 설정) */
-  private forwardToolCall(title: string, status: string, sessionId: string): void {
-    if (this.hasPendingText) {
-      this.needsTurnSeparator = true;
-    }
-    this.emitTyped('toolCall', title, status, sessionId);
   }
 
   /**
@@ -273,9 +250,6 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
    * @returns 프롬프트 처리 결과
    */
   async sendMessage(content: string | AcpContentBlock[]): Promise<PromptResponse> {
-    this.hasPendingText = false;
-    this.needsTurnSeparator = false;
-
     // Direct 모드 실행
     if (this.directOptions && this.activeCli) {
       if (typeof content !== 'string') {
@@ -559,13 +533,13 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
       this.emitTyped('userMessageChunk', text, sessionId);
     });
     this.acpConnection.on('messageChunk', (text: string, sessionId: string) => {
-      this.forwardMessageChunk(text, sessionId);
+      this.emitTyped('messageChunk', text, sessionId);
     });
     this.acpConnection.on('thoughtChunk', (text: string, sessionId: string) => {
       this.emitTyped('thoughtChunk', text, sessionId);
     });
     this.acpConnection.on('toolCall', (title: string, status: string, sessionId: string) => {
-      this.forwardToolCall(title, status, sessionId);
+      this.emitTyped('toolCall', title, status, sessionId);
     });
     this.acpConnection.on('plan', (plan: string, sessionId: string) => {
       this.emitTyped('plan', plan, sessionId);
@@ -606,10 +580,10 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
     // 논리적 연결 상태(directState)를 직접 관리하여 상태 불일치 방지.
     // (프로세스가 턴 단위로 종료되더라도 SDK 레벨에서는 세션이 유지됨)
     this.directConnection.on('messageChunk', (text: string, sessionId: string) => {
-      this.forwardMessageChunk(text, sessionId);
+      this.emitTyped('messageChunk', text, sessionId);
     });
     this.directConnection.on('toolCall', (title: string, status: string, sessionId: string) => {
-      this.forwardToolCall(title, status, sessionId);
+      this.emitTyped('toolCall', title, status, sessionId);
     });
     this.directConnection.on('promptComplete', (sessionId: string) => {
       this.emitTyped('promptComplete', sessionId);
