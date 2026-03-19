@@ -180,12 +180,18 @@ export function createDirectStreamingRouter(ctx: ExtensionContext, cli: CliType)
       if (streamState) streamState.thinkingText += text;
     },
 
-    onToolCall(title: string, status: string) {
-      mirror.onToolCall(title, status);
+    onToolCall(title: string, status: string, rawOutput?: string) {
+      mirror.onToolCall(title, status, rawOutput);
       if (streamState) {
         const stExisting = streamState.toolCalls.find((tc) => tc.title === title);
-        if (stExisting) stExisting.status = status;
-        else streamState.toolCalls.push({ title, status });
+        if (stExisting) {
+          stExisting.status = status;
+          if (rawOutput !== undefined) {
+            stExisting.rawOutput = rawOutput;
+          }
+        } else {
+          streamState.toolCalls.push({ title, status, rawOutput });
+        }
       }
     },
 

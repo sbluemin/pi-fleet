@@ -27,7 +27,7 @@ import {
 export interface StreamState {
   responseText: string;
   thinkingText: string;
-  toolCalls: { title: string; status: string }[];
+  toolCalls: { title: string; status: string; rawOutput?: string }[];
   agentStatus: AgentStatus;
   frame: number;
   timer: ReturnType<typeof setInterval> | null;
@@ -113,7 +113,7 @@ function cleanupToolIfEmpty(mgr: ToolStreamManager): void {
 export interface StreamingWidget {
   onMessage(text: string): void;
   onThought(text: string): void;
-  onToolCall(title: string, status: string): void;
+  onToolCall(title: string, status: string, rawOutput?: string): void;
   onStatus(status: AgentStatus): void;
   finish(): void;
   fail(error: string): void;
@@ -149,10 +149,16 @@ export function createStreamingWidget(
   return {
     onMessage(text) { state.responseText += text; },
     onThought(text) { state.thinkingText += text; },
-    onToolCall(title, status) {
+    onToolCall(title, status, rawOutput) {
       const existing = state.toolCalls.find((tc) => tc.title === title);
-      if (existing) existing.status = status;
-      else state.toolCalls.push({ title, status });
+      if (existing) {
+        existing.status = status;
+        if (rawOutput !== undefined) {
+          existing.rawOutput = rawOutput;
+        }
+      } else {
+        state.toolCalls.push({ title, status, rawOutput });
+      }
     },
     onStatus(status) { state.agentStatus = status; },
     finish() { state.agentStatus = "done"; syncToolWidget(mgr); },

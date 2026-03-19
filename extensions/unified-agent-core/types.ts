@@ -14,6 +14,8 @@ export interface ToolCallInfo {
   title: string;
   /** 도구 호출 상태 (e.g., "running", "complete", "error") */
   status: string;
+  /** 도구 결과 텍스트 (content/rawOutput를 평탄화한 문자열) */
+  rawOutput?: string;
   /** 타임스탬프 */
   timestamp: number;
 }
@@ -53,7 +55,7 @@ export interface ExecuteOptions {
   /** 사고 과정 청크 스트리밍 콜백 */
   onThoughtChunk?: (text: string) => void;
   /** 도구 호출 콜백 */
-  onToolCall?: (title: string, status: string) => void;
+  onToolCall?: (title: string, status: string, rawOutput?: string) => void;
   /** 연결 완료 콜백 (연결 정보 전달) */
   onConnected?: (info: ConnectionInfo) => void;
   /** 상태 변경 콜백 */

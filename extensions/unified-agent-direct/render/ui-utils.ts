@@ -73,7 +73,7 @@ export function wrapWithSideBorder(
 
 export interface StreamingState {
   thinking: string;
-  toolCalls: { title: string; status: string }[];
+  toolCalls: { title: string; status: string; rawOutput?: string }[];
   response: string;
 }
 

@@ -23,6 +23,71 @@ import { buildConnectOptions } from "./model-config";
 
 const MAX_TOOL_CALLS_TO_KEEP = 30;
 
+type ToolCallLike = {
+  content?: unknown;
+  rawOutput?: unknown;
+};
+
+function extractToolResultText(data?: ToolCallLike): string | undefined {
+  if (!data) return undefined;
+
+  const contentText = extractContentText(data.content);
+  if (contentText) {
+    return contentText;
+  }
+
+  if (data.rawOutput !== undefined && data.rawOutput !== null) {
+    return typeof data.rawOutput === "string"
+      ? data.rawOutput
+      : JSON.stringify(data.rawOutput, null, 2);
+  }
+
+  return undefined;
+}
+
+function extractContentText(content: unknown): string | undefined {
+  if (!Array.isArray(content) || content.length === 0) {
+    return undefined;
+  }
+
+  const parts: string[] = [];
+  for (const item of content) {
+    if (!item || typeof item !== "object") continue;
+
+    const typedItem = item as {
+      type?: unknown;
+      content?: { type?: unknown; text?: unknown };
+      path?: unknown;
+      newText?: unknown;
+      oldText?: unknown;
+    };
+
+    if (typedItem.type === "content") {
+      const block = typedItem.content;
+      if (block?.type === "text" && typeof block.text === "string") {
+        parts.push(block.text);
+      }
+      continue;
+    }
+
+    if (typedItem.type === "diff" && typeof typedItem.path === "string" && typeof typedItem.newText === "string") {
+      const newLines = typedItem.newText.split("\n").length;
+      const oldLines = typeof typedItem.oldText === "string"
+        ? typedItem.oldText.split("\n").length
+        : 0;
+      const delta = newLines - oldLines;
+      const sign = delta >= 0 ? `+${delta}` : `${delta}`;
+      parts.push(`${typedItem.path}: ${sign} lines`);
+    }
+  }
+
+  if (parts.length === 0) {
+    return undefined;
+  }
+
+  return parts.join("\n");
+}
+
 // ─── AbortSignal 경합 헬퍼 ───────────────────────────────
 
 /**
@@ -158,17 +223,26 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
     thoughtText += text;
     opts.onThoughtChunk?.(text);
   };
-  const onToolCall = (title: string, tcStatus: string) => {
+  const upsertToolCall = (title: string, tcStatus: string, rawOutput?: string) => {
     const existing = toolCalls.find((tc) => tc.title === title);
     if (existing) {
       existing.status = tcStatus;
+      if (rawOutput !== undefined) {
+        existing.rawOutput = rawOutput;
+      }
     } else {
-      toolCalls.push({ title, status: tcStatus, timestamp: Date.now() });
+      toolCalls.push({ title, status: tcStatus, rawOutput, timestamp: Date.now() });
     }
     if (toolCalls.length > MAX_TOOL_CALLS_TO_KEEP) {
       toolCalls.splice(0, toolCalls.length - MAX_TOOL_CALLS_TO_KEEP);
     }
-    opts.onToolCall?.(title, tcStatus);
+    opts.onToolCall?.(title, tcStatus, rawOutput);
+  };
+  const onToolCall = (title: string, tcStatus: string, _sessionId: string, data?: ToolCallLike) => {
+    upsertToolCall(title, tcStatus, extractToolResultText(data));
+  };
+  const onToolCallUpdate = (title: string, tcStatus: string, _sessionId: string, data?: ToolCallLike) => {
+    upsertToolCall(title, tcStatus, extractToolResultText(data));
   };
   const onError = (err: Error) => {
     if (!aborted) error = err.message;
@@ -178,12 +252,14 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
     client.on("messageChunk", onMessageChunk);
     client.on("thoughtChunk", onThoughtChunk);
     client.on("toolCall", onToolCall);
+    client.on("toolCallUpdate", onToolCallUpdate);
     client.on("error", onError);
   };
   const detachListeners = () => {
     client.off("messageChunk", onMessageChunk);
     client.off("thoughtChunk", onThoughtChunk);
     client.off("toolCall", onToolCall);
+    client.off("toolCallUpdate", onToolCallUpdate);
     client.off("error", onError);
   };
 
@@ -385,14 +461,23 @@ export async function executeOneShot(opts: ExecuteOptions): Promise<ExecuteResul
       thoughtText += text;
       opts.onThoughtChunk?.(text);
     });
-    client.on("toolCall", (title: string, tcStatus: string) => {
+    const upsertToolCall = (title: string, tcStatus: string, rawOutput?: string) => {
       const existing = toolCalls.find((tc) => tc.title === title);
       if (existing) {
         existing.status = tcStatus;
+        if (rawOutput !== undefined) {
+          existing.rawOutput = rawOutput;
+        }
       } else {
-        toolCalls.push({ title, status: tcStatus, timestamp: Date.now() });
+        toolCalls.push({ title, status: tcStatus, rawOutput, timestamp: Date.now() });
       }
-      opts.onToolCall?.(title, tcStatus);
+      opts.onToolCall?.(title, tcStatus, rawOutput);
+    };
+    client.on("toolCall", (title: string, tcStatus: string, _sessionId: string, data?: ToolCallLike) => {
+      upsertToolCall(title, tcStatus, extractToolResultText(data));
+    });
+    client.on("toolCallUpdate", (title: string, tcStatus: string, _sessionId: string, data?: ToolCallLike) => {
+      upsertToolCall(title, tcStatus, extractToolResultText(data));
     });
 
     await client.sendMessage(request);

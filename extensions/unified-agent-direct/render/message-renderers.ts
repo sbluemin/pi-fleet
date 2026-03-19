@@ -39,7 +39,7 @@ export function createDefaultResponseRenderer(config: DirectModeConfig) {
       sessionId?: string;
       error?: boolean;
       thinking?: string;
-      toolCalls?: { title: string; status: string }[];
+      toolCalls?: { title: string; status: string; rawOutput?: string }[];
     } | undefined;
     const isError = details?.error === true;
     const color = config.color;

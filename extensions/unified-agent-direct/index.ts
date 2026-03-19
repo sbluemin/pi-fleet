@@ -431,7 +431,7 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
             signal: helpers.signal,
             onMessageChunk: (text) => router.onMessageChunk(text),
             onThoughtChunk: (text) => router.onThoughtChunk(text),
-            onToolCall: (title, status) => router.onToolCall(title, status),
+            onToolCall: (title, status, rawOutput) => router.onToolCall(title, status, rawOutput),
             onStatusChange: (status) => router.onStatusChange(status),
           });
 
@@ -495,6 +495,23 @@ async function queryAgent(
     onThoughtChunk: (text) => {
       const c = getAgentPanelCols()[colIndex];
       updateAgentCol(colIndex, { thinking: c.thinking + text });
+    },
+    onToolCall: (title, status, rawOutput) => {
+      const c = getAgentPanelCols()[colIndex];
+      const toolCalls = [...(c.toolCalls ?? [])];
+      const existing = toolCalls.find((tc) => tc.title === title);
+      if (existing) {
+        existing.status = status;
+        if (rawOutput !== undefined) {
+          existing.rawOutput = rawOutput;
+        }
+      } else {
+        toolCalls.push({ title, status, rawOutput });
+      }
+      updateAgentCol(colIndex, {
+        toolCalls,
+        status: c.status === "conn" || c.status === "wait" ? "stream" : c.status,
+      });
     },
     onStatusChange: (s) => {
       if (s === "running") updateAgentCol(colIndex, { status: "stream" });
