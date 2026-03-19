@@ -21,9 +21,12 @@ cd pi-fleet
 ## 2. Install dependencies
 
 ```bash
-cd extensions/unified-agent-core
-npm install
-cd ../..
+# 코어 SDK 선행 빌드 (unified-agent-core의 로컬 의존성)
+cd packages/unified-agent && npm install && cd ../..
+
+# Extensions 의존성 설치
+cd extensions/unified-agent-core && npm install && cd ../..
+cd extensions/utils-interactive-shell && npm install && cd ../..
 ```
 
 ## 3. Register extensions in pi settings
@@ -50,4 +53,9 @@ Add the `extensions` field to your pi settings file, pointing to the cloned `ext
 
 ## 4. Verify
 
-Launch `pi` and run `/reload` — all extensions should load automatically.
+Launch `pi` and run `/reload`, then check:
+
+- No extension load errors in the output
+- `Alt+1` / `Alt+2` / `Alt+3` to enter each agent's direct mode
+- `Alt+T` popup opens correctly
+- Claude Code, Codex CLI, Gemini CLI are each authenticated
