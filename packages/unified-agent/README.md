@@ -1,0 +1,252 @@
+# @sbluemin/unified-agent
+
+> A TypeScript SDK that unifies Codex CLI, Claude Code, and Gemini CLI under a single interface.
+
+## Overview
+
+Unified Agent provides two ways to control three major CLI agents — Gemini, Claude, and Codex — all communicating over the ACP (Agent Client Protocol):
+
+- **CLI Binary** — One-shot prompt execution from the command line
+- **TypeScript SDK** — Full programmatic control with event-based streaming
+
+### Supported CLIs
+
+| CLI | Protocol | Spawn Command |
+|-----|----------|---------------|
+| **Gemini** | ACP | `gemini --acp` |
+| **Claude** | ACP | `npx @zed-industries/claude-agent-acp@0.18.0` |
+| **Codex** | ACP | `npx @zed-industries/codex-acp@0.9.4` |
+
+### Prerequisites
+
+- Node.js >= 18.0.0
+- At least one of the above CLIs installed and authenticated
+
+---
+
+## CLI Usage
+
+### Installation
+
+Clone the repository and link globally:
+
+```bash
+git clone https://github.com/sbluemin/unified-agent.git
+cd unified-agent
+npm install
+npm run build
+npm link
+```
+
+After linking, the `unified-agent` command is available globally:
+
+```bash
+unified-agent --help
+```
+
+To unlink:
+
+```bash
+npm unlink -g @sbluemin/unified-agent
+```
+
+### Basic Usage
+
+```bash
+# Auto-detect available CLI and run
+unified-agent "Analyze this project"
+
+# Select a specific CLI
+unified-agent -c claude "Review this code"
+
+# Select a model
+unified-agent -c claude -m opus "Find bugs"
+
+# Set reasoning effort (Codex)
+unified-agent -c codex -e high "Refactor this module"
+
+# Pipe from stdin
+cat error.log | unified-agent -c gemini "Explain this error"
+
+# Resume a previous session
+unified-agent -c claude -s <sessionId> "Continue this conversation"
+
+# JSON output (for scripting / AI agents)
+unified-agent --json -c claude "Summarize" | jq .response
+```
+
+### Options
+
+| Option | Short | Description |
+|--------|-------|-------------|
+| `--cli <name>` | `-c` | CLI selection (`gemini` \| `claude` \| `codex`) |
+| `--session <id>` | `-s` | Resume a previous session (requires `--cli`) |
+| `--model <name>` | `-m` | Model override |
+| `--effort <level>` | `-e` | Reasoning effort (`low` \| `medium` \| `high` \| `xhigh`) |
+| `--cwd <path>` | `-d` | Working directory (default: current directory) |
+| `--yolo` | | Auto-approve all permissions (mapped to `--approval-mode=yolo` for Gemini internally) |
+| `--json` | | JSON output mode |
+| `--help` | `-h` | Show help |
+
+### Output Modes
+
+**Pretty mode** (default) — streams the AI response to stdout with status on stderr:
+
+```
+● unified-agent (claude)
+
+The project is a TypeScript SDK that...
+
+  ▶ Read file: src/index.ts
+  ▶ Read file: package.json
+
+● Done (12.3s)
+```
+
+**JSON mode** (`--json`) — outputs a single JSON object to stdout:
+
+```json
+{"response":"The project is a TypeScript SDK that...","cli":"claude"}
+```
+
+On error:
+
+```json
+{"error":"No available CLI found"}
+```
+
+---
+
+## SDK Usage
+
+### Installation
+
+Add as a dependency via git URL:
+
+```bash
+npm install github:sbluemin/unified-agent
+```
+
+In `package.json`:
+
+```json
+{
+  "dependencies": {
+    "@sbluemin/unified-agent": "github:sbluemin/unified-agent"
+  }
+}
+```
+
+### Quick Start
+
+```typescript
+import { UnifiedAgentClient } from '@sbluemin/unified-agent';
+
+const client = new UnifiedAgentClient();
+
+// Set up event listeners
+client.on('messageChunk', (text) => process.stdout.write(text));
+client.on('toolCall', (title, status) => console.log(`Tool: ${title} (${status})`));
+
+// Connect (auto-detects available CLI)
+await client.connect({
+  cwd: '/my/workspace',
+  autoApprove: true,
+});
+
+// Send a message
+await client.sendMessage('Analyze this project');
+
+// Disconnect
+await client.disconnect();
+```
+
+### API
+
+#### `connect(options: UnifiedClientOptions): Promise<ConnectResult>`
+
+Connects to a CLI agent.
+
+```typescript
+const result = await client.connect({
+  cwd: '/my/workspace',       // Working directory (required)
+  cli: 'gemini',               // CLI selection (auto-detected if omitted)
+  autoApprove: true,           // Auto-approve permissions
+  yoloMode: false,             // CLI-specific YOLO approval mode
+  model: 'gemini-pro',         // Model override
+  clientInfo: { name: 'MyApp', version: '1.0.0' },
+});
+```
+
+#### `sendMessage(content: string | AcpContentBlock[]): Promise<PromptResponse>`
+
+Sends a message to the agent.
+
+#### `cancelPrompt(): Promise<void>`
+
+Cancels the currently running prompt.
+
+#### `setModel(model: string): Promise<void>`
+
+Changes the model.
+
+#### `setConfigOption(configId: string, value: string): Promise<void>`
+
+Updates a session configuration option (e.g. `reasoning_effort`).
+
+#### `setMode(mode: string): Promise<void>`
+
+Sets the agent mode (e.g. `plan`, `yolo`, `bypassPermissions`).
+
+#### `loadSession(sessionId: string): Promise<void>`
+
+Reloads an existing session.
+
+#### `detectClis(): Promise<CliDetectionResult[]>`
+
+Detects available CLIs on the system.
+
+#### `getAvailableModels(): AvailableModelsResult | null`
+
+Returns the list of available models for the connected CLI.
+
+#### `disconnect(): Promise<void>`
+
+Closes the connection and terminates the child process.
+
+### Events
+
+| Event | Parameters | Description |
+|-------|------------|-------------|
+| `messageChunk` | `(text, sessionId)` | AI response text streaming |
+| `thoughtChunk` | `(text, sessionId)` | AI thinking process |
+| `toolCall` | `(title, status, sessionId)` | Tool invocation |
+| `plan` | `(plan, sessionId)` | Plan update |
+| `userMessageChunk` | `(text, sessionId)` | User message replay streaming |
+| `permissionRequest` | `(params, resolve)` | Permission request callback |
+| `promptComplete` | `(sessionId)` | Prompt completion |
+| `stateChange` | `(state)` | Connection state change |
+| `error` | `(error)` | Error |
+
+### Submodules
+
+| Module | Description |
+|--------|-------------|
+| `AcpConnection` | Direct ACP protocol access |
+| `CliDetector` | CLI auto-detection |
+| `cleanEnvironment` | Environment variable sanitization |
+| `killProcess` | Safe process termination |
+
+---
+
+## Architecture
+
+```
+UnifiedAgentClient
+  +-- AcpConnection (Gemini, Claude, Codex)
+        +-- BaseConnection (spawn + JSON-RPC 2.0 over stdio)
+```
+
+## License
+
+MIT
