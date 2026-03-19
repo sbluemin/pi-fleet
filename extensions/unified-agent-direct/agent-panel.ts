@@ -264,12 +264,11 @@ function getPanelFrameColor(activeMode: string | null): string {
   return activeMode ? (DIRECT_MODE_COLORS[activeMode] ?? PANEL_COLOR) : PANEL_COLOR;
 }
 
-function buildOverlayOptions(state: AgentPanelState): OverlayOptions {
-  const isAllMode = state.activeMode === "all";
+function buildOverlayOptions(_state: AgentPanelState): OverlayOptions {
   return {
     nonCapturing: true,
-    anchor: isAllMode ? "center" : "right-center",
-    width: isAllMode ? "76%" : "58%",
+    anchor: "center",
+    width: "85%",
     maxHeight: "85%",
     margin: 1,
   };
