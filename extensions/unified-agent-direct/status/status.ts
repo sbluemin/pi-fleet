@@ -42,7 +42,7 @@ interface ComponentResponse {
 }
 
 function getStore(): StatusStore {
-  let store = (globalThis as Record<string, StatusStore | undefined>)[STORE_KEY];
+  let store = (globalThis as unknown as Record<string, StatusStore | undefined>)[STORE_KEY];
   if (!store) {
     store = {
       ctx: null,
@@ -53,7 +53,7 @@ function getStore(): StatusStore {
       snapshots: [],
       providerLastChecked: { claude: 0, codex: 0, gemini: 0 },
     };
-    (globalThis as Record<string, StatusStore | undefined>)[STORE_KEY] = store;
+    (globalThis as unknown as Record<string, StatusStore | undefined>)[STORE_KEY] = store;
   }
 
   if (!store.providerLastChecked) {

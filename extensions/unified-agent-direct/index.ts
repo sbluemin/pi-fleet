@@ -113,16 +113,8 @@ async function selectModelForCli(
   const modelId = choice.split(" — ")[0]!.trim();
   const selection: ModelSelection = { model: modelId };
 
-  // codex 전용: direct 모드 + reasoning effort
+  // codex 전용: reasoning effort
   if (cli === "codex") {
-    const directOptions = [
-      `ACP — 기본 프로토콜${prev?.direct !== true ? " [current]" : ""}`,
-      `Direct — ACP 우회, JSONL 직접 실행${prev?.direct === true ? " [current]" : ""}`,
-    ];
-    const directChoice = await ctx.ui.select("Codex 연결 모드:", directOptions);
-    if (directChoice === undefined) return undefined;
-    selection.direct = directChoice.startsWith("Direct");
-
     const effortLevels = getEffortLevels(cli);
     if (effortLevels && effortLevels.length > 0) {
       const defaultEffort = provider.reasoningEffort.supported
@@ -379,7 +371,6 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
       // 요약 알림
       const summary = Object.entries(selectedModels).map(([k, v]) => {
         let s = `${k}=${v.model}`;
-        if (v.direct) s += " (direct)";
         if (v.effort) s += ` effort=${v.effort}`;
         if (v.budgetTokens) s += ` budget=${v.budgetTokens}`;
         return s;
@@ -411,6 +402,7 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
       color: DIRECT_MODE_COLORS[cli] ?? "",
       bgColor: DIRECT_MODE_BG_COLORS[cli],
       bottomHint: ` ${shortcutKey} exit · alt+x cancel · alt+shift+m model `,
+      showWorkingMessage: false,
 
       onExecute: async (
         request: string,
@@ -596,6 +588,7 @@ function registerAllMode(
     color: DIRECT_MODE_COLORS["all"]!,
     bgColor: DIRECT_MODE_BG_COLORS["all"],
     bottomHint: " alt+0 exit · alt+x cancel · alt+shift+m model ",
+    showWorkingMessage: false,
 
     onExecute: async (request, ctx, helpers) => {
       startAgentStreaming(ctx, { expand: true });

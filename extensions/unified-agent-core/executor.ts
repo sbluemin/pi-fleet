@@ -17,7 +17,7 @@ import type {
 } from "./types";
 import { disconnectClient, getClientPool, isClientAlive, type PooledClient } from "./client-pool";
 import type { SessionMapStore } from "./session-map";
-import { buildConnectOptions } from "./model-config";
+import { buildConnectOptions, loadSelectedModels } from "./model-config";
 
 // ─── 도구 호출 최대 보관 수 (메모리 보호) ────────────────
 
@@ -110,16 +110,48 @@ function raceAbort<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
   ]);
 }
 
+/**
+ * 연결 후 저장된 추론 설정을 세션에 적용합니다.
+ * 현재 unified-agent SDK는 추론 관련 옵션을 connect 옵션으로 받지 않으므로
+ * CLI 경로와 동일하게 setConfigOption으로 별도 반영합니다.
+ */
+async function applyPostConnectConfig(
+  client: UnifiedAgentClient,
+  cli: CliType,
+  configDir: string,
+): Promise<void> {
+  const cliConfig = loadSelectedModels(configDir)[cli];
+  if (!cliConfig) {
+    return;
+  }
+
+  if (cliConfig.effort) {
+    try {
+      await client.setConfigOption("reasoning_effort", cliConfig.effort);
+    } catch {
+      // reasoning_effort 미지원 CLI는 조용히 무시합니다.
+    }
+  }
+
+  if (cli === "claude" && cliConfig.budgetTokens) {
+    try {
+      await client.setConfigOption("budget_tokens", String(cliConfig.budgetTokens));
+    } catch {
+      // budget_tokens 미지원 세션은 조용히 무시합니다.
+    }
+  }
+}
+
 // ─── executeWithPool: 풀 기반 실행 ─────────────────────
 
 /**
- * 풀 기반 실행 (agent-tool + direct-mode 공통)
+ * 풀 기반 실행 (agent-tool + 에이전트 모드 공통)
  *
  * 세션 관리 완전 캡슐화:
  *  1. store.get(cli) → 매핑된 세션이 있으면 connectOpts.sessionId에 설정
  *  2. 연결 성공 → store.set(cli, id) 자동 저장
  *  3. resume 실패 → store.clear(cli) + 새 세션 자동 재시도
- *  4. 이미 연결된 경우 direct 프로토콜 세션 ID도 자동 복원
+ *  4. 이미 연결된 경우 기존 세션 ID를 그대로 재사용
  */
 export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResult> {
   const { cli, request, cwd, configDir, signal } = opts;
@@ -327,20 +359,13 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
       if (connectionInfo.sessionId) {
         store.set(cli, connectionInfo.sessionId);
       }
+
+      await applyPostConnectConfig(client, cli, configDir);
     } else {
       // 이미 연결됨 — 기존 연결 정보 사용
       const info = client.getConnectionInfo();
       connectionInfo.protocol = info.protocol ?? undefined;
       connectionInfo.sessionId = info.sessionId ?? undefined;
-
-      // direct 모드: 세션 매핑에서 복원된 sessionId를 SDK에 반영
-      if (info.protocol === "direct") {
-        const savedSessionId = store.get(cli) ?? poolEntry?.sessionId;
-        if (savedSessionId && savedSessionId !== info.sessionId) {
-          client.setDirectSessionId(savedSessionId);
-          connectionInfo.sessionId = savedSessionId;
-        }
-      }
 
       // 풀 + 세션 매핑에 sessionId 갱신
       if (poolEntry && connectionInfo.sessionId) {
@@ -362,8 +387,7 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
     // ── 메시지 전송 (블로킹: 프롬프트 완료까지 대기) ──
     await client.sendMessage(request);
 
-    // Direct 모드 보정: sendMessage 이후 sessionId가 갱신될 수 있음
-    // (codex exec의 thread_id는 프로세스 실행 후에야 확정됨)
+    // 세션 구현이 내부적으로 ID를 갱신한 경우를 대비해 최신 값을 반영합니다.
     const postSendInfo = client.getConnectionInfo();
     if (postSendInfo.sessionId && postSendInfo.sessionId !== connectionInfo.sessionId) {
       connectionInfo.sessionId = postSendInfo.sessionId;
@@ -440,6 +464,7 @@ export async function executeOneShot(opts: ExecuteOptions): Promise<ExecuteResul
     const connectOpts = buildConnectOptions(cli, cwd, configDir);
 
     await raceAbort(client.connect(connectOpts as any), signal);
+    await applyPostConnectConfig(client, cli, configDir);
 
     if (aborted) {
       return { responseText, thoughtText, toolCalls, connectionInfo, status, error };

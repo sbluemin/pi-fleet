@@ -131,17 +131,5 @@ export function buildConnectOptions(
     opts.model = cliConfig.model;
   }
 
-  // codex 전용: direct 모드 및 reasoning effort
-  if (cli === "codex" && cliConfig) {
-    if (cliConfig.direct) opts.direct = true;
-    if (cliConfig.effort) opts.effort = cliConfig.effort;
-  }
-
-  // claude 전용: thinking (effort + budgetTokens)
-  if (cli === "claude" && cliConfig) {
-    if (cliConfig.effort) opts.effort = cliConfig.effort;
-    if (cliConfig.budgetTokens) opts.budgetTokens = cliConfig.budgetTokens;
-  }
-
   return opts;
 }

@@ -17,6 +17,7 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { KeyId } from "@mariozechner/pi-tui";
 import { setAgentPanelMode, hideAgentPanel } from "./agent-panel";
 import { createDefaultUserRenderer, createDefaultResponseRenderer } from "./render/message-renderers";
 
@@ -50,6 +51,8 @@ export interface DirectModeConfig {
   renderUser?: (...args: any[]) => any;
   /** 에이전트 패널 하단 힌트 커스터마이즈 */
   bottomHint?: string;
+  /** PI 기본 Working 메시지 사용 여부 (기본: false, 에이전트 패널이 스트리밍 UI를 담당) */
+  showWorkingMessage?: boolean;
 }
 
 export interface DirectModeHelpers {
@@ -77,6 +80,8 @@ interface ModeState {
   abortController: AbortController | null;
   /** 이 모드를 등록한 pi 인스턴스 (메시지 전송에 사용) */
   pi: ExtensionAPI;
+  /** 현재 모드가 PI 기본 Working 메시지를 소유하는지 여부 */
+  ownsWorkingMessage: boolean;
 }
 
 interface FrameworkState {
@@ -128,6 +133,25 @@ function findNextBusyMode(excludeId: string): ModeState | null {
   return null;
 }
 
+function applyWorkingMessage(ctx: ExtensionContext, state: ModeState): void {
+  if (!state.config.showWorkingMessage) {
+    state.ownsWorkingMessage = false;
+    return;
+  }
+
+  ctx.ui.setWorkingMessage(`${state.config.displayName} is processing...`);
+  state.ownsWorkingMessage = true;
+}
+
+function clearWorkingMessageIfOwned(ctx: ExtensionContext, state: ModeState): void {
+  if (!state.ownsWorkingMessage) {
+    return;
+  }
+
+  ctx.ui.setWorkingMessage();
+  state.ownsWorkingMessage = false;
+}
+
 // ─── 공개 API ────────────────────────────────────────────
 
 /**
@@ -147,11 +171,18 @@ export function registerCustomDirectMode(
   const gs = getState();
 
   // 모드 상태 등록
-  const state: ModeState = { config, active: false, busy: false, abortController: null, pi };
+  const state: ModeState = {
+    config,
+    active: false,
+    busy: false,
+    abortController: null,
+    pi,
+    ownsWorkingMessage: false,
+  };
   gs.modes.set(config.id, state);
 
   // ── 단축키 등록 ──
-  pi.registerShortcut(config.shortcutKey, {
+  pi.registerShortcut(config.shortcutKey as KeyId, {
     description: `${config.displayName} 다이렉트 모드 토글`,
     handler: async (ctx) => {
       if (state.active) {
@@ -294,7 +325,7 @@ async function executeDirectMode(
     details: { cli: config.id },
   });
 
-  ctx.ui.setWorkingMessage(`${config.displayName} is processing...`);
+  applyWorkingMessage(ctx, state);
   state.abortController = abortController;
 
   try {
@@ -326,10 +357,11 @@ async function executeDirectMode(
     state.busy = false;
     // 다른 에이전트가 아직 처리 중이면 해당 메시지로 교체
     const nextBusy = findNextBusyMode(config.id);
-    if (nextBusy) {
-      ctx.ui.setWorkingMessage(`${nextBusy.config.displayName} is processing...`);
+    if (nextBusy?.config.showWorkingMessage) {
+      clearWorkingMessageIfOwned(ctx, state);
+      applyWorkingMessage(ctx, nextBusy);
     } else {
-      ctx.ui.setWorkingMessage();
+      clearWorkingMessageIfOwned(ctx, state);
     }
   }
 }

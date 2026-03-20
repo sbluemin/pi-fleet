@@ -96,19 +96,6 @@ function wrapLines(text: string, maxW: number): string[] {
   return out;
 }
 
-/** 콘텐츠 라인 배열을 하드 wrap */
-function wrapAllLines(lines: string[], maxW: number): string[] {
-  const out: string[] = [];
-  for (const line of lines) {
-    if (!line) {
-      out.push("");
-      continue;
-    }
-    out.push(...wrapLines(line, maxW));
-  }
-  return out;
-}
-
 /** 셀 내용을 고정 폭으로 우측 공백 패딩 */
 function pad(s: string, w: number): string {
   return s + " ".repeat(Math.max(0, w - visibleWidth(s)));
@@ -441,7 +428,7 @@ function renderMultiCol(
   bottomHint: string,
   bodyH: number,
   wave?: WaveConfig,
-  activeMode?: string | null,
+  _activeMode?: string | null,
 ): string[] {
   const iw = Math.max(15, w - 4);
   const c0 = Math.floor(iw / 3);
