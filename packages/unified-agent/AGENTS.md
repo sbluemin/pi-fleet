@@ -43,7 +43,6 @@ tests/
     ├── helpers.ts              # 공용 헬퍼 함수
     ├── claude.acp.test.ts      # Claude ACP E2E
     ├── codex.acp.test.ts       # Codex ACP E2E
-    ├── codex.direct.test.ts    # Codex Direct E2E
     └── gemini.acp.test.ts      # Gemini ACP E2E
 ```
 
@@ -56,7 +55,6 @@ npm run lint
 # CLI별 E2E 테스트 (실제 CLI 필요, 로컬에서만)
 npx vitest run tests/e2e/claude.acp.test.ts
 npx vitest run tests/e2e/codex.acp.test.ts
-npx vitest run tests/e2e/codex.direct.test.ts
 npx vitest run tests/e2e/gemini.acp.test.ts
 
 # 전체 테스트
@@ -87,7 +85,7 @@ npm run build
 
 ### 테스트
 - **E2E 테스트** (`tests/e2e/`): CLI별 + 프로토콜별 독립 파일. 실제 CLI를 spawn하므로 인증된 로컬 환경에서만 실행.
-- 파일명 규칙: `<cli>.<protocol>.test.ts` (예: `claude.acp.test.ts`, `codex.direct.test.ts`)
+- 파일명 규칙: `<cli>.acp.test.ts` (예: `claude.acp.test.ts`, `codex.acp.test.ts`)
 - `describe.skipIf(!isCliInstalled('xxx'))` 패턴으로 설치되지 않은 CLI 자동 건너뛰기.
 - 테스트 타임아웃: 180,000ms (3분), 세션 재개: 360,000ms (6분).
 
@@ -101,7 +99,7 @@ npm run build
 |-----|----------|------------|-------------------|----------|
 | Gemini | ACP | `gemini --experimental-acp` | ❌ | ❌ |
 | Claude | ACP (npx bridge) | `npx @zed-industries/claude-agent-acp@0.18.0` | ✅ | ✅ |
-| Codex | ACP (npx bridge) | `npx @zed-industries/codex-acp@0.9.4` | ✅ | ✅ |
+| Codex | ACP (npx bridge) | `npx @zed-industries/codex-acp@^0.10.0` | ✅ | ✅ |
 
 ## 아키텍처 의사결정
 

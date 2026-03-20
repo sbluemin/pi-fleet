@@ -498,6 +498,7 @@ export class AcpConnection extends BaseConnection {
 
   /**
    * ContentChunk에서 텍스트 청크를 추출하여 해당 이벤트로 전파합니다.
+   * ACP bridge가 CLI 내부 UI(스피너 등)를 agent_message_chunk로 전달하는 경우를 필터링합니다.
    */
   private emitTextChunk(
     event: 'userMessageChunk' | 'messageChunk' | 'thoughtChunk',
@@ -505,7 +506,9 @@ export class AcpConnection extends BaseConnection {
     sessionId: string,
   ): void {
     if (this.isTextContent(update.content)) {
-      this.emit(event, update.content.text, sessionId);
+      const text = update.content.text;
+      if (this.isSpinnerNoise(text)) return;
+      this.emit(event, text, sessionId);
     }
   }
 
@@ -514,6 +517,17 @@ export class AcpConnection extends BaseConnection {
    */
   private isTextContent(content: ContentBlock): content is Extract<ContentBlock, { type: 'text' }> {
     return content.type === 'text' && typeof content.text === 'string';
+  }
+
+  /**
+   * ACP bridge가 CLI 내부 UI 텍스트를 agent_message_chunk로 전달하는 경우를 감지합니다.
+   * Braille 스피너 프레임(U+2800-U+28FF)으로 시작하는 줄은 CLI 상태 표시 노이즈입니다.
+   * 예: "⠧ Working...", "⠹  Claude"
+   */
+  private isSpinnerNoise(text: string): boolean {
+    const lines = text.split('\n').filter(l => l.trim());
+    if (lines.length === 0) return false;
+    return lines.every(l => /^\s*[\u2800-\u28FF]/.test(l));
   }
 
   private cancelPendingPermissionRequests(): void {

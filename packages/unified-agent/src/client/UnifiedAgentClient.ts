@@ -32,12 +32,9 @@ import type {
   UnifiedClientEvents,
 } from './IUnifiedAgentClient.js';
 import { AcpConnection } from '../connection/AcpConnection.js';
-import { DirectConnection } from '../connection/DirectConnection.js';
-import type { DirectExecResult } from '../types/direct.js';
 import { CliDetector } from '../detector/CliDetector.js';
 import {
   createSpawnConfig,
-  createDirectSpawnConfig,
   getBackendConfig,
   getYoloModeId,
 } from '../config/CliConfigs.js';
@@ -54,9 +51,6 @@ export type { UnifiedClientEvents, ConnectResult, ConnectionInfo, IUnifiedAgentC
  */
 export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentClient {
   private acpConnection: AcpConnection | null = null;
-  private directConnection: DirectConnection | null = null;
-  private directOptions: UnifiedClientOptions | null = null;
-  private directState: ConnectionState = 'disconnected';
   private activeCli: CliType | null = null;
   private sessionId: string | null = null;
   private sessionCwd: string | null = null;
@@ -107,14 +101,6 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
     // 세션 재개 시 CLI 미지정 방지 (자동 감지로 엉뚱한 CLI에 재개 시도하는 문제 차단)
     if (options.sessionId && !options.cli) {
       throw new Error('세션 재개 시 cli 지정이 필요합니다.');
-    }
-
-    // Direct 모드 분기
-    if (options.direct) {
-      if (!options.cli) {
-        throw new Error('direct 모드 사용 시 cli 지정이 필요합니다.');
-      }
-      return this.connectDirect(options.cli, options);
     }
 
     // CLI 선택: 명시적 지정 → 자동 감지 순서
@@ -214,70 +200,12 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
   }
 
   /**
-   * Direct 모드로 연결합니다.
-   * 실제 spawn은 sendMessage() 시점에 수행합니다.
-   */
-  private connectDirect(
-    cli: CliType,
-    options: UnifiedClientOptions,
-  ): ConnectResult {
-    const backend = getBackendConfig(cli);
-    if (!backend.directConfig) {
-      throw new Error(`"${cli}"는 direct 모드를 지원하지 않습니다.`);
-    }
-
-    this.activeCli = cli;
-    this.sessionCwd = options.cwd;
-    this.directOptions = options;
-    // connect 시 전달된 sessionId를 즉시 반영 (세션 resume 지원)
-    if (options.sessionId) {
-      this.sessionId = options.sessionId;
-    }
-    // direct 모드는 connect 시점에 프로세스를 spawn하지 않지만,
-    // SDK 소비자에게 "사용 가능" 상태를 알리기 위해 connected로 설정
-    this.directState = 'connected';
-
-    return {
-      cli,
-      protocol: 'direct',
-      // direct 모드에서도 sessionId를 ConnectResult에 포함 (ACP와 일관된 인터페이스)
-      session: options.sessionId ? { sessionId: options.sessionId } : undefined,
-    };
-  }
-
-  /**
    * 메시지를 전송합니다.
    *
    * @param content - 메시지 내용 (텍스트 또는 ACP ContentBlock 배열)
    * @returns 프롬프트 처리 결과
    */
   async sendMessage(content: string | AcpContentBlock[]): Promise<PromptResponse> {
-    // Direct 모드 실행
-    if (this.directOptions && this.activeCli) {
-      if (typeof content !== 'string') {
-        throw new Error('direct 모드에서는 텍스트 프롬프트만 지원합니다.');
-      }
-      // 동시 실행 방어: 이전 프로세스가 아직 살아있으면 에러
-      if (this.directConnection && this.directConnection.connectionState === 'connected') {
-        throw new Error('이미 direct 프롬프트가 실행 중입니다.');
-      }
-      const result = await this.executeDirect(content);
-      this.sessionId = result.sessionId;
-
-      // 다중 턴 세션 유지: 이후 sendMessage() 호출에서 세션 재개
-      if (result.sessionId) {
-        this.directOptions = { ...this.directOptions, sessionId: result.sessionId };
-      }
-
-      if (result.exitCode !== 0) {
-        throw new Error(`direct 모드 실행 실패 (exit code: ${result.exitCode})`);
-      }
-
-      return {
-        stopReason: 'end_turn',
-      } satisfies PromptResponse;
-    }
-
     if (this.acpConnection && this.sessionId) {
       return this.acpConnection.sendPrompt(this.sessionId, content);
     }
@@ -286,53 +214,9 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
   }
 
   /**
-   * Direct 모드로 프롬프트를 실행합니다.
-   */
-  private async executeDirect(prompt: string): Promise<DirectExecResult> {
-    // 이전 directConnection 정리 (다중 턴 시 리스너 누수 방지)
-    if (this.directConnection) {
-      this.directConnection.removeAllListeners();
-      this.directConnection = null;
-    }
-
-    const options = this.directOptions!;
-    const cli = this.activeCli!;
-    const backend = getBackendConfig(cli);
-
-    const spawnConfig = createDirectSpawnConfig(cli, {
-      prompt,
-      model: options.model,
-      effort: options.effort,
-      cwd: options.cwd,
-      yolo: options.yoloMode ?? false,
-      sessionId: options.sessionId,
-    }, options.cliPath);
-
-    const cleanEnv = cleanEnvironment(process.env, options.env);
-
-    this.directConnection = new DirectConnection({
-      command: spawnConfig.command,
-      args: spawnConfig.args,
-      cwd: options.cwd,
-      env: cleanEnv,
-      parserType: backend.directConfig!.outputParserType,
-    });
-
-    // 이벤트 전파
-    this.setupDirectEventForwarding();
-
-    const result = await this.directConnection.execute();
-    return result;
-  }
-
-  /**
    * 현재 진행 중인 프롬프트를 취소합니다.
    */
   async cancelPrompt(): Promise<void> {
-    if (this.directConnection) {
-      await this.directConnection.disconnect();
-      return;
-    }
     if (!this.acpConnection || !this.sessionId) {
       throw new Error('연결되어 있지 않습니다');
     }
@@ -345,11 +229,6 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
    * @param model - 모델 이름
    */
   async setModel(model: string): Promise<void> {
-    if (this.directOptions) {
-      // direct 모드에서는 다음 실행 시 적용
-      this.directOptions = { ...this.directOptions, model };
-      return;
-    }
     if (!this.acpConnection || !this.sessionId) {
       throw new Error('연결되어 있지 않습니다');
     }
@@ -363,15 +242,6 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
    * @param value - 설정 값
    */
   async setConfigOption(configId: string, value: string): Promise<void> {
-    if (this.directOptions) {
-      // direct 모드에서 effort는 옵션으로 전달
-      if (configId === 'reasoning_effort') {
-        this.directOptions = { ...this.directOptions, effort: value };
-        return;
-      }
-      // 그 외 설정은 direct 모드에서 미지원
-      return;
-    }
     if (!this.acpConnection || !this.sessionId) {
       throw new Error('연결되어 있지 않습니다');
     }
@@ -385,10 +255,6 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
    * @param mode - 모드 ID (e.g., 'plan', 'yolo', 'bypassPermissions')
    */
   async setMode(mode: string): Promise<void> {
-    if (this.directOptions) {
-      // direct 모드에서 모드 변경은 미지원
-      return;
-    }
     if (!this.acpConnection || !this.sessionId) {
       throw new Error('연결되어 있지 않습니다');
     }
@@ -402,11 +268,6 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
    * @param enabled - 활성화 여부
    */
   async setYoloMode(enabled: boolean): Promise<void> {
-    if (this.directOptions) {
-      // direct 모드에서는 다음 실행 시 적용
-      this.directOptions = { ...this.directOptions, yoloMode: enabled };
-      return;
-    }
     if (!enabled) {
       return this.setMode('default');
     }
@@ -459,18 +320,6 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
   }
 
   /**
-   * Direct 모드에서 세션 ID를 외부에서 갱신합니다.
-   * 풀 클라이언트가 재사용될 때 세션 매핑에서 복원된 sessionId를 반영합니다.
-   */
-  setDirectSessionId(sessionId: string): void {
-    if (!this.directOptions) {
-      throw new Error('direct 모드에서만 사용 가능합니다.');
-    }
-    this.sessionId = sessionId;
-    this.directOptions = { ...this.directOptions, sessionId };
-  }
-
-  /**
    * 사용 가능한 CLI 목록을 감지합니다.
    */
   async detectClis(): Promise<CliDetectionResult[]> {
@@ -483,17 +332,11 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
   getConnectionInfo(): ConnectionInfo {
     const state: ConnectionState = this.acpConnection
       ? this.acpConnection.connectionState
-      : this.directOptions
-        ? this.directState
-        : 'disconnected';
-
-    const protocol = this.directOptions
-      ? 'direct'
-      : this.activeCli ? 'acp' : null;
+      : 'disconnected';
 
     return {
       cli: this.activeCli,
-      protocol,
+      protocol: this.activeCli ? 'acp' : null,
       sessionId: this.sessionId,
       state,
     };
@@ -509,17 +352,9 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
       this.acpConnection = null;
     }
 
-    if (this.directConnection) {
-      await this.directConnection.disconnect();
-      this.directConnection.removeAllListeners();
-      this.directConnection = null;
-    }
-
     this.activeCli = null;
     this.sessionId = null;
     this.sessionCwd = null;
-    this.directOptions = null;
-    this.directState = 'disconnected';
   }
 
   /**
@@ -571,38 +406,6 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
       this.emitTyped('exit', code, signal);
     });
     this.acpConnection.on('log', (msg: string) => {
-      this.emitTyped('log', msg);
-    });
-  }
-
-  /**
-   * DirectConnection 이벤트를 통합 클라이언트로 전파합니다.
-   */
-  private setupDirectEventForwarding(): void {
-    if (!this.directConnection) return;
-
-    // direct 모드에서 하위 프로세스의 stateChange는 포워딩하지 않음.
-    // 논리적 연결 상태(directState)를 직접 관리하여 상태 불일치 방지.
-    // (프로세스가 턴 단위로 종료되더라도 SDK 레벨에서는 세션이 유지됨)
-    this.directConnection.on('messageChunk', (text: string, sessionId: string) => {
-      this.emitTyped('messageChunk', text, sessionId);
-    });
-    this.directConnection.on('toolCall', (title: string, status: string, sessionId: string) => {
-      this.emitTyped('toolCall', title, status, sessionId);
-    });
-    this.directConnection.on('promptComplete', (sessionId: string) => {
-      this.emitTyped('promptComplete', sessionId);
-    });
-    this.directConnection.on('error', (err: Error) => {
-      // SDK 소비자가 error 리스너를 등록하지 않은 경우 Unhandled error crash 방지
-      if (this.listenerCount('error') > 0) {
-        this.emitTyped('error', err);
-      }
-    });
-    this.directConnection.on('exit', (code: number | null, signal: string | null) => {
-      this.emitTyped('exit', code, signal);
-    });
-    this.directConnection.on('log', (msg: string) => {
       this.emitTyped('log', msg);
     });
   }

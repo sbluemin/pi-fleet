@@ -6,17 +6,7 @@
 export type CliType = 'gemini' | 'claude' | 'codex';
 
 /** 통신 프로토콜 */
-export type ProtocolType = 'acp' | 'direct';
-
-/** Direct 모드 설정 */
-export interface DirectModeConfig {
-  /** direct 모드 CLI 커맨드 (미지정 시 cliCommand 사용) */
-  command?: string;
-  /** 인자 빌더 타입 키 */
-  argsBuilderType: string;
-  /** 출력 파서 타입 키 */
-  outputParserType: string;
-}
+export type ProtocolType = 'acp';
 
 /** 에이전트 모드 옵션 */
 export interface AgentMode {
@@ -56,8 +46,6 @@ export interface CliBackendConfig {
   npxPackage?: string;
   /** 사용 가능한 에이전트 모드 목록 (session/set_mode 지원 시) */
   modes?: AgentMode[];
-  /** Direct 모드 설정 (지원하는 CLI만) */
-  directConfig?: DirectModeConfig;
 }
 
 /** 연결 옵션 */
@@ -103,8 +91,4 @@ export interface UnifiedClientOptions extends ConnectionOptions {
   autoApprove?: boolean;
   /** 재개할 기존 세션 ID */
   sessionId?: string;
-  /** Direct 모드 사용 여부 (ACP 우회) */
-  direct?: boolean;
-  /** Reasoning effort (direct 모드에서 사용) */
-  effort?: string;
 }

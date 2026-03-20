@@ -41,8 +41,6 @@ export type {
 // === 연결 모듈 ===
 export { BaseConnection, type BaseConnectionOptions } from './connection/BaseConnection.js';
 export { AcpConnection, type AcpConnectionOptions, type AcpConnectionEventMap } from './connection/AcpConnection.js';
-export { DirectConnection, type DirectConnectionOptions } from './connection/DirectConnection.js';
-export { OUTPUT_PARSERS, type OutputParserFn } from './connection/parsers/index.js';
 
 // === CLI 감지 ===
 export { CliDetector } from './detector/CliDetector.js';
@@ -51,17 +49,9 @@ export { CliDetector } from './detector/CliDetector.js';
 export {
   CLI_BACKENDS,
   createSpawnConfig,
-  createDirectSpawnConfig,
   getBackendConfig,
   getAllBackendConfigs,
 } from './config/CliConfigs.js';
-
-// === Direct 모드 ===
-export {
-  buildCodexDirectArgs,
-  DIRECT_ARGS_BUILDERS,
-  type DirectArgsBuilderFn,
-} from './config/DirectArgsBuilders.js';
 
 // === 공식 ACP SDK re-export ===
 export {
@@ -131,7 +121,6 @@ export type {
   // 설정
   CliType,
   ProtocolType,
-  DirectModeConfig,
   AgentMode,
   CliSpawnConfig,
   CliBackendConfig,
@@ -139,17 +128,6 @@ export type {
   CliDetectionResult,
   UnifiedClientOptions,
 } from './types/config.js';
-
-export type {
-  // Direct 모드 타입
-  DirectExecOptions,
-  DirectExecResult,
-  DirectArgsBuildOptions,
-  CodexJsonlItem,
-  CodexJsonlEvent,
-  ParsedDirectEvent,
-  ParsedDirectEventType,
-} from './types/direct.js';
 
 // === 유틸리티 ===
 export { cleanEnvironment, isWindows } from './utils/env.js';

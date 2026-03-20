@@ -227,9 +227,4 @@ export interface IUnifiedAgentClient {
    * @param sessionId - 로드할 세션 ID
    */
   loadSession(sessionId: string): Promise<void>;
-
-  /**
-   * Direct 모드에서 세션 ID를 외부에서 갱신합니다.
-   */
-  setDirectSessionId(sessionId: string): void;
 }

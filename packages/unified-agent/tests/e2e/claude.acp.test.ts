@@ -76,7 +76,7 @@ describe.skipIf(!installed)('E2E: Claude ACP', () => {
   describe('Disconnect 후 프로세스 종료', () => {
     it('SDK: 연결 → 프롬프트 → disconnect → 프로세스 종료 및 상태 초기화 검증', async () => {
       // 최소 모델/effort로 연결
-      const { client: c, sessionId } = await connectClient('claude', { model: 'haiku', effort: 'none' });
+      const { client: c, sessionId } = await connectClient('claude', { model: 'haiku' });
       client = c;
       expect(sessionId).toBeTruthy();
 

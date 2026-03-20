@@ -51,11 +51,10 @@ export class CliRenderer {
     this.ce = options.colorErr;
   }
 
-  /** 초기 헤더 출력: ⏺ unified-agent (cli, mode) */
-  renderHeader(cliLabel: string, directMode: boolean, resumeLabel: string): void {
-    const directTag = directMode ? ' direct' : '';
+  /** 초기 헤더 출력: ⏺ unified-agent (cli) */
+  renderHeader(cliLabel: string, resumeLabel: string): void {
     process.stderr.write(
-      `${this.ce.bold(this.ce.cyan('⏺'))} ${this.ce.bold('unified-agent')} ${this.ce.dim(`(${cliLabel}${directTag}${resumeLabel})`)}\n\n`,
+      `${this.ce.bold(this.ce.cyan('⏺'))} ${this.ce.bold('unified-agent')} ${this.ce.dim(`(${cliLabel}${resumeLabel})`)}\n\n`,
     );
   }
 
@@ -97,10 +96,22 @@ export class CliRenderer {
 
   /** AI 사고 과정 청크 렌더링 (dim, stderr) */
   renderThoughtChunk(text: string): void {
+    // Claude Code 등이 내부 스피너를 thoughtChunk로 전송하는 경우 무시 (예: " ⠧ Working...", "⠹  Claude")
+    const cleanText = text
+      .split('\n')
+      .filter((line) => {
+        // ANSI 이스케이프 및 제어 문자(\r 등) 제거 후 검사
+        const stripped = line.replace(/\x1b\[[0-9;]*[A-Za-z]/g, '').replace(/[\r\n]/g, '').trim();
+        return !/^[\u2800-\u28FF]\s*(Working\.\.\.|Claude)/i.test(stripped);
+      })
+      .join('\n');
+
+    if (cleanText === '') return;
+
     if (this.phase !== 'thinking') {
       this.phase = 'thinking';
     }
-    process.stderr.write(this.ce.dim(text));
+    process.stderr.write(this.ce.dim(cleanText));
   }
 
   /** 도구 호출 헤더 렌더링: ⏺ ToolName(args) */

@@ -45,7 +45,7 @@ export function withTimeout<T>(promise: Promise<T>, ms: number, label: string): 
 /** SDK로 ACP 연결 후 sessionId를 반환하는 헬퍼 */
 export async function connectClient(
   cli: CliType,
-  opts?: { direct?: boolean; model?: string; effort?: string; sessionId?: string },
+  opts?: { model?: string; sessionId?: string },
 ): Promise<{ client: UnifiedAgentClient; sessionId: string | null }> {
   const client = new UnifiedAgentClient();
 
@@ -57,9 +57,7 @@ export async function connectClient(
       cwd: process.cwd(),
       cli,
       autoApprove: true,
-      direct: opts?.direct,
       model: opts?.model,
-      effort: opts?.effort,
       sessionId: opts?.sessionId,
       clientInfo: { name: 'E2E-Test', version: '1.0.0' },
     }),

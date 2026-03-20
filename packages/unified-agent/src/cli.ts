@@ -48,7 +48,6 @@ try {
       model: { type: 'string', short: 'm' },
       effort: { type: 'string', short: 'e' },
       cwd: { type: 'string', short: 'd' },
-      direct: { type: 'boolean', short: 'D', default: false },
       yolo: { type: 'boolean', default: false },
       json: { type: 'boolean', default: false },
       'list-models': { type: 'boolean', default: false },
@@ -81,7 +80,6 @@ ${c.bold('옵션')}
   -m, --model <name>    모델 지정
   -e, --effort <level>  reasoning effort (none | low | medium | high | xhigh)
   -d, --cwd <path>      작업 디렉토리 (기본: 현재 디렉토리)
-  -D, --direct           Direct 모드 (ACP 우회, CLI 직접 실행)
       --yolo             자동 권한 승인 모드
       --json             JSON 출력
       --list-models      사용 가능한 모델 목록 출력
@@ -215,9 +213,8 @@ const jsonMode = values.json as boolean;
 const startTime = Date.now();
 
 const selectedCli = cliOpt as CliType | undefined;
-const directMode = values.direct as boolean;
 
-// ─── 통합 실행 (ACP + Direct) ────────────────────────────
+// ─── 통합 실행 (ACP) ────────────────────────────────────
 
 const client = new UnifiedAgentClient();
 const renderer = new CliRenderer({ color: c, colorErr: ce });
@@ -259,22 +256,20 @@ try {
   if (!jsonMode) {
     const resumeLabel = sessionOpt ? `, resume: ${sessionOpt.slice(0, 8)}…` : '';
     const cliLabel = selectedCli ?? '자동 감지';
-    renderer.renderHeader(cliLabel, directMode, resumeLabel);
+    renderer.renderHeader(cliLabel, resumeLabel);
   }
 
   const result = await client.connect({
     cwd,
     cli: selectedCli,
-    direct: directMode,
     autoApprove: true,
     yoloMode: values.yolo as boolean,
     model: values.model as string | undefined,
-    effort: effortOpt,
     sessionId: sessionOpt,
   });
 
-  // reasoning effort 설정 (direct 모드에서는 connect 시 args에 포함됨)
-  if (effortOpt && result.protocol === 'acp') {
+  // reasoning effort 설정
+  if (effortOpt) {
     try {
       await client.setConfigOption('reasoning_effort', effortOpt);
     } catch {

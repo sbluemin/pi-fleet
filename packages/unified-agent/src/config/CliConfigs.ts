@@ -9,10 +9,8 @@ import type {
   CliType,
   ConnectionOptions,
 } from '../types/config.js';
-import type { DirectArgsBuildOptions } from '../types/direct.js';
 import { resolveNpxPath, buildNpxArgs } from '../utils/npx.js';
 import { cleanEnvironment } from '../utils/env.js';
-import { DIRECT_ARGS_BUILDERS } from './DirectArgsBuilders.js';
 
 /** ACP 기본 인자 */
 const DEFAULT_ACP_ARGS = ['--acp'];
@@ -51,16 +49,12 @@ export const CLI_BACKENDS: Record<CliType, CliBackendConfig> = {
     cliCommand: 'codex',
     protocol: 'acp',
     authRequired: true,
-    npxPackage: '@zed-industries/codex-acp@0.9.5',
+    npxPackage: '@zed-industries/codex-acp@^0.10.0',
     modes: [
       { id: 'default', label: 'Plan' },
       { id: 'autoEdit', label: 'Auto Edit' },
       { id: 'yolo', label: 'Full Auto' },
     ],
-    directConfig: {
-      argsBuilderType: 'codex-exec',
-      outputParserType: 'codex-jsonl',
-    },
   },
 };
 
@@ -103,39 +97,6 @@ export function createSpawnConfig(
     // Gemini ACP는 세션 시작 후 모델 변경 지원이 제한적이어서 spawn 시점에 모델을 넘깁니다.
     args.push('--model', options.model);
   }
-
-  return {
-    command,
-    args,
-    useNpx: false,
-  };
-}
-
-/**
- * Direct 모드 spawn 설정을 생성합니다.
- *
- * @param cli - CLI 종류
- * @param buildOptions - 인자 빌드 옵션
- * @returns spawn 설정 (command + args)
- */
-export function createDirectSpawnConfig(
-  cli: CliType,
-  buildOptions: DirectArgsBuildOptions,
-  cliPath?: string,
-): CliSpawnConfig {
-  const backend = CLI_BACKENDS[cli];
-
-  if (!backend.directConfig) {
-    throw new Error(`"${cli}"는 direct 모드를 지원하지 않습니다.`);
-  }
-
-  const builder = DIRECT_ARGS_BUILDERS[backend.directConfig.argsBuilderType];
-  if (!builder) {
-    throw new Error(`알 수 없는 인자 빌더 타입: "${backend.directConfig.argsBuilderType}"`);
-  }
-
-  const command = cliPath ?? backend.directConfig.command ?? backend.cliCommand;
-  const args = builder(buildOptions);
 
   return {
     command,
