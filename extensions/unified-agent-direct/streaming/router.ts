@@ -17,6 +17,7 @@ import { renderStream } from "../tools/streaming-widget";
 import { ANIM_INTERVAL_MS } from "../constants";
 import { createStreamingMirror } from "./mirror";
 import type { CollectedStreamData } from "./mirror";
+import type { ColBlock } from "../render/panel-renderer";
 import { isAgentPanelExpanded, onPanelToggle } from "../agent-panel";
 
 // ─── 합성 위젯 매니저 (globalThis 싱글턴) ────────────────
@@ -100,6 +101,7 @@ function registerStream(ctx: ExtensionContext, cli: string): StreamState {
     responseText: "",
     thinkingText: "",
     toolCalls: [],
+    blocks: [],
     agentStatus: "connecting",
     frame: mgr.frame,
     timer: null, // 개별 타이머 미사용 — 매니저 공유 타이머
@@ -139,6 +141,7 @@ export function createDirectStreamingRouter(ctx: ExtensionContext, cli: CliType)
       else streamState.toolCalls.push({ ...tc });
     }
     if (collected.text) streamState.responseText = collected.text;
+    if (collected.blocks) streamState.blocks = collected.blocks.map((b) => ({ ...b }));
     streamState.agentStatus = collected.lastStatus;
   }
 
@@ -172,7 +175,16 @@ export function createDirectStreamingRouter(ctx: ExtensionContext, cli: CliType)
 
     onMessageChunk(text: string) {
       mirror.onMessageChunk(text);
-      if (streamState) streamState.responseText += text;
+      if (streamState) {
+        streamState.responseText += text;
+        // blocks에 text 블록 추가/이어붙이기
+        const last = streamState.blocks[streamState.blocks.length - 1];
+        if (last?.type === "text") {
+          last.text += text;
+        } else {
+          streamState.blocks.push({ type: "text", text });
+        }
+      }
     },
 
     onThoughtChunk(text: string) {
@@ -191,6 +203,17 @@ export function createDirectStreamingRouter(ctx: ExtensionContext, cli: CliType)
           }
         } else {
           streamState.toolCalls.push({ title, status, rawOutput });
+        }
+        // blocks에 tool 블록 추가/업데이트
+        const toolBlockIdx = streamState.blocks.findIndex(
+          (b) => b.type === "tool" && b.title === title,
+        );
+        if (toolBlockIdx >= 0) {
+          const block = streamState.blocks[toolBlockIdx] as Extract<ColBlock, { type: "tool" }>;
+          block.status = status;
+          if (rawOutput !== undefined) block.rawOutput = rawOutput;
+        } else {
+          streamState.blocks.push({ type: "tool", title, status, rawOutput });
         }
       }
     },

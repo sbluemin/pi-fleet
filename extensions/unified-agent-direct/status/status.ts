@@ -414,18 +414,18 @@ function ensurePolling(): void {
   store.timer.unref?.();
 }
 
-export async function attachStatusContext(ctx: ExtensionContext): Promise<void> {
+export function attachStatusContext(ctx: ExtensionContext): void {
   const store = getStore();
   store.ctx = ctx;
 
   if (store.snapshots.length > 0) {
     syncPanelStatus();
-  } else {
-    setAgentPanelServiceLoading();
   }
+  // 초기 구동 시 네트워크 요청을 생략하여 Pi 부팅 속도 개선
+  // 상태 갱신은 POLL_TICK_MS(3분) 후 자동 시작되며,
+  // 즉시 확인이 필요하면 /ua-status-refresh 사용
 
   ensurePolling();
-  await refreshSnapshots();
 }
 
 export async function refreshStatusNow(ctx: ExtensionContext): Promise<void> {

@@ -6,7 +6,7 @@
  */
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
-import { visibleWidth, truncateToWidth, wrapTextWithAnsi } from "@mariozechner/pi-tui";
+import { visibleWidth, truncateToWidth } from "@mariozechner/pi-tui";
 import type { AgentStatus } from "../../unified-agent-core/types";
 import type { CollectedStreamData } from "../streaming/mirror";
 import {
@@ -16,11 +16,13 @@ import {
   SPINNER_FRAMES,
   ANIM_INTERVAL_MS,
   ANSI_RESET,
-  STREAMING_PREVIEW_LINES,
-  PREVIEW_LINES,
+  PANEL_DIM_COLOR,
   SYM_INDICATOR,
+  SYM_RESULT,
   SYM_THINKING,
+  TOOLS_COLOR,
 } from "../constants";
+import type { ColBlock } from "../render/panel-renderer";
 
 // ─── 스트리밍 위젯 상태 ──────────────────────────────────
 
@@ -28,6 +30,7 @@ export interface StreamState {
   responseText: string;
   thinkingText: string;
   toolCalls: { title: string; status: string; rawOutput?: string }[];
+  blocks: ColBlock[];
   agentStatus: AgentStatus;
   frame: number;
   timer: ReturnType<typeof setInterval> | null;
@@ -137,6 +140,7 @@ export function createStreamingWidget(
     responseText: "",
     thinkingText: "",
     toolCalls: [],
+    blocks: [],
     agentStatus: "connecting",
     frame: mgr.frame,
     timer: null, // 개별 타이머 미사용 — 매니저 공유 타이머
@@ -147,9 +151,19 @@ export function createStreamingWidget(
   syncToolWidget(mgr);
 
   return {
-    onMessage(text) { state.responseText += text; },
+    onMessage(text) {
+      state.responseText += text;
+      // blocks에 text 블록 추가/이어붙이기
+      const last = state.blocks[state.blocks.length - 1];
+      if (last?.type === "text") {
+        last.text += text;
+      } else {
+        state.blocks.push({ type: "text", text });
+      }
+    },
     onThought(text) { state.thinkingText += text; },
     onToolCall(title, status, rawOutput) {
+      // toolCalls 업데이트 (하위 호환)
       const existing = state.toolCalls.find((tc) => tc.title === title);
       if (existing) {
         existing.status = status;
@@ -158,6 +172,17 @@ export function createStreamingWidget(
         }
       } else {
         state.toolCalls.push({ title, status, rawOutput });
+      }
+      // blocks에 tool 블록 추가/업데이트
+      const toolBlockIdx = state.blocks.findIndex(
+        (b): b is Extract<ColBlock, { type: "tool" }> => b.type === "tool" && b.title === title,
+      );
+      if (toolBlockIdx >= 0) {
+        const block = state.blocks[toolBlockIdx] as Extract<ColBlock, { type: "tool" }>;
+        block.status = status;
+        if (rawOutput !== undefined) block.rawOutput = rawOutput;
+      } else {
+        state.blocks.push({ type: "tool", title, status, rawOutput });
       }
     },
     onStatus(status) { state.agentStatus = status; },
@@ -173,6 +198,7 @@ export function createStreamingWidget(
         text: state.responseText,
         thinking: state.thinkingText,
         toolCalls: state.toolCalls.map((tc) => ({ ...tc })),
+        blocks: state.blocks.map((b) => ({ ...b })),
         lastStatus: state.agentStatus,
       };
     },
@@ -180,6 +206,9 @@ export function createStreamingWidget(
 }
 
 // ─── 렌더링 ──────────────────────────────────────────────
+
+/** 도구 결과 줄 접기 최대 줄 수 */
+const MAX_RESULT_LINES = 4;
 
 export function renderStream(
   state: StreamState,
@@ -209,45 +238,67 @@ export function renderStream(
   lines.push(`${statusIcon} ${nameStyled}`);
   lines.push("");
 
-  // ── thinking (한 줄 프리뷰) ──
+  // ── thinking (항상 full 표시) ──
   if (state.thinkingText) {
-    const firstLine = state.thinkingText.split("\n").find((l) => l.trim()) ?? "";
-    const preview = firstLine.length > 60 ? firstLine.slice(0, 57) + "..." : firstLine;
-    lines.push(theme.fg("dim", `${SYM_THINKING} ${preview}`));
+    lines.push(theme.fg("muted", `${SYM_THINKING} thinking`));
+    lines.push(theme.fg("dim", state.thinkingText));
     lines.push("");
   }
 
-  // ── toolCalls (요약) ──
-  if (state.toolCalls.length > 0) {
-    const completed = state.toolCalls.filter((tc) => tc.status === "completed").length;
-    lines.push(theme.fg("dim", `${SYM_INDICATOR} ${state.toolCalls.length} tools (${completed} done)`));
-    lines.push("");
-  }
-
-  // ── 응답 텍스트 ──
-  if (state.responseText.trim()) {
-    const wrapped = wrapTextWithAnsi(state.responseText, width);
-
-    if (isRunning) {
-      // 스트리밍 중: 마지막 N줄 표시 (최신 내용 추적)
-      const display = wrapped.length > STREAMING_PREVIEW_LINES
-        ? wrapped.slice(-STREAMING_PREVIEW_LINES)
-        : wrapped;
-      lines.push(...display);
-    } else {
-      // 완료 후: 처음 PREVIEW_LINES줄 표시, 초과 시 마지막 줄을 ...으로 교체
-      if (wrapped.length > PREVIEW_LINES) {
-        lines.push(...wrapped.slice(0, PREVIEW_LINES - 1));
-        lines.push("...");
+  // ── blocks 기반 렌더링 (패널 렌더러와 동일한 프리티 표기) ──
+  if (state.blocks.length > 0) {
+    for (const block of state.blocks) {
+      if (block.type === "text") {
+        // 응답 텍스트: 첫 줄 ⏺ + 이후 줄 들여쓰기
+        const trimmed = block.text.replace(/^\n+/, "");
+        if (!trimmed) continue;
+        trimmed.split("\n").forEach((line, i) => {
+          lines.push(i === 0 ? `${SYM_INDICATOR} ${line}` : `  ${line}`);
+        });
       } else {
-        lines.push(...wrapped);
+        // 도구 블록: ⏺ 타이틀 + ⎿ rawOutput/status
+        const isToolError = block.status === "failed" || block.status === "error";
+        const titleText = `${SYM_INDICATOR} ${block.title}`;
+        lines.push(
+          isToolError
+            ? theme.fg("error", titleText)
+            : `${TOOLS_COLOR}${titleText}${ANSI_RESET}`,
+        );
+
+        const statusText = block.rawOutput?.trim()
+          ? block.rawOutput
+          : (block.status === "completed" || block.status === "failed" || block.status === "error"
+            ? block.status
+            : "");
+        if (statusText) {
+          const rawLines = statusText.split("\n");
+          const displayLines = rawLines.length > MAX_RESULT_LINES
+            ? rawLines.slice(0, MAX_RESULT_LINES - 1)
+            : rawLines;
+          const foldedCount = rawLines.length > MAX_RESULT_LINES
+            ? rawLines.length - (MAX_RESULT_LINES - 1)
+            : 0;
+
+          for (let i = 0; i < displayLines.length; i++) {
+            const prefix = i === 0 ? `  ${SYM_RESULT}  ` : "     ";
+            lines.push(
+              isToolError
+                ? theme.fg("error", `${prefix}${displayLines[i]}`)
+                : `${PANEL_DIM_COLOR}${prefix}${displayLines[i]}${ANSI_RESET}`,
+            );
+          }
+          if (foldedCount > 0) {
+            lines.push(`${PANEL_DIM_COLOR}     … +${foldedCount} lines${ANSI_RESET}`);
+          }
+        }
       }
     }
   } else if (isRunning) {
+    // blocks가 아직 없으면 대기 메시지
     lines.push(theme.fg("dim", "waiting for response..."));
   }
 
-  // ── 헤더/메타 라인을 터미널 너비로 truncate (응답은 이미 wrap됨) ──
+  // ── 터미널 너비로 truncate ──
   const truncated = lines.map((line) =>
     visibleWidth(line) > width ? truncateToWidth(line, width) : line,
   );
@@ -260,7 +311,6 @@ export function renderStream(
     const vw = visibleWidth(restored);
     const pad = Math.max(0, width - vw);
     const result = bgColor + restored + " ".repeat(pad) + ANSI_RESET;
-    // 안전장치: 배경색 래핑 후에도 너비 초과 방지
     return visibleWidth(result) > width ? truncateToWidth(result, width) : result;
   });
 }

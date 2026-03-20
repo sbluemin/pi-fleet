@@ -37,7 +37,7 @@ import {
   updateAgentCol,
   getAgentPanelCols,
 } from "./agent-panel";
-import type { AgentCol } from "./render/panel-renderer";
+import type { AgentCol, ColBlock } from "./render/panel-renderer";
 
 // 프레임워크 + 상수
 import {
@@ -298,17 +298,17 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
   });
 
   // ── 세션 변경 핸들러 ──
-  const onSessionChange = async (ctx: import("@mariozechner/pi-coding-agent").ExtensionContext) => {
+  const onSessionChange = (ctx: import("@mariozechner/pi-coding-agent").ExtensionContext) => {
     sessionStore.restore(ctx.sessionManager.getSessionId());
     cleanIdleClients();
     refreshAgentPanelFooter(ctx);
-    await attachStatusContext(ctx);
+    attachStatusContext(ctx);
   };
 
-  pi.on("session_start", async (_event, ctx) => { await onSessionChange(ctx); syncModelConfig(); });
-  pi.on("session_switch", async (_event, ctx) => { await onSessionChange(ctx); syncModelConfig(); });
-  pi.on("session_fork", async (_event, ctx) => { await onSessionChange(ctx); syncModelConfig(); });
-  pi.on("session_tree", async (_event, ctx) => { await onSessionChange(ctx); syncModelConfig(); });
+  pi.on("session_start", (_event, ctx) => { onSessionChange(ctx); syncModelConfig(); });
+  pi.on("session_switch", (_event, ctx) => { onSessionChange(ctx); syncModelConfig(); });
+  pi.on("session_fork", (_event, ctx) => { onSessionChange(ctx); syncModelConfig(); });
+  pi.on("session_tree", (_event, ctx) => { onSessionChange(ctx); syncModelConfig(); });
 
   // ── Direct Mode 전용 세션 강제 저장 ──
   // pi 코어의 _persist()는 assistant 메시지가 없으면 디스크에 쓰지 않음.
@@ -446,6 +446,7 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
               error: result.status !== "done" ? true : undefined,
               thinking: collected.thinking || undefined,
               toolCalls: collected.toolCalls.length > 0 ? collected.toolCalls : undefined,
+              blocks: collected.blocks.length > 0 ? collected.blocks : undefined,
             },
           };
         } catch (error) {
@@ -490,7 +491,16 @@ async function queryAgent(
     signal,
     onMessageChunk: (text) => {
       const c = getAgentPanelCols()[colIndex];
-      updateAgentCol(colIndex, { text: c.text + text, status: "stream" });
+      // blocks에서 마지막 text 블록에 이어붙이거나 새 블록 추가
+      const blocks = c.blocks ?? [];
+      const last = blocks[blocks.length - 1];
+      let newBlocks: ColBlock[];
+      if (last?.type === "text") {
+        newBlocks = [...blocks.slice(0, -1), { type: "text", text: last.text + text }];
+      } else {
+        newBlocks = [...blocks, { type: "text", text }];
+      }
+      updateAgentCol(colIndex, { text: c.text + text, status: "stream", blocks: newBlocks });
     },
     onThoughtChunk: (text) => {
       const c = getAgentPanelCols()[colIndex];
@@ -498,6 +508,25 @@ async function queryAgent(
     },
     onToolCall: (title, status, rawOutput) => {
       const c = getAgentPanelCols()[colIndex];
+
+      // blocks 업데이트: 이벤트 순서 보존
+      const blocks = c.blocks ?? [];
+      const toolBlockIdx = blocks.findIndex(
+        (b): b is Extract<ColBlock, { type: "tool" }> => b.type === "tool" && b.title === title,
+      );
+      let newBlocks: ColBlock[];
+      if (toolBlockIdx >= 0) {
+        newBlocks = blocks.map((b, i) => {
+          if (i === toolBlockIdx && b.type === "tool") {
+            return { type: "tool" as const, title: b.title, status, ...(rawOutput !== undefined ? { rawOutput } : {}) };
+          }
+          return b;
+        });
+      } else {
+        newBlocks = [...blocks, { type: "tool" as const, title, status, rawOutput }];
+      }
+
+      // toolCalls 동기화 (하위 호환)
       const toolCalls = [...(c.toolCalls ?? [])];
       const existing = toolCalls.find((tc) => tc.title === title);
       if (existing) {
@@ -510,6 +539,7 @@ async function queryAgent(
       }
       updateAgentCol(colIndex, {
         toolCalls,
+        blocks: newBlocks,
         status: c.status === "conn" || c.status === "wait" ? "stream" : c.status,
       });
     },

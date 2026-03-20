@@ -11,7 +11,9 @@ import type { CliType } from "../../unified-agent-core/types";
 import { Type } from "@sinclair/typebox";
 
 import type { SessionMapStore } from "../../unified-agent-core/session-map";
+import { DIRECT_MODE_BG_COLORS, DIRECT_MODE_COLORS } from "../constants";
 import { toolDescription, toolPromptSnippet, toolPromptGuidelines } from "./prompts.js";
+import { createToolResultRenderer } from "./result-renderer";
 import { executeWithPool } from "../../unified-agent-core/executor";
 import { createStreamingWidget } from "./streaming-widget";
 import { Text } from "@mariozechner/pi-tui";
@@ -59,6 +61,12 @@ export function registerAgentTools({ pi, configDir, sessionStore }: RegisterAgen
         return new Text(text, 0, 0);
       },
 
+      renderResult: createToolResultRenderer({
+        displayName,
+        color: DIRECT_MODE_COLORS[cli] ?? undefined,
+        bgColor: DIRECT_MODE_BG_COLORS[cli] ?? undefined,
+      }),
+
       async execute(
         _id: string,
         params: { request: string },
@@ -96,6 +104,7 @@ export function registerAgentTools({ pi, configDir, sessionStore }: RegisterAgen
               error: result.status !== "done" ? true : undefined,
               thinking: collected.thinking || undefined,
               toolCalls: collected.toolCalls.length > 0 ? collected.toolCalls : undefined,
+              blocks: collected.blocks.length > 0 ? collected.blocks : undefined,
             },
           };
         } catch (error) {

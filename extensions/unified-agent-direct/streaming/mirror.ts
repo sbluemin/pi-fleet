@@ -29,6 +29,8 @@ export interface CollectedStreamData {
   thinking: string;
   /** 누적된 도구 호출 목록 */
   toolCalls: { title: string; status: string; rawOutput?: string }[];
+  /** 순서 보존된 이벤트 블록 (메시지 렌더러용) */
+  blocks: ColBlock[];
   /** 마지막 에이전트 상태 */
   lastStatus: AgentStatus;
 }
@@ -65,6 +67,7 @@ export function createStreamingMirror(ctx: ExtensionContext, cli: CliType) {
   let accText = "";
   let accThinking = "";
   const accToolCalls: { title: string; status: string; rawOutput?: string }[] = [];
+  const accBlocks: ColBlock[] = [];
   let lastStatus: AgentStatus = "connecting";
 
   return {
@@ -87,6 +90,14 @@ export function createStreamingMirror(ctx: ExtensionContext, cli: CliType) {
 
     onMessageChunk(text: string) {
       accText += text;
+
+      // accBlocks에 text 블록 추가/업데이트 (패널 col.blocks와 동일 로직)
+      const lastAcc = accBlocks[accBlocks.length - 1];
+      if (lastAcc?.type === "text") {
+        lastAcc.text += text;
+      } else {
+        accBlocks.push({ type: "text", text });
+      }
 
       const col = readCol(colIndex);
       if (!col) return;
@@ -129,6 +140,18 @@ export function createStreamingMirror(ctx: ExtensionContext, cli: CliType) {
         }
       } else {
         accToolCalls.push({ title, status, rawOutput });
+      }
+
+      // accBlocks에 tool 블록 추가/업데이트 (패널 col.blocks와 동일 로직)
+      const accBlockIdx = accBlocks.findIndex(
+        (b): b is Extract<ColBlock, { type: "tool" }> => b.type === "tool" && b.title === title,
+      );
+      if (accBlockIdx >= 0) {
+        const block = accBlocks[accBlockIdx] as Extract<ColBlock, { type: "tool" }>;
+        block.status = status;
+        if (rawOutput !== undefined) block.rawOutput = rawOutput;
+      } else {
+        accBlocks.push({ type: "tool", title, status, rawOutput });
       }
 
       // 패널 칼럼 반영
@@ -231,6 +254,7 @@ export function createStreamingMirror(ctx: ExtensionContext, cli: CliType) {
         text: accText,
         thinking: accThinking,
         toolCalls: accToolCalls.map((tc) => ({ ...tc })),
+        blocks: accBlocks.map((b) => ({ ...b })),
         lastStatus,
       };
     },

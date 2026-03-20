@@ -58,6 +58,15 @@ function buildResumeOrNewArgs(
 ): string[] {
   const args: string[] = [];
 
+  // 기본 권한 우회 옵션
+  if (cli === "claude") {
+    args.push("--dangerously-skip-permissions");
+  } else if (cli === "codex") {
+    args.push("--full-auto");
+  } else if (cli === "gemini") {
+    args.push("--yolo");
+  }
+
   // Resume 인자 (CLI별 형식이 다름)
   if (sessionId) {
     switch (cli) {
