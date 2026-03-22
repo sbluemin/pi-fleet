@@ -1,15 +1,14 @@
 /**
  * utils-improve-prompt/settings.ts — 설정 파일 관리
+ *
+ * infra-settings API를 통해 extensions/settings.json의 "mp" 키에서 읽고 쓴다.
  */
 
-import * as fs from "node:fs";
-import * as path from "node:path";
-import { fileURLToPath } from "node:url";
-
 import type { ReasoningLevel } from "./constants.js";
+import type { InfraSettingsAPI } from "../infra-settings/types.js";
+import { INFRA_SETTINGS_KEY } from "../infra-settings/types.js";
 
-const EXT_DIR = path.dirname(fileURLToPath(import.meta.url));
-const SETTINGS_FILE = "settings.json";
+const SECTION_KEY = "utils-improve-prompt";
 
 /** 설정 파일 구조 */
 export interface MetaPromptSettings {
@@ -21,24 +20,22 @@ export interface MetaPromptSettings {
   reasoning?: ReasoningLevel;
 }
 
-function getSettingsPath(): string {
-  return path.join(EXT_DIR, SETTINGS_FILE);
+function getAPI(): InfraSettingsAPI {
+  const api = (globalThis as any)[INFRA_SETTINGS_KEY];
+  if (!api) throw new Error("infra-settings API not available");
+  return api;
 }
 
-/** 설정 파일 로드 */
+/** 설정 로드 (extensions/settings.json → "mp") */
 export function loadSettings(): MetaPromptSettings {
   try {
-    const filePath = getSettingsPath();
-    if (!fs.existsSync(filePath)) return {};
-    const raw = JSON.parse(fs.readFileSync(filePath, "utf-8"));
-    if (typeof raw !== "object" || raw === null) return {};
-    return raw as MetaPromptSettings;
+    return getAPI().load<MetaPromptSettings>(SECTION_KEY);
   } catch {
     return {};
   }
 }
 
-/** 설정 파일 저장 */
+/** 설정 저장 (extensions/settings.json → "mp") */
 export function saveSettings(settings: MetaPromptSettings): void {
-  fs.writeFileSync(getSettingsPath(), JSON.stringify(settings, null, 2), "utf-8");
+  getAPI().save(SECTION_KEY, settings);
 }

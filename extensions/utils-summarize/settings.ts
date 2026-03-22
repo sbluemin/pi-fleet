@@ -1,13 +1,13 @@
 /**
  * utils-summarize/settings.ts — 설정 파일 관리
+ *
+ * infra-settings API를 통해 extensions/settings.json의 "as" 키에서 읽고 쓴다.
  */
 
-import * as fs from "node:fs";
-import * as path from "node:path";
-import { fileURLToPath } from "node:url";
+import type { InfraSettingsAPI } from "../infra-settings/types.js";
+import { INFRA_SETTINGS_KEY } from "../infra-settings/types.js";
 
-const EXT_DIR = path.dirname(fileURLToPath(import.meta.url));
-const SETTINGS_FILE = "settings.json";
+const SECTION_KEY = "utils-summarize";
 
 export interface AutoSummarizeSettings {
   /** 모델 프로바이더 (미설정 시 세션 모델 사용) */
@@ -18,26 +18,22 @@ export interface AutoSummarizeSettings {
   maxLength?: number;
 }
 
-function getSettingsPath(): string {
-  return path.join(EXT_DIR, SETTINGS_FILE);
+function getAPI(): InfraSettingsAPI {
+  const api = (globalThis as any)[INFRA_SETTINGS_KEY];
+  if (!api) throw new Error("infra-settings API not available");
+  return api;
 }
 
+/** 설정 로드 (extensions/settings.json → "as") */
 export function loadSettings(): AutoSummarizeSettings {
   try {
-    const filePath = getSettingsPath();
-    if (!fs.existsSync(filePath)) return {};
-    const raw = JSON.parse(fs.readFileSync(filePath, "utf-8"));
-    if (typeof raw !== "object" || raw === null) return {};
-    return raw as AutoSummarizeSettings;
+    return getAPI().load<AutoSummarizeSettings>(SECTION_KEY);
   } catch {
     return {};
   }
 }
 
+/** 설정 저장 (extensions/settings.json → "as") */
 export function saveSettings(settings: AutoSummarizeSettings): void {
-  fs.writeFileSync(
-    getSettingsPath(),
-    JSON.stringify(settings, null, 2),
-    "utf-8",
-  );
+  getAPI().save(SECTION_KEY, settings);
 }

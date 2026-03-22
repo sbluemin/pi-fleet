@@ -1,5 +1,0 @@
-{
-  "provider": "github-copilot",
-  "model": "gemini-3-flash-preview",
-  "maxLength": 80
-}

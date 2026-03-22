@@ -15,7 +15,7 @@ import { getPreset } from "../hud-core/presets.js";
 import { buildSegmentContext } from "../hud-core/context.js";
 import { computeResponsiveLayout } from "../hud-core/layout.js";
 import { HUD_WELCOME_GLOBAL_KEY } from "../hud-welcome/types.js";
-import { PANEL_DIM_COLOR, ANSI_RESET, DIRECT_MODE_COLORS } from "../unified-agent-direct/constants.js";
+import { DIRECT_MODE_COLORS } from "../unified-agent-direct/constants.js";
 import { getActiveModeId, onStatusUpdate } from "../unified-agent-direct/framework.js";
 import { getModeBannerLines } from "../unified-agent-direct/agent-panel.js";
 
@@ -76,8 +76,6 @@ function getResponsiveLayout(
 
 /** footer 상태 전용 status key (문자열 계약) */
 const UA_DIRECT_FOOTER_STATUS_KEY = "ua-direct-footer";
-const MP_FOOTER_STATUS_KEY = "mp-footer";
-const AS_FOOTER_STATUS_KEY = "as-footer";
 
 /** Footer 등록 — ua-direct 상태 표시 + footerData/tui 참조를 state에 저장 */
 export function setupFooter(ctx: any, state: HudEditorState): void {
@@ -94,23 +92,11 @@ export function setupFooter(ctx: any, state: HudEditorState): void {
       invalidate() {},
       render(width: number): string[] {
         const statuses = footerData.getExtensionStatuses();
-
         const uaStatus = statuses.get(UA_DIRECT_FOOTER_STATUS_KEY)?.trimEnd();
-        const mpSeg = statuses.get(MP_FOOTER_STATUS_KEY)?.trimEnd();
-        const asSeg = statuses.get(AS_FOOTER_STATUS_KEY)?.trimEnd();
 
-        // MP │ AS 한 줄 조합 (있는 것만)
-        const utilsParts = [mpSeg, asSeg].filter(Boolean) as string[];
-        const utilsLine = utilsParts.length > 0
-          ? utilsParts.join(`${PANEL_DIM_COLOR} │ ${ANSI_RESET}`)
-          : undefined;
+        if (!uaStatus) return [];
 
-        const lines: string[] = [];
-        if (uaStatus) lines.push(...uaStatus.split("\n"));
-        if (utilsLine) lines.push(utilsLine);
-
-        if (lines.length === 0) return [];
-
+        const lines = uaStatus.split("\n");
         return lines.map(line => centerLine(line, width));
       },
     };

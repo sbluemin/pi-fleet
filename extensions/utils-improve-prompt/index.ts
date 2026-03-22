@@ -8,11 +8,12 @@ import type { Api, Model } from "@mariozechner/pi-ai";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 import type { ReasoningLevel } from "./constants.js";
-import { REASONING_LEVELS, REASONING_LABELS, isValidReasoning } from "./constants.js";
+import { REASONING_LEVELS, REASONING_LABELS, REASONING_COLORS, isValidReasoning } from "./constants.js";
 import { loadSettings, saveSettings } from "./settings.js";
 import type { MetaPromptSettings } from "./settings.js";
 import { resolveModel, metaPromptWithLoader } from "./engine.js";
-import { updateStatus } from "./ui.js";
+import type { InfraSettingsAPI } from "../infra-settings/types.js";
+import { INFRA_SETTINGS_KEY } from "../infra-settings/types.js";
 
 export default function (pi: ExtensionAPI) {
   // 설정 파일에서 초기 reasoning 레벨 로드 (기본: off)
@@ -22,10 +23,20 @@ export default function (pi: ExtensionAPI) {
       ? initialSettings.reasoning
       : "off";
 
-  // ── 이벤트 핸들러 ──
+  // ── 팝업 섹션 등록 ──
 
-  pi.on("session_start", async (_event, ctx) => {
-    updateStatus(ctx, currentReasoning);
+  const infraApi = (globalThis as any)[INFRA_SETTINGS_KEY] as InfraSettingsAPI | undefined;
+  infraApi?.registerSection({
+    key: "utils-improve-prompt",
+    displayName: "Meta Prompt",
+    getDisplayFields() {
+      const s = loadSettings();
+      return [
+        { label: "Model", value: s.model || "session model", color: s.model ? "accent" : "dim" },
+        { label: "Provider", value: s.provider || "session model", color: s.provider ? "accent" : "dim" },
+        { label: "Reasoning", value: REASONING_LABELS[currentReasoning], color: REASONING_COLORS[currentReasoning] },
+      ];
+    },
   });
 
   // ── 커맨드 등록 ──
@@ -124,7 +135,6 @@ export default function (pi: ExtensionAPI) {
 
       // 저장
       saveSettings(newSettings);
-      updateStatus(ctx, currentReasoning);
 
       const modelSummary = newSettings.provider && newSettings.model
         ? `${newSettings.provider}/${newSettings.model}`
@@ -189,7 +199,6 @@ export default function (pi: ExtensionAPI) {
         const settings = loadSettings();
         settings.reasoning = currentReasoning;
         saveSettings(settings);
-        updateStatus(ctx, currentReasoning);
         ctx.ui.notify(
           `Meta-prompt reasoning → ${REASONING_LABELS[currentReasoning]}`,
           "info",
@@ -210,7 +219,6 @@ export default function (pi: ExtensionAPI) {
       const settings = loadSettings();
       settings.reasoning = currentReasoning;
       saveSettings(settings);
-      updateStatus(ctx, currentReasoning);
       ctx.ui.notify(
         `Meta-prompt reasoning → ${REASONING_LABELS[currentReasoning]}`,
         "info",
@@ -226,7 +234,6 @@ export default function (pi: ExtensionAPI) {
       const settings = loadSettings();
       settings.reasoning = currentReasoning;
       saveSettings(settings);
-      updateStatus(ctx, currentReasoning);
       ctx.ui.notify(
         `Meta-prompt reasoning → ${REASONING_LABELS[currentReasoning]}`,
         "info",

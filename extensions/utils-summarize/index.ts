@@ -20,19 +20,37 @@ import { convertToLlm, serializeConversation } from "@mariozechner/pi-coding-age
 import { loadSettings, saveSettings } from "./settings.js";
 import type { AutoSummarizeSettings } from "./settings.js";
 import { resolveModel, generateOneLiner } from "./summarizer.js";
-import { updateStatus } from "./ui.js";
+import type { InfraSettingsAPI } from "../infra-settings/types.js";
+import { INFRA_SETTINGS_KEY } from "../infra-settings/types.js";
 
 export default function (pi: ExtensionAPI) {
   /** 이번 세션에서 첫 턴 자동 요약이 완료되었는지 추적 */
   let firstTurnDone = false;
 
+  // ── 팝업 섹션 등록 ──
+
+  const infraApi = (globalThis as any)[INFRA_SETTINGS_KEY] as InfraSettingsAPI | undefined;
+  infraApi?.registerSection({
+    key: "utils-summarize",
+    displayName: "Auto Summarize",
+    getDisplayFields() {
+      const s = loadSettings();
+      const sessionName = pi.getSessionName();
+      return [
+        { label: "Model", value: s.model || "session model", color: s.model ? "accent" : "dim" },
+        { label: "Provider", value: s.provider || "session model", color: s.provider ? "accent" : "dim" },
+        { label: "Max Length", value: String(s.maxLength ?? 80) },
+        { label: "Session", value: sessionName || "요약 대기", color: sessionName ? "accent" : "dim" },
+      ];
+    },
+  });
+
   // ── 이벤트 핸들러 ──
 
-  pi.on("session_start", async (_event, ctx) => {
+  pi.on("session_start", async () => {
     if (pi.getSessionName()) {
       firstTurnDone = true;
     }
-    updateStatus(pi, ctx);
   });
 
   pi.on("agent_end", async (event, ctx) => {
@@ -54,7 +72,6 @@ export default function (pi: ExtensionAPI) {
     const summary = await generateOneLiner(ctx, model, conversationText, maxLength);
     if (summary) {
       pi.setSessionName(summary);
-      updateStatus(pi, ctx);
     }
   });
 
@@ -71,7 +88,6 @@ export default function (pi: ExtensionAPI) {
     const summary = await generateOneLiner(ctx, model, compactionSummary, maxLength);
     if (summary) {
       pi.setSessionName(summary);
-      updateStatus(pi, ctx);
     }
   });
 
@@ -115,7 +131,6 @@ export default function (pi: ExtensionAPI) {
       if (summary) {
         pi.setSessionName(summary);
         firstTurnDone = true;
-        updateStatus(pi, ctx);
         ctx.ui.notify(`세션 이름 설정: ${summary}`, "info");
       } else {
         ctx.ui.notify("요약 생성에 실패했습니다.", "error");
