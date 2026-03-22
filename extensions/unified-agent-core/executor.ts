@@ -175,6 +175,7 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
   let status: AgentStatus = "connecting";
   let error: string | undefined;
   let aborted = false;
+  let isLivePrompt = false;
 
   opts.onStatusChange?.("connecting");
 
@@ -248,14 +249,17 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
 
   // ── 이벤트 리스너 ──
   const onMessageChunk = (text: string) => {
+    if (!isLivePrompt) return;
     responseText += text;
     opts.onMessageChunk?.(text);
   };
   const onThoughtChunk = (text: string) => {
+    if (!isLivePrompt) return;
     thoughtText += text;
     opts.onThoughtChunk?.(text);
   };
   const upsertToolCall = (title: string, tcStatus: string, rawOutput?: string) => {
+    if (!isLivePrompt) return;
     const existing = toolCalls.find((tc) => tc.title === title);
     if (existing) {
       existing.status = tcStatus;
@@ -383,6 +387,12 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
     opts.onConnected?.(connectionInfo);
     status = "running";
     opts.onStatusChange?.("running");
+
+    // session/load 중 재생된 과거 이벤트는 버리고, 현재 프롬프트부터만 누적합니다.
+    responseText = "";
+    thoughtText = "";
+    toolCalls.length = 0;
+    isLivePrompt = true;
 
     // ── 메시지 전송 (블로킹: 프롬프트 완료까지 대기) ──
     await client.sendMessage(request);
