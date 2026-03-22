@@ -17,10 +17,10 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
-import { setAgentPanelMode, hideAgentPanel } from "./agent-panel";
-import { createDefaultUserRenderer, createDefaultResponseRenderer } from "./render/message-renderers";
-import { INFRA_KEYBIND_KEY } from "../infra-keybind/types.js";
-import type { InfraKeybindAPI } from "../infra-keybind/types.js";
+import { setAgentPanelMode, hideAgentPanel } from "../core/panel/lifecycle.js";
+import { createDefaultUserRenderer, createDefaultResponseRenderer } from "../core/render/message-renderers";
+import { INFRA_KEYBIND_KEY } from "../../infra-keybind/types.js";
+import type { InfraKeybindAPI } from "../../infra-keybind/types.js";
 
 // ─── 공개 타입 ───────────────────────────────────────────
 

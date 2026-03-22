@@ -16,7 +16,7 @@ import {
   getAllVisibleRuns,
   getRunById,
   resetRuns,
-} from "../streaming/stream-store.js";
+} from "../core/streaming/stream-store.js";
 
 // 각 테스트 전에 globalThis 상태 초기화
 beforeEach(() => {

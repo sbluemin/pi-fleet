@@ -14,8 +14,8 @@
  */
 
 import type { ColBlock } from "../render/panel-renderer.js";
-import type { AgentStatus } from "../../unified-agent-core/types.js";
-import { CLI_ORDER } from "../constants.js";
+import type { AgentStatus } from "../../../unified-agent-core/types.js";
+import { CLI_ORDER } from "../../constants.js";
 
 // ─── 타입 ────────────────────────────────────────────────
 

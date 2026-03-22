@@ -9,15 +9,13 @@ import type { ReadonlyFooterDataProvider, Theme } from "@mariozechner/pi-coding-
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
 import type { HudEditorState } from "./index.js";
-import type { SegmentStateProvider } from "./types.js";
+import type { EditorModeProvider, SegmentStateProvider } from "./types.js";
+import { EDITOR_MODE_PROVIDER_KEY } from "./types.js";
 import { ansi, getFgAnsiCode } from "./colors.js";
 import { getPreset } from "./presets.js";
 import { buildSegmentContext } from "./context.js";
 import { computeResponsiveLayout } from "./layout.js";
 import { WELCOME_GLOBAL_KEY } from "../utils-welcome/types.js";
-import { DIRECT_MODE_COLORS } from "../unified-agent-direct/constants.js";
-import { getActiveModeId, onStatusUpdate } from "../unified-agent-direct/framework.js";
-import { getModeBannerLines } from "../unified-agent-direct/agent-panel.js";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // globalThis 접근 헬퍼
@@ -25,6 +23,11 @@ import { getModeBannerLines } from "../unified-agent-direct/agent-panel.js";
 
 function dismissWelcomeViaGlobal(): void {
   (globalThis as any)[WELCOME_GLOBAL_KEY]?.dismiss?.();
+}
+
+/** globalThis에서 EditorModeProvider를 가져온다 (주입 전이면 undefined). */
+function getModeProvider(): EditorModeProvider | undefined {
+  return (globalThis as any)[EDITOR_MODE_PROVIDER_KEY] as EditorModeProvider | undefined;
 }
 
 function centerLine(line: string, width: number): string {
@@ -138,8 +141,9 @@ export function setupCustomEditor(ctx: any, state: HudEditorState): void {
         }
 
         // 활성 UA 모드 색상 (없으면 null → 기본 색상 유지)
-        const modeId = getActiveModeId();
-        const modeFg = modeId ? (DIRECT_MODE_COLORS[modeId] ?? null) : null;
+        const modeProvider = getModeProvider();
+        const modeId = modeProvider?.getActiveModeId() ?? null;
+        const modeFg = modeId ? (modeProvider?.getModeColor(modeId) ?? null) : null;
 
         // 테두리: 모드 FG 색상 우선, 없으면 기본 sep 색상
         const bc = (s: string) => `${modeFg ?? getFgAnsiCode("sep")}${s}${ansi.reset}`;
@@ -166,7 +170,7 @@ export function setupCustomEditor(ctx: any, state: HudEditorState): void {
         const result: string[] = [];
 
         // UA 모드 배너 (활성 모드가 있을 때 — 테두리 위)
-        const bannerLines = getModeBannerLines(width);
+        const bannerLines = modeProvider?.getBannerLines(width) ?? [];
         if (bannerLines.length > 0) {
           result.push(...bannerLines);
         }
@@ -202,7 +206,7 @@ export function setupCustomEditor(ctx: any, state: HudEditorState): void {
     ctx.ui.setEditorComponent(editorFactory);
 
     // 모드 전환 시 에디터 리렌더 요청 (배경색 즉시 반영)
-    onStatusUpdate(() => {
+    getModeProvider()?.onStatusUpdate(() => {
       state.tuiRef?.requestRender();
     });
 

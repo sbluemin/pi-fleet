@@ -16,7 +16,7 @@ Do not create intermediate layers that simply wrap official TUI APIs (e.g., `set
 | `infra-keybind/` | Centralized keybinding management + overlay (alt+.) | `index.ts` (wiring), `types.ts` (API + globalThis), `store.ts` (JSON), `registry.ts` (bindings), `overlay.ts` (UI) |
 | `infra-settings/` | Centralized settings API + overlay popup (alt+/) | `index.ts` (wiring), `types.ts` (API + globalThis), `store.ts` (JSON), `registry.ts` (sections), `overlay.ts` (UI) |
 | `utils-welcome/` | Welcome overlay/header | `index.ts` (wiring), `welcome.ts` (UI), `types.ts` (globalThis types) |
-| `unified-agent-direct/` | 4 Direct modes (alt+1~4) + individual agent tools | `index.ts` (wiring), `agent-panel.ts`, `render/`, `tools/`, etc. |
+| `unified-agent-direct/` | 4 Direct modes (alt+0~3) + individual agent tools + unified pipeline | `index.ts` (wiring), `agent-api.ts` (pipeline), `modes/`, `tools/`, `render/`, etc. |
 | `utils-improve-prompt/` | Meta-prompting (alt+m), reasoning level cycle (alt+r) | `index.ts` (wiring), `ui.ts` (status bar widget) |
 | `utils-thinking-timer/` | Inline elapsed-time display for Thinking blocks | `index.ts` (wiring), `timer.ts` (patch/store/ticker) |
 | `utils-summarize/` | Auto one-line session summary | `index.ts` (wiring), `ui.ts` (status bar widget) |

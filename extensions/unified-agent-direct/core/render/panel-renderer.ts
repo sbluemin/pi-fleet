@@ -20,7 +20,7 @@ import {
   PANEL_COLOR,
   PANEL_DIM_COLOR,
   SYM_INDICATOR,
-} from "../constants";
+} from "../../constants";
 import { renderBlockLines, blockLineAnsiColor } from "./block-renderer";
 
 // ─── 에이전트 칼럼 타입 ──────────────────────────────────

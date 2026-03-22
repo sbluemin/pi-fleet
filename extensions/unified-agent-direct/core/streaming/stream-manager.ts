@@ -25,7 +25,7 @@ import {
   SPINNER_FRAMES,
   SYM_INDICATOR,
   TOOLS_COLOR,
-} from "../constants.js";
+} from "../../constants.js";
 import { visibleWidth, truncateToWidth } from "@mariozechner/pi-tui";
 
 // ─── 매니저 인터페이스 ───────────────────────────────────

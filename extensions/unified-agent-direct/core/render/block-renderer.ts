@@ -21,7 +21,7 @@ import {
   SYM_INDICATOR,
   SYM_RESULT,
   SYM_THINKING,
-} from "../constants.js";
+} from "../../constants.js";
 
 // ─── 공통 상수 ───────────────────────────────────────────
 

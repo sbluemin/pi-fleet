@@ -7,15 +7,15 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
-import type { CliType } from "../../unified-agent-core/types";
+import type { CliType } from "../../../unified-agent-core/types";
 import { Type } from "@sinclair/typebox";
 
-import type { SessionMapStore } from "../../unified-agent-core/session-map";
-import { DIRECT_MODE_BG_COLORS, DIRECT_MODE_COLORS } from "../constants";
+import type { SessionMapStore } from "../../../unified-agent-core/session-map";
+import { DIRECT_MODE_BG_COLORS, DIRECT_MODE_COLORS } from "../../constants";
 import { toolDescription, toolPromptSnippet, toolPromptGuidelines } from "./prompts.js";
-import { createToolResultRenderer } from "./result-renderer";
-import { executeWithPool } from "../../unified-agent-core/executor";
-import { createStreamingWidget } from "./streaming-widget";
+import { createToolResultRenderer } from "../render/message-renderers.js";
+import { runAgentRequest } from "../agent-api.js";
+import type { UnifiedAgentResult } from "../../types.js";
 import { Text } from "@mariozechner/pi-tui";
 
 const CLI_NAMES: Record<string, string> = {
@@ -31,6 +31,20 @@ export interface RegisterAgentToolsConfig {
   configDir: string;
   /** 세션 매핑 저장소 (부모와 공유) */
   sessionStore: SessionMapStore;
+}
+
+function toToolResult(cli: CliType, result: UnifiedAgentResult) {
+  return {
+    content: [{ type: "text" as const, text: result.responseText || "(no output)" }],
+    details: {
+      cli,
+      sessionId: result.sessionId ?? undefined,
+      error: result.status !== "done" ? true : undefined,
+      thinking: result.thinking || undefined,
+      toolCalls: result.toolCalls && result.toolCalls.length > 0 ? result.toolCalls : undefined,
+      blocks: result.blocks && result.blocks.length > 0 ? result.blocks : undefined,
+    },
+  };
 }
 
 /**
@@ -76,44 +90,15 @@ export function registerAgentTools({ pi, configDir, sessionStore }: RegisterAgen
       ) {
         const request = params?.request?.trim();
         if (!request) throw new Error("`request` 파라미터가 비어있습니다.");
-
-        const widget = createStreamingWidget(ctx, cli);
-
-        try {
-          const result = await executeWithPool({
-            cli,
-            request,
-            cwd: ctx.cwd,
-            configDir,
-            sessionStore,
-            signal,
-            onMessageChunk: (text) => widget.onMessage(text),
-            onThoughtChunk: (text) => widget.onThought(text),
-            onToolCall: (title, status, rawOutput, toolCallId) => widget.onToolCall(title, status, rawOutput, toolCallId),
-            onStatusChange: (status) => widget.onStatus(status),
-          });
-
-          widget.finish();
-
-          const collected = widget.getCollectedData();
-          return {
-            content: [{ type: "text" as const, text: result.responseText || "(no output)" }],
-            details: {
-              cli,
-              sessionId: result.connectionInfo?.sessionId ?? undefined,
-              error: result.status !== "done" ? true : undefined,
-              thinking: collected.thinking || undefined,
-              toolCalls: collected.toolCalls.length > 0 ? collected.toolCalls : undefined,
-              blocks: collected.blocks.length > 0 ? collected.blocks : undefined,
-            },
-          };
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          widget.fail(message);
-          throw error;
-        } finally {
-          widget.destroy();
-        }
+        const result = await runAgentRequest({
+          cli,
+          request,
+          ctx,
+          signal,
+          configDir,
+          sessionStore,
+        });
+        return toToolResult(cli, result);
       },
     });
   }
