@@ -269,8 +269,16 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
       }
 
       const modeId = getActiveModeId();
+
+      // 모드 비활성 시 기본 쉘 열기
       if (modeId !== "claude" && modeId !== "codex" && modeId !== "gemini") {
-        ctx.ui.notify("먼저 다이렉트 모드를 활성화하세요 (alt+1/2/3)", "warning");
+        const shell = process.env.SHELL || "/bin/zsh";
+        try {
+          await bridge.open({ command: shell, title: "Terminal", cwd: ctx.cwd });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          ctx.ui.notify(`터미널 실행 실패: ${message}`, "error");
+        }
         return;
       }
       const agentId = modeId;
