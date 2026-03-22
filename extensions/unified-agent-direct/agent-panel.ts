@@ -13,7 +13,6 @@
  */
 
 import type { ExtensionContext, ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import type { Component, OverlayHandle, OverlayOptions, TUI } from "@mariozechner/pi-tui";
 import { UA_DIRECT_FOOTER_STATUS_KEY } from "../unified-agent-core/footer-status";
 import type { SessionMapStore } from "../unified-agent-core/session-map";
 import {
@@ -48,7 +47,6 @@ export type { AgentCol } from "./render/panel-renderer";
 
 const STATE_KEY = "__pi_agent_panel_state__";
 const WIDGET_KEY = "ua-panel";
-const OVERLAY_HOST_WIDGET_KEY = "ua-panel-overlay-host";
 const DEFAULT_CLIS = ["claude", "codex", "gemini"];
 
 // ─── globalThis 상태 ────────────────────────────────────
@@ -92,16 +90,6 @@ interface AgentPanelState {
   sessionStore: SessionMapStore | null;
   /** 패널 본문 높이 (줄 수) — 런타임 조절 가능 */
   bodyH: number;
-  /** 오버레이를 소유하는 TUI 인스턴스 */
-  overlayTui: TUI | null;
-  /** 현재 오버레이 핸들을 만든 TUI 인스턴스 */
-  overlayOwnerTui: TUI | null;
-  /** 오버레이 핸들 */
-  overlayHandle: OverlayHandle | null;
-  /** 현재 오버레이 레이아웃 식별자 */
-  overlayLayoutKey: string | null;
-  /** 오버레이 호스트 위젯이 설치된 ctx */
-  overlayHostCtx: ExtensionContext | null;
 }
 
 function getState(): AgentPanelState {
@@ -124,11 +112,6 @@ function getState(): AgentPanelState {
       toggleCallbacks: [],
       sessionStore: null,
       bodyH: DEFAULT_BODY_H,
-      overlayTui: null,
-      overlayOwnerTui: null,
-      overlayHandle: null,
-      overlayLayoutKey: null,
-      overlayHostCtx: null,
     };
     (globalThis as any)[STATE_KEY] = s;
   }
@@ -142,11 +125,6 @@ function getState(): AgentPanelState {
   if (!s.toggleCallbacks) s.toggleCallbacks = [];
   if (s.sessionStore === undefined) s.sessionStore = null;
   if (s.bodyH === undefined) s.bodyH = DEFAULT_BODY_H;
-  if (s.overlayTui === undefined) s.overlayTui = null;
-  if (s.overlayOwnerTui === undefined) s.overlayOwnerTui = null;
-  if (s.overlayHandle === undefined) s.overlayHandle = null;
-  if (s.overlayLayoutKey === undefined) s.overlayLayoutKey = null;
-  if (s.overlayHostCtx === undefined) s.overlayHostCtx = null;
   return s;
 }
 
@@ -261,115 +239,6 @@ function syncFooterStatus(ctx: ExtensionContext | null): void {
   ctx.ui.setStatus(UA_DIRECT_FOOTER_STATUS_KEY, content);
 }
 
-function getPanelFrameColor(activeMode: string | null): string {
-  return activeMode ? (DIRECT_MODE_COLORS[activeMode] ?? PANEL_COLOR) : PANEL_COLOR;
-}
-
-function buildOverlayOptions(_state: AgentPanelState): OverlayOptions {
-  return {
-    nonCapturing: true,
-    anchor: "center",
-    width: "95%",
-    maxHeight: "95%",
-    margin: 1,
-  };
-}
-
-function getOverlayLayoutKey(options: OverlayOptions): string {
-  return JSON.stringify({
-    anchor: options.anchor ?? "center",
-    width: options.width ?? "auto",
-    maxHeight: options.maxHeight ?? "auto",
-    margin: options.margin ?? 0,
-  });
-}
-
-function createPanelOverlayComponent(): Component {
-  return {
-    render(width: number): string[] {
-      const state = getState();
-      return renderPanelFull(
-        width,
-        state.cols,
-        state.frame,
-        getPanelFrameColor(state.activeMode),
-        state.bottomHint,
-        state.activeMode,
-        state.bodyH,
-      );
-    },
-    invalidate() {},
-  };
-}
-
-function syncPanelOverlay(tui?: TUI | null): void {
-  const s = getState();
-
-  if (tui) {
-    s.overlayTui = tui;
-  }
-
-  if (!s.expanded) {
-    if (s.overlayHandle && !s.overlayHandle.isHidden()) {
-      s.overlayHandle.setHidden(true);
-      s.overlayTui?.requestRender();
-    }
-    return;
-  }
-
-  const overlayTui = s.overlayTui;
-  if (!overlayTui) return;
-
-  const options = buildOverlayOptions(s);
-  const layoutKey = getOverlayLayoutKey(options);
-  const needsRecreate = !s.overlayHandle
-    || s.overlayLayoutKey !== layoutKey
-    || s.overlayOwnerTui !== overlayTui;
-
-  if (needsRecreate && s.overlayHandle) {
-    s.overlayHandle.hide();
-    s.overlayHandle = null;
-  }
-
-  if (!s.overlayHandle) {
-    s.overlayHandle = overlayTui.showOverlay(createPanelOverlayComponent(), options);
-    s.overlayOwnerTui = overlayTui;
-    s.overlayLayoutKey = layoutKey;
-  } else {
-    s.overlayOwnerTui = overlayTui;
-    s.overlayLayoutKey = layoutKey;
-    if (s.overlayHandle.isHidden()) {
-      s.overlayHandle.setHidden(false);
-    }
-  }
-
-  overlayTui.requestRender();
-}
-
-function ensureOverlayHostWidget(ctx: ExtensionContext): void {
-  const s = getState();
-  if (s.overlayHostCtx === ctx) return;
-
-  ctx.ui.setWidget(OVERLAY_HOST_WIDGET_KEY, (tui) => {
-    const state = getState();
-    state.overlayTui = tui;
-    syncPanelOverlay(tui);
-
-    return {
-      render(): string[] {
-        return [];
-      },
-      invalidate() {
-        const nextState = getState();
-        nextState.overlayTui = tui;
-        syncPanelOverlay(tui);
-      },
-    };
-  });
-
-  s.overlayHostCtx = ctx;
-}
-
 /** footer 상태를 현재 패널 상태 기준으로 즉시 동기화합니다. */
 export function refreshAgentPanelFooter(ctx: ExtensionContext): void {
   const s = getState();
@@ -384,7 +253,7 @@ export function refreshAgentPanelFooter(ctx: ExtensionContext): void {
  * 현재 상태에 맞게 aboveEditor 위젯을 등록/제거합니다.
  *
  * 렌더링 분기:
- * - expanded → nonCapturing overlay로 renderPanelFull 표시
+ * - expanded → aboveEditor 위젯으로 renderPanelFull 표시 (터미널 높이 기반 클램핑)
  * - !expanded + activeMode → 위젯 제거 (배너는 hud-editor/editor.ts에서 직접 렌더링)
  * - !expanded + streaming → 컴팩트 상태바 (renderPanelCompact)
  * - 그 외 → 위젯 제거
@@ -392,16 +261,6 @@ export function refreshAgentPanelFooter(ctx: ExtensionContext): void {
 function syncWidget(ctx: ExtensionContext): void {
   const s = getState();
   syncFooterStatus(ctx);
-
-  // expanded 상태는 nonCapturing 오버레이로 렌더링하고, compact 위젯만 기존 키를 유지
-  if (s.expanded) {
-    ctx.ui.setWidget(WIDGET_KEY, undefined);
-    ensureOverlayHostWidget(ctx);
-    syncPanelOverlay();
-    return;
-  }
-
-  syncPanelOverlay();
 
   // 패널 접힘 + 활성 모드 → 배너는 에디터가 직접 렌더링하므로 위젯 불필요
   if (!s.expanded && s.activeMode) {
@@ -419,15 +278,24 @@ function syncWidget(ctx: ExtensionContext): void {
     render(width: number): string[] {
       const state = getState();
 
-      // alt+p로 패널을 펼친 경우 → 기존 전체 패널 렌더링
       if (state.expanded) {
         const frameColor = state.activeMode
           ? (DIRECT_MODE_COLORS[state.activeMode] ?? PANEL_COLOR)
           : PANEL_COLOR;
+
+        // 터미널 높이 기반 bodyH 클램핑
+        // 에디터(30%) + footer(2) + spacer/status 여유(5) 확보
+        const termH = process.stdout.rows ?? 24;
+        const reserved = Math.ceil(termH * 0.3) + 7;
+        const maxBodyH = Math.max(MIN_BODY_H, termH - reserved);
+        const effectiveBodyH = Math.min(state.bodyH, maxBodyH);
+
         return renderPanelFull(
-          width, state.cols, state.frame, frameColor, state.bottomHint, state.activeMode, state.bodyH,
+          width, state.cols, state.frame, frameColor,
+          state.bottomHint, state.activeMode, effectiveBodyH,
         );
       }
+
       // 스트리밍 중 compact 상태바
       return renderPanelCompact(width, state.cols, state.frame);
     },
