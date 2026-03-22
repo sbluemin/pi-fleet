@@ -13,17 +13,15 @@ import {
   BORDER,
   SPINNER_FRAMES,
   CLI_DISPLAY_NAMES,
+  CLI_ORDER,
   DIRECT_MODE_COLORS,
   DIRECT_MODE_BG_COLORS,
   DIRECT_MODE_KEYS,
   PANEL_COLOR,
   PANEL_DIM_COLOR,
-  THINKING_COLOR,
-  TOOLS_COLOR,
   SYM_INDICATOR,
-  SYM_RESULT,
-  SYM_THINKING,
 } from "../constants";
+import { renderBlockLines, blockLineAnsiColor } from "./block-renderer";
 
 // ─── 에이전트 칼럼 타입 ──────────────────────────────────
 
@@ -53,11 +51,8 @@ export interface AgentCol {
 
 // ─── 레이아웃 상수 ───────────────────────────────────────
 
-/** 칼럼 CLI 순서 */
-const COL_CLIS = ["claude", "codex", "gemini"];
-
-/** 도구 결과 줄 접기 최대 줄 수 */
-const MAX_RESULT_LINES = 4;
+/** 칼럼 CLI 순서 — CLI_ORDER에서 가져옴 */
+const COL_CLIS = CLI_ORDER;
 
 // ─── 렌더링 헬퍼 ────────────────────────────────────────
 
@@ -209,68 +204,17 @@ interface ColContentResult {
 
 /**
  * 칼럼의 사고/도구 호출/응답을 통합 콘텐츠로 빌드합니다.
- * - blocks[] 항목을 발생 순서대로 렌더링합니다.
+ * block-renderer의 renderBlockLines()를 사용하여 블록을 라인으로 변환합니다.
  */
 function buildColContent(col: AgentCol, frame: number, _compact: boolean): ColContentResult {
   const lines: string[] = [];
   const colors: string[] = [];
-  const errorToolColor = "\x1b[38;2;255;80;80m";
 
-  const pushResponseLines = (text: string) => {
-    // leading \n 제거 — CLI의 renderMessageChunk와 동일하게 처리
-    const trimmed = text.replace(/^\n+/, "");
-    if (!trimmed) return;
-    trimmed.split("\n").forEach((line, index) => {
-      lines.push(index === 0 ? `${SYM_INDICATOR} ${line}` : `  ${line}`);
-      colors.push("");
-    });
-  };
-
-  const pushToolResultLines = (text: string, isError: boolean) => {
-    const rawLines = text.split("\n");
-    const displayLines = rawLines.length > MAX_RESULT_LINES
-      ? rawLines.slice(0, MAX_RESULT_LINES - 1)
-      : rawLines;
-    const foldedCount = rawLines.length > MAX_RESULT_LINES
-      ? rawLines.length - (MAX_RESULT_LINES - 1)
-      : 0;
-    const resultColor = isError ? errorToolColor : PANEL_DIM_COLOR;
-
-    displayLines.forEach((line, index) => {
-      lines.push(index === 0 ? `  ${SYM_RESULT}  ${line}` : `     ${line}`);
-      colors.push(resultColor);
-    });
-    if (foldedCount > 0) {
-      lines.push(`     … +${foldedCount} lines`);
-      colors.push(PANEL_DIM_COLOR);
-    }
-  };
-
-  // ── blocks: 이벤트 발생 순서대로 렌더링 ─────────────────
   if (col.blocks?.length) {
-    for (const block of col.blocks) {
-      if (block.type === "thought") {
-        const trimmed = block.text.replace(/^\n+/, "");
-        if (!trimmed) continue;
-        trimmed.split("\n").forEach((line, index) => {
-          lines.push(index === 0 ? `${SYM_THINKING} ${line}` : `  ${line}`);
-          colors.push(THINKING_COLOR);
-        });
-      } else if (block.type === "text") {
-        pushResponseLines(block.text);
-      } else {
-        // tool 블록
-        lines.push(`${SYM_INDICATOR} ${block.title}`);
-        colors.push(TOOLS_COLOR);
-        const statusText = block.rawOutput?.trim()
-          ? block.rawOutput
-          : (block.status === "completed" || block.status === "failed" || block.status === "error"
-            ? block.status
-            : "");
-        if (statusText) {
-          pushToolResultLines(statusText, block.status === "failed" || block.status === "error");
-        }
-      }
+    const blockLines = renderBlockLines(col.blocks);
+    for (const bl of blockLines) {
+      lines.push(bl.text);
+      colors.push(blockLineAnsiColor(bl.type));
     }
   } else if (col.status === "wait" || col.status === "conn") {
     lines.push(placeholder(col, frame));
@@ -512,7 +456,7 @@ export function renderPanelFull(
   bodyH: number,
 ): string[] {
   const FC = frameColor || PANEL_COLOR;
-  const activeIndex = activeMode ? COL_CLIS.indexOf(activeMode) : -1;
+  const activeIndex = activeMode ? (COL_CLIS as readonly string[]).indexOf(activeMode) : -1;
 
   // 패널 높이: top(1) + header(1) + sep(1) + body(bodyH) + bottom(1)
   const panelH = 3 + bodyH + 1;

@@ -39,7 +39,18 @@ import {
   updateAgentCol,
   getAgentPanelCols,
 } from "./agent-panel";
-import type { AgentCol, ColBlock } from "./render/panel-renderer";
+import type { AgentCol } from "./render/panel-renderer";
+
+// 스트림 스토어
+import {
+  createRun,
+  appendTextBlock,
+  appendThoughtBlock,
+  upsertToolBlock,
+  updateRunStatus,
+  finalizeRun,
+  getVisibleRun,
+} from "./streaming/stream-store";
 
 // 프레임워크 + 상수
 import {
@@ -50,6 +61,7 @@ import {
 } from "./framework";
 import {
   CLI_DISPLAY_NAMES,
+  CLI_ORDER,
   CODEX_POPUP_KEY,
   DIRECT_MODE_COLORS,
   DIRECT_MODE_BG_COLORS,
@@ -190,7 +202,7 @@ async function selectModelForCli(
 // ─── 확장 진입점 ─────────────────────────────────────────
 
 export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
-  const cliTypes: CliType[] = ["claude", "codex", "gemini"];
+  const cliTypes = CLI_ORDER;
   const extensionDir = path.dirname(fileURLToPath(import.meta.url));
   // 레거시 마이그레이션 소스 (세션 맵 + 모델 설정)
   const legacySdkDir = path.resolve(extensionDir, "../unified-agent-core");
@@ -479,7 +491,7 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
 
 /**
  * 하나의 에이전트에 질의합니다.
- * 에이전트 패널 API를 통해 칼럼 데이터를 업데이트하며,
+ * stream-store에 데이터를 기록하고, 패널 칼럼에 브릿지합니다.
  * 렌더링은 패널의 애니메이션 타이머가 자동 처리합니다.
  */
 async function queryAgent(
@@ -490,103 +502,78 @@ async function queryAgent(
   cwd: string,
   signal?: AbortSignal,
 ): Promise<void> {
+  const col = getAgentPanelCols()[colIndex];
+  const cli = col.cli;
+
+  // store에 새 run 생성 (startAgentStreaming → resetRuns에서 이미 생성됨, 하지만 안전)
+  createRun(cli, "conn");
   updateAgentCol(colIndex, { status: "conn" });
 
-  const col = getAgentPanelCols()[colIndex];
+  /** store → 패널 칼럼 브릿지 */
+  function syncCol(): void {
+    const run = getVisibleRun(cli);
+    if (!run) return;
+    updateAgentCol(colIndex, {
+      status: run.status,
+      text: run.text,
+      thinking: run.thinking,
+      toolCalls: run.toolCalls,
+      blocks: run.blocks,
+      sessionId: run.sessionId,
+      error: run.error,
+    });
+  }
+
   const result = await executeWithPool({
-    cli: col.cli as any,
+    cli: cli as any,
     request,
     cwd,
     configDir,
     sessionStore,
     signal,
     onMessageChunk: (text) => {
-      const c = getAgentPanelCols()[colIndex];
-      // blocks에서 마지막 text 블록에 이어붙이거나 새 블록 추가
-      const blocks = c.blocks ?? [];
-      const last = blocks[blocks.length - 1];
-      let newBlocks: ColBlock[];
-      if (last?.type === "text") {
-        newBlocks = [...blocks.slice(0, -1), { type: "text", text: last.text + text }];
-      } else {
-        newBlocks = [...blocks, { type: "text", text }];
-      }
-      updateAgentCol(colIndex, { text: c.text + text, status: "stream", blocks: newBlocks });
+      appendTextBlock(cli, text);
+      syncCol();
     },
     onThoughtChunk: (text) => {
-      const c = getAgentPanelCols()[colIndex];
-      const blocks = c.blocks ?? [];
-      const last = blocks[blocks.length - 1];
-      const newBlocks = last?.type === "thought"
-        ? [...blocks.slice(0, -1), { type: "thought" as const, text: last.text + text }]
-        : [...blocks, { type: "thought" as const, text }];
-      updateAgentCol(colIndex, { thinking: c.thinking + text, blocks: newBlocks, status: "stream" });
+      appendThoughtBlock(cli, text);
+      syncCol();
     },
     onToolCall: (title, status, rawOutput) => {
-      const c = getAgentPanelCols()[colIndex];
-
-      // blocks 업데이트: 이벤트 순서 보존
-      const blocks = c.blocks ?? [];
-      const toolBlockIdx = blocks.findIndex(
-        (b): b is Extract<ColBlock, { type: "tool" }> => b.type === "tool" && b.title === title,
-      );
-      let newBlocks: ColBlock[];
-      if (toolBlockIdx >= 0) {
-        newBlocks = blocks.map((b, i) => {
-          if (i === toolBlockIdx && b.type === "tool") {
-            return { type: "tool" as const, title: b.title, status, ...(rawOutput !== undefined ? { rawOutput } : {}) };
-          }
-          return b;
-        });
-      } else {
-        newBlocks = [...blocks, { type: "tool" as const, title, status, rawOutput }];
-      }
-
-      // toolCalls 동기화 (하위 호환)
-      const toolCalls = [...(c.toolCalls ?? [])];
-      const existing = toolCalls.find((tc) => tc.title === title);
-      if (existing) {
-        existing.status = status;
-        if (rawOutput !== undefined) {
-          existing.rawOutput = rawOutput;
-        }
-      } else {
-        toolCalls.push({ title, status, rawOutput });
-      }
-      updateAgentCol(colIndex, {
-        toolCalls,
-        blocks: newBlocks,
-        status: c.status === "conn" || c.status === "wait" ? "stream" : c.status,
-      });
+      upsertToolBlock(cli, title, status, rawOutput);
+      syncCol();
     },
     onStatusChange: (s) => {
-      if (s === "running") updateAgentCol(colIndex, { status: "stream" });
+      updateRunStatus(cli, s);
+      syncCol();
     },
   });
 
-  const finalCol = getAgentPanelCols()[colIndex];
-  const sessionId = result.connectionInfo.sessionId ?? finalCol.sessionId;
+  // 최종 상태 반영
+  const sessionId = result.connectionInfo.sessionId;
   if (result.status === "done") {
-    updateAgentCol(colIndex, {
-      status: "done",
+    finalizeRun(cli, "done", {
       sessionId,
-      text: finalCol.text.trim() ? finalCol.text : "(no output)",
+      fallbackText: result.responseText || "(no output)",
+      fallbackThinking: result.thoughtText,
     });
   } else if (result.status === "aborted") {
-    updateAgentCol(colIndex, {
-      status: "err",
+    finalizeRun(cli, "err", {
       sessionId,
       error: "aborted",
-      text: finalCol.text || "Aborted.",
+      fallbackText: "Aborted.",
+      fallbackThinking: result.thoughtText,
     });
   } else {
-    updateAgentCol(colIndex, {
-      status: "err",
+    finalizeRun(cli, "err", {
       sessionId,
       error: result.error,
-      text: finalCol.text || `Error: ${result.error ?? "unknown"}`,
+      fallbackText: `Error: ${result.error ?? "unknown"}`,
+      fallbackThinking: result.thoughtText,
     });
   }
+
+  syncCol();
 }
 
 /** 칼럼 결과를 마크다운 텍스트로 통합 */

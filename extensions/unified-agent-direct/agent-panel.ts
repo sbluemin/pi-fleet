@@ -21,6 +21,7 @@ import {
   ANIM_INTERVAL_MS,
   ANSI_RESET,
   CLI_DISPLAY_NAMES,
+  CLI_ORDER,
   DIRECT_MODE_COLORS,
   PANEL_COLOR,
   PANEL_DIM_COLOR,
@@ -31,6 +32,7 @@ import {
   MAX_BODY_H,
   BODY_H_STEP,
 } from "./constants";
+import { resetRuns, setRunSessionId, ensureVisibleRun } from "./streaming/stream-store";
 import {
   renderPanelFull,
   renderPanelCompact,
@@ -49,7 +51,7 @@ export type { AgentCol } from "./render/panel-renderer";
 
 const STATE_KEY = "__pi_agent_panel_state__";
 const WIDGET_KEY = "ua-panel";
-const DEFAULT_CLIS = ["claude", "codex", "gemini"];
+const DEFAULT_CLIS = CLI_ORDER as readonly string[];
 
 // ─── globalThis 상태 ────────────────────────────────────
 
@@ -130,12 +132,19 @@ function getState(): AgentPanelState {
   return s;
 }
 
-function makeCols(clis?: string[]): AgentCol[] {
+function makeCols(clis?: readonly string[]): AgentCol[] {
   // getState()를 호출하면 상호 재귀가 발생하므로 globalThis에서 직접 읽음
   const existing = (globalThis as any)[STATE_KEY] as AgentPanelState | undefined;
   const store = existing?.sessionStore ?? null;
   const sessionMap = (store ? store.getAll() : {}) as Readonly<Record<string, string | undefined>>;
-  return (clis ?? DEFAULT_CLIS).map((cli) => ({
+  const targets = clis ?? DEFAULT_CLIS;
+
+  // store에 각 CLI의 visible run이 존재하는지 보장
+  for (const cli of targets) {
+    ensureVisibleRun(cli);
+  }
+
+  return targets.map((cli) => ({
     cli,
     sessionId: sessionMap[cli],
     text: "",
@@ -154,6 +163,8 @@ function syncColSessionIds(): void {
 
   for (const col of s.cols) {
     col.sessionId = sessionMap[col.cli];
+    // store의 run에도 sessionId 동기화
+    setRunSessionId(col.cli, sessionMap[col.cli]);
   }
 }
 
@@ -349,9 +360,11 @@ export function getAgentPanelMode(): string | null {
  */
 export function startAgentStreaming(
   ctx: ExtensionContext,
-  options?: { expand?: boolean; clis?: string[]; showCompactWhenCollapsed?: boolean },
+  options?: { expand?: boolean; clis?: readonly string[]; showCompactWhenCollapsed?: boolean },
 ): void {
   const s = getState();
+  // store의 runs도 리셋하여 일관된 상태 유지
+  resetRuns(options?.clis);
   s.cols = makeCols(options?.clis);
   s.streaming = true;
   s.showCompactWhenCollapsed = options?.showCompactWhenCollapsed ?? true;

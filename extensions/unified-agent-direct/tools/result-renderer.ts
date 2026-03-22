@@ -1,14 +1,17 @@
-import { getMarkdownTheme } from "@mariozechner/pi-coding-agent";
-import { Container, Markdown, Spacer, Text, visibleWidth } from "@mariozechner/pi-tui";
+/**
+ * unified-agent-direct/tools — 도구 실행 결과 렌더러
+ *
+ * 에이전트 도구 실행 결과를 채팅 메시지로 렌더링합니다.
+ * block-renderer의 공유 로직을 사용하여 일관된 표시를 보장합니다.
+ */
+
+import { Container, Spacer, Text, visibleWidth } from "@mariozechner/pi-tui";
 import {
   ANSI_RESET,
-  PANEL_DIM_COLOR,
   SYM_INDICATOR,
-  SYM_RESULT,
-  SYM_THINKING,
-  TOOLS_COLOR,
 } from "../constants";
 import type { ColBlock } from "../render/panel-renderer";
+import { renderBlocksToContainer, renderLegacyToContainer } from "../render/block-renderer";
 
 interface ToolResultDetails {
   sessionId?: string;
@@ -41,7 +44,6 @@ export function createToolResultRenderer(config: {
     const thinkingText = details?.thinking ?? "";
     const toolCalls = details?.toolCalls ?? [];
     const blocks = details?.blocks;
-    const hasThoughtBlocks = blocks?.some((block) => block.type === "thought") ?? false;
     const bgAnsi = config.bgColor ?? "";
     const contentText = getContentText(result.content);
 
@@ -54,99 +56,16 @@ export function createToolResultRenderer(config: {
       : "";
     const header = `${icon} ${nameStyled}${sessionSuffix}`;
 
-    const mdTheme = getMarkdownTheme();
     const inner = new Container();
     inner.addChild(new Text(header, 0, 0));
     inner.addChild(new Spacer(1));
 
-    if (thinkingText && !hasThoughtBlocks) {
-      inner.addChild(new Text(theme.fg("muted", `${SYM_THINKING} thinking`), 0, 0));
-      inner.addChild(new Text(theme.fg("dim", thinkingText), 0, 0));
-      inner.addChild(new Spacer(1));
-    }
-
+    // blocks 기반 렌더링 (block-renderer 사용)
     if (blocks && blocks.length > 0) {
-      const MAX_RESULT_LINES = 4;
-
-      for (const block of blocks) {
-        if (block.type === "thought") {
-          const trimmed = block.text.replace(/^\n+/, "");
-          if (!trimmed) continue;
-          const formatted = trimmed
-            .split("\n")
-            .map((line, index) => (index === 0 ? `${SYM_THINKING} ${line}` : `  ${line}`))
-            .join("\n");
-          inner.addChild(new Text(theme.fg("dim", formatted), 0, 0));
-          continue;
-        }
-
-        if (block.type === "text") {
-          const trimmed = block.text.replace(/^\n+/, "");
-          if (!trimmed) continue;
-          const formatted = trimmed
-            .split("\n")
-            .map((line, index) => (index === 0 ? `${SYM_INDICATOR} ${line}` : `  ${line}`))
-            .join("\n");
-          inner.addChild(new Markdown(formatted, 0, 0, mdTheme));
-          continue;
-        }
-
-        const isToolError = block.status === "failed" || block.status === "error";
-        const titleText = `${SYM_INDICATOR} ${block.title}`;
-        inner.addChild(new Text(
-          isToolError
-            ? theme.fg("error", titleText)
-            : `${TOOLS_COLOR}${titleText}${ANSI_RESET}`,
-          0, 0,
-        ));
-
-        const statusText = block.rawOutput?.trim()
-          ? block.rawOutput
-          : (block.status === "completed" || block.status === "failed" || block.status === "error"
-            ? block.status
-            : "");
-        if (!statusText) continue;
-
-        const rawLines = statusText.split("\n");
-        const displayLines = rawLines.length > MAX_RESULT_LINES
-          ? rawLines.slice(0, MAX_RESULT_LINES - 1)
-          : rawLines;
-        const foldedCount = rawLines.length > MAX_RESULT_LINES
-          ? rawLines.length - (MAX_RESULT_LINES - 1)
-          : 0;
-
-        for (let i = 0; i < displayLines.length; i++) {
-          const prefix = i === 0 ? `  ${SYM_RESULT}  ` : "     ";
-          inner.addChild(new Text(
-            isToolError
-              ? theme.fg("error", `${prefix}${displayLines[i]}`)
-              : `${PANEL_DIM_COLOR}${prefix}${displayLines[i]}${ANSI_RESET}`,
-            0, 0,
-          ));
-        }
-
-        if (foldedCount > 0) {
-          inner.addChild(new Text(
-            `${PANEL_DIM_COLOR}     … +${foldedCount} lines${ANSI_RESET}`,
-            0, 0,
-          ));
-        }
-      }
+      renderBlocksToContainer(blocks, inner, theme);
     } else {
-      if (toolCalls.length > 0) {
-        for (const toolCall of toolCalls) {
-          const toolColor = toolCall.status === "error" ? "error" : "muted";
-          inner.addChild(new Text(theme.fg(toolColor, `${SYM_INDICATOR} ${toolCall.title}`), 0, 0));
-          if (toolCall.status === "completed") {
-            inner.addChild(new Text(theme.fg("dim", `  ${SYM_RESULT}  completed`), 0, 0));
-          } else if (toolCall.status === "error") {
-            inner.addChild(new Text(theme.fg("error", `  ${SYM_RESULT}  error`), 0, 0));
-          }
-        }
-        inner.addChild(new Spacer(1));
-      }
-
-      inner.addChild(new Markdown(contentText, 0, 0, mdTheme));
+      // 레거시 폴백: blocks 미존재
+      renderLegacyToContainer(contentText, toolCalls, thinkingText, inner, theme);
     }
 
     if (!bgAnsi) return inner;

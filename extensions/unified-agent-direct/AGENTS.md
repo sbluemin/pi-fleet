@@ -30,10 +30,11 @@ Direct mode **framework** + Direct modes for 4 CLIs (claude/codex/gemini/all) + 
 | `framework.ts` | Public API (`registerCustomDirectMode`, `activateMode`, `onStatusUpdate`, etc.). Links agent panel on mode switch |
 | `constants.ts` | Shared constants (colors, spinners, border characters, panel colors) |
 | `agent-panel.ts` | Agent panel state management + API (`setAgentPanelMode`, `show/hide/toggle`, `startStreaming/stop`, `beginCol/endCol`, `updateCol`) |
-| `streaming/mirror.ts` | Single accumulation point for streaming data + Agent panel column bridge (`createStreamingMirror`, `CollectedStreamData`) |
+| `streaming/stream-store.ts` | Single source of truth for streaming data (runId-based, blocks canonical) |
+| `streaming/stream-manager.ts` | Generic widget manager for aboveEditor streaming display |
 | `streaming/router.ts` | Streaming output router — routes to mirror and/or standalone widget based on panel state, delegates data access to mirror |
+| `render/block-renderer.ts` | Unified block→output rendering engine |
 | `render/message-renderers.ts` | Default user/response message renderer factory (for chat history) |
 | `render/panel-renderer.ts` | Agent panel rendering (`renderPanelFull`, `renderPanelCompact`, `renderModeBanner`), `AgentCol` type |
-| `render/ui-utils.ts` | TUI utilities (`makeBorderLine`, `wrapWithSideBorder`, `buildStreamingPreview`) |
 | `tools/index.ts` | Registers `claude`, `codex`, `gemini` as individual pi tools with streaming widget |
 | `tools/streaming-widget.ts` | Streaming widget renderer for tool execution (`createStreamingWidget`, composite widget manager) |

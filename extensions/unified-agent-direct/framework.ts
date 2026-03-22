@@ -44,8 +44,6 @@ export interface DirectModeConfig {
     ctx: ExtensionContext,
     helpers: DirectModeHelpers,
   ) => Promise<DirectModeResult>;
-  /** @deprecated 에이전트 패널로 통합되어 더 이상 사용되지 않음 */
-  useDefaultAnimation?: boolean;
   /** 커스텀 응답 렌더러 (없으면 기본 렌더러) */
   renderResponse?: (...args: any[]) => any;
   /** 커스텀 사용자 입력 렌더러 (없으면 기본 렌더러) */

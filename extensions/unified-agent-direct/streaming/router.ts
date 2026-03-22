@@ -1,154 +1,90 @@
 /**
  * unified-agent-direct — 스트리밍 출력 라우터
  *
- * 패널 상태에 따라 스트리밍 출력을 동적으로 라우팅합니다:
- * - 패널 펼침 → mirror(패널 칼럼)에만 반영
- * - 패널 접힘 → mirror + 독립 aboveEditor 합성 위젯 동시 반영
+ * 스트리밍 이벤트를 stream-store(단일 진실 원천)에 기록하고,
+ * 패널 상태에 따라 위젯 표시를 동적으로 라우팅합니다:
+ * - 패널 펼침 → 패널 칼럼에만 반영 (에이전트 패널이 렌더링)
+ * - 패널 접힘 → 독립 aboveEditor 합성 위젯 동시 반영
  *
- * 데이터 누적은 mirror가 단일 책임으로 관리하며,
- * 라우터는 위젯 라우팅과 getCollectedData() 위임만 담당합니다.
+ * 데이터 누적은 stream-store가 단일 책임으로 관리하며,
+ * 라우터는 store 기록 + 패널 브릿지 + 위젯 라우팅을 담당합니다.
  */
 
 import type { CliType } from "@sbluemin/unified-agent";
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import type { AgentStatus, ExecuteResult } from "../../unified-agent-core/types";
-import type { StreamState } from "../tools/streaming-widget";
-import { renderStream } from "../tools/streaming-widget";
-import { ANIM_INTERVAL_MS } from "../constants";
-import { createStreamingMirror } from "./mirror";
-import type { CollectedStreamData } from "./mirror";
-import type { ColBlock } from "../render/panel-renderer";
-import { isAgentPanelExpanded, onPanelToggle } from "../agent-panel";
+import type { CollectedStreamData } from "./stream-store";
+import {
+  createRun,
+  appendTextBlock,
+  appendThoughtBlock,
+  upsertToolBlock,
+  updateRunStatus,
+  finalizeRun,
+  getRunById,
+  getVisibleRun,
+} from "./stream-store";
+import { createStreamWidgetManager } from "./stream-manager";
+import {
+  beginColStreaming,
+  endColStreaming,
+  updateAgentCol,
+  isAgentPanelExpanded,
+  onPanelToggle,
+} from "../agent-panel";
 
-// ─── 합성 위젯 매니저 (globalThis 싱글턴) ────────────────
+// ─── 다이렉트 모드 위젯 매니저 (싱글턴) ────────────────
 
-const MANAGER_KEY = "__pi_direct_stream_manager__";
-const WIDGET_KEY = "ua-direct-stream";
+const directManager = createStreamWidgetManager(
+  "__pi_direct_stream_manager__",
+  "ua-direct-stream",
+);
 
-interface DirectStreamManager {
-  /** CLI별 스트림 상태 */
-  streams: Map<string, StreamState>;
-  /** 공유 애니메이션 타이머 */
-  timer: ReturnType<typeof setInterval> | null;
-  /** 공유 프레임 카운터 */
-  frame: number;
-  /** 위젯 갱신에 사용할 ctx */
-  ctx: ExtensionContext | null;
+// ─── 내부 헬퍼 ──────────────────────────────────────────
+
+const PANEL_CLI_ORDER: CliType[] = ["claude", "codex", "gemini"];
+
+function getColIndex(cli: CliType): number {
+  return PANEL_CLI_ORDER.indexOf(cli);
 }
 
-function getManager(): DirectStreamManager {
-  let m = (globalThis as any)[MANAGER_KEY] as DirectStreamManager | undefined;
-  if (!m) {
-    m = { streams: new Map(), timer: null, frame: 0, ctx: null };
-    (globalThis as any)[MANAGER_KEY] = m;
-  }
-  return m;
-}
+/**
+ * store의 현재 run 데이터를 에이전트 패널 칼럼에 브릿지합니다.
+ * agent-panel이 store를 직접 참조하도록 수정되면 이 함수는 제거됩니다.
+ */
+function syncColFromStore(cli: string, colIndex: number): void {
+  const run = getVisibleRun(cli);
+  if (!run) return;
 
-/** 합성 위젯을 갱신합니다. 등록된 모든 스트림을 세로로 연결 렌더링. */
-function syncCompositeWidget(mgr: DirectStreamManager): void {
-  if (!mgr.ctx) return;
-  const ctx = mgr.ctx;
-
-  if (mgr.streams.size === 0) {
-    ctx.ui.setWidget(WIDGET_KEY, undefined);
-    return;
-  }
-
-  ctx.ui.setWidget(WIDGET_KEY, (_tui: any, theme: any) => ({
-    render(width: number): string[] {
-      const allLines: string[] = [];
-      let first = true;
-      for (const [cli, state] of mgr.streams) {
-        if (!first) allLines.push(""); // 스트림 간 구분선
-        first = false;
-        state.frame = mgr.frame;
-        allLines.push(...renderStream(state, cli, width, theme));
-      }
-      return allLines;
-    },
-    invalidate() {},
-  }));
-}
-
-/** 공유 타이머를 시작합니다 (이미 실행 중이면 무시). */
-function ensureTimer(mgr: DirectStreamManager): void {
-  if (mgr.timer) return;
-  mgr.timer = setInterval(() => {
-    mgr.frame++;
-    syncCompositeWidget(mgr);
-  }, ANIM_INTERVAL_MS);
-}
-
-/** 스트림이 없으면 타이머를 정지하고 위젯을 제거합니다. */
-function cleanupIfEmpty(mgr: DirectStreamManager): void {
-  if (mgr.streams.size > 0) return;
-  if (mgr.timer) {
-    clearInterval(mgr.timer);
-    mgr.timer = null;
-  }
-  if (mgr.ctx) {
-    mgr.ctx.ui.setWidget(WIDGET_KEY, undefined);
-  }
-}
-
-/** 매니저에 스트림을 등록합니다. */
-function registerStream(ctx: ExtensionContext, cli: string): StreamState {
-  const mgr = getManager();
-  mgr.ctx = ctx;
-
-  const state: StreamState = {
-    responseText: "",
-    thinkingText: "",
-    toolCalls: [],
-    blocks: [],
-    agentStatus: "connecting",
-    frame: mgr.frame,
-    timer: null, // 개별 타이머 미사용 — 매니저 공유 타이머
-  };
-
-  mgr.streams.set(cli, state);
-  ensureTimer(mgr);
-  syncCompositeWidget(mgr);
-  return state;
-}
-
-/** 매니저에서 스트림을 해제합니다. */
-function unregisterStream(cli: string): void {
-  const mgr = getManager();
-  mgr.streams.delete(cli);
-  cleanupIfEmpty(mgr);
-  if (mgr.streams.size > 0) syncCompositeWidget(mgr);
+  updateAgentCol(colIndex, {
+    status: run.status,
+    text: run.text,
+    thinking: run.thinking,
+    toolCalls: run.toolCalls,
+    blocks: run.blocks,
+    sessionId: run.sessionId,
+    error: run.error,
+  });
 }
 
 // ─── 라우터 공개 API ──────────────────────────────────────
 
 export function createDirectStreamingRouter(ctx: ExtensionContext, cli: CliType) {
-  const mirror = createStreamingMirror(ctx, cli);
+  const colIndex = getColIndex(cli);
+  if (colIndex < 0) {
+    throw new Error(`지원하지 않는 CLI입니다: ${cli}`);
+  }
 
-  let streamState: StreamState | null = null;
+  let currentRunId: string | null = null;
   let unsubToggle: (() => void) | null = null;
 
   function activateWidget() {
-    if (streamState) return;
-    streamState = registerStream(ctx, cli);
-    // mirror에서 누적 데이터 가져와 위젯에 리플레이
-    const collected = mirror.getCollectedData();
-    if (collected.thinking) streamState.thinkingText = collected.thinking;
-    for (const tc of collected.toolCalls) {
-      const existing = streamState.toolCalls.find((t) => t.title === tc.title);
-      if (existing) existing.status = tc.status;
-      else streamState.toolCalls.push({ ...tc });
-    }
-    if (collected.text) streamState.responseText = collected.text;
-    if (collected.blocks) streamState.blocks = collected.blocks.map((b) => ({ ...b }));
-    streamState.agentStatus = collected.lastStatus;
+    if (!currentRunId) return;
+    directManager.register(ctx, cli, currentRunId);
   }
 
   function deactivateWidget() {
-    if (!streamState) return;
-    unregisterStream(cli);
-    streamState = null;
+    directManager.unregister(cli);
   }
 
   function handleToggle(expanded: boolean) {
@@ -161,7 +97,13 @@ export function createDirectStreamingRouter(ctx: ExtensionContext, cli: CliType)
 
   return {
     start() {
-      mirror.start();
+      // store에 새 run 생성
+      currentRunId = createRun(cli, "conn");
+
+      // 패널 칼럼 초기화 (브릿지)
+      beginColStreaming(ctx, colIndex);
+
+      // 패널이 접힌 상태면 위젯 활성화
       if (!isAgentPanelExpanded()) {
         activateWidget();
       }
@@ -169,85 +111,99 @@ export function createDirectStreamingRouter(ctx: ExtensionContext, cli: CliType)
     },
 
     onStatusChange(status: AgentStatus) {
-      mirror.onStatusChange(status);
-      if (streamState) streamState.agentStatus = status;
+      // store에 상태 업데이트
+      updateRunStatus(cli, status);
+
+      // 패널 칼럼 브릿지
+      syncColFromStore(cli, colIndex);
     },
 
     onMessageChunk(text: string) {
-      mirror.onMessageChunk(text);
-      if (streamState) {
-        streamState.responseText += text;
-        // blocks에 text 블록 추가/이어붙이기
-        const last = streamState.blocks[streamState.blocks.length - 1];
-        if (last?.type === "text") {
-          last.text += text;
-        } else {
-          streamState.blocks.push({ type: "text", text });
-        }
-      }
+      // store에 텍스트 블록 추가
+      appendTextBlock(cli, text);
+
+      // 패널 칼럼 브릿지
+      syncColFromStore(cli, colIndex);
     },
 
     onThoughtChunk(text: string) {
-      mirror.onThoughtChunk(text);
-      if (streamState) {
-        streamState.thinkingText += text;
-        const last = streamState.blocks[streamState.blocks.length - 1];
-        if (last?.type === "thought") {
-          last.text += text;
-        } else {
-          streamState.blocks.push({ type: "thought", text });
-        }
-      }
+      // store에 사고 블록 추가
+      appendThoughtBlock(cli, text);
+
+      // 패널 칼럼 브릿지
+      syncColFromStore(cli, colIndex);
     },
 
     onToolCall(title: string, status: string, rawOutput?: string) {
-      mirror.onToolCall(title, status, rawOutput);
-      if (streamState) {
-        const stExisting = streamState.toolCalls.find((tc) => tc.title === title);
-        if (stExisting) {
-          stExisting.status = status;
-          if (rawOutput !== undefined) {
-            stExisting.rawOutput = rawOutput;
-          }
-        } else {
-          streamState.toolCalls.push({ title, status, rawOutput });
-        }
-        // blocks에 tool 블록 추가/업데이트
-        const toolBlockIdx = streamState.blocks.findIndex(
-          (b) => b.type === "tool" && b.title === title,
-        );
-        if (toolBlockIdx >= 0) {
-          const block = streamState.blocks[toolBlockIdx] as Extract<ColBlock, { type: "tool" }>;
-          block.status = status;
-          if (rawOutput !== undefined) block.rawOutput = rawOutput;
-        } else {
-          streamState.blocks.push({ type: "tool", title, status, rawOutput });
-        }
-      }
+      // store에 도구 블록 추가/업데이트
+      upsertToolBlock(cli, title, status, rawOutput);
+
+      // 패널 칼럼 브릿지
+      syncColFromStore(cli, colIndex);
     },
 
     finish(result: ExecuteResult) {
-      mirror.finish(result);
-      if (streamState) streamState.agentStatus = "done";
+      const sessionId = result.connectionInfo.sessionId;
+
+      if (result.status === "done") {
+        finalizeRun(cli, "done", {
+          sessionId,
+          fallbackText: result.responseText || "(no output)",
+          fallbackThinking: result.thoughtText,
+        });
+      } else if (result.status === "aborted") {
+        finalizeRun(cli, "err", {
+          sessionId,
+          error: "aborted",
+          fallbackText: "Aborted.",
+          fallbackThinking: result.thoughtText,
+        });
+      } else {
+        finalizeRun(cli, "err", {
+          sessionId,
+          error: result.error,
+          fallbackText: `Error: ${result.error ?? result.status ?? "unknown"}`,
+          fallbackThinking: result.thoughtText,
+        });
+      }
+
+      // 패널 칼럼 브릿지 (최종 상태)
+      syncColFromStore(cli, colIndex);
     },
 
     fail(error: string) {
-      mirror.fail(error);
-      if (streamState) streamState.agentStatus = "error";
+      finalizeRun(cli, "err", {
+        error,
+        fallbackText: `Error: ${error}`,
+      });
+
+      // 패널 칼럼 브릿지
+      syncColFromStore(cli, colIndex);
     },
 
     stop() {
-      mirror.stop();
       deactivateWidget();
+      endColStreaming(ctx, colIndex);
       if (unsubToggle) {
         unsubToggle();
         unsubToggle = null;
       }
     },
 
-    /** 누적된 스트리밍 데이터를 반환합니다 (mirror에 위임). */
+    /** 누적된 스트리밍 데이터를 반환합니다 (store에서 읽기). */
     getCollectedData(): CollectedStreamData {
-      return mirror.getCollectedData();
+      if (currentRunId) {
+        const run = getRunById(currentRunId);
+        if (run) return run.toCollectedData();
+      }
+      // 폴백: 빈 데이터
+      return {
+        text: "",
+        thinking: "",
+        toolCalls: [],
+        blocks: [],
+        lastStatus: "connecting",
+      };
     },
   };
 }

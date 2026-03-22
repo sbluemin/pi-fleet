@@ -4,6 +4,11 @@
  * 다이렉트 모드 프레임워크 및 기본 구현에서 공유되는 상수입니다.
  */
 
+// ─── CLI 순서 (모든 칼럼/순회의 단일 정의) ───────────────
+
+/** CLI 고정 순서 — 패널 칼럼, 스토어 초기화, 렌더러에서 공통 사용 */
+export const CLI_ORDER = ["claude", "codex", "gemini"] as const;
+
 // ─── CLI 표시 이름 ───────────────────────────────────────
 
 export const CLI_DISPLAY_NAMES: Record<string, string> = {
