@@ -7,7 +7,7 @@
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { MIN_BODY_H, MAX_BODY_H } from "../../constants";
-import type { ServiceSnapshot } from "../../status/types.js";
+import type { ServiceSnapshot, ServiceStatusRendererFn } from "../contracts.js";
 import { getState } from "./state.js";
 import { syncWidget, syncFooterStatus } from "./widget-sync.js";
 
@@ -48,6 +48,17 @@ export function setAgentPanelServiceLoading(): void {
   const s = getState();
   s.serviceLoading = true;
   syncFooterStatus(s.lastCtx);
+}
+
+// ─── 서비스 상태 렌더러 주입 ──────────────────────────────
+
+/**
+ * 서비스 상태 토큰 렌더러를 주입합니다.
+ * feature(status)에서 구현한 렌더러를 core(panel)에 등록하여
+ * core → feature 역방향 의존을 방지합니다.
+ */
+export function setServiceStatusRenderer(renderer: ServiceStatusRendererFn): void {
+  getState().serviceStatusRenderer = renderer;
 }
 
 // ─── 패널 높이 조절 ──────────────────────────────────────

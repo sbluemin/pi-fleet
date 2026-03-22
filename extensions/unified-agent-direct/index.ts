@@ -33,8 +33,10 @@ import { registerAgentPanelShortcut } from "./core/panel/shortcuts.js";
 import { onStatusUpdate, getActiveModeId } from "./modes/framework";
 import { CLI_DISPLAY_NAMES, CODEX_POPUP_KEY, DIRECT_MODE_COLORS } from "./constants";
 import { attachStatusContext, refreshStatusNow } from "./status/index.js";
+import { renderServiceStatusToken } from "./status/ui.js";
 import { exposeAgentApi } from "./core/agent-api.js";
-import { registerAgentTools } from "./core/tools/index";
+import { setServiceStatusRenderer } from "./core/panel/config.js";
+import { registerAgentTools } from "./tools/index";
 import { buildAgentPopupCommand } from "./shell/index.js";
 import { getModeBannerLines } from "./core/panel/lifecycle.js";
 
@@ -78,6 +80,15 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
   // ── 코어 와이어링 ──
   setAgentPanelSessionStore(sessionStore);
   exposeAgentApi({ configDir: extensionDir, sessionStore });
+
+  // 서비스 상태 렌더러 주입 (status feature → core panel, 역방향 의존 방지)
+  setServiceStatusRenderer((cli, snapshots, loading) =>
+    renderServiceStatusToken(
+      cli as import("./core/contracts.js").ProviderKey,
+      snapshots,
+      loading,
+    ),
+  );
   syncModelConfig(extensionDir);
   registerAgentPanelShortcut();
   registerAgentTools({ pi, configDir: extensionDir, sessionStore });

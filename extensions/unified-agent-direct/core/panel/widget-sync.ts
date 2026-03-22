@@ -19,8 +19,6 @@ import {
   renderPanelCompact,
 } from "../render/panel-renderer";
 import { renderFooterStatus } from "../render/footer-renderer.js";
-import { renderServiceStatusToken } from "../../status/ui.js";
-import type { ServiceSnapshot } from "../../status/types.js";
 import { getState, WIDGET_KEY } from "./state.js";
 
 // ─── footer 동기화 ───────────────────────────────────────
@@ -34,13 +32,10 @@ export function syncFooterStatus(ctx: ExtensionContext | null): void {
     streaming: s.streaming,
     frame: s.frame,
     modelConfig: s.modelConfig,
-    // 서비스 상태 렌더러 주입 (core → status 역방향 의존 방지)
-    renderServiceStatus: (cli) =>
-      renderServiceStatusToken(
-        cli as ServiceSnapshot["provider"],
-        s.serviceSnapshots,
-        s.serviceLoading,
-      ),
+    // 서비스 상태 렌더러 — feature(status)에서 주입된 콜백 사용 (core→feature 역방향 의존 방지)
+    renderServiceStatus: s.serviceStatusRenderer
+      ? (cli) => s.serviceStatusRenderer!(cli, s.serviceSnapshots, s.serviceLoading)
+      : undefined,
   });
   ctx.ui.setStatus(UA_DIRECT_FOOTER_STATUS_KEY, content);
 }

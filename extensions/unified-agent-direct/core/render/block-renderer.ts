@@ -12,7 +12,7 @@
 
 import { getMarkdownTheme } from "@mariozechner/pi-coding-agent";
 import { Container, Markdown, Spacer, Text } from "@mariozechner/pi-tui";
-import type { ColBlock } from "./panel-renderer.js";
+import type { ColBlock } from "../contracts.js";
 import {
   ANSI_RESET,
   PANEL_DIM_COLOR,

@@ -13,23 +13,12 @@
  * ⚠️ globalThis 기반 — pi가 확장을 별도 번들로 로드하므로 필수.
  */
 
-import type { ColBlock } from "../render/panel-renderer.js";
 import type { AgentStatus } from "../../../unified-agent-core/types.js";
 import { CLI_ORDER } from "../../constants.js";
 
-// ─── 타입 ────────────────────────────────────────────────
-
-/** 칼럼 상태 (패널 렌더러와 동일) */
-export type ColStatus = "wait" | "conn" | "stream" | "done" | "err";
-
-/** 수집된 스트리밍 데이터 (하위 호환 — mirror.ts의 CollectedStreamData 대체) */
-export interface CollectedStreamData {
-  text: string;
-  thinking: string;
-  toolCalls: { title: string; status: string; rawOutput?: string }[];
-  blocks: ColBlock[];
-  lastStatus: AgentStatus;
-}
+// 계약 타입 — core/contracts.ts에서 정의, 하위 호환을 위해 re-export
+export type { ColStatus, CollectedStreamData } from "../contracts.js";
+import type { ColBlock, ColStatus, CollectedStreamData } from "../contracts.js";
 
 // ─── StreamRun 클래스 ────────────────────────────────────
 

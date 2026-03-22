@@ -23,31 +23,9 @@ import {
 } from "../../constants";
 import { renderBlockLines, blockLineAnsiColor } from "./block-renderer";
 
-// ─── 에이전트 칼럼 타입 ──────────────────────────────────
-
-/**
- * 순서가 보존된 이벤트 블록.
- * 도구 호출과 응답 텍스트를 발생 순서대로 기록합니다.
- */
-export type ColBlock =
-  | { type: "thought"; text: string }
-  | { type: "text"; text: string }
-  | { type: "tool"; title: string; status: string; rawOutput?: string; toolCallId?: string };
-
-export interface AgentCol {
-  cli: string;
-  sessionId?: string;
-  /** 순서 있는 이벤트 로그 (도구 호출 + 응답 텍스트 혼합) */
-  blocks: ColBlock[];
-  /** thinking/추론 텍스트 — 하위 호환용 누적 상태 */
-  thinking: string;
-  // 하위 호환 및 CollectedStreamData 공급용 (blocks에서 파생)
-  text: string;
-  toolCalls: { title: string; status: string; rawOutput?: string }[];
-  status: "wait" | "conn" | "stream" | "done" | "err";
-  error?: string;
-  scroll: number;
-}
+// 계약 타입 — core/contracts.ts에서 정의, 하위 호환을 위해 re-export
+export type { ColBlock, AgentCol } from "../contracts.js";
+import type { AgentCol } from "../contracts.js";
 
 // ─── 레이아웃 상수 ───────────────────────────────────────
 

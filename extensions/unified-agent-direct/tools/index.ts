@@ -7,15 +7,15 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
-import type { CliType } from "../../../unified-agent-core/types";
+import type { CliType } from "../../unified-agent-core/types";
 import { Type } from "@sinclair/typebox";
 
-import type { SessionMapStore } from "../../../unified-agent-core/session-map";
-import { DIRECT_MODE_BG_COLORS, DIRECT_MODE_COLORS } from "../../constants";
+import type { SessionMapStore } from "../../unified-agent-core/session-map";
+import { DIRECT_MODE_BG_COLORS, DIRECT_MODE_COLORS } from "../constants";
 import { toolDescription, toolPromptSnippet, toolPromptGuidelines } from "./prompts.js";
-import { createToolResultRenderer } from "../render/message-renderers.js";
-import { runAgentRequest } from "../agent-api.js";
-import type { UnifiedAgentResult } from "../../types.js";
+import { createToolResultRenderer } from "../core/render/message-renderers.js";
+import { runAgentRequest } from "../core/agent-api.js";
+import type { UnifiedAgentResult } from "../types.js";
 import { Text } from "@mariozechner/pi-tui";
 
 const CLI_NAMES: Record<string, string> = {

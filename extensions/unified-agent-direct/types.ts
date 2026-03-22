@@ -4,7 +4,7 @@
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import type { CliType, AgentStatus } from "../unified-agent-core/types.js";
-import type { CollectedStreamData } from "./core/streaming/stream-store.js";
+import type { CollectedStreamData } from "./core/contracts.js";
 
 /** globalThis 공개 브릿지 키 */
 export const UNIFIED_AGENT_REQUEST_KEY = "__pi_ua_request__";

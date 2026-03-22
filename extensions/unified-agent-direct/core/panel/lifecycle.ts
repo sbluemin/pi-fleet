@@ -11,11 +11,11 @@ import { ANIM_INTERVAL_MS } from "../../constants";
 import { resetRuns } from "../streaming/stream-store";
 import { renderModeBanner } from "../render/panel-renderer";
 import { getState, makeCols, syncColSessionIds } from "./state.js";
-import type { AgentCol } from "./state.js";
+import type { AgentCol } from "../contracts.js";
 import { syncWidget, syncFooterStatus } from "./widget-sync.js";
 
 // 편의를 위한 re-export
-export type { AgentCol } from "./state.js";
+export type { AgentCol } from "../contracts.js";
 
 // ─── 패널 모드 관리 ──────────────────────────────────────
 

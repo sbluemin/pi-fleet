@@ -20,14 +20,14 @@ import {
   stopAgentStreaming,
   getAgentPanelCols,
 } from "../core/panel/lifecycle.js";
-import type { AgentCol } from "../core/render/panel-renderer";
+import type { AgentCol } from "../core/contracts.js";
 import {
   CLI_DISPLAY_NAMES,
   CLI_ORDER,
   DIRECT_MODE_COLORS,
   DIRECT_MODE_BG_COLORS,
 } from "../constants";
-import { crossReportPrompt } from "../core/tools/prompts";
+import { crossReportPrompt } from "./prompts";
 
 /** 칼럼 결과를 마크다운 텍스트로 통합 */
 function colsToMarkdown(cols: AgentCol[]): string {

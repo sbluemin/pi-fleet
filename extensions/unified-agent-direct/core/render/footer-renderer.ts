@@ -15,7 +15,7 @@ import {
   SYM_INDICATOR,
 } from "../../constants";
 import { waveText, MODE_RGB } from "./panel-renderer";
-import type { AgentCol } from "./panel-renderer";
+import type { AgentCol } from "../contracts.js";
 
 /** CLI별 모델/추론 설정 (footer 표시용) */
 interface FooterModelInfo {

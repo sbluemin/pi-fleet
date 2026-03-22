@@ -9,11 +9,10 @@ import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import type { SessionMapStore } from "../../../unified-agent-core/session-map";
 import { CLI_ORDER, DEFAULT_BODY_H } from "../../constants";
 import { ensureVisibleRun, setRunSessionId } from "../streaming/stream-store";
-import type { AgentCol } from "../render/panel-renderer";
-import type { ServiceSnapshot } from "../../status/types.js";
+import type { AgentCol, ServiceSnapshot, ServiceStatusRendererFn } from "../contracts.js";
 
 // 편의를 위한 re-export
-export type { AgentCol } from "../render/panel-renderer";
+export type { AgentCol } from "../contracts.js";
 
 // ─── 상수 ────────────────────────────────────────────────
 
@@ -56,6 +55,8 @@ export interface AgentPanelState {
   serviceLastUpdatedAt: number | null;
   /** 서비스 상태 로딩 중 여부 */
   serviceLoading: boolean;
+  /** 서비스 상태 토큰 렌더러 (feature에서 주입 — core→feature 역방향 의존 방지) */
+  serviceStatusRenderer: ServiceStatusRendererFn | null;
   /** 패널 토글 리스너 */
   toggleCallbacks: Array<(expanded: boolean) => void>;
   /** 세션 매핑 저장소 (호출처가 주입) */
@@ -83,6 +84,7 @@ export function getState(): AgentPanelState {
       serviceSnapshots: [],
       serviceLastUpdatedAt: null,
       serviceLoading: false,
+      serviceStatusRenderer: null,
       toggleCallbacks: [],
       sessionStore: null,
       bodyH: DEFAULT_BODY_H,
@@ -96,6 +98,7 @@ export function getState(): AgentPanelState {
   if (!s.serviceSnapshots) s.serviceSnapshots = [];
   if (s.serviceLastUpdatedAt === undefined) s.serviceLastUpdatedAt = null;
   if (s.serviceLoading === undefined) s.serviceLoading = false;
+  if (s.serviceStatusRenderer === undefined) s.serviceStatusRenderer = null;
   if (!s.toggleCallbacks) s.toggleCallbacks = [];
   if (s.sessionStore === undefined) s.sessionStore = null;
   if (s.bodyH === undefined) s.bodyH = DEFAULT_BODY_H;

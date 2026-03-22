@@ -13,7 +13,7 @@ import {
   ANSI_RESET,
   SYM_INDICATOR,
 } from "../../constants";
-import type { ColBlock } from "./panel-renderer";
+import type { ColBlock } from "../contracts.js";
 
 /** 렌더러에 필요한 최소 설정 (framework.DirectModeConfig에서 추출) */
 export interface AgentRenderConfig {
