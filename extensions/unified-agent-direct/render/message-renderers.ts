@@ -55,6 +55,8 @@ export function createDefaultResponseRenderer(config: DirectModeConfig) {
     const bgAnsi = config.bgColor ?? "";
     const thinkingText = details?.thinking ?? "";
     const toolCalls = details?.toolCalls ?? [];
+    const blocks = details?.blocks;
+    const hasThoughtBlocks = blocks?.some((block) => block.type === "thought") ?? false;
 
     // 아이콘 + 이름 헤더 (세션 정보 포함)
     const icon = isError ? theme.fg("error", SYM_INDICATOR) : theme.fg("success", SYM_INDICATOR);
@@ -78,22 +80,27 @@ export function createDefaultResponseRenderer(config: DirectModeConfig) {
     inner.addChild(new Text(header, 0, 0));
     inner.addChild(new Spacer(1));
 
-    // thinking 블록 (항상 full 표시)
-    if (thinkingText) {
+    // thinking 블록 폴백 (구형 메시지 호환)
+    if (thinkingText && !hasThoughtBlocks) {
       inner.addChild(new Text(theme.fg("muted", `${SYM_THINKING} thinking`), 0, 0));
       inner.addChild(new Text(theme.fg("dim", thinkingText), 0, 0));
       inner.addChild(new Spacer(1));
     }
 
     // blocks 기반 렌더링 (패널 렌더러와 동일한 프리티 표기)
-    const blocks = details?.blocks;
-
     if (blocks && blocks.length > 0) {
       // ── blocks 존재: 이벤트 발생 순서대로 심볼/색상 렌더링 ──
       const MAX_RESULT_LINES = 4;
 
       for (const block of blocks) {
-        if (block.type === "text") {
+        if (block.type === "thought") {
+          const trimmed = block.text.replace(/^\n+/, "");
+          if (!trimmed) continue;
+          const formatted = trimmed.split("\n")
+            .map((line: string, i: number) => (i === 0 ? `${SYM_THINKING} ${line}` : `  ${line}`))
+            .join("\n");
+          inner.addChild(new Text(theme.fg("dim", formatted), 0, 0));
+        } else if (block.type === "text") {
           // 응답 텍스트: 첫 줄 ⏺ + 이후 줄 들여쓰기
           const trimmed = block.text.replace(/^\n+/, "");
           if (!trimmed) continue;

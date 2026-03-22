@@ -122,10 +122,23 @@ export function createStreamingMirror(ctx: ExtensionContext, cli: CliType) {
     onThoughtChunk(text: string) {
       accThinking += text;
 
+      const lastAcc = accBlocks[accBlocks.length - 1];
+      if (lastAcc?.type === "thought") {
+        lastAcc.text += text;
+      } else {
+        accBlocks.push({ type: "thought", text });
+      }
+
       const col = readCol(colIndex);
+      const blocks = col?.blocks ?? [];
+      const last = blocks[blocks.length - 1];
+      const newBlocks = last?.type === "thought"
+        ? [...blocks.slice(0, -1), { type: "thought" as const, text: last.text + text }]
+        : [...blocks, { type: "thought" as const, text }];
       updateAgentCol(colIndex, {
         status: "stream",
         thinking: (col?.thinking ?? "") + text,
+        blocks: newBlocks,
       });
     },
 

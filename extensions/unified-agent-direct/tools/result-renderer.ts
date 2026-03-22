@@ -41,6 +41,7 @@ export function createToolResultRenderer(config: {
     const thinkingText = details?.thinking ?? "";
     const toolCalls = details?.toolCalls ?? [];
     const blocks = details?.blocks;
+    const hasThoughtBlocks = blocks?.some((block) => block.type === "thought") ?? false;
     const bgAnsi = config.bgColor ?? "";
     const contentText = getContentText(result.content);
 
@@ -58,7 +59,7 @@ export function createToolResultRenderer(config: {
     inner.addChild(new Text(header, 0, 0));
     inner.addChild(new Spacer(1));
 
-    if (thinkingText) {
+    if (thinkingText && !hasThoughtBlocks) {
       inner.addChild(new Text(theme.fg("muted", `${SYM_THINKING} thinking`), 0, 0));
       inner.addChild(new Text(theme.fg("dim", thinkingText), 0, 0));
       inner.addChild(new Spacer(1));
@@ -68,6 +69,17 @@ export function createToolResultRenderer(config: {
       const MAX_RESULT_LINES = 4;
 
       for (const block of blocks) {
+        if (block.type === "thought") {
+          const trimmed = block.text.replace(/^\n+/, "");
+          if (!trimmed) continue;
+          const formatted = trimmed
+            .split("\n")
+            .map((line, index) => (index === 0 ? `${SYM_THINKING} ${line}` : `  ${line}`))
+            .join("\n");
+          inner.addChild(new Text(theme.fg("dim", formatted), 0, 0));
+          continue;
+        }
+
         if (block.type === "text") {
           const trimmed = block.text.replace(/^\n+/, "");
           if (!trimmed) continue;

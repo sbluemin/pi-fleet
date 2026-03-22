@@ -32,6 +32,7 @@ import {
  * 도구 호출과 응답 텍스트를 발생 순서대로 기록합니다.
  */
 export type ColBlock =
+  | { type: "thought"; text: string }
   | { type: "text"; text: string }
   | { type: "tool"; title: string; status: string; rawOutput?: string };
 
@@ -40,7 +41,7 @@ export interface AgentCol {
   sessionId?: string;
   /** 순서 있는 이벤트 로그 (도구 호출 + 응답 텍스트 혼합) */
   blocks: ColBlock[];
-  /** thinking/추론 텍스트 — 항상 상단에 고정 표시 */
+  /** thinking/추론 텍스트 — 하위 호환용 누적 상태 */
   thinking: string;
   // 하위 호환 및 CollectedStreamData 공급용 (blocks에서 파생)
   text: string;
@@ -207,9 +208,8 @@ interface ColContentResult {
 }
 
 /**
- * 칼럼의 thinking + 도구 호출 + 응답을 통합 콘텐츠로 빌드합니다.
- * - thinking은 항상 상단 고정
- * - blocks[]의 text/tool 항목을 발생 순서대로 렌더링 (all 모드 포함)
+ * 칼럼의 사고/도구 호출/응답을 통합 콘텐츠로 빌드합니다.
+ * - blocks[] 항목을 발생 순서대로 렌더링합니다.
  */
 function buildColContent(col: AgentCol, frame: number, _compact: boolean): ColContentResult {
   const lines: string[] = [];
@@ -246,20 +246,17 @@ function buildColContent(col: AgentCol, frame: number, _compact: boolean): ColCo
     }
   };
 
-  // ── thinking: 항상 상단 고정 ──────────────────────────
-  if (col.thinking) {
-    const first = col.thinking.split("\n").find((l) => l.trim()) ?? "";
-    const preview = first.length > 55 ? first.slice(0, 52) + "..." : first;
-    lines.push(`${SYM_THINKING} ${preview}`);
-    colors.push(THINKING_COLOR);
-    lines.push("");
-    colors.push("");
-  }
-
   // ── blocks: 이벤트 발생 순서대로 렌더링 ─────────────────
   if (col.blocks?.length) {
     for (const block of col.blocks) {
-      if (block.type === "text") {
+      if (block.type === "thought") {
+        const trimmed = block.text.replace(/^\n+/, "");
+        if (!trimmed) continue;
+        trimmed.split("\n").forEach((line, index) => {
+          lines.push(index === 0 ? `${SYM_THINKING} ${line}` : `  ${line}`);
+          colors.push(THINKING_COLOR);
+        });
+      } else if (block.type === "text") {
         pushResponseLines(block.text);
       } else {
         // tool 블록
@@ -278,7 +275,7 @@ function buildColContent(col: AgentCol, frame: number, _compact: boolean): ColCo
   } else if (col.status === "wait" || col.status === "conn") {
     lines.push(placeholder(col, frame));
     colors.push("");
-  } else if (col.status === "err" && !col.thinking) {
+  } else if (col.status === "err") {
     lines.push(placeholder(col, frame));
     colors.push("");
   }

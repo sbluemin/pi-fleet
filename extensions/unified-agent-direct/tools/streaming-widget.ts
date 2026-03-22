@@ -161,7 +161,15 @@ export function createStreamingWidget(
         state.blocks.push({ type: "text", text });
       }
     },
-    onThought(text) { state.thinkingText += text; },
+    onThought(text) {
+      state.thinkingText += text;
+      const last = state.blocks[state.blocks.length - 1];
+      if (last?.type === "thought") {
+        last.text += text;
+      } else {
+        state.blocks.push({ type: "thought", text });
+      }
+    },
     onToolCall(title, status, rawOutput) {
       // toolCalls 업데이트 (하위 호환)
       const existing = state.toolCalls.find((tc) => tc.title === title);
@@ -238,17 +246,21 @@ export function renderStream(
   lines.push(`${statusIcon} ${nameStyled}`);
   lines.push("");
 
-  // ── thinking (항상 full 표시) ──
-  if (state.thinkingText) {
-    lines.push(theme.fg("muted", `${SYM_THINKING} thinking`));
-    lines.push(theme.fg("dim", state.thinkingText));
-    lines.push("");
-  }
-
   // ── blocks 기반 렌더링 (패널 렌더러와 동일한 프리티 표기) ──
   if (state.blocks.length > 0) {
     for (const block of state.blocks) {
-      if (block.type === "text") {
+      if (block.type === "thought") {
+        const trimmed = block.text.replace(/^\n+/, "");
+        if (!trimmed) continue;
+        trimmed.split("\n").forEach((line, i) => {
+          lines.push(
+            theme.fg(
+              "dim",
+              i === 0 ? `${SYM_THINKING} ${line}` : `  ${line}`,
+            ),
+          );
+        });
+      } else if (block.type === "text") {
         // 응답 텍스트: 첫 줄 ⏺ + 이후 줄 들여쓰기
         const trimmed = block.text.replace(/^\n+/, "");
         if (!trimmed) continue;

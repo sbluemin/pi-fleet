@@ -515,7 +515,12 @@ async function queryAgent(
     },
     onThoughtChunk: (text) => {
       const c = getAgentPanelCols()[colIndex];
-      updateAgentCol(colIndex, { thinking: c.thinking + text });
+      const blocks = c.blocks ?? [];
+      const last = blocks[blocks.length - 1];
+      const newBlocks = last?.type === "thought"
+        ? [...blocks.slice(0, -1), { type: "thought" as const, text: last.text + text }]
+        : [...blocks, { type: "thought" as const, text }];
+      updateAgentCol(colIndex, { thinking: c.thinking + text, blocks: newBlocks, status: "stream" });
     },
     onToolCall: (title, status, rawOutput) => {
       const c = getAgentPanelCols()[colIndex];

@@ -189,7 +189,15 @@ export function createDirectStreamingRouter(ctx: ExtensionContext, cli: CliType)
 
     onThoughtChunk(text: string) {
       mirror.onThoughtChunk(text);
-      if (streamState) streamState.thinkingText += text;
+      if (streamState) {
+        streamState.thinkingText += text;
+        const last = streamState.blocks[streamState.blocks.length - 1];
+        if (last?.type === "thought") {
+          last.text += text;
+        } else {
+          streamState.blocks.push({ type: "thought", text });
+        }
+      }
     },
 
     onToolCall(title: string, status: string, rawOutput?: string) {
