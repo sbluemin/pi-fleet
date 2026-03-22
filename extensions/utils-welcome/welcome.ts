@@ -2,7 +2,7 @@ import { readdirSync, existsSync, statSync } from "node:fs";
 import { join, basename } from "node:path";
 import type { Component } from "@mariozechner/pi-tui";
 import { visibleWidth } from "@mariozechner/pi-tui";
-import { ansi, fgOnly, getFgAnsiCode } from "../hud-core/colors.js";
+import { ansi, fgOnly, getFgAnsiCode } from "../infra-hud/colors.js";
 
 export interface RecentSession {
   name: string;

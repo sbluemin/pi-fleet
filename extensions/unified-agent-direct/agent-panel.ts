@@ -254,7 +254,7 @@ export function refreshAgentPanelFooter(ctx: ExtensionContext): void {
  *
  * 렌더링 분기:
  * - expanded → aboveEditor 위젯으로 renderPanelFull 표시 (터미널 높이 기반 클램핑)
- * - !expanded + activeMode → 위젯 제거 (배너는 hud-editor/editor.ts에서 직접 렌더링)
+ * - !expanded + activeMode → 위젯 제거 (배너는 infra-hud/editor.ts에서 직접 렌더링)
  * - !expanded + streaming → 컴팩트 상태바 (renderPanelCompact)
  * - 그 외 → 위젯 제거
  */

@@ -12,11 +12,11 @@ Do not create intermediate layers that simply wrap official TUI APIs (e.g., `set
 
 | Extension | Role | Main Files |
 |-----------|------|------------|
-| `hud-editor/` | Custom editor + status bar + footer | `index.ts` (wiring), `editor.ts` (editor/footer/widget UI) |
-| `hud-welcome/` | Welcome overlay/header | `index.ts` (wiring), `welcome.ts` (UI), `types.ts` (globalThis types) |
+| `infra-hud/` | Custom editor + status bar + footer (with integrated rendering engine) | `index.ts` (wiring), `editor.ts` (editor/footer/widget UI) |
+| `utils-welcome/` | Welcome overlay/header | `index.ts` (wiring), `welcome.ts` (UI), `types.ts` (globalThis types) |
 | `unified-agent-direct/` | 4 Direct modes (alt+1~4) + individual agent tools | `index.ts` (wiring), `agent-panel.ts`, `render/`, `tools/`, etc. |
 | `utils-improve-prompt/` | Meta-prompting (alt+m), reasoning level cycle (alt+r) | `index.ts` (wiring), `ui.ts` (status bar widget) |
-| `hud-thinking-timer/` | Inline elapsed-time display for Thinking blocks | `index.ts` (wiring), `timer.ts` (patch/store/ticker) |
+| `utils-thinking-timer/` | Inline elapsed-time display for Thinking blocks | `index.ts` (wiring), `timer.ts` (patch/store/ticker) |
 | `utils-summarize/` | Auto one-line session summary | `index.ts` (wiring), `ui.ts` (status bar widget) |
 
 ### Shared Libraries — Directories without `index.ts`
@@ -25,7 +25,7 @@ These are pure libraries not recognized as extensions by pi.
 
 | Library | Role | Main Consumers |
 |---------|------|----------------|
-| `hud-core/` | Status bar rendering engine (segments, layout, colors, themes, presets) | `hud-editor`, `hud-welcome` |
+| `infra-hud/` (also a library) | Status bar rendering engine (segments, layout, colors, themes, presets) | `utils-welcome` |
 | `unified-agent-core/` | Shared logic for unified agents | `unified-agent-direct` |
 
 ### Extension Separation Criteria
@@ -64,7 +64,7 @@ Any string that is ultimately consumed by an AI model must live in `prompts.ts`:
 ### globalThis Usage Rules
 
 ```
-Allowed: hud-welcome → globalThis["__pi_hud_welcome__"] = { dismiss }
+Allowed: utils-welcome → globalThis["__pi_utils_welcome__"] = { dismiss }
          (Exposes actions of an independent feature)
 
 Forbidden: hud-footer → globalThis["__pi_hud_footer__"] = { footerDataRef, tuiRef }

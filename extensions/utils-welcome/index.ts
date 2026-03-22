@@ -1,24 +1,24 @@
 /**
- * hud-welcome — 웰컴 화면 확장
+ * utils-welcome — 웰컴 화면 확장
  *
  * 세션 시작 시 웰컴 오버레이(또는 헤더)를 표시하고,
  * 에이전트 활동 시작 시 자동으로 해제한다.
  *
- * globalThis["__pi_hud_welcome__"]에 dismiss 함수를 노출하여
- * 다른 확장(hud-editor 등)에서도 디스미스를 트리거할 수 있다.
+ * globalThis["__pi_utils_welcome__"]에 dismiss 함수를 노출하여
+ * 다른 확장(infra-hud 등)에서도 디스미스를 트리거할 수 있다.
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import { HUD_WELCOME_GLOBAL_KEY, type HudWelcomeBridge } from "./types.js";
-import { readSettings } from "../hud-core/utils.js";
+import { WELCOME_GLOBAL_KEY, type WelcomeBridge } from "./types.js";
+import { readSettings } from "../infra-hud/utils.js";
 import { WelcomeComponent, WelcomeHeader, discoverLoadedCounts, getRecentSessions } from "./welcome.js";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 내부 상태
 // ═══════════════════════════════════════════════════════════════════════════
 
-interface HudWelcomeState {
+interface WelcomeState {
   /** 오버레이 dismiss 함수 (오버레이 활성 시 설정됨) */
   dismissFn: (() => void) | null;
   /** 헤더 모드 활성 여부 */
@@ -31,7 +31,7 @@ interface HudWelcomeState {
 // dismiss 헬퍼
 // ═══════════════════════════════════════════════════════════════════════════
 
-function dismissWelcome(ctx: any, state: HudWelcomeState): void {
+function dismissWelcome(ctx: any, state: WelcomeState): void {
   if (state.dismissFn) {
     state.dismissFn();
     state.dismissFn = null;
@@ -48,7 +48,7 @@ function dismissWelcome(ctx: any, state: HudWelcomeState): void {
 // 웰컴 헤더 설정 (quietStartup 모드)
 // ═══════════════════════════════════════════════════════════════════════════
 
-function setupWelcomeHeader(ctx: any, state: HudWelcomeState): void {
+function setupWelcomeHeader(ctx: any, state: WelcomeState): void {
   const modelName = ctx.model?.name || ctx.model?.id || "No model";
   const providerName = ctx.model?.provider || "Unknown";
   const loadedCounts = discoverLoadedCounts();
@@ -73,7 +73,7 @@ function setupWelcomeHeader(ctx: any, state: HudWelcomeState): void {
 // 웰컴 오버레이 설정 (기본 시작 모드)
 // ═══════════════════════════════════════════════════════════════════════════
 
-function setupWelcomeOverlay(ctx: any, state: HudWelcomeState): void {
+function setupWelcomeOverlay(ctx: any, state: WelcomeState): void {
   const modelName = ctx.model?.name || ctx.model?.id || "No model";
   const providerName = ctx.model?.provider || "Unknown";
   const loadedCounts = discoverLoadedCounts();
@@ -160,25 +160,25 @@ function setupWelcomeOverlay(ctx: any, state: HudWelcomeState): void {
 // 확장 진입점
 // ═══════════════════════════════════════════════════════════════════════════
 
-export default function hudWelcome(pi: ExtensionAPI) {
-  const state: HudWelcomeState = {
+export default function welcome(pi: ExtensionAPI) {
+  const state: WelcomeState = {
     dismissFn: null,
     headerActive: false,
     shouldDismiss: false,
   };
 
   // globalThis 브릿지 등록 — 다른 확장이 dismiss를 트리거할 수 있음
-  (globalThis as any)[HUD_WELCOME_GLOBAL_KEY] = {
+  (globalThis as any)[WELCOME_GLOBAL_KEY] = {
     dismiss: () => dismissWelcome(state as any, state),
-  } satisfies HudWelcomeBridge;
+  } satisfies WelcomeBridge;
 
   // ── 이벤트 핸들러 ──
 
   pi.on("session_start", async (_event, ctx) => {
     // globalThis 브릿지 업데이트 (ctx 바인딩)
-    (globalThis as any)[HUD_WELCOME_GLOBAL_KEY] = {
+    (globalThis as any)[WELCOME_GLOBAL_KEY] = {
       dismiss: () => dismissWelcome(ctx, state),
-    } satisfies HudWelcomeBridge;
+    } satisfies WelcomeBridge;
 
     state.dismissFn = null;
     state.headerActive = false;
@@ -205,8 +205,8 @@ export default function hudWelcome(pi: ExtensionAPI) {
   pi.on("session_switch", async (_event, ctx) => {
     dismissWelcome(ctx, state);
     // ctx 바인딩 갱신
-    (globalThis as any)[HUD_WELCOME_GLOBAL_KEY] = {
+    (globalThis as any)[WELCOME_GLOBAL_KEY] = {
       dismiss: () => dismissWelcome(ctx, state),
-    } satisfies HudWelcomeBridge;
+    } satisfies WelcomeBridge;
   });
 }

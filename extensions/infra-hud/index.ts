@@ -1,5 +1,5 @@
 /**
- * hud-editor — 상태바 에디터 확장
+ * infra-hud — 상태바 에디터 확장
  *
  * 배선(wiring)만 담당: 이벤트 핸들러, 커맨드, 단축키 등록.
  * 에디터 UI 로직은 editor.ts에 분리.
@@ -7,10 +7,10 @@
 
 import type { ExtensionAPI, ReadonlyFooterDataProvider } from "@mariozechner/pi-coding-agent";
 
-import type { HudCoreConfig, StatusLinePreset } from "../hud-core/types.js";
-import { PRESETS } from "../hud-core/presets.js";
-import { invalidateGitStatus, invalidateGitBranch } from "../hud-core/git-status.js";
-import { mightChangeGitBranch } from "../hud-core/utils.js";
+import type { HudCoreConfig, StatusLinePreset } from "./types.js";
+import { PRESETS } from "./presets.js";
+import { invalidateGitStatus, invalidateGitBranch } from "./git-status.js";
+import { mightChangeGitBranch } from "./utils.js";
 import { setupCustomEditor, setupFooter } from "./editor.js";
 
 // ═══════════════════════════════════════════════════════════════════════════

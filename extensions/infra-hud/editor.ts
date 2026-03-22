@@ -1,5 +1,5 @@
 /**
- * hud-editor/editor.ts — 커스텀 에디터, footer, 위젯 설정
+ * infra-hud/editor.ts — 커스텀 에디터, footer, 위젯 설정
  *
  * 커스텀 에디터 팩토리, 상태바 렌더링, footer 등록, 위젯 등록을 담당한다.
  * footer를 직접 등록하여 footerDataRef를 확보하므로 globalThis 간접 참조가 없다.
@@ -9,12 +9,12 @@ import type { ReadonlyFooterDataProvider, Theme } from "@mariozechner/pi-coding-
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
 import type { HudEditorState } from "./index.js";
-import type { SegmentStateProvider } from "../hud-core/types.js";
-import { ansi, getFgAnsiCode } from "../hud-core/colors.js";
-import { getPreset } from "../hud-core/presets.js";
-import { buildSegmentContext } from "../hud-core/context.js";
-import { computeResponsiveLayout } from "../hud-core/layout.js";
-import { HUD_WELCOME_GLOBAL_KEY } from "../hud-welcome/types.js";
+import type { SegmentStateProvider } from "./types.js";
+import { ansi, getFgAnsiCode } from "./colors.js";
+import { getPreset } from "./presets.js";
+import { buildSegmentContext } from "./context.js";
+import { computeResponsiveLayout } from "./layout.js";
+import { WELCOME_GLOBAL_KEY } from "../utils-welcome/types.js";
 import { DIRECT_MODE_COLORS } from "../unified-agent-direct/constants.js";
 import { getActiveModeId, onStatusUpdate } from "../unified-agent-direct/framework.js";
 import { getModeBannerLines } from "../unified-agent-direct/agent-panel.js";
@@ -24,7 +24,7 @@ import { getModeBannerLines } from "../unified-agent-direct/agent-panel.js";
 // ═══════════════════════════════════════════════════════════════════════════
 
 function dismissWelcomeViaGlobal(): void {
-  (globalThis as any)[HUD_WELCOME_GLOBAL_KEY]?.dismiss?.();
+  (globalThis as any)[WELCOME_GLOBAL_KEY]?.dismiss?.();
 }
 
 function centerLine(line: string, width: number): string {
@@ -124,7 +124,7 @@ export function setupCustomEditor(ctx: any, state: HudEditorState): void {
           state.currentEditor?.handleInput(data);
           return;
         }
-        // 타이핑 시작 → welcome 디스미스 (hud-welcome globalThis 경유)
+        // 타이핑 시작 → welcome 디스미스 (utils-welcome globalThis 경유)
         setTimeout(() => dismissWelcomeViaGlobal(), 0);
         originalHandleInput(data);
       };

@@ -1,5 +1,5 @@
 /**
- * hud-core/context.ts — 세그먼트 컨텍스트 빌더
+ * infra-hud/context.ts — 세그먼트 컨텍스트 빌더
  *
  * 세션 이벤트를 파싱하여 세그먼트 렌더링에 필요한 컨텍스트를 구성한다.
  */
@@ -18,7 +18,7 @@ import { getDefaultColors } from "./theme.js";
  * @param ctx       - pi ExtensionContext (세션, 모델 정보)
  * @param theme     - 현재 pi 테마
  * @param provider  - footerDataRef, getThinkingLevelFn, sessionStartTime 을 제공하는 객체
- * @param config    - hud-core 프리셋 설정
+ * @param config    - infra-hud 프리셋 설정
  */
 export function buildSegmentContext(
   ctx: any,
