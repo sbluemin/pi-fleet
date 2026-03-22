@@ -201,27 +201,30 @@ export function appendThoughtBlock(cli: string, text: string): void {
 }
 
 /**
- * 도구 블록을 추가하거나 기존 동일 title 블록을 업데이트합니다.
+ * 도구 블록을 추가하거나 기존 동일 toolCallId(또는 title) 블록을 업데이트합니다.
+ * toolCallId가 있으면 toolCallId 기준, 없으면 title 기준 (하위 호환).
  */
 export function upsertToolBlock(
   cli: string,
   title: string,
   status: string,
   rawOutput?: string,
+  toolCallId?: string,
 ): void {
   const run = resolveRun(cli);
   if (!run) return;
 
   const existing = run.blocks.find(
     (b): b is Extract<ColBlock, { type: "tool" }> =>
-      b.type === "tool" && b.title === title,
+      b.type === "tool" &&
+      (toolCallId ? b.toolCallId === toolCallId : b.title === title),
   );
 
   if (existing) {
     existing.status = status;
     if (rawOutput !== undefined) existing.rawOutput = rawOutput;
   } else {
-    run.blocks.push({ type: "tool", title, status, rawOutput });
+    run.blocks.push({ type: "tool", title, status, rawOutput, toolCallId });
   }
 
   if (run.status === "conn" || run.status === "wait") {

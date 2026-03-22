@@ -85,17 +85,15 @@ export function renderBlockLines(
     } else {
       // tool 블록
       const isError = block.status === "failed" || block.status === "error";
+      const isFinished = block.status === "completed" || block.status === "failed" || block.status === "error";
       lines.push({
         type: isError ? "tool-error" : "tool-title",
         text: `${SYM_INDICATOR} ${block.title}`,
       });
 
-      const statusText = block.rawOutput?.trim()
-        ? block.rawOutput
-        : (block.status === "completed" || block.status === "failed" || block.status === "error"
-          ? block.status
-          : "");
-      if (statusText) {
+      // cli-renderer.ts와 동일: completed/failed/error 상태에서만 결과 표시
+      if (isFinished) {
+        const statusText = block.rawOutput?.trim() ? block.rawOutput : block.status;
         appendToolResultLines(statusText, isError, maxRL, lines);
       }
     }
@@ -193,6 +191,7 @@ export function renderBlocksToContainer(
     } else {
       // tool 블록
       const isError = block.status === "failed" || block.status === "error";
+      const isFinished = block.status === "completed" || block.status === "failed" || block.status === "error";
       const titleText = `${SYM_INDICATOR} ${block.title}`;
       container.addChild(new Text(
         isError
@@ -201,12 +200,9 @@ export function renderBlocksToContainer(
         0, 0,
       ));
 
-      const statusText = block.rawOutput?.trim()
-        ? block.rawOutput
-        : (block.status === "completed" || block.status === "failed" || block.status === "error"
-          ? block.status
-          : "");
-      if (statusText) {
+      // cli-renderer.ts와 동일: completed/failed/error 상태에서만 결과 표시
+      if (isFinished) {
+        const statusText = block.rawOutput?.trim() ? block.rawOutput : block.status;
         appendToolResultComponents(statusText, isError, maxRL, container, theme);
       }
     }

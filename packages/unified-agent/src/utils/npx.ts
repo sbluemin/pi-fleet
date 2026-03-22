@@ -39,7 +39,7 @@ export function resolveNpxPath(
 /**
  * npx를 사용한 패키지 실행 인자를 생성합니다.
  *
- * @param packageName - 실행할 npm 패키지 (e.g., '@zed-industries/claude-agent-acp@0.18.0')
+ * @param packageName - 실행할 npm 패키지 (e.g., '@zed-industries/claude-agent-acp@0.21.0')
  * @param preferOffline - npm 캐시 우선 사용 여부 (기본: true)
  * @returns npx 실행 인자 배열
  */

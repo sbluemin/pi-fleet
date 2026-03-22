@@ -454,7 +454,7 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
             signal: helpers.signal,
             onMessageChunk: (text) => router.onMessageChunk(text),
             onThoughtChunk: (text) => router.onThoughtChunk(text),
-            onToolCall: (title, status, rawOutput) => router.onToolCall(title, status, rawOutput),
+            onToolCall: (title, status, rawOutput, toolCallId) => router.onToolCall(title, status, rawOutput, toolCallId),
             onStatusChange: (status) => router.onStatusChange(status),
           });
 
@@ -539,8 +539,8 @@ async function queryAgent(
       appendThoughtBlock(cli, text);
       syncCol();
     },
-    onToolCall: (title, status, rawOutput) => {
-      upsertToolBlock(cli, title, status, rawOutput);
+    onToolCall: (title, status, rawOutput, toolCallId) => {
+      upsertToolBlock(cli, title, status, rawOutput, toolCallId);
       syncCol();
     },
     onStatusChange: (s) => {

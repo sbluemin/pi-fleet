@@ -32,7 +32,7 @@ import { renderBlockLines, blockLineAnsiColor } from "./block-renderer";
 export type ColBlock =
   | { type: "thought"; text: string }
   | { type: "text"; text: string }
-  | { type: "tool"; title: string; status: string; rawOutput?: string };
+  | { type: "tool"; title: string; status: string; rawOutput?: string; toolCallId?: string };
 
 export interface AgentCol {
   cli: string;

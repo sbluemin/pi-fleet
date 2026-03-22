@@ -36,7 +36,7 @@ const toolWidgetMgr = createStreamWidgetManager(
 export interface StreamingWidget {
   onMessage(text: string): void;
   onThought(text: string): void;
-  onToolCall(title: string, status: string, rawOutput?: string): void;
+  onToolCall(title: string, status: string, rawOutput?: string, toolCallId?: string): void;
   onStatus(status: AgentStatus): void;
   finish(): void;
   fail(error: string): void;
@@ -68,8 +68,8 @@ export function createStreamingWidget(
       appendThoughtBlock(cli, text);
     },
 
-    onToolCall(title, status, rawOutput) {
-      upsertToolBlock(cli, title, status, rawOutput);
+    onToolCall(title, status, rawOutput, toolCallId) {
+      upsertToolBlock(cli, title, status, rawOutput, toolCallId);
     },
 
     onStatus(status) {

@@ -89,7 +89,7 @@ export function registerAgentTools({ pi, configDir, sessionStore }: RegisterAgen
             signal,
             onMessageChunk: (text) => widget.onMessage(text),
             onThoughtChunk: (text) => widget.onThought(text),
-            onToolCall: (title, status, rawOutput) => widget.onToolCall(title, status, rawOutput),
+            onToolCall: (title, status, rawOutput, toolCallId) => widget.onToolCall(title, status, rawOutput, toolCallId),
             onStatusChange: (status) => widget.onStatus(status),
           });
 

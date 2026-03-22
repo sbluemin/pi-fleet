@@ -134,9 +134,9 @@ export function createDirectStreamingRouter(ctx: ExtensionContext, cli: CliType)
       syncColFromStore(cli, colIndex);
     },
 
-    onToolCall(title: string, status: string, rawOutput?: string) {
-      // store에 도구 블록 추가/업데이트
-      upsertToolBlock(cli, title, status, rawOutput);
+    onToolCall(title: string, status: string, rawOutput?: string, toolCallId?: string) {
+      // store에 도구 블록 추가/업데이트 (toolCallId 기반 추적)
+      upsertToolBlock(cli, title, status, rawOutput, toolCallId);
 
       // 패널 칼럼 브릿지
       syncColFromStore(cli, colIndex);

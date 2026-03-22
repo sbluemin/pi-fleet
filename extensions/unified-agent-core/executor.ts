@@ -26,6 +26,7 @@ const MAX_TOOL_CALLS_TO_KEEP = 30;
 type ToolCallLike = {
   content?: unknown;
   rawOutput?: unknown;
+  toolCallId?: string;
 };
 
 function extractToolResultText(data?: ToolCallLike): string | undefined {
@@ -258,27 +259,30 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
     thoughtText += text;
     opts.onThoughtChunk?.(text);
   };
-  const upsertToolCall = (title: string, tcStatus: string, rawOutput?: string) => {
+  const upsertToolCall = (title: string, tcStatus: string, rawOutput?: string, toolCallId?: string) => {
     if (!isLivePrompt) return;
-    const existing = toolCalls.find((tc) => tc.title === title);
+    // toolCallId가 있으면 toolCallId 기준, 없으면 title 기준 (하위 호환)
+    const existing = toolCalls.find((tc) =>
+      toolCallId ? tc.toolCallId === toolCallId : tc.title === title,
+    );
     if (existing) {
       existing.status = tcStatus;
       if (rawOutput !== undefined) {
         existing.rawOutput = rawOutput;
       }
     } else {
-      toolCalls.push({ title, status: tcStatus, rawOutput, timestamp: Date.now() });
+      toolCalls.push({ title, status: tcStatus, rawOutput, toolCallId, timestamp: Date.now() });
     }
     if (toolCalls.length > MAX_TOOL_CALLS_TO_KEEP) {
       toolCalls.splice(0, toolCalls.length - MAX_TOOL_CALLS_TO_KEEP);
     }
-    opts.onToolCall?.(title, tcStatus, rawOutput);
+    opts.onToolCall?.(title, tcStatus, rawOutput, toolCallId);
   };
   const onToolCall = (title: string, tcStatus: string, _sessionId: string, data?: ToolCallLike) => {
-    upsertToolCall(title, tcStatus, extractToolResultText(data));
+    upsertToolCall(title, tcStatus, extractToolResultText(data), data?.toolCallId);
   };
   const onToolCallUpdate = (title: string, tcStatus: string, _sessionId: string, data?: ToolCallLike) => {
-    upsertToolCall(title, tcStatus, extractToolResultText(data));
+    upsertToolCall(title, tcStatus, extractToolResultText(data), data?.toolCallId);
   };
   const onError = (err: Error) => {
     if (!aborted) error = err.message;
@@ -500,23 +504,26 @@ export async function executeOneShot(opts: ExecuteOptions): Promise<ExecuteResul
       thoughtText += text;
       opts.onThoughtChunk?.(text);
     });
-    const upsertToolCall = (title: string, tcStatus: string, rawOutput?: string) => {
-      const existing = toolCalls.find((tc) => tc.title === title);
+    const upsertToolCall = (title: string, tcStatus: string, rawOutput?: string, toolCallId?: string) => {
+      // toolCallId가 있으면 toolCallId 기준, 없으면 title 기준 (하위 호환)
+      const existing = toolCalls.find((tc) =>
+        toolCallId ? tc.toolCallId === toolCallId : tc.title === title,
+      );
       if (existing) {
         existing.status = tcStatus;
         if (rawOutput !== undefined) {
           existing.rawOutput = rawOutput;
         }
       } else {
-        toolCalls.push({ title, status: tcStatus, rawOutput, timestamp: Date.now() });
+        toolCalls.push({ title, status: tcStatus, rawOutput, toolCallId, timestamp: Date.now() });
       }
-      opts.onToolCall?.(title, tcStatus, rawOutput);
+      opts.onToolCall?.(title, tcStatus, rawOutput, toolCallId);
     };
     client.on("toolCall", (title: string, tcStatus: string, _sessionId: string, data?: ToolCallLike) => {
-      upsertToolCall(title, tcStatus, extractToolResultText(data));
+      upsertToolCall(title, tcStatus, extractToolResultText(data), data?.toolCallId);
     });
     client.on("toolCallUpdate", (title: string, tcStatus: string, _sessionId: string, data?: ToolCallLike) => {
-      upsertToolCall(title, tcStatus, extractToolResultText(data));
+      upsertToolCall(title, tcStatus, extractToolResultText(data), data?.toolCallId);
     });
 
     await client.sendMessage(request);
