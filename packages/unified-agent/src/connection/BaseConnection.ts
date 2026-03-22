@@ -21,10 +21,14 @@ export interface BaseConnectionOptions {
   cwd: string;
   /** 환경변수 */
   env?: Record<string, string | undefined>;
-  /** 요청 타임아웃 (ms, 기본: 300000) */
+  /** 요청 타임아웃 (ms, 기본: 600000) */
   requestTimeout?: number;
   /** 초기화 타임아웃 (ms, 기본: 60000) */
   initTimeout?: number;
+  /** 프롬프트 유휴 타임아웃 (ms, 기본: 120000).
+   *  스트리밍 활동 없이 이 시간이 경과하면 프롬프트 타임아웃.
+   *  0 이하이면 유휴 타임아웃 비활성화. */
+  promptIdleTimeout?: number;
 }
 
 /**
@@ -44,6 +48,7 @@ export class BaseConnection extends EventEmitter {
   protected readonly env: Record<string, string | undefined>;
   protected readonly requestTimeout: number;
   protected readonly initTimeout: number;
+  protected readonly promptIdleTimeout: number;
 
   constructor(options: BaseConnectionOptions) {
     super();
@@ -53,6 +58,7 @@ export class BaseConnection extends EventEmitter {
     this.env = options.env ?? { ...process.env };
     this.requestTimeout = options.requestTimeout ?? 600_000; // 10분
     this.initTimeout = options.initTimeout ?? 60_000; // 60초
+    this.promptIdleTimeout = options.promptIdleTimeout ?? 120_000; // 2분
   }
 
   /** 현재 연결 상태 */

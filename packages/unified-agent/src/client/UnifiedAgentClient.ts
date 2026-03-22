@@ -142,6 +142,7 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
       env,
       requestTimeout: options.timeout,
       initTimeout: options.timeout,
+      promptIdleTimeout: options.promptIdleTimeout,
       clientInfo: options.clientInfo,
       autoApprove: options.autoApprove,
     });

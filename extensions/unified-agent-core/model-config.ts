@@ -115,6 +115,7 @@ export function buildConnectOptions(
   cli: CliType,
   cwd: string,
   configDir: string,
+  overrides?: { promptIdleTimeout?: number },
 ): Record<string, unknown> {
   const savedConfig = loadSelectedModels(configDir);
   const cliConfig = savedConfig[cli];
@@ -129,6 +130,11 @@ export function buildConnectOptions(
   // 저장된 모델이 있으면 적용
   if (cliConfig?.model) {
     opts.model = cliConfig.model;
+  }
+
+  // 프롬프트 유휴 타임아웃 전달 (지정된 경우만)
+  if (overrides?.promptIdleTimeout !== undefined) {
+    opts.promptIdleTimeout = overrides.promptIdleTimeout;
   }
 
   return opts;

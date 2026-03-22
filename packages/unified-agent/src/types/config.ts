@@ -52,8 +52,12 @@ export interface CliBackendConfig {
 export interface ConnectionOptions {
   /** 작업 디렉토리 */
   cwd: string;
-  /** 타임아웃 (ms) */
+  /** 타임아웃 (ms) — requestTimeout/initTimeout에 매핑 */
   timeout?: number;
+  /** 프롬프트 유휴 타임아웃 (ms).
+   *  스트리밍 활동 없이 이 시간이 경과하면 프롬프트 타임아웃.
+   *  미지정 시 SDK 기본값(120초) 사용. 0 이하이면 비활성화. */
+  promptIdleTimeout?: number;
   /** YOLO 모드 (자동 승인) */
   yoloMode?: boolean;
   /** 커스텀 환경변수 */

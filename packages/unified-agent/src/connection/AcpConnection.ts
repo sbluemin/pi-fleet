@@ -88,6 +88,9 @@ export class AcpConnection extends BaseConnection {
     response: RequestPermissionResponse,
   ) => void>();
 
+  /** 현재 프롬프트의 idle timeout 리셋 콜백 (null이면 프롬프트 미실행 중) */
+  private promptKeepAlive: (() => void) | null = null;
+
   constructor(options: AcpConnectionOptions) {
     super(options);
     this.clientInfo = options.clientInfo ?? {
@@ -170,7 +173,7 @@ export class AcpConnection extends BaseConnection {
 
     try {
       // 3. initialize 요청 (공식 SDK 타입: clientCapabilities, clientInfo)
-      await this.withTimeout(
+      await this.withFixedTimeout(
         agent.initialize({
           protocolVersion: this.protocolVersion,
           clientCapabilities,
@@ -186,7 +189,7 @@ export class AcpConnection extends BaseConnection {
         if (!agent.loadSession) {
           throw new Error('연결된 에이전트가 session/load를 지원하지 않습니다');
         }
-        const loadResult = await this.withTimeout(
+        const loadResult = await this.withFixedTimeout(
           agent.loadSession({ sessionId, cwd: workspace, mcpServers: [] }),
           this.initTimeout,
           'session/load',
@@ -194,7 +197,7 @@ export class AcpConnection extends BaseConnection {
         // LoadSessionResponse에 sessionId를 합쳐 NewSessionResponse와 구조적 동일성 보장
         session = { ...loadResult, sessionId } as LoadSessionResponse & NewSessionResponse;
       } else {
-        session = await this.withTimeout(
+        session = await this.withFixedTimeout(
           agent.newSession({
             cwd: workspace,
             mcpServers: [],
@@ -229,7 +232,7 @@ export class AcpConnection extends BaseConnection {
       throw new Error('연결된 에이전트가 session/load를 지원하지 않습니다');
     }
 
-    return this.withTimeout(
+    return this.withFixedTimeout(
       agent.loadSession(params),
       this.requestTimeout,
       'session/load',
@@ -244,6 +247,9 @@ export class AcpConnection extends BaseConnection {
   /**
    * 메시지를 전송합니다.
    *
+   * idle timeout: 스트리밍 활동이 없으면 promptIdleTimeout 후 타임아웃.
+   * fixed timeout: requestTimeout을 absolute safety net으로 유지.
+   *
    * @param sessionId - 세션 ID
    * @param content - 메시지 내용 (텍스트 또는 ACP ContentBlock 배열)
    */
@@ -257,17 +263,34 @@ export class AcpConnection extends BaseConnection {
       ? ([{ type: 'text', text: content }] as Array<Extract<ContentBlock, { type: 'text' }>>)
       : content;
 
-    const response = await this.withTimeout(
-      agent.prompt({
-        sessionId,
-        prompt,
-      }),
-      this.requestTimeout,
+    const rawPromise = agent.prompt({ sessionId, prompt });
+
+    // idle timeout 래핑 (활동 기반 타임아웃)
+    const [idleWrapped, keepAlive] = this.createIdleTimeoutRace(
+      rawPromise,
+      this.promptIdleTimeout,
       'session/prompt',
     );
+    this.promptKeepAlive = keepAlive;
 
-    this.emit('promptComplete', sessionId);
-    return response;
+    // requestTimeout을 absolute safety net으로 유지
+    const finalPromise = this.requestTimeout > 0
+      ? this.withFixedTimeout(idleWrapped, this.requestTimeout, 'session/prompt')
+      : idleWrapped;
+
+    try {
+      const response = await finalPromise;
+      this.emit('promptComplete', sessionId);
+      return response;
+    } catch (error) {
+      // idle timeout 시 서버 측 프롬프트를 취소 (stuck 방지를 위해 fire-and-forget)
+      if (error instanceof Error && error.message.includes('유휴 상태')) {
+        this.cancelSession(sessionId).catch(() => {});
+      }
+      throw error;
+    } finally {
+      this.promptKeepAlive = null;
+    }
   }
 
   /**
@@ -278,7 +301,7 @@ export class AcpConnection extends BaseConnection {
   async cancelSession(sessionId: string): Promise<void> {
     const agent = this.getAgent();
     this.cancelPendingPermissionRequests();
-    await this.withTimeout(
+    await this.withFixedTimeout(
       agent.cancel({ sessionId }),
       this.requestTimeout,
       'session/cancel',
@@ -297,7 +320,7 @@ export class AcpConnection extends BaseConnection {
     mode: string = 'default',
   ): Promise<void> {
     const agent = this.getAgent();
-    await this.withTimeout(
+    await this.withFixedTimeout(
       agent.setSessionMode?.({ sessionId, modeId: mode }),
       this.requestTimeout,
       'session/set_mode',
@@ -316,7 +339,7 @@ export class AcpConnection extends BaseConnection {
 
     try {
       // Primary: session/set_model
-      await this.withTimeout(
+      await this.withFixedTimeout(
         agent.unstable_setSessionModel?.({ sessionId, modelId: model }),
         this.requestTimeout,
         'session/set_model',
@@ -341,7 +364,7 @@ export class AcpConnection extends BaseConnection {
     value: string,
   ): Promise<void> {
     const agent = this.getAgent();
-    await this.withTimeout(
+    await this.withFixedTimeout(
       agent.setSessionConfigOption?.({ sessionId, configId, value }),
       this.requestTimeout,
       'session/set_config_option',
@@ -356,6 +379,7 @@ export class AcpConnection extends BaseConnection {
     return {
       // 권한 요청 처리
       requestPermission: async (params: RequestPermissionRequest): Promise<RequestPermissionResponse> => {
+        this.promptKeepAlive?.();
         if (this.autoApprove && params.options && params.options.length > 0) {
           // 자동 승인: 첫 번째 옵션 선택
           return {
@@ -386,6 +410,7 @@ export class AcpConnection extends BaseConnection {
 
       // 파일 읽기 요청 처리 - 직접 파일 I/O 수행
       readTextFile: async (params: ReadTextFileRequest): Promise<ReadTextFileResponse> => {
+        this.promptKeepAlive?.();
         // 파일 존재 여부를 먼저 확인하여 ENOENT를 graceful하게 처리
         try {
           await access(params.path);
@@ -409,6 +434,7 @@ export class AcpConnection extends BaseConnection {
 
       // 파일 쓰기 요청 처리 - 직접 파일 I/O 수행
       writeTextFile: async (params: WriteTextFileRequest): Promise<WriteTextFileResponse> => {
+        this.promptKeepAlive?.();
         await mkdir(dirname(params.path), { recursive: true });
         await writeFile(params.path, params.content, 'utf-8');
         return {};
@@ -449,16 +475,19 @@ export class AcpConnection extends BaseConnection {
       }
 
       case 'agent_message_chunk': {
+        this.promptKeepAlive?.();
         this.emitTextChunk('messageChunk', update, sessionId);
         break;
       }
 
       case 'agent_thought_chunk': {
+        this.promptKeepAlive?.();
         this.emitTextChunk('thoughtChunk', update, sessionId);
         break;
       }
 
       case 'tool_call': {
+        this.promptKeepAlive?.();
         // sessionUpdate 필드를 제외한 나머지를 ToolCall 데이터로 전달
         const { sessionUpdate: _tc, ...toolCallData } = update;
         this.emit(
@@ -472,6 +501,7 @@ export class AcpConnection extends BaseConnection {
       }
 
       case 'tool_call_update': {
+        this.promptKeepAlive?.();
         // sessionUpdate 필드를 제외한 나머지를 ToolCallUpdate 데이터로 전달
         const { sessionUpdate: _tcu, ...toolCallUpdateData } = update;
         this.emit(
@@ -485,6 +515,7 @@ export class AcpConnection extends BaseConnection {
       }
 
       case 'plan': {
+        this.promptKeepAlive?.();
         if (update.entries) {
           this.emit('plan', JSON.stringify(update.entries), sessionId);
         }
@@ -554,9 +585,10 @@ export class AcpConnection extends BaseConnection {
   }
 
   /**
-   * 지정 시간 내에 Promise가 완료되지 않으면 타임아웃 에러를 발생시킵니다.
+   * 고정 타임아웃: 지정 시간 내에 Promise가 완료되지 않으면 에러를 발생시킵니다.
+   * connect, loadSession, cancel 등 제어 RPC에서 사용합니다.
    */
-  private async withTimeout<T>(
+  private async withFixedTimeout<T>(
     promise: Promise<T> | undefined,
     timeoutMs: number,
     label: string,
@@ -585,4 +617,76 @@ export class AcpConnection extends BaseConnection {
         });
     });
   }
+
+  /**
+   * 유휴 타임아웃 래핑 (standalone 함수 위임).
+   */
+  private createIdleTimeoutRace<T>(
+    promise: Promise<T>,
+    idleMs: number,
+    label: string,
+  ): [Promise<T>, keepAlive: () => void] {
+    return createIdleTimeoutRace(promise, idleMs, label);
+  }
+}
+
+// ─── standalone 유틸 (테스트 가능) ──────────────────────
+
+/**
+ * 유휴 타임아웃 래핑: 스트리밍 활동이 없으면 idleMs 후 타임아웃.
+ * keepAlive()를 호출할 때마다 타이머가 리셋됩니다.
+ *
+ * @param promise  감시할 Promise
+ * @param idleMs   유휴 타임아웃 (ms). 0 이하이면 비활성화
+ * @param label    에러 메시지 라벨
+ * @returns [wrappedPromise, keepAlive]
+ */
+export function createIdleTimeoutRace<T>(
+  promise: Promise<T>,
+  idleMs: number,
+  label: string,
+): [Promise<T>, keepAlive: () => void] {
+  if (idleMs <= 0) {
+    return [promise, () => {}];
+  }
+
+  let timeoutId: ReturnType<typeof setTimeout>;
+  let rejectFn: ((reason: Error) => void) | null = null;
+  let settled = false;
+
+  const resetTimer = () => {
+    if (settled) return;
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => {
+      if (!settled && rejectFn) {
+        settled = true;
+        rejectFn(new Error(
+          `${label} 요청이 ${idleMs}ms 동안 스트리밍 활동 없이 유휴 상태입니다`,
+        ));
+      }
+    }, idleMs);
+  };
+
+  const wrapped = new Promise<T>((resolve, reject) => {
+    rejectFn = reject;
+    resetTimer();
+
+    promise
+      .then((result) => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timeoutId);
+          resolve(result);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timeoutId);
+          reject(error);
+        }
+      });
+  });
+
+  return [wrapped, resetTimer];
 }

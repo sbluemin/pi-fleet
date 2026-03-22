@@ -306,7 +306,9 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
 
     if (needsConnect) {
       // ── 연결 옵션 구성 ──
-      const connectOpts = buildConnectOptions(cli, cwd, configDir);
+      const connectOpts = buildConnectOptions(cli, cwd, configDir, {
+        promptIdleTimeout: opts.promptIdleTimeout,
+      });
 
       // 세션 매핑에서 저장된 sessionId를 우선 사용
       const savedSessionId = store.get(cli) ?? poolEntry?.sessionId;
@@ -471,7 +473,9 @@ export async function executeOneShot(opts: ExecuteOptions): Promise<ExecuteResul
     }
 
     // 연결 옵션 구성
-    const connectOpts = buildConnectOptions(cli, cwd, configDir);
+    const connectOpts = buildConnectOptions(cli, cwd, configDir, {
+      promptIdleTimeout: opts.promptIdleTimeout,
+    });
 
     await raceAbort(client.connect(connectOpts as any), signal);
     await applyPostConnectConfig(client, cli, configDir);
