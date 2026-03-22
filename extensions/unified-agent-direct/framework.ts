@@ -17,9 +17,10 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
-import type { KeyId } from "@mariozechner/pi-tui";
 import { setAgentPanelMode, hideAgentPanel } from "./agent-panel";
 import { createDefaultUserRenderer, createDefaultResponseRenderer } from "./render/message-renderers";
+import { INFRA_KEYBIND_KEY } from "../infra-keybind/types.js";
+import type { InfraKeybindAPI } from "../infra-keybind/types.js";
 
 // ─── 공개 타입 ───────────────────────────────────────────
 
@@ -182,8 +183,13 @@ export function registerCustomDirectMode(
   gs.modes.set(config.id, state);
 
   // ── 단축키 등록 ──
-  pi.registerShortcut(config.shortcutKey as KeyId, {
+  const keybind = (globalThis as any)[INFRA_KEYBIND_KEY] as InfraKeybindAPI;
+  keybind.register({
+    extension: "unified-agent-direct",
+    action: `mode:${config.id}`,
+    defaultKey: config.shortcutKey,
     description: `${config.displayName} 다이렉트 모드 토글`,
+    category: "Direct Mode",
     handler: async (ctx) => {
       if (state.active) {
         // 같은 키 재입력 → 비활성화 (busy 중이어도 허용 — 실행은 백그라운드에서 완료됨)
@@ -208,8 +214,12 @@ export function registerCustomDirectMode(
 
   if (!gs.cancelShortcutRegistered) {
     gs.cancelShortcutRegistered = true;
-    pi.registerShortcut("alt+x", {
+    keybind.register({
+      extension: "unified-agent-direct",
+      action: "cancel",
+      defaultKey: "alt+x",
       description: "활성 다이렉트 모드 실행 취소",
+      category: "Direct Mode",
       handler: async (ctx) => {
         const activeModeId = getState().activeModeId;
         if (!activeModeId) return;

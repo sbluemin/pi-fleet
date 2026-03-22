@@ -7,6 +7,8 @@
 
 import type { ExtensionAPI, ReadonlyFooterDataProvider } from "@mariozechner/pi-coding-agent";
 
+import { INFRA_KEYBIND_KEY } from "../infra-keybind/types.js";
+import type { InfraKeybindAPI } from "../infra-keybind/types.js";
 import type { HudCoreConfig, StatusLinePreset } from "./types.js";
 import { PRESETS } from "./presets.js";
 import { invalidateGitStatus, invalidateGitBranch } from "./git-status.js";
@@ -175,8 +177,13 @@ export default function hudEditor(pi: ExtensionAPI) {
 
   // ── 단축키 등록 ──
 
-  pi.registerShortcut("alt+s", {
+  const keybind = (globalThis as any)[INFRA_KEYBIND_KEY] as InfraKeybindAPI;
+  keybind.register({
+    extension: "infra-hud",
+    action: "stash",
+    defaultKey: "alt+s",
     description: "Stash/restore editor text",
+    category: "Infra",
     handler: async (ctx) => {
       const rawText = state.currentEditor?.getExpandedText?.() ?? ctx.ui.getEditorText();
       const hasText = rawText.trim().length > 0;
@@ -211,3 +218,4 @@ export default function hudEditor(pi: ExtensionAPI) {
     },
   });
 }
+

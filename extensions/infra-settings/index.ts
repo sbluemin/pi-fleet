@@ -8,6 +8,8 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 
+import { INFRA_KEYBIND_KEY } from "../infra-keybind/types.js";
+import type { InfraKeybindAPI } from "../infra-keybind/types.js";
 import { INFRA_SETTINGS_KEY } from "./types.js";
 import type { InfraSettingsAPI } from "./types.js";
 import { loadSection, saveSection } from "./store.js";
@@ -60,9 +62,14 @@ async function openSettingsPopup(ctx: ExtensionContext): Promise<void> {
 
 // ── 확장 진입점 ──
 
-export default function (pi: ExtensionAPI) {
-  pi.registerShortcut("alt+/", {
-    description: "설정 오버레이 팝업 표시 (Alt+/)",
+export default function (_pi: ExtensionAPI) {
+  const keybind = (globalThis as any)[INFRA_KEYBIND_KEY] as InfraKeybindAPI;
+  keybind.register({
+    extension: "infra-settings",
+    action: "popup",
+    defaultKey: "alt+/",
+    description: "설정 오버레이 팝업 표시",
+    category: "Infra",
     handler: async (ctx) => {
       await openSettingsPopup(ctx);
     },

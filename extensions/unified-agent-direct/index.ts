@@ -16,6 +16,8 @@
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import { INFRA_KEYBIND_KEY } from "../infra-keybind/types.js";
+import type { InfraKeybindAPI } from "../infra-keybind/types.js";
 import type { CliType } from "@sbluemin/unified-agent";
 import * as path from "node:path";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
@@ -207,14 +209,19 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
   setAgentPanelModelConfig(loadSelectedModels(extensionDir));
 
   // ── 에이전트 패널 단축키 등록 ──
-  registerAgentPanelShortcut(pi);
+  registerAgentPanelShortcut();
 
   // ── 개별 에이전트 도구 등록 (claude, codex, gemini) ──
   registerAgentTools({ pi, configDir: extensionDir, sessionStore });
 
   // ── Per-CLI 모델 변경 단축키 ──
-  pi.registerShortcut("alt+shift+m", {
+  const keybind = (globalThis as any)[INFRA_KEYBIND_KEY] as InfraKeybindAPI;
+  keybind.register({
+    extension: "unified-agent-direct",
+    action: "model-change",
+    defaultKey: "alt+shift+m",
     description: "활성 CLI 모델/추론 설정 변경",
+    category: "Infra",
     handler: async (ctx) => {
       // 1. 대상 CLI 결정
       const activeModeId = getActiveModeId();
@@ -255,8 +262,12 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
     },
   });
 
-  pi.registerShortcut(CODEX_POPUP_KEY, {
+  keybind.register({
+    extension: "unified-agent-direct",
+    action: "agent-popup",
+    defaultKey: CODEX_POPUP_KEY,
     description: "현재 에이전트 네이티브 팝업 열기",
+    category: "Agent Panel",
     handler: async (ctx) => {
       const bridge = (globalThis as Record<string, unknown>)[SHELL_POPUP_BRIDGE_KEY] as ShellPopupBridge | undefined;
       if (!bridge) {

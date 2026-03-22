@@ -14,6 +14,8 @@ import type { MetaPromptSettings } from "./settings.js";
 import { resolveModel, metaPromptWithLoader } from "./engine.js";
 import type { InfraSettingsAPI } from "../infra-settings/types.js";
 import { INFRA_SETTINGS_KEY } from "../infra-settings/types.js";
+import { INFRA_KEYBIND_KEY } from "../infra-keybind/types.js";
+import type { InfraKeybindAPI } from "../infra-keybind/types.js";
 
 export default function (pi: ExtensionAPI) {
   // 설정 파일에서 초기 reasoning 레벨 로드 (기본: off)
@@ -168,8 +170,13 @@ export default function (pi: ExtensionAPI) {
 
   // ── 단축키 등록 ──
 
-  pi.registerShortcut("alt+m", {
+  const keybind = (globalThis as any)[INFRA_KEYBIND_KEY] as InfraKeybindAPI;
+  keybind.register({
+    extension: "utils-improve-prompt",
+    action: "meta-prompt",
+    defaultKey: "alt+m",
     description: "메타 프롬프팅으로 현재 입력을 개선 (스피너 + ESC 취소)",
+    category: "Meta Prompt",
     handler: async (ctx) => {
       const editorText = ctx.ui.getEditorText();
       const trimmed = editorText?.trim();
@@ -226,8 +233,12 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-  pi.registerShortcut("alt+r", {
+  keybind.register({
+    extension: "utils-improve-prompt",
+    action: "reasoning-cycle",
+    defaultKey: "alt+r",
     description: "메타 프롬프트 reasoning 레벨 사이클 (off→low→medium→high)",
+    category: "Meta Prompt",
     handler: async (ctx) => {
       const idx = REASONING_LEVELS.indexOf(currentReasoning);
       currentReasoning = REASONING_LEVELS[(idx + 1) % REASONING_LEVELS.length]!;

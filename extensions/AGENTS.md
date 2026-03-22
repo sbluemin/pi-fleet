@@ -13,6 +13,8 @@ Do not create intermediate layers that simply wrap official TUI APIs (e.g., `set
 | Extension | Role | Main Files |
 |-----------|------|------------|
 | `infra-hud/` | Custom editor + status bar + footer (with integrated rendering engine) | `index.ts` (wiring), `editor.ts` (editor/footer/widget UI) |
+| `infra-keybind/` | Centralized keybinding management + overlay (alt+.) | `index.ts` (wiring), `types.ts` (API + globalThis), `store.ts` (JSON), `registry.ts` (bindings), `overlay.ts` (UI) |
+| `infra-settings/` | Centralized settings API + overlay popup (alt+/) | `index.ts` (wiring), `types.ts` (API + globalThis), `store.ts` (JSON), `registry.ts` (sections), `overlay.ts` (UI) |
 | `utils-welcome/` | Welcome overlay/header | `index.ts` (wiring), `welcome.ts` (UI), `types.ts` (globalThis types) |
 | `unified-agent-direct/` | 4 Direct modes (alt+1~4) + individual agent tools | `index.ts` (wiring), `agent-panel.ts`, `render/`, `tools/`, etc. |
 | `utils-improve-prompt/` | Meta-prompting (alt+m), reasoning level cycle (alt+r) | `index.ts` (wiring), `ui.ts` (status bar widget) |
