@@ -3,7 +3,7 @@
  *
  * activeMode에 따라 동적 레이아웃을 제공합니다:
  * - "claude"/"codex"/"gemini" → 1칼럼 독점 뷰 (전체 폭, thinking/tools 상세)
- * - "all" 또는 null → 3칼럼 뷰 (기존, compact 표시)
+ * - 그 외 그룹 모드("all", "claude-codex" 등) 또는 null → N칼럼 동적 뷰
  * 프레임 색상은 activeMode에 맞게 동적 변경됩니다.
  */
 
@@ -336,9 +336,9 @@ function renderExclusive(
   return R;
 }
 
-// ─── 3칼럼 뷰 ──────────────────────────────────────────
+// ─── N칼럼 동적 뷰 ──────────────────────────────────────
 
-/** 3칼럼 동시 뷰를 렌더링합니다 (all 모드 또는 기본). */
+/** N칼럼 동시 뷰를 렌더링합니다 (그룹 모드: all, claude-codex 등). */
 function renderMultiCol(
   w: number,
   cols: AgentCol[],
@@ -349,13 +349,22 @@ function renderMultiCol(
   wave?: WaveConfig,
   _activeMode?: string | null,
 ): string[] {
-  const iw = Math.max(15, w - 4);
-  const c0 = Math.floor(iw / 3);
-  const c1 = c0;
-  const c2 = iw - c0 - c1;
-  const cw = [c0, c1, c2];
-  // 내부 세로 보더의 x 위치 (왼쪽 보더=0, 첫번째 구분=1+c0, 두번째 구분=2+c0+c1, 오른쪽=w-1)
-  const vx = [0, 1 + c0, 2 + c0 + c1, w - 1];
+  const n = cols.length;
+  // 내부 폭 = 전체 폭 - 세로 구분선 수 (양쪽 보더 + 칼럼 사이 구분선)
+  const iw = Math.max(15, w - (n + 1));
+  // 균등 분할, 나머지는 마지막 칼럼에 할당
+  const base = Math.floor(iw / n);
+  const cw = Array.from({ length: n }, (_, i) =>
+    i < n - 1 ? base : iw - base * (n - 1),
+  );
+  // 세로 보더의 x 위치 동적 생성: vx[i] = i + sum(cw[0..i-1])
+  // 왼쪽 보더=0, 각 칼럼 구분선, 오른쪽 보더=w-1
+  const vx: number[] = [0];
+  let acc = 0;
+  for (let i = 0; i < n; i++) {
+    acc += cw[i];
+    vx.push(i + 1 + acc);
+  }
 
   const R: string[] = [];
   let ri = 0;
@@ -421,7 +430,7 @@ function renderMultiCol(
  *
  * activeMode에 따라 동적 레이아웃:
  * - "claude"/"codex"/"gemini" → 1칼럼 독점 뷰 (전체 폭, 상세 표시)
- * - "all"/null → 3칼럼 뷰 (compact 표시)
+ * - 그 외 그룹 모드("all", "claude-codex" 등)/null → N칼럼 동적 뷰
  * 스트리밍 중이면 보더 와이어프레임에 파도 애니메이션 적용.
  */
 export function renderPanelFull(
@@ -458,10 +467,11 @@ export function renderPanelFull(
 
 /** 모드별 시그니처 RGB (파도 그라데이션 애니메이션용) */
 export const MODE_RGB: Record<string, [number, number, number]> = {
-  claude: [255, 149, 0],
-  codex:  [169, 169, 169],
-  gemini: [66, 133, 244],
-  all:    [255, 120, 120],
+  claude:        [255, 149, 0],
+  codex:         [169, 169, 169],
+  gemini:        [66, 133, 244],
+  all:           [255, 120, 120],
+  "claude-codex": [180, 120, 255],
 };
 
 /**
@@ -575,9 +585,10 @@ export function renderModeBanner(
   const exitKey = DIRECT_MODE_KEYS[activeMode] ?? "";
   const rgb = MODE_RGB[activeMode] ?? [180, 160, 220];
 
-  // 스트리밍 중인 칼럼 감지 (All 모드면 아무 칼럼)
+  // 스트리밍 중인 칼럼 감지 (그룹 모드면 아무 칼럼, 개별 CLI 모드면 해당 칼럼만)
+  const isSingleCliMode = (CLI_ORDER as readonly string[]).includes(activeMode);
   const streamingCol = cols.find((col) =>
-    (activeMode === "all" || col.cli === activeMode) &&
+    (!isSingleCliMode || col.cli === activeMode) &&
     (col.status === "conn" || col.status === "stream"),
   );
 

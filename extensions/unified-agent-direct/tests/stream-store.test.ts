@@ -57,7 +57,7 @@ describe("이벤트 순서 보존", () => {
 
     appendThoughtBlock("gemini", "분석 중...");
     upsertToolBlock("gemini", "read_file", "running");
-    upsertToolBlock("gemini", "read_file", "completed", "파일 내용");
+    upsertToolBlock("gemini", "read_file", "completed");
     appendTextBlock("gemini", "결과: ");
     appendTextBlock("gemini", "성공했습니다.");
 
@@ -69,9 +69,8 @@ describe("이벤트 순서 보존", () => {
     expect(run.blocks[2].type).toBe("text");
 
     // tool 블록이 업데이트되었는지 확인
-    const tool = run.blocks[1] as { type: "tool"; title: string; status: string; rawOutput?: string };
+    const tool = run.blocks[1] as { type: "tool"; title: string; status: string };
     expect(tool.status).toBe("completed");
-    expect(tool.rawOutput).toBe("파일 내용");
 
     // text 블록이 병합되었는지 확인
     const text = run.blocks[2] as { type: "text"; text: string };
@@ -117,14 +116,13 @@ describe("파생 getter", () => {
   it("toolCalls는 모든 tool 블록의 목록이다", () => {
     createRun("gemini");
     upsertToolBlock("gemini", "tool1", "running");
-    upsertToolBlock("gemini", "tool2", "completed", "output2");
-    upsertToolBlock("gemini", "tool1", "completed", "output1");
+    upsertToolBlock("gemini", "tool2", "completed");
+    upsertToolBlock("gemini", "tool1", "completed");
 
     const run = getVisibleRun("gemini")!;
     expect(run.toolCalls).toHaveLength(2);
     expect(run.toolCalls[0].title).toBe("tool1");
     expect(run.toolCalls[0].status).toBe("completed");
-    expect(run.toolCalls[0].rawOutput).toBe("output1");
     expect(run.toolCalls[1].title).toBe("tool2");
   });
 });

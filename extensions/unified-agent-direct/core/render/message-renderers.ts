@@ -33,7 +33,7 @@ interface AgentResultDetails {
   sessionId?: string;
   error?: boolean;
   thinking?: string;
-  toolCalls?: { title: string; status: string; rawOutput?: string }[];
+  toolCalls?: { title: string; status: string }[];
   blocks?: ColBlock[];
 }
 

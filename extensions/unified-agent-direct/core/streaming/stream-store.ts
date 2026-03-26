@@ -36,7 +36,7 @@ export class StreamRun {
   /** blocks에서 파생되는 thinking 캐시 */
   private _thinkingCache: string | null = null;
   /** blocks에서 파생되는 toolCalls 캐시 */
-  private _toolCallsCache: { title: string; status: string; rawOutput?: string }[] | null = null;
+  private _toolCallsCache: { title: string; status: string }[] | null = null;
   /** 마지막 AgentStatus (SDK 콜백에서 전달된 값) */
   lastAgentStatus: AgentStatus = "connecting";
 
@@ -68,11 +68,11 @@ export class StreamRun {
   }
 
   /** blocks에서 파생된 도구 호출 목록 */
-  get toolCalls(): { title: string; status: string; rawOutput?: string }[] {
+  get toolCalls(): { title: string; status: string }[] {
     if (this._toolCallsCache === null) {
       this._toolCallsCache = this.blocks
         .filter((b): b is Extract<ColBlock, { type: "tool" }> => b.type === "tool")
-        .map((b) => ({ title: b.title, status: b.status, rawOutput: b.rawOutput }));
+        .map((b) => ({ title: b.title, status: b.status }));
     }
     return this._toolCallsCache;
   }
@@ -197,7 +197,6 @@ export function upsertToolBlock(
   cli: string,
   title: string,
   status: string,
-  rawOutput?: string,
   toolCallId?: string,
 ): void {
   const run = resolveRun(cli);
@@ -211,9 +210,8 @@ export function upsertToolBlock(
 
   if (existing) {
     existing.status = status;
-    if (rawOutput !== undefined) existing.rawOutput = rawOutput;
   } else {
-    run.blocks.push({ type: "tool", title, status, rawOutput, toolCallId });
+    run.blocks.push({ type: "tool", title, status, toolCallId });
   }
 
   if (run.status === "conn" || run.status === "wait") {

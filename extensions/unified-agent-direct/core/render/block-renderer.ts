@@ -25,9 +25,6 @@ import {
 
 // ─── 공통 상수 ───────────────────────────────────────────
 
-/** 도구 결과 줄 접기 최대 줄 수 */
-export const MAX_RESULT_LINES = 4;
-
 /** 에러 색상 (ANSI) */
 const ERROR_COLOR = "\x1b[38;2;255;80;80m";
 
@@ -58,9 +55,7 @@ export interface BlockLine {
  */
 export function renderBlockLines(
   blocks: readonly ColBlock[],
-  options?: { maxResultLines?: number },
 ): BlockLine[] {
-  const maxRL = options?.maxResultLines ?? MAX_RESULT_LINES;
   const lines: BlockLine[] = [];
 
   for (const block of blocks) {
@@ -91,46 +86,16 @@ export function renderBlockLines(
         text: `${SYM_INDICATOR} ${block.title}`,
       });
 
-      // cli-renderer.ts와 동일: completed/failed/error 상태에서만 결과 표시
       if (isFinished) {
-        const statusText = block.rawOutput?.trim() ? block.rawOutput : block.status;
-        appendToolResultLines(statusText, isError, maxRL, lines);
+        lines.push({
+          type: isError ? "tool-error" : "tool-result",
+          text: `  ${SYM_RESULT}  ${block.status}`,
+        });
       }
     }
   }
 
   return lines;
-}
-
-/** 도구 결과를 접기 로직과 함께 라인 배열에 추가 */
-function appendToolResultLines(
-  text: string,
-  isError: boolean,
-  maxRL: number,
-  lines: BlockLine[],
-): void {
-  const rawLines = text.split("\n");
-  const displayLines = rawLines.length > maxRL
-    ? rawLines.slice(0, maxRL - 1)
-    : rawLines;
-  const foldedCount = rawLines.length > maxRL
-    ? rawLines.length - (maxRL - 1)
-    : 0;
-  const type: BlockLineType = isError ? "tool-error" : "tool-result";
-
-  displayLines.forEach((line, i) => {
-    lines.push({
-      type,
-      text: i === 0 ? `  ${SYM_RESULT}  ${line}` : `     ${line}`,
-    });
-  });
-
-  if (foldedCount > 0) {
-    lines.push({
-      type: "fold",
-      text: `     … +${foldedCount} lines`,
-    });
-  }
 }
 
 // ─── ANSI 색상 매핑 (패널 렌더러용) ──────────────────────
@@ -169,7 +134,6 @@ export function renderBlocksToContainer(
   theme: any,
 ): void {
   const mdTheme = getMarkdownTheme();
-  const maxRL = MAX_RESULT_LINES;
 
   for (const block of blocks) {
     if (block.type === "thought") {
@@ -200,46 +164,15 @@ export function renderBlocksToContainer(
         0, 0,
       ));
 
-      // cli-renderer.ts와 동일: completed/failed/error 상태에서만 결과 표시
       if (isFinished) {
-        const statusText = block.rawOutput?.trim() ? block.rawOutput : block.status;
-        appendToolResultComponents(statusText, isError, maxRL, container, theme);
+        container.addChild(new Text(
+          isError
+            ? theme.fg("error", `  ${SYM_RESULT}  ${block.status}`)
+            : `${PANEL_DIM_COLOR}  ${SYM_RESULT}  ${block.status}${ANSI_RESET}`,
+          0, 0,
+        ));
       }
     }
-  }
-}
-
-/** 도구 결과를 접기 로직과 함께 TUI 컴포넌트로 Container에 추가 */
-function appendToolResultComponents(
-  text: string,
-  isError: boolean,
-  maxRL: number,
-  container: Container,
-  theme: any,
-): void {
-  const rawLines = text.split("\n");
-  const displayLines = rawLines.length > maxRL
-    ? rawLines.slice(0, maxRL - 1)
-    : rawLines;
-  const foldedCount = rawLines.length > maxRL
-    ? rawLines.length - (maxRL - 1)
-    : 0;
-
-  for (let i = 0; i < displayLines.length; i++) {
-    const prefix = i === 0 ? `  ${SYM_RESULT}  ` : "     ";
-    container.addChild(new Text(
-      isError
-        ? theme.fg("error", `${prefix}${displayLines[i]}`)
-        : `${PANEL_DIM_COLOR}${prefix}${displayLines[i]}${ANSI_RESET}`,
-      0, 0,
-    ));
-  }
-
-  if (foldedCount > 0) {
-    container.addChild(new Text(
-      `${PANEL_DIM_COLOR}     … +${foldedCount} lines${ANSI_RESET}`,
-      0, 0,
-    ));
   }
 }
 
@@ -251,7 +184,7 @@ function appendToolResultComponents(
  */
 export function renderLegacyToContainer(
   contentText: string,
-  toolCalls: { title: string; status: string; rawOutput?: string }[],
+  toolCalls: { title: string; status: string }[],
   thinkingText: string,
   container: Container,
   theme: any,

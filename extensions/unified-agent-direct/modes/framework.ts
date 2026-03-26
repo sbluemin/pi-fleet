@@ -52,6 +52,8 @@ export interface DirectModeConfig {
   bottomHint?: string;
   /** PI 기본 Working 메시지 사용 여부 (기본: false, 에이전트 패널이 스트리밍 UI를 담당) */
   showWorkingMessage?: boolean;
+  /** 그룹 모드용 CLI 리스트 — 모드 활성화 시 패널 칼럼을 이 리스트로 초기화 */
+  clis?: readonly string[];
 }
 
 export interface DirectModeHelpers {
@@ -204,7 +206,7 @@ export function registerCustomDirectMode(
         gs.activeModeId = config.id;
         // 에이전트 패널에 모드 설정 (패널 자동 펼침 없음 — alt+p로만 열림)
         const hint = config.bottomHint ?? ` ${config.shortcutKey} to exit `;
-        setAgentPanelMode(ctx, config.id, { bottomHint: hint });
+        setAgentPanelMode(ctx, config.id, { bottomHint: hint, clis: config.clis });
         notifyStatusUpdate();
       }
     },

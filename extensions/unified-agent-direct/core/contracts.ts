@@ -19,7 +19,7 @@ import type { AgentStatus } from "../../unified-agent-core/types.js";
 export type ColBlock =
   | { type: "thought"; text: string }
   | { type: "text"; text: string }
-  | { type: "tool"; title: string; status: string; rawOutput?: string; toolCallId?: string };
+  | { type: "tool"; title: string; status: string; toolCallId?: string };
 
 // ─── 칼럼 상태 타입 ──────────────────────────────────────
 
@@ -36,7 +36,7 @@ export interface AgentCol {
   thinking: string;
   // 하위 호환 및 CollectedStreamData 공급용 (blocks에서 파생)
   text: string;
-  toolCalls: { title: string; status: string; rawOutput?: string }[];
+  toolCalls: { title: string; status: string }[];
   status: ColStatus;
   error?: string;
   scroll: number;
@@ -48,7 +48,7 @@ export interface AgentCol {
 export interface CollectedStreamData {
   text: string;
   thinking: string;
-  toolCalls: { title: string; status: string; rawOutput?: string }[];
+  toolCalls: { title: string; status: string }[];
   blocks: ColBlock[];
   lastStatus: AgentStatus;
 }

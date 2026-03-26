@@ -16,6 +16,7 @@ export const CLI_DISPLAY_NAMES: Record<string, string> = {
   codex: "Codex",
   gemini: "Gemini",
   all: "All",
+  "claude-codex": "Claude & Codex",
 };
 
 // ─── ANSI 상수 ───────────────────────────────────────────
@@ -60,26 +61,29 @@ export const STREAMING_PREVIEW_LINES = 12;
 
 /** 모드별 입력창 상하단 라인 색상 (ANSI 24-bit RGB) */
 export const DIRECT_MODE_COLORS: Record<string, string> = {
-  claude: "\x1b[38;2;255;149;0m",      // 주황색
-  codex:  "\x1b[38;2;169;169;169m",     // 밝은 회색
-  gemini: "\x1b[38;2;66;133;244m",      // 파란색
-  all:    "\x1b[38;2;255;120;120m",     // 연한 레드
+  claude:        "\x1b[38;2;255;149;0m",      // 주황색
+  codex:         "\x1b[38;2;169;169;169m",     // 밝은 회색
+  gemini:        "\x1b[38;2;66;133;244m",      // 파란색
+  all:           "\x1b[38;2;255;120;120m",     // 연한 레드
+  "claude-codex": "\x1b[38;2;180;120;255m",    // 보라색
 };
 
 /** 모드별 응답 배경색 (은은한 톤 — 다크 테마 기준) */
 export const DIRECT_MODE_BG_COLORS: Record<string, string> = {
-  claude: "\x1b[48;2;40;25;8m",         // 따뜻한 어두운 주황
-  codex:  "\x1b[48;2;35;35;35m",        // 약간 밝은 검정
-  gemini: "\x1b[48;2;15;22;42m",        // 차가운 어두운 파랑
-  all:    "\x1b[48;2;40;15;15m",        // 어두운 레드 톤
+  claude:        "\x1b[48;2;40;25;8m",         // 따뜻한 어두운 주황
+  codex:         "\x1b[48;2;35;35;35m",        // 약간 밝은 검정
+  gemini:        "\x1b[48;2;15;22;42m",        // 차가운 어두운 파랑
+  all:           "\x1b[48;2;40;15;15m",        // 어두운 레드 톤
+  "claude-codex": "\x1b[48;2;28;18;42m",       // 어두운 보라
 };
 
 /** 모드별 토글 단축키 (alt = macOS Option 키) */
 export const DIRECT_MODE_KEYS: Record<string, string> = {
-  claude: "alt+1",
-  codex:  "alt+2",
-  gemini: "alt+3",
-  all:    "alt+0",
+  claude:        "alt+1",
+  codex:         "alt+2",
+  gemini:        "alt+3",
+  all:           "alt+0",
+  "claude-codex": "alt+9",
 };
 
 /** 현재 활성 에이전트 팝업 단축키 */

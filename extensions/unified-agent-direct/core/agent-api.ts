@@ -167,7 +167,7 @@ export async function runAgentRequest(options: RunAgentRequestOptions): Promise<
         onThoughtChunk?.(text);
       },
       onToolCall: (title, status, rawOutput, toolCallId) => {
-        upsertToolBlock(cli, title, status, rawOutput, toolCallId);
+        upsertToolBlock(cli, title, status, toolCallId);
         syncColFromStore(cli, colIndex);
         onToolCall?.(title, status, rawOutput, toolCallId);
       },
@@ -209,7 +209,7 @@ export async function runAgentRequest(options: RunAgentRequestOptions): Promise<
     const run = getRunById(runId);
     const collected = run
       ? run.toCollectedData()
-      : { text: "", thinking: "", toolCalls: [] as { title: string; status: string; rawOutput?: string }[], blocks: [] as any[], lastStatus: "connecting" as const };
+      : { text: "", thinking: "", toolCalls: [] as { title: string; status: string }[], blocks: [] as any[], lastStatus: "connecting" as const };
 
     return {
       status: finalStatus,

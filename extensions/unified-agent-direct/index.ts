@@ -1,14 +1,15 @@
 /**
  * unified-agent-direct — 다이렉트 모드 PI 확장 진입점
  *
- * SDK 초기화 + 세션 이벤트 + 4개 다이렉트 모드 등록
+ * SDK 초기화 + 세션 이벤트 + 5개 다이렉트 모드 등록
  *
  * ┌──────────────────────────────────────────────────────┐
- * │ alt+1 → Claude     (에이전트 패널 독점 뷰)            │
- * │ alt+2 → Codex      (에이전트 패널 독점 뷰)            │
- * │ alt+3 → Gemini     (에이전트 패널 독점 뷰)            │
- * │ alt+0 → All        (에이전트 패널 3분할 뷰)           │
- * │ alt+t → Agent Popup(PTY 네이티브 팝업)               │
+ * │ alt+1 → Claude        (에이전트 패널 독점 뷰)         │
+ * │ alt+2 → Codex         (에이전트 패널 독점 뷰)         │
+ * │ alt+3 → Gemini        (에이전트 패널 독점 뷰)         │
+ * │ alt+0 → All           (에이전트 패널 3분할 뷰)        │
+ * │ alt+9 → Claude & Codex(에이전트 패널 2분할 뷰)        │
+ * │ alt+t → Agent Popup   (PTY 네이티브 팝업)            │
  * │ 같은 키 재입력 → 기본 모드 원복                        │
  * │ alt+p → 에이전트 패널 토글                            │
  * │ alt+shift+m → 활성 CLI 모델/추론 설정 변경             │
@@ -53,6 +54,7 @@ import type { ShellPopupBridge } from "../utils-interactive-shell/types.js";
 // 분해된 모듈
 import { registerDirectModes } from "./modes/direct.js";
 import { registerAllMode } from "./modes/all.js";
+import { registerClaudeCodexMode } from "./modes/claude-codex.js";
 import { registerModelCommands, syncModelConfig } from "./model-selection/index.js";
 
 // ─── 확장 진입점 ─────────────────────────────────────────
@@ -94,6 +96,7 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
   registerAgentTools({ pi, configDir: extensionDir, sessionStore });
   registerDirectModes(pi, extensionDir, sessionStore);
   registerAllMode(pi, extensionDir, sessionStore);
+  registerClaudeCodexMode(pi, extensionDir, sessionStore);
   registerModelCommands(pi, extensionDir);
 
   // ── 에이전트 팝업 단축키 ──

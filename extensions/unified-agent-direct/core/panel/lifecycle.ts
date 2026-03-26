@@ -21,15 +21,16 @@ export type { AgentCol } from "../contracts.js";
 
 /**
  * 에이전트 패널의 활성 모드를 설정합니다.
- * 프레임워크의 모드 전환 시 호출되어 독점/3분할 레이아웃을 결정합니다.
+ * 프레임워크의 모드 전환 시 호출되어 독점/N분할 레이아웃을 결정합니다.
  *
- * @param mode - CLI ID ("claude"/"codex"/"gemini"/"all") 또는 null (비활성)
+ * @param mode - CLI ID ("claude"/"codex"/"gemini"/"all"/"claude-codex") 또는 null (비활성)
  * @param options.bottomHint - 하단 보더 힌트 텍스트
+ * @param options.clis - 그룹 모드용 CLI 리스트 (지정 시 칼럼을 해당 리스트로 재초기화)
  */
 export function setAgentPanelMode(
   ctx: ExtensionContext,
   mode: string | null,
-  options?: { bottomHint?: string },
+  options?: { bottomHint?: string; clis?: readonly string[] },
 ): void {
   const s = getState();
   s.activeMode = mode;
@@ -38,6 +39,14 @@ export function setAgentPanelMode(
     s.bottomHint = options.bottomHint;
   } else if (mode === null) {
     s.bottomHint = " alt+p toggle · j↑ k↓";
+  }
+
+  // 그룹 모드용 CLI 리스트가 지정되면 칼럼을 즉시 재초기화
+  // 비활성화(mode=null) 시에도 기본 칼럼으로 복원
+  if (options?.clis) {
+    s.cols = makeCols(options.clis);
+  } else if (mode === null) {
+    s.cols = makeCols();
   }
 
   syncWidget(ctx);
