@@ -57,19 +57,9 @@ const widgetManager = createStreamWidgetManager(
 // ctrl+o 토글 및 패널 show/hide가 반영되도록 합니다.
 //
 // active: 스트리밍 진행 중인 run (toggle 구독 등록 직후 저장)
-// completed: 스트리밍 완료된 run (finally에서 active → completed 이동)
-// 분리 이유: busy 중 모드 OFF/세션 전환 시에도 active run의 구독을 정리하기 위함
-
-/** 진행 중인 run의 cleanup (위젯 해제 + 토글 구독 해제) */
+/** 진행 중인 run의 cleanup (위젯 해제 + 토글 구독 해제)
+ * busy 중 모드 OFF/세션 전환 시에도 active run의 구독을 정리하기 위해 사용 */
 const activeRunCleanups = new Map<string, () => void>();
-/** 완료된 run의 cleanup (위젯 해제 + 토글 구독 해제) */
-const completedRunCleanups = new Map<string, () => void>();
-
-/** 완료된 run의 cleanup만 실행합니다 (다음 run 시작 시). */
-function flushCompletedCleanups(): void {
-  for (const cleanup of completedRunCleanups.values()) cleanup();
-  completedRunCleanups.clear();
-}
 
 /**
  * ua-stream 위젯과 관련 구독을 모두 제거합니다.
@@ -79,8 +69,6 @@ function flushCompletedCleanups(): void {
 export function clearStreamWidgets(): void {
   for (const cleanup of activeRunCleanups.values()) cleanup();
   activeRunCleanups.clear();
-  for (const cleanup of completedRunCleanups.values()) cleanup();
-  completedRunCleanups.clear();
   widgetManager.clearAll();
 }
 
@@ -151,9 +139,7 @@ export async function runAgentRequest(options: RunAgentRequestOptions): Promise<
 
   const colIndex = PANEL_CLI_ORDER.indexOf(cli);
 
-  // 0. 이전 run의 위젯 + 토글 구독 정리
-  flushCompletedCleanups();
-  // 같은 CLI의 진행 중 run이 있으면 정리 (프로그래밍적 재실행 안전 가드)
+  // 0. 같은 CLI의 진행 중 run이 있으면 정리 (프로그래밍적 재실행 안전 가드)
   const prevActive = activeRunCleanups.get(cli);
   if (prevActive) {
     prevActive();
@@ -274,17 +260,13 @@ export async function runAgentRequest(options: RunAgentRequestOptions): Promise<
     syncColFromStore(cli, colIndex);
     throw error;
   } finally {
-    // 7. 패널 칼럼 스트리밍 종료
+    // 7. 위젯 즉시 제거 + 토글 구독 해제 + 패널 칼럼 스트리밍 종료
+    deactivateWidget();
+    if (unsubToggle) unsubToggle();
+    activeRunCleanups.delete(cli);
     if (colIndex >= 0) {
       endColStreaming(ctx, colIndex);
     }
-    // active → completed 이동: 위젯 + 토글 구독 유지하되 추적 맵 전환
-    // 다음 runAgentRequest 또는 clearStreamWidgets() 호출 시 정리됨
-    activeRunCleanups.delete(cli);
-    completedRunCleanups.set(cli, () => {
-      deactivateWidget();
-      if (unsubToggle) unsubToggle();
-    });
   }
 }
 
