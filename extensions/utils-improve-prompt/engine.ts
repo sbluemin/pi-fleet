@@ -24,8 +24,8 @@ export function resolveModel(ctx: ExtensionContext, settings: MetaPromptSettings
   if (!resolved) {
     const hint =
       provider && modelId
-        ? `모델을 찾을 수 없습니다: ${provider}/${modelId} — /mp-settings 로 재설정하세요.`
-        : "모델이 선택되지 않았습니다. /mp-settings 로 설정하세요.";
+        ? `모델을 찾을 수 없습니다: ${provider}/${modelId} — /fleet:prompt:settings 로 재설정하세요.`
+        : "모델이 선택되지 않았습니다. /fleet:prompt:settings 로 설정하세요.";
     ctx.ui.notify(hint, "error");
   }
 

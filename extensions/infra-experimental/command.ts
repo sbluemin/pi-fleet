@@ -1,5 +1,5 @@
 /**
- * infra-experimental/command.ts — /fleet-experimental 커맨드 핸들러
+ * infra-experimental/command.ts — /fleet:system:experimental 커맨드 핸들러
  *
  * 커맨드 로직 담당: enable, disable, status 처리 및 인자 자동완성.
  */
@@ -33,7 +33,7 @@ const COMPLETIONS = [
   { value: "status", label: "status" },
 ];
 
-/** /fleet-experimental 인자 자동완성 */
+/** /fleet:system:experimental 인자 자동완성 */
 export function getArgumentCompletions(prefix: string) {
   if (!prefix) return COMPLETIONS;
   const filtered = COMPLETIONS.filter((i) => i.value.startsWith(prefix));
@@ -42,7 +42,7 @@ export function getArgumentCompletions(prefix: string) {
 
 // ── 커맨드 진입점 ──
 
-/** /fleet-experimental 핸들러 — 인자 파싱 후 분기 */
+/** /fleet:system:experimental 핸들러 — 인자 파싱 후 분기 */
 export async function handleCommand(args: string, ctx: ExtensionCommandContext): Promise<void> {
   let action = args.trim().toLowerCase();
 
@@ -70,7 +70,7 @@ export async function handleCommand(args: string, ctx: ExtensionCommandContext):
       handleStatus(ctx);
       break;
     default:
-      ctx.ui.notify("사용법: /fleet-experimental [on|off|status]", "warning");
+      ctx.ui.notify("사용법: /fleet:system:experimental [on|off|status]", "warning");
   }
 }
 

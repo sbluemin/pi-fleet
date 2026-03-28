@@ -7,6 +7,7 @@
 
 import type { ExtensionAPI, ReadonlyFooterDataProvider } from "@mariozechner/pi-coding-agent";
 
+
 import { INFRA_KEYBIND_KEY } from "../infra-keybind/types.js";
 import type { InfraKeybindAPI } from "../infra-keybind/types.js";
 import type { HudCoreConfig, StatusLinePreset } from "./types.js";
@@ -137,7 +138,7 @@ export default function hudEditor(pi: ExtensionAPI) {
 
   // ── 커맨드 등록 ──
 
-  pi.registerCommand("hud-editor", {
+  pi.registerCommand("fleet:hud:editor", {
     description: "Configure hud-editor status (toggle, preset)",
     handler: async (args, ctx) => {
       state.currentCtx = ctx;

@@ -4,10 +4,11 @@
  * 배선(wiring)만 담당:
  *   - globalThis API 등록
  *   - Settings 오버레이 섹션 등록
- *   - /fleet-experimental 커맨드 등록
+ *   - /fleet:system:experimental 커맨드 등록
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+
 
 import { INFRA_EXPERIMENTAL_KEY } from "./types.js";
 import type { InfraExperimentalAPI } from "./types.js";
@@ -47,9 +48,9 @@ export default function (pi: ExtensionAPI) {
     });
   });
 
-  // ── /fleet-experimental 커맨드 등록 ──
+  // ── /fleet:system:experimental 커맨드 등록 ──
 
-  pi.registerCommand("fleet-experimental", {
+  pi.registerCommand("fleet:system:experimental", {
     description: "실험 기능 활성/비활성 (on|off|status)",
     getArgumentCompletions,
     handler: handleCommand,

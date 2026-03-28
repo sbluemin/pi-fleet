@@ -5,6 +5,7 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
+
 import type { CliType, ModelSelection, SelectedModelsConfig } from "../../unified-agent-core/types";
 import {
   loadSelectedModels,
@@ -144,7 +145,7 @@ async function selectModelForCli(
 // ─── 커맨드 및 단축키 등록 ────────────────────────────────
 
 /**
- * 모델 변경 단축키(alt+shift+m)와 /ua-models 커맨드를 등록합니다.
+ * 모델 변경 단축키(alt+shift+m)와 /fleet:agent:models 커맨드를 등록합니다.
  */
 export function registerModelCommands(
   pi: ExtensionAPI,
@@ -201,7 +202,7 @@ export function registerModelCommands(
   });
 
   // ── 모델 선택 커맨드 ──
-  pi.registerCommand("ua-models", {
+  pi.registerCommand("fleet:agent:models", {
     description: "서브에이전트별 모델 선택 (gemini → claude → codex)",
     handler: async (_args, ctx) => {
       const selectionOrder: CliType[] = ["gemini", "claude", "codex"];

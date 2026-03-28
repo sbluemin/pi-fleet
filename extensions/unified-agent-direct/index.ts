@@ -26,6 +26,7 @@ import { createSessionMapStore, migrateSessionMaps } from "../unified-agent-core
 import { cleanIdleClients } from "../unified-agent-core/client-pool";
 import { migrateSelectedModels } from "../unified-agent-core/model-config";
 
+
 // 에이전트 패널
 import { refreshAgentPanelFooter, setAgentPanelSessionStore } from "./core/panel/lifecycle.js";
 import { registerAgentPanelShortcut } from "./core/panel/shortcuts.js";
@@ -186,7 +187,7 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
   onStatusUpdate(() => { syncModelConfig(extensionDir); });
 
   // ── 상태 새로고침 커맨드 ──
-  pi.registerCommand("ua-status-refresh", {
+  pi.registerCommand("fleet:agent:status", {
     description: "Claude/Codex/Gemini 상태를 즉시 새로고침",
     handler: async (_args, ctx) => {
       await refreshStatusNow(ctx);

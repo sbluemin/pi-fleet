@@ -14,7 +14,7 @@ const POLL_TICK_MS = 3 * 60_000;
 const JSON_API_INTERVAL_MS = 3 * 60_000;
 const GEMINI_INTERVAL_MS = 10 * 60_000;
 
-/** /ua-status-refresh 수동 갱신 최소 간격 */
+/** /fleet:agent:status 수동 갱신 최소 간격 */
 const MIN_MANUAL_REFRESH_MS = 60_000;
 
 const FETCH_TIMEOUT_MS = 15_000;
@@ -423,7 +423,7 @@ export function attachStatusContext(ctx: ExtensionContext): void {
   }
   // 초기 구동 시 네트워크 요청을 생략하여 Pi 부팅 속도 개선
   // 상태 갱신은 POLL_TICK_MS(3분) 후 자동 시작되며,
-  // 즉시 확인이 필요하면 /ua-status-refresh 사용
+  // 즉시 확인이 필요하면 /fleet:agent:status 사용
 
   ensurePolling();
 }

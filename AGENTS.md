@@ -57,9 +57,54 @@ experimental/<name>/   →   (explicit promotion)   →   extensions/<name>/
 ### Rules
 
 - **New extensions start in `experimental/`** — Do not create new extensions directly under `extensions/`.
-- **`experimental/` is opt-in** — Users activate it via `/fleet-experimental on`. It is disabled by default.
+- **`experimental/` is opt-in** — Users activate it via `/fleet:system:experimental on`. It is disabled by default.
 - **Promotion to `extensions/` requires explicit instruction** — An extension is moved from `experimental/` to `extensions/` only when the user explicitly requests it. Do not promote autonomously.
 - **Demotion is also explicit** — Moving an extension back from `extensions/` to `experimental/` also requires explicit user instruction.
+
+## Slash Command Naming
+
+All slash commands registered by extensions must follow this naming convention.
+
+### Format
+
+```
+fleet:<domain>:<feature>
+```
+
+- **All lowercase** — No uppercase letters, no underscores.
+- **`:` as separator** — Use `:` between segments. Do not use `-`, `_`, or `/`.
+- **Exactly 3 segments** — `fleet` prefix + domain + feature. Do not nest further.
+
+### Domain Assignment
+
+Each extension maps to exactly one domain. Use the domain below for all commands registered by that extension.
+
+| Extension | Domain | Rationale |
+|-----------|--------|-----------|
+| `unified-agent-direct/` | `agent` | Sub-agent orchestration features |
+| `infra-hud/` | `hud` | HUD / editor display features |
+| `infra-experimental/` | `system` | System-level toggles and infra controls |
+| `utils-summarize/` | `summary` | Session summary features |
+| `utils-improve-prompt/` | `prompt` | Prompt improvement features |
+
+When adding a **new extension**, assign a domain that reflects the **feature category**, not the directory prefix (`infra-`, `utils-`, etc.).
+
+### Feature Naming
+
+- Use a **verb or noun** that describes the action or target — e.g., `run`, `status`, `editor`, `improve`, `reasoning`.
+- Prefer short, unambiguous words. Avoid abbreviations (`settings` not `cfg`, `status` not `stat`).
+- `settings` — reserved for commands that open a configuration UI for that domain.
+- `run` — reserved for manual re-trigger of an automated behavior (e.g., re-summarize on demand).
+
+### Conflict Prevention
+
+- The `fleet:` prefix is **reserved for this project**. Never register commands without it.
+- Domain names are shared across extensions — coordinate to avoid feature name collisions within a domain.
+
+### When to Apply
+
+- Apply this naming from the **first `registerCommand` call** in a new extension — do not rename later.
+- Commands without the `fleet:` prefix must be renamed **before promotion** from `experimental/` to `extensions/`.
 
 ## Git Guidelines
 

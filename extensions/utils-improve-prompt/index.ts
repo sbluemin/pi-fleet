@@ -7,6 +7,7 @@
 import type { Api, Model } from "@mariozechner/pi-ai";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
+
 import type { ReasoningLevel } from "./constants.js";
 import { REASONING_LEVELS, REASONING_LABELS, REASONING_COLORS, isValidReasoning } from "./constants.js";
 import { loadSettings, saveSettings } from "./settings.js";
@@ -43,7 +44,7 @@ export default function (pi: ExtensionAPI) {
 
   // ── 커맨드 등록 ──
 
-  pi.registerCommand("mp-settings", {
+  pi.registerCommand("fleet:prompt:settings", {
     description: "메타 프롬프트 설정 (모델 선택 + reasoning 레벨)",
     handler: async (_args, ctx) => {
       const currentSettings = loadSettings();
@@ -148,12 +149,12 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-  pi.registerCommand("meta-prompt", {
+  pi.registerCommand("fleet:prompt:improve", {
     description: "메타 프롬프팅 기법으로 프롬프트를 개선하여 입력창에 삽입",
     handler: async (args, ctx) => {
       const trimmed = args.trim();
       if (!trimmed) {
-        ctx.ui.notify("사용법: /meta-prompt <개선할 요청사항>", "warning");
+        ctx.ui.notify("사용법: /fleet:prompt:improve <개선할 요청사항>", "warning");
         return;
       }
 
@@ -197,7 +198,7 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-  pi.registerCommand("mp-reasoning", {
+  pi.registerCommand("fleet:prompt:reasoning", {
     description: "메타 프롬프트 reasoning 레벨 변경 (off/low/medium/high)",
     handler: async (args, ctx) => {
       const arg = args.trim().toLowerCase();

@@ -8,14 +8,15 @@
  * │   session_start → 상태바 초기화, 기존 이름 확인        │
  * │   agent_end (첫 턴) → LLM 한 줄 요약 → setSessionName │
  * │   session_compact  → compaction 요약 기반 재요약       │
- * │   /as-summarize    → 수동 재요약                      │
- * │   /as-settings     → 모델/길이 설정                   │
+ * │   /fleet:summary:run       → 수동 재요약               │
+ * │   /fleet:summary:settings  → 모델/길이 설정           │
  * └──────────────────────────────────────────────────────┘
  */
 
 import type { Api, Model } from "@mariozechner/pi-ai";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { convertToLlm, serializeConversation } from "@mariozechner/pi-coding-agent";
+
 
 import { loadSettings, saveSettings } from "./settings.js";
 import type { AutoSummarizeSettings } from "./settings.js";
@@ -93,14 +94,14 @@ export default function (pi: ExtensionAPI) {
 
   // ── 커맨드 등록 ──
 
-  pi.registerCommand("as-summarize", {
+  pi.registerCommand("fleet:summary:run", {
     description: "현재 세션을 수동으로 한 줄 재요약",
     handler: async (_args, ctx) => {
       const settings = loadSettings();
       const model = resolveModel(ctx, settings);
       if (!model) {
         ctx.ui.notify(
-          "모델을 찾을 수 없습니다. /as-settings로 설정하세요.",
+          "모델을 찾을 수 없습니다. /fleet:summary:settings로 설정하세요.",
           "error",
         );
         return;
@@ -138,7 +139,7 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-  pi.registerCommand("as-settings", {
+  pi.registerCommand("fleet:summary:settings", {
     description: "자동 요약 설정 (모델 선택 + 최대 길이)",
     handler: async (_args, ctx) => {
       const currentSettings = loadSettings();
