@@ -56,6 +56,8 @@ export function registerAllMode(
     bgColor: DIRECT_MODE_BG_COLORS["all"],
     bottomHint: " alt+0 exit · alt+x cancel · alt+shift+m model ",
     showWorkingMessage: false,
+    // 모드 활성화 시점(alt+0)에 즉시 3분할 컬럼으로 재초기화
+    clis: cliTypes,
 
     onExecute: async (request, ctx, helpers) => {
       // 전체 패널 리셋 + 확장 (All 모드 고유 — resetRuns, makeCols, timer 시작)

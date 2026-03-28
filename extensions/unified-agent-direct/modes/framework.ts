@@ -261,7 +261,8 @@ export function activateMode(ctx: ExtensionContext, modeId: string): boolean {
   gs.activeModeId = modeId;
 
   const hint = state.config.bottomHint ?? ` ${state.config.shortcutKey} to exit `;
-  setAgentPanelMode(ctx, modeId, { bottomHint: hint });
+  // clis를 함께 전달하여 그룹 모드 전환 시 컬럼 수도 즉시 재초기화
+  setAgentPanelMode(ctx, modeId, { bottomHint: hint, clis: state.config.clis });
   // 패널 자동 펼침 없음 — alt+p로만 열림
   notifyStatusUpdate();
   return true;
