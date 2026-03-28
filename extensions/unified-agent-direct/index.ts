@@ -31,7 +31,7 @@ import { refreshAgentPanelFooter, setAgentPanelSessionStore } from "./core/panel
 import { registerAgentPanelShortcut } from "./core/panel/shortcuts.js";
 
 // 프레임워크
-import { onStatusUpdate, getActiveModeId } from "./modes/framework";
+import { onStatusUpdate, getActiveModeId, notifyStatusUpdate } from "./modes/framework";
 import { CLI_DISPLAY_NAMES, CODEX_POPUP_KEY, DIRECT_MODE_COLORS } from "./constants";
 import { attachStatusContext, refreshStatusNow } from "./status/index.js";
 import { renderServiceStatusToken } from "./status/ui.js";
@@ -55,7 +55,7 @@ import type { ShellPopupBridge } from "../utils-interactive-shell/types.js";
 import { registerDirectModes } from "./modes/direct.js";
 import { registerAllMode } from "./modes/all.js";
 import { registerClaudeCodexMode } from "./modes/claude-codex.js";
-import { registerModelCommands, syncModelConfig } from "./model-selection/index.js";
+import { registerModelCommands, syncModelConfig } from "./models/index.js";
 
 // ─── 확장 진입점 ─────────────────────────────────────────
 
@@ -92,7 +92,7 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
   registerDirectModes(pi, extensionDir, sessionStore);
   registerAllMode(pi, extensionDir, sessionStore);
   registerClaudeCodexMode(pi, extensionDir, sessionStore);
-  registerModelCommands(pi, extensionDir, sessionStore);
+  registerModelCommands(pi, extensionDir, sessionStore, { getActiveModeId, notifyStatusUpdate });
 
   // ── 에이전트 팝업 단축키 ──
   const keybind = (globalThis as any)[INFRA_KEYBIND_KEY] as InfraKeybindAPI;

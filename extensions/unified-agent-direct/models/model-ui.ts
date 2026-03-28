@@ -24,7 +24,6 @@ import {
   CLI_ORDER,
   DIRECT_MODE_KEYS,
 } from "../constants";
-import { getActiveModeId, notifyStatusUpdate } from "../modes/framework";
 
 // ─── 모델 설정 동기화 ────────────────────────────────────
 
@@ -152,6 +151,10 @@ export function registerModelCommands(
   pi: ExtensionAPI,
   extensionDir: string,
   sessionStore: SessionMapStore,
+  deps: {
+    getActiveModeId: () => string | null;
+    notifyStatusUpdate: () => void;
+  },
 ): void {
   const cliTypes = CLI_ORDER;
   const keybind = (globalThis as any)[INFRA_KEYBIND_KEY] as InfraKeybindAPI;
@@ -165,7 +168,7 @@ export function registerModelCommands(
     category: "Infra",
     handler: async (ctx) => {
       // 1. 대상 CLI 결정
-      const activeModeId = getActiveModeId();
+      const activeModeId = deps.getActiveModeId();
       let targetCli: CliType;
 
       if (activeModeId && cliTypes.includes(activeModeId as CliType)) {
@@ -201,7 +204,7 @@ export function registerModelCommands(
       ctx.ui.notify(`모델 설정 저장: ${summary}`, "info");
 
       syncModelConfig(extensionDir);
-      notifyStatusUpdate();
+      deps.notifyStatusUpdate();
     },
   });
 
@@ -238,7 +241,7 @@ export function registerModelCommands(
 
       // 상태바 갱신 (자체 + 외부 확장)
       syncModelConfig(extensionDir);
-      notifyStatusUpdate();
+      deps.notifyStatusUpdate();
     },
   });
 }
