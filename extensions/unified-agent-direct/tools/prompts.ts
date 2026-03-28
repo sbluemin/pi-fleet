@@ -23,6 +23,7 @@ export function toolPromptGuidelines(displayName: string): string[] {
   return [
     `Use this tool to delegate a coding task to ${displayName}.`,
     "The agent has full access to the codebase and can read, write, and execute commands.",
-    "Provide a clear, self-contained request — the agent does not share your conversation context.",
+    "Provide only the background, context, task objective, and constraints — do NOT prescribe implementation details, specific code paths, or step-by-step instructions.",
+    "Trust the agent's own reasoning. Let it discover the codebase and decide the approach independently.",
   ];
 }
