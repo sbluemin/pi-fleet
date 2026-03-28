@@ -13,7 +13,7 @@
  * ⚠️ globalThis 기반 — pi가 확장을 별도 번들로 로드하므로 필수.
  */
 
-import type { AgentStatus } from "../../../unified-agent-core/types.js";
+import type { AgentStatus } from "../agent/types.js";
 import { CLI_ORDER } from "../../constants.js";
 
 // 계약 타입 — core/contracts.ts에서 정의, 하위 호환을 위해 re-export

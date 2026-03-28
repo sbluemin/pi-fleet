@@ -6,7 +6,7 @@
  */
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
-import type { SessionMapStore } from "../../../unified-agent-core/session-map";
+import type { SessionMapStore } from "../agent/session-map";
 import { CLI_ORDER, DEFAULT_BODY_H } from "../../constants";
 import { ensureVisibleRun, setRunSessionId } from "../streaming/stream-store";
 import type { AgentCol, ServiceSnapshot, ServiceStatusRendererFn } from "../contracts.js";

@@ -6,7 +6,7 @@
  */
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
-import type { SessionMapStore } from "../../../unified-agent-core/session-map";
+import type { SessionMapStore } from "../agent/session-map";
 import { ANIM_INTERVAL_MS } from "../../constants";
 import { resetRuns } from "../streaming/stream-store";
 import { renderModeBanner } from "../render/panel-renderer";

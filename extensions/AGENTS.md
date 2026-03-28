@@ -28,7 +28,6 @@ These are pure libraries not recognized as extensions by pi.
 | Library | Role | Main Consumers |
 |---------|------|----------------|
 | `infra-hud/` (also a library) | Status bar rendering engine (segments, layout, colors, themes, presets) | `utils-welcome` |
-| `unified-agent-core/` | Shared logic for unified agents | `unified-agent-direct` |
 
 ### Extension Separation Criteria
 

@@ -8,7 +8,7 @@
  *    구현 로직이나 외부 모듈 import를 추가하지 마세요.
  */
 
-import type { AgentStatus } from "../../unified-agent-core/types.js";
+import type { AgentStatus } from "./agent/types.js";
 
 // ─── 스트리밍 블록 타입 ──────────────────────────────────
 

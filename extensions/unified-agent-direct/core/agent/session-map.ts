@@ -1,5 +1,5 @@
 /**
- * unified-agent-core — 세션 매핑 관리
+ * core/agent/session-map.ts — 세션 매핑 관리
  *
  * SessionMapStore: 인스턴스 기반 세션 맵 저장소.
  * 각 확장이 자체 저장 경로를 가진 독립 인스턴스를 생성합니다.
@@ -11,7 +11,7 @@
  * sessionDir은 호출처(확장)가 결정합니다.
  */
 
-import type { CliType } from "./types";
+import type { CliType } from "@sbluemin/unified-agent";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -96,31 +96,4 @@ export function createSessionMapStore(sessionDir: string): SessionMapStore {
       return { ...currentMap };
     },
   };
-}
-
-// ─── 마이그레이션 유틸 ───────────────────────────────────
-
-/**
- * 레거시 세션 맵 디렉토리에서 새 디렉토리로 파일을 복사합니다.
- * 이미 존재하는 파일은 덮어쓰지 않습니다.
- *
- * @param legacyDir - 기존 세션 맵 디렉토리 (예: unified-agent-core/session-maps/)
- * @param newDir - 새 세션 맵 디렉토리 (예: unified-agent-direct/session-maps/)
- */
-export function migrateSessionMaps(legacyDir: string, newDir: string): void {
-  try {
-    if (!fs.existsSync(legacyDir)) return;
-    if (!fs.existsSync(newDir)) fs.mkdirSync(newDir, { recursive: true });
-
-    const files = fs.readdirSync(legacyDir).filter((f) => f.endsWith(".json"));
-    for (const file of files) {
-      const src = path.join(legacyDir, file);
-      const dst = path.join(newDir, file);
-      if (!fs.existsSync(dst)) {
-        fs.copyFileSync(src, dst);
-      }
-    }
-  } catch {
-    // 마이그레이션 실패 무시
-  }
 }

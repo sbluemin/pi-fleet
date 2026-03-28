@@ -11,10 +11,10 @@
  * router.ts + streaming-widget.ts의 로직을 흡수한 통합 계층입니다.
  */
 
-import { executeWithPool } from "../../unified-agent-core/executor";
-import type { AgentStatus } from "../../unified-agent-core/types";
-import { loadSelectedModels } from "../../unified-agent-core/model-config.js";
-import type { SessionMapStore } from "../../unified-agent-core/session-map";
+import { executeWithPool } from "./agent/executor";
+import type { AgentStatus } from "./agent/types";
+import { loadSelectedModels } from "../model-selection/store.js";
+import type { SessionMapStore } from "./agent/session-map";
 import {
   createRun,
   appendTextBlock,
@@ -211,7 +211,6 @@ export async function runAgentRequest(options: RunAgentRequestOptions): Promise<
       cli,
       request,
       cwd: cwd ?? ctx.cwd,
-      configDir,
       model: cliConfig?.model,
       effort: cliConfig?.effort,
       budgetTokens: cliConfig?.budgetTokens,

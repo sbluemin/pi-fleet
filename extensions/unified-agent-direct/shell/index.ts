@@ -7,7 +7,7 @@
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import type { CliType } from "@sbluemin/unified-agent";
-import { loadSelectedModels } from "../../unified-agent-core/model-config.js";
+import { loadSelectedModels } from "../model-selection/store.js";
 
 /** CLI 명령어 매핑 (CliConfigs.ts의 cliCommand 값) */
 const CLI_COMMANDS: Record<string, string> = {

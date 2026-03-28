@@ -8,7 +8,8 @@
  */
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
-import { UA_DIRECT_FOOTER_STATUS_KEY } from "../../../unified-agent-core/footer-status";
+/** footer 상태 전용 status key */
+const UA_DIRECT_FOOTER_STATUS_KEY = "ua-direct-footer";
 import {
   DIRECT_MODE_COLORS,
   PANEL_COLOR,

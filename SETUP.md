@@ -21,11 +21,11 @@ cd pi-fleet
 ## 2. Install dependencies
 
 ```bash
-# 코어 SDK 선행 빌드 (unified-agent-core의 로컬 의존성)
+# 코어 SDK 선행 빌드
 cd packages/unified-agent && npm install && cd ../..
 
 # Extensions 의존성 설치
-cd extensions/unified-agent-core && npm install && cd ../..
+cd extensions/unified-agent-direct && npm install && cd ../..
 cd extensions/utils-interactive-shell && npm install && cd ../..
 ```
 

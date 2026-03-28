@@ -1,5 +1,5 @@
 /**
- * unified-agent-core — 클라이언트 풀 관리
+ * core/agent/client-pool.ts — 클라이언트 풀 관리
  *
  * CLI별 Keep-alive 연결을 재사용하기 위한 싱글턴 풀입니다.
  * PI API 타입을 사용하지 않습니다.
@@ -9,7 +9,7 @@
  */
 
 import { UnifiedAgentClient } from "@sbluemin/unified-agent";
-import type { CliType } from "./types";
+import type { CliType } from "@sbluemin/unified-agent";
 
 // ─── 상수 ────────────────────────────────────────────────
 

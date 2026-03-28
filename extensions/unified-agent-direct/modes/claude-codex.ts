@@ -10,8 +10,8 @@
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import type { CliType } from "../../unified-agent-core/types";
-import type { SessionMapStore } from "../../unified-agent-core/session-map";
+import type { CliType } from "@sbluemin/unified-agent";
+import type { SessionMapStore } from "../core/agent/session-map";
 import { runAgentRequest } from "../core/agent-api.js";
 import { registerCustomDirectMode } from "./framework";
 import {

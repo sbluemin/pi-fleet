@@ -1,10 +1,9 @@
 /**
- * unified-agent-core — 공용 타입 정의
- *
- * PI API 타입을 절대 import하지 않는 순수 SDK 타입입니다.
+ * core/agent/types.ts — PI 비의존 실행 엔진 타입
  */
 
-export type { CliType } from "@sbluemin/unified-agent";
+import type { CliType } from "@sbluemin/unified-agent";
+import type { SessionMapStore } from "./session-map";
 
 // ─── 도구 호출 추적 ──────────────────────────────────────
 
@@ -38,24 +37,22 @@ export type AgentStatus = "connecting" | "running" | "done" | "error" | "aborted
 
 // ─── 실행 옵션/결과 ──────────────────────────────────────
 
-/** executeWithPool / executeOneShot 공통 옵션 — sessionId 필드 없음 */
+/** executeWithPool / executeOneShot 공통 옵션 */
 export interface ExecuteOptions {
   /** CLI 타입 (claude, codex, gemini) */
-  cli: import("@sbluemin/unified-agent").CliType;
+  cli: CliType;
   /** 사용자 요청 텍스트 */
   request: string;
   /** 작업 디렉토리 */
   cwd: string;
-  /** 설정 파일 디렉토리 (selected-models.json 등, fallback용) */
-  configDir: string;
-  /** 명시적 모델 ID (지정 시 configDir 파일보다 우선 적용) */
+  /** 명시적 모델 ID */
   model?: string;
-  /** 명시적 reasoning effort (지정 시 configDir 파일보다 우선 적용) */
+  /** 명시적 reasoning effort */
   effort?: string;
-  /** 명시적 Claude thinking budget tokens (지정 시 configDir 파일보다 우선 적용) */
+  /** 명시적 Claude thinking budget tokens */
   budgetTokens?: number;
   /** 세션 매핑 저장소 (executeWithPool 전용, executeOneShot에서는 미사용) */
-  sessionStore?: import("./session-map").SessionMapStore;
+  sessionStore?: SessionMapStore;
   /** 프롬프트 유휴 타임아웃 (ms, 미지정 시 SDK 기본값 사용) */
   promptIdleTimeout?: number;
   /** 취소 시그널 */
@@ -86,31 +83,4 @@ export interface ExecuteResult {
   status: AgentStatus;
   /** 에러 메시지 (status === "error" 시) */
   error?: string;
-}
-
-// ─── 모델 선택 설정 ──────────────────────────────────────
-
-/** 각 CLI별 모델 선택 설정 */
-export interface ModelSelection {
-  /** 선택된 모델 ID */
-  model: string;
-  /** Direct 모드 사용 여부 (codex 전용, ACP 우회) */
-  direct?: boolean;
-  /** Reasoning effort (codex, claude — SDK의 reasoningEffort.levels 기반) */
-  effort?: string;
-  /** Claude thinking budget_tokens (effort가 none이 아닐 때 사용) */
-  budgetTokens?: number;
-}
-
-/** selected-models.json 전체 구조 */
-export type SelectedModelsConfig = Record<string, ModelSelection>;
-
-// ─── 프로바이더 정보 ─────────────────────────────────────
-
-/** 프로바이더 모델 정보 */
-export interface ProviderInfo {
-  name: string;
-  defaultModel: string;
-  models: Array<{ modelId: string; name: string }>;
-  reasoningEffort: { supported: boolean; levels?: string[]; default?: string };
 }

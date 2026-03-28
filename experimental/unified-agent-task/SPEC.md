@@ -1,6 +1,6 @@
 # unified-agent-task — 서브에이전트 태스크 시스템
 
-> **핵심 목표**: `unified-agent-core`의 `executeOneShot`을 활용하여 메인 에이전트 컨텍스트와 독립된 1회성 태스크를 **병렬 분산 처리**하는 서브에이전트 도구를 제공한다.
+> **핵심 목표**: `unified-agent-direct/core/agent/executor.ts`의 `executeOneShot`을 활용하여 메인 에이전트 컨텍스트와 독립된 1회성 태스크를 **병렬 분산 처리**하는 서브에이전트 도구를 제공한다.
 
 ---
 
@@ -23,7 +23,7 @@
 - **패널 독립**: 에이전트 패널과 무관하게 tool block으로만 표시
 - **다중 인스턴스**: 같은 CLI를 동시에 여러 개 실행해야 함 (pool의 busy 충돌 회피)
 
-따라서 `executeOneShot`을 직접 사용하는 것이 올바른 계층 선택입니다.
+따라서 `unified-agent-direct/core/agent/executor.ts`의 `executeOneShot`을 직접 사용하는 것이 올바른 계층 선택입니다.
 
 ### 1.3 `systemPrefix`는 user prompt 앞에 붙이는 것
 
@@ -61,13 +61,13 @@ unified-agent-task/           ← 확장 (index.ts 포함)
 
 ```
 unified-agent-task
-  ├── unified-agent-core/executor.ts     ← executeOneShot (직접 호출)
-  ├── unified-agent-core/types.ts        ← CliType, ExecuteResult, ToolCallInfo, AgentStatus
-  └── @mariozechner/pi-coding-agent      ← ExtensionAPI, ExtensionContext (pi 프레임워크)
+  ├── unified-agent-direct/core/agent/executor.ts  ← executeOneShot (직접 호출)
+  ├── unified-agent-direct/core/agent/types.ts     ← ExecuteResult, ToolCallInfo, AgentStatus
+  ├── @sbluemin/unified-agent                      ← CliType
+  └── @mariozechner/pi-coding-agent                ← ExtensionAPI, ExtensionContext (pi 프레임워크)
 
-  ※ unified-agent-direct에 의존하지 않음
-  ※ unified-agent-core/model-config.ts 직접 import 불필요
-     (executeOneShot 내부에서 configDir로 자동 처리)
+  ※ model/effort/budgetTokens는 호출자가 Push 방식으로 ExecuteOptions에 주입
+     (executeOneShot은 configDir을 사용하지 않음 — 파일 읽기 없음)
 ```
 
 ---
@@ -409,7 +409,6 @@ const MAX_TASKS = 6;
 async function executeSingleTask(
   item: TaskItem,
   cwd: string,
-  configDir: string,
   signal?: AbortSignal,
   callbacks?: {
     onMessageChunk?: (cli: CliType, text: string) => void;
@@ -420,13 +419,16 @@ async function executeSingleTask(
   const cli = resolveCli(item);                    // item.cli ?? taskType.defaultCli ?? 기본값
   const prompt = buildPrompt(item);                // systemPrefix + prompt 결합
   const timeout = resolveTimeout(item.taskType);   // taskType.promptIdleTimeout
+  const modelConfig = resolveModelConfig(cli);     // Push 방식: 호출자가 설정 파일에서 읽어 주입
   const startTime = Date.now();
 
   const result = await executeOneShot({
     cli,
     request: prompt,
     cwd,
-    configDir,
+    model: modelConfig?.model,
+    effort: modelConfig?.effort,
+    budgetTokens: modelConfig?.budgetTokens,
     signal,
     promptIdleTimeout: timeout,
     onMessageChunk: (text) => callbacks?.onMessageChunk?.(cli, text),
@@ -454,7 +456,6 @@ async function executeSingleTask(
 async function executeParallelTasks(
   items: TaskItem[],
   cwd: string,
-  configDir: string,
   signal?: AbortSignal,
   callbacks?: { /* 위와 동일, index 추가 */ },
 ): Promise<TaskResult[]> {
@@ -463,7 +464,7 @@ async function executeParallelTasks(
   }
 
   return mapWithConcurrencyLimit(items, MAX_CONCURRENCY, (item, index) =>
-    executeSingleTask(item, cwd, configDir, signal, /* ... */),
+    executeSingleTask(item, cwd, signal, /* ... */),
   );
 }
 ```
@@ -575,18 +576,18 @@ pi의 tool execute에서 `onUpdate` 콜백으로 실행 중 진행 상황을 갱
 
 ```typescript
 export default function (pi: ExtensionAPI) {
-  const configDir = __dirname;  // 모델 설정 파일 경로
-
   // 1. 레지스트리 초기화 + globalThis 노출
   const registry = createRegistry();
   (globalThis as any)[TASK_REGISTRY_KEY] = registry;
 
   // 2. 실행기 초기화 + globalThis 노출
+  // model/effort/budgetTokens는 executeSingleTask 내부에서
+  // loadSelectedModels()로 읽어 Push 방식으로 executeOneShot에 전달
   const executor: TaskExecutorBridge = {
-    run: (item, opts) => executeSingleTask(item, opts?.cwd ?? process.cwd(), configDir, opts?.signal, opts),
-    runParallel: (items, opts) => executeParallelTasks(items, opts?.cwd ?? process.cwd(), configDir, opts?.signal, opts),
+    run: (item, opts) => executeSingleTask(item, opts?.cwd ?? process.cwd(), opts?.signal, opts),
+    runParallel: (items, opts) => executeParallelTasks(items, opts?.cwd ?? process.cwd(), opts?.signal, opts),
     fanOut: (prompt, clis, opts) => /* parallel로 위임 */,
-    chain: (items, opts) => executeChainTasks(items, opts?.cwd ?? process.cwd(), configDir, opts?.signal, opts),
+    chain: (items, opts) => executeChainTasks(items, opts?.cwd ?? process.cwd(), opts?.signal, opts),
   };
   (globalThis as any)[TASK_EXECUTOR_KEY] = executor;
 
@@ -628,8 +629,8 @@ export default function (pi: ExtensionAPI) {
 | 파일 | 책임 | 의존 |
 |------|------|------|
 | `index.ts` | 와이어링: 도구 등록, globalThis API 노출 | pi API, executor, registry, render, prompts |
-| `types.ts` | 모든 공개 타입, globalThis 키, 브릿지 인터페이스 | unified-agent-core/types |
+| `types.ts` | 모든 공개 타입, globalThis 키, 브릿지 인터페이스 | unified-agent-direct/core/agent/types, @sbluemin/unified-agent |
 | `prompts.ts` | 도구 description, promptSnippet, promptGuidelines (동적) | registry |
-| `executor.ts` | 실행 엔진: single/parallel/fan-out/chain, 동시성 제어 | unified-agent-core/executor |
+| `executor.ts` | 실행 엔진: single/parallel/fan-out/chain, 동시성 제어 | unified-agent-direct/core/agent/executor |
 | `registry.ts` | 태스크 타입 CRUD, globalThis 레지스트리 | 없음 (순수 데이터) |
 | `render.ts` | renderCall + renderResult: 축소/확장 뷰, onUpdate 진행 표시 | pi-tui |

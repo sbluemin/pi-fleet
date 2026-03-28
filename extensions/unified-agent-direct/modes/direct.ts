@@ -9,7 +9,7 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
-import type { SessionMapStore } from "../../unified-agent-core/session-map";
+import type { SessionMapStore } from "../core/agent/session-map";
 import { runAgentRequest } from "../core/agent-api.js";
 import { registerCustomDirectMode } from "./framework";
 import type { DirectModeResult } from "./framework";

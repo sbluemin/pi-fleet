@@ -21,10 +21,9 @@ import * as path from "node:path";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-// SDK imports
-import { createSessionMapStore, migrateSessionMaps } from "../unified-agent-core/session-map";
-import { cleanIdleClients } from "../unified-agent-core/client-pool";
-import { migrateSelectedModels } from "../unified-agent-core/model-config";
+// 코어 에이전트
+import { createSessionMapStore } from "./core/agent/session-map";
+import { cleanIdleClients } from "./core/agent/client-pool";
 
 
 // 에이전트 패널
@@ -62,15 +61,10 @@ import { registerModelCommands, syncModelConfig } from "./model-selection/index.
 
 export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
   const extensionDir = path.dirname(fileURLToPath(import.meta.url));
-  const legacySdkDir = path.resolve(extensionDir, "../unified-agent-core");
 
   // ── 세션 스토어 초기화 ──
   const sessionDir = path.join(extensionDir, "session-maps");
-  migrateSessionMaps(path.join(legacySdkDir, "session-maps"), sessionDir);
   const sessionStore = createSessionMapStore(sessionDir);
-
-  // ── 레거시 마이그레이션 ──
-  migrateSelectedModels(legacySdkDir, extensionDir);
 
   // ── infra-hud 에디터 모드 프로바이더 주입 (역방향 의존 제거) ──
   (globalThis as any)[EDITOR_MODE_PROVIDER_KEY] = {

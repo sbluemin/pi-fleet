@@ -6,16 +6,12 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 
-import type { CliType, ModelSelection, SelectedModelsConfig } from "../../unified-agent-core/types";
-import {
-  loadSelectedModels,
-  saveSelectedModels,
-  getAvailableModels,
-  getEffortLevels,
-  getDefaultBudgetTokens,
-} from "../../unified-agent-core/model-config";
-import { disconnectClient } from "../../unified-agent-core/client-pool";
-import type { SessionMapStore } from "../../unified-agent-core/session-map";
+import type { CliType } from "@sbluemin/unified-agent";
+import type { ModelSelection, SelectedModelsConfig } from "./types";
+import { loadSelectedModels, saveSelectedModels } from "./store";
+import { getAvailableModels, getEffortLevels, getDefaultBudgetTokens } from "./provider-catalog";
+import { disconnectClient } from "../core/agent/client-pool";
+import type { SessionMapStore } from "../core/agent/session-map";
 import { INFRA_KEYBIND_KEY } from "../../infra-keybind/types.js";
 import type { InfraKeybindAPI } from "../../infra-keybind/types.js";
 import {

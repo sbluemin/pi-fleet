@@ -1,5 +1,5 @@
 /**
- * unified-agent-core — 실행기
+ * core/agent/executor.ts — 실행 엔진
  *
  * 풀 기반(executeWithPool) 및 원샷(executeOneShot) 실행을 제공합니다.
  * 세션 관리가 완전 캡슐화되어 외부에서 sessionId를 제공/변경할 수 없습니다.
@@ -7,8 +7,8 @@
  */
 
 import { UnifiedAgentClient } from "@sbluemin/unified-agent";
+import type { CliType } from "@sbluemin/unified-agent";
 import type {
-  CliType,
   ExecuteOptions,
   ExecuteResult,
   AgentStatus,
@@ -17,11 +17,16 @@ import type {
 } from "./types";
 import { disconnectClient, getClientPool, isClientAlive, type PooledClient } from "./client-pool";
 import type { SessionMapStore } from "./session-map";
-import { buildConnectOptions, loadSelectedModels } from "./model-config";
 
-// ─── 도구 호출 최대 보관 수 (메모리 보호) ────────────────
+// ─── 상수 ────────────────────────────────────────────────
 
+/** SDK 연결 시 사용할 공통 clientInfo */
+const CLIENT_INFO = { name: "pi-unified-agent", version: "1.0.0" } as const;
+
+/** 도구 호출 최대 보관 수 (메모리 보호) */
 const MAX_TOOL_CALLS_TO_KEEP = 30;
+
+// ─── 도구 호출 텍스트 추출 ──────────────────────────────
 
 type ToolCallLike = {
   content?: unknown;
@@ -111,34 +116,57 @@ function raceAbort<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
   ]);
 }
 
+// ─── 연결 옵션 구성 (executor 전용 private) ──────────────
+
+/**
+ * CLI 연결에 필요한 공통 옵션 객체를 구성합니다.
+ * 호출자가 주입한 model 값을 그대로 사용합니다.
+ */
+function buildConnectOptions(
+  cli: CliType,
+  cwd: string,
+  overrides?: { model?: string; promptIdleTimeout?: number },
+): Record<string, unknown> {
+  const opts: Record<string, unknown> = {
+    cwd,
+    cli,
+    autoApprove: true,
+    clientInfo: CLIENT_INFO,
+  };
+
+  if (overrides?.model) {
+    opts.model = overrides.model;
+  }
+
+  if (overrides?.promptIdleTimeout !== undefined) {
+    opts.promptIdleTimeout = overrides.promptIdleTimeout;
+  }
+
+  return opts;
+}
+
+// ─── 연결 후 추론 설정 적용 ─────────────────────────────
+
 /**
  * 연결 후 추론 설정을 세션에 적용합니다.
- * 명시적 override가 있으면 우선 적용하고, 없으면 configDir 파일에서 fallback합니다.
- * 현재 unified-agent SDK는 추론 관련 옵션을 connect 옵션으로 받지 않으므로
- * CLI 경로와 동일하게 setConfigOption으로 별도 반영합니다.
+ * 호출자가 주입한 effort/budgetTokens 값을 그대로 사용합니다.
  */
 async function applyPostConnectConfig(
   client: UnifiedAgentClient,
   cli: CliType,
-  configDir: string,
   overrides?: { effort?: string; budgetTokens?: number },
 ): Promise<void> {
-  // 명시적 override 우선, 없으면 configDir 파일에서 fallback
-  const cliConfig = loadSelectedModels(configDir)[cli];
-  const effort = overrides?.effort ?? cliConfig?.effort;
-  const budgetTokens = overrides?.budgetTokens ?? cliConfig?.budgetTokens;
-
-  if (effort) {
+  if (overrides?.effort) {
     try {
-      await client.setConfigOption("reasoning_effort", effort);
+      await client.setConfigOption("reasoning_effort", overrides.effort);
     } catch {
       // reasoning_effort 미지원 CLI는 조용히 무시합니다.
     }
   }
 
-  if (cli === "claude" && budgetTokens) {
+  if (cli === "claude" && overrides?.budgetTokens) {
     try {
-      await client.setConfigOption("budget_tokens", String(budgetTokens));
+      await client.setConfigOption("budget_tokens", String(overrides.budgetTokens));
     } catch {
       // budget_tokens 미지원 세션은 조용히 무시합니다.
     }
@@ -157,7 +185,7 @@ async function applyPostConnectConfig(
  *  4. 이미 연결된 경우 기존 세션 ID를 그대로 재사용
  */
 export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResult> {
-  const { cli, request, cwd, configDir, signal } = opts;
+  const { cli, request, cwd, signal } = opts;
   const clientPool = getClientPool();
 
   // sessionStore가 없으면 no-op (하위 호환 / executeOneShot 경유 방지)
@@ -311,8 +339,8 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
     const needsConnect = !isClientAlive(client);
 
     if (needsConnect) {
-      // ── 연결 옵션 구성 (명시적 model override 우선) ──
-      const connectOpts = buildConnectOptions(cli, cwd, configDir, {
+      // ── 연결 옵션 구성 ──
+      const connectOpts = buildConnectOptions(cli, cwd, {
         model: opts.model,
         promptIdleTimeout: opts.promptIdleTimeout,
       });
@@ -373,7 +401,7 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
         store.set(cli, connectionInfo.sessionId);
       }
 
-      await applyPostConnectConfig(client, cli, configDir, {
+      await applyPostConnectConfig(client, cli, {
         effort: opts.effort,
         budgetTokens: opts.budgetTokens,
       });
@@ -394,7 +422,7 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
 
       // effort/budgetTokens는 setConfigOption으로 사후 적용 가능 — 명시적 override가 있을 때만 적용
       if (opts.effort || opts.budgetTokens) {
-        await applyPostConnectConfig(client, cli, configDir, {
+        await applyPostConnectConfig(client, cli, {
           effort: opts.effort,
           budgetTokens: opts.budgetTokens,
         });
@@ -457,7 +485,7 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
  * 세션 매핑을 사용하지 않습니다.
  */
 export async function executeOneShot(opts: ExecuteOptions): Promise<ExecuteResult> {
-  const { cli, request, cwd, configDir, signal } = opts;
+  const { cli, request, cwd, signal } = opts;
 
   let responseText = "";
   let thoughtText = "";
@@ -491,14 +519,14 @@ export async function executeOneShot(opts: ExecuteOptions): Promise<ExecuteResul
       signal.addEventListener("abort", onAbort, { once: true });
     }
 
-    // 연결 옵션 구성 (명시적 model override 우선)
-    const connectOpts = buildConnectOptions(cli, cwd, configDir, {
+    // 연결 옵션 구성
+    const connectOpts = buildConnectOptions(cli, cwd, {
       model: opts.model,
       promptIdleTimeout: opts.promptIdleTimeout,
     });
 
     await raceAbort(client.connect(connectOpts as any), signal);
-    await applyPostConnectConfig(client, cli, configDir, {
+    await applyPostConnectConfig(client, cli, {
       effort: opts.effort,
       budgetTokens: opts.budgetTokens,
     });

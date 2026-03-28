@@ -7,10 +7,10 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
-import type { CliType } from "../../unified-agent-core/types";
+import type { CliType } from "@sbluemin/unified-agent";
 import { Type } from "@sinclair/typebox";
 
-import type { SessionMapStore } from "../../unified-agent-core/session-map";
+import type { SessionMapStore } from "../core/agent/session-map";
 import { DIRECT_MODE_BG_COLORS, DIRECT_MODE_COLORS } from "../constants";
 import { toolDescription, toolPromptSnippet, toolPromptGuidelines } from "./prompts.js";
 import { createToolResultRenderer } from "../core/render/message-renderers.js";
