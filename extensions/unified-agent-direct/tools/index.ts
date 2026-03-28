@@ -16,7 +16,7 @@ import { toolDescription, toolPromptSnippet, toolPromptGuidelines } from "./prom
 import { createToolResultRenderer } from "../core/render/message-renderers.js";
 import { runAgentRequest } from "../core/agent-api.js";
 import type { UnifiedAgentResult } from "../types.js";
-import { Text } from "@mariozechner/pi-tui";
+import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
 const CLI_NAMES: Record<string, string> = {
   claude: "Claude",
@@ -70,9 +70,22 @@ export function registerAgentTools({ pi, configDir, sessionStore }: RegisterAgen
       }),
 
       renderCall(args: { request?: string }, theme: any) {
-        let text = theme.fg("toolTitle", theme.bold(cli)) + "\n\n";
-        text += args.request ?? "";
-        return new Text(text, 0, 0);
+        const raw = args.request?.trim() ?? "";
+        const firstLine = raw.split(/\r?\n/, 1)[0] ?? "";
+        const isMultiline = raw.includes("\n");
+        const title = theme.fg("toolTitle", theme.bold(displayName));
+        const titleWidth = visibleWidth(title);
+        // render(width)를 직접 구현하여 터미널 너비 기반 동적 truncate → 항상 한 줄 보장
+        return {
+          render(width: number): string[] {
+            const remaining = Math.max(0, width - titleWidth - 1);
+            if (!firstLine || remaining === 0) return [title];
+            const truncated = truncateToWidth(firstLine, remaining);
+            const preview = isMultiline && !truncated.endsWith("...") ? truncated + "..." : truncated;
+            return [`${title} ${theme.fg("dim", preview)}`];
+          },
+          invalidate() {},
+        };
       },
 
       renderResult: createToolResultRenderer({

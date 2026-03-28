@@ -79,7 +79,7 @@ function renderStreamLines(
 
   const lines: string[] = [];
 
-  // ── 헤더: 아이콘 + 이름 ──
+  // ── 헤더: 아이콘 + 이름 + 요청 미리보기 ──
   const spinner = isRunning
     ? SPINNER_FRAMES[frame % SPINNER_FRAMES.length] + " "
     : "";
@@ -91,7 +91,19 @@ function renderStreamLines(
   const nameStyled = color
     ? `${color}${theme.bold(name)}${ANSI_RESET}`
     : theme.bold(name);
-  lines.push(`${statusIcon} ${nameStyled}`);
+
+  // 요청 미리보기를 잔여 너비에 맞춰 한 줄로 표시
+  // requestPreview는 이미 첫 줄만 저장된 값 (agent-api에서 추출)
+  // truncateToWidth가 CJK/이모지 visibleWidth 기준으로 처리하고 "..."도 자동 부착
+  const rawPreview = run.requestPreview ?? "";
+  const headerPrefix = `${statusIcon} ${nameStyled}  `;
+  const headerPrefixWidth = visibleWidth(headerPrefix);
+  const remainingWidth = Math.max(0, width - headerPrefixWidth);
+  const requestPart = rawPreview
+    ? `${PANEL_DIM_COLOR}${truncateToWidth(rawPreview, remainingWidth)}${ANSI_RESET}`
+    : "";
+
+  lines.push(`${headerPrefix}${requestPart}`);
   lines.push("");
 
   // ── blocks 기반 렌더링 (block-renderer 사용) ──

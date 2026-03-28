@@ -30,6 +30,8 @@ export class StreamRun {
   status: ColStatus = "wait";
   sessionId?: string;
   error?: string;
+  /** 헤더 미리보기용 요청 첫 줄 (전문 아님) */
+  requestPreview?: string;
 
   /** blocks에서 파생되는 text 캐시 */
   private _textCache: string | null = null;
@@ -145,11 +147,12 @@ function resolveRun(cli: string): StreamRun | undefined {
  * 새 run을 생성하고 해당 CLI의 visible run으로 설정합니다.
  * @returns 생성된 runId
  */
-export function createRun(cli: string, initialStatus: ColStatus = "conn"): string {
+export function createRun(cli: string, initialStatus: ColStatus = "conn", requestPreview?: string): string {
   const s = getStoreState();
   const runId = nextRunId(cli);
   const run = new StreamRun(runId, cli);
   run.status = initialStatus;
+  run.requestPreview = requestPreview;
   s.runs.set(runId, run);
   s.visibleRunIdByCli.set(cli, runId);
   return runId;

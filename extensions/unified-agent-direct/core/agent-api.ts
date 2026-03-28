@@ -168,8 +168,9 @@ export async function runAgentRequest(options: RunAgentRequestOptions): Promise<
     activeRunCleanups.delete(cli);
   }
 
-  // 1. store에 새 run 생성
-  const runId = createRun(cli, "conn");
+  // 1. store에 새 run 생성 (첫 줄만 추출하여 헤더 미리보기로 저장)
+  const requestPreview = request?.trim().split(/\r?\n/, 1)[0];
+  const runId = createRun(cli, "conn", requestPreview);
 
   // 2. 패널 칼럼 초기화
   if (colIndex >= 0) {
