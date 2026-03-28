@@ -12,8 +12,8 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 import { INFRA_EXPERIMENTAL_KEY } from "./types.js";
 import type { InfraExperimentalAPI } from "./types.js";
-import { INFRA_SETTINGS_KEY } from "../infra-settings/types.js";
-import type { InfraSettingsAPI } from "../infra-settings/types.js";
+import { INFRA_SETTINGS_KEY } from "../settings/types.js";
+import type { InfraSettingsAPI } from "../settings/types.js";
 import { getStatus } from "./store.js";
 import { handleCommand, getArgumentCompletions } from "./command.js";
 

@@ -15,7 +15,7 @@ import { ansi, getFgAnsiCode } from "./colors.js";
 import { getPreset } from "./presets.js";
 import { buildSegmentContext } from "./context.js";
 import { computeResponsiveLayout } from "./layout.js";
-import { WELCOME_GLOBAL_KEY } from "../utils-welcome/types.js";
+import { WELCOME_GLOBAL_KEY } from "../welcome/types.js";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // globalThis 접근 헬퍼

@@ -11,7 +11,9 @@
 |------|-------------|
 | `packages/` | Embedded first-party libraries (e.g., `unified-agent`) |
 | `extensions/` | Collection of pi extensions and shared libraries (refer to its own `AGENTS.md`) |
-| `experimental/` | Experimental extensions under active development (refer to the Extension Lifecycle below) |
+| `extensions-infra/` | Infrastructure extensions — hud, keybind, settings, welcome, interactive-shell, experimental (refer to its own `AGENTS.md`) |
+| `extensions-util/` | Utility extensions — improve-prompt, summarize, thinking-timer (refer to its own `AGENTS.md`) |
+| `extensions-experimental/` | Experimental extensions under active development (refer to the Extension Lifecycle below) |
 
 > Currently, there is no `pi/` directory — symlink setup is not required.
 
@@ -46,20 +48,62 @@ PI is the **host agent** (orchestrator). Claude, Codex, and Gemini are **sub-age
 
 ## Extension Lifecycle
 
-All new extensions **MUST** be developed under `experimental/` first.
+All new extensions **MUST** be developed under `extensions-experimental/` first.
 
 ### Development Flow
 
 ```
-experimental/<name>/   →   (explicit promotion)   →   extensions/<name>/
+extensions-experimental/<name>/   →   (explicit promotion)   →   extensions/<name>/
 ```
 
 ### Rules
 
-- **New extensions start in `experimental/`** — Do not create new extensions directly under `extensions/`.
-- **`experimental/` is opt-in** — Users activate it via `/fleet:system:experimental on`. It is disabled by default.
-- **Promotion to `extensions/` requires explicit instruction** — An extension is moved from `experimental/` to `extensions/` only when the user explicitly requests it. Do not promote autonomously.
-- **Demotion is also explicit** — Moving an extension back from `extensions/` to `experimental/` also requires explicit user instruction.
+- **New extensions start in `extensions-experimental/`** — Do not create new extensions directly under `extensions/`.
+- **`extensions-experimental/` is opt-in** — Users activate it via `/fleet:system:experimental on`. It is disabled by default.
+- **Promotion to `extensions/` requires explicit instruction** — An extension is moved from `extensions-experimental/` to `extensions/` only when the user explicitly requests it. Do not promote autonomously.
+- **Demotion is also explicit** — Moving an extension back from `extensions/` to `extensions-experimental/` also requires explicit user instruction.
+
+## Domain Boundary Rules
+
+Extensions are organized in layers. **Dependencies must only flow in one direction — from higher layers toward lower layers.**
+
+### Dependency Direction
+
+```
+extensions-experimental/  →  extensions-util/  →  extensions/  →  extensions-infra/
+       (top)                    (utility)           (feature)        (infrastructure)
+```
+
+- **Allowed**: A layer may import from any layer below it (direct or transitive).
+- **Forbidden**: A layer must never import from a layer above it (no reverse dependencies).
+
+### Layer Rules
+
+| Layer | May import from | Must NOT import from |
+|-------|----------------|----------------------|
+| `extensions-infra/` | external packages only | any other layer |
+| `extensions/` | `extensions-infra/` | `extensions-util/`, `extensions-experimental/` |
+| `extensions-util/` | `extensions/`, `extensions-infra/` | `extensions-experimental/` |
+| `extensions-experimental/` | all layers | — |
+
+> **Skipping layers is allowed** — e.g., `extensions-util/` may import directly from `extensions-infra/` without going through `extensions/`.
+
+### Verification (as of 2026-03-28)
+
+All cross-domain imports verified — **no reverse dependency violations found**.
+
+| Import | Direction | Status |
+|--------|-----------|--------|
+| `extensions/unified-agent-direct` → `extensions-infra/keybind` | extensions → infra | ✅ |
+| `extensions-util/summarize` → `extensions-infra/settings` | util → infra | ✅ |
+| `extensions-util/improve-prompt` → `extensions-infra/settings`, `extensions-infra/keybind` | util → infra | ✅ |
+
+### Enforcement
+
+- When adding a new import across layer boundaries, **verify the direction before committing**.
+- A reverse dependency is a hard violation — **do not merge code that breaks this rule**.
+
+---
 
 ## Slash Command Naming
 
@@ -82,11 +126,6 @@ Each extension maps to exactly one domain. Use the domain below for all commands
 | Extension | Domain | Rationale |
 |-----------|--------|-----------|
 | `unified-agent-direct/` | `agent` | Sub-agent orchestration features |
-| `infra-hud/` | `hud` | HUD / editor display features |
-| `infra-experimental/` | `system` | System-level toggles and infra controls |
-| `utils-summarize/` | `summary` | Session summary features |
-| `utils-improve-prompt/` | `prompt` | Prompt improvement features |
-
 When adding a **new extension**, assign a domain that reflects the **feature category**, not the directory prefix (`infra-`, `utils-`, etc.).
 
 ### Feature Naming
@@ -104,7 +143,7 @@ When adding a **new extension**, assign a domain that reflects the **feature cat
 ### When to Apply
 
 - Apply this naming from the **first `registerCommand` call** in a new extension — do not rename later.
-- Commands without the `fleet:` prefix must be renamed **before promotion** from `experimental/` to `extensions/`.
+- Commands without the `fleet:` prefix must be renamed **before promotion** from `extensions-experimental/` to `extensions/`.
 
 ## Git Guidelines
 

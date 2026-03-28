@@ -13,8 +13,8 @@ import {
   countExperimentalExtensions,
   experimentalDirExists,
 } from "./store.js";
-import { INFRA_SETTINGS_KEY } from "../infra-settings/types.js";
-import type { InfraSettingsAPI } from "../infra-settings/types.js";
+import { INFRA_SETTINGS_KEY } from "../settings/types.js";
+import type { InfraSettingsAPI } from "../settings/types.js";
 
 // infra-settings에 저장되는 섹션 키
 const SETTINGS_SECTION_KEY = "infra-experimental";

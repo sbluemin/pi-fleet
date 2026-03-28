@@ -8,8 +8,8 @@
 import type { ExtensionAPI, ReadonlyFooterDataProvider } from "@mariozechner/pi-coding-agent";
 
 
-import { INFRA_KEYBIND_KEY } from "../infra-keybind/types.js";
-import type { InfraKeybindAPI } from "../infra-keybind/types.js";
+import { INFRA_KEYBIND_KEY } from "../keybind/types.js";
+import type { InfraKeybindAPI } from "../keybind/types.js";
 import type { HudCoreConfig, StatusLinePreset } from "./types.js";
 import { PRESETS } from "./presets.js";
 import { invalidateGitStatus, invalidateGitBranch } from "./git-status.js";

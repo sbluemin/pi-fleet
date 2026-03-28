@@ -8,8 +8,8 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 
-import { INFRA_KEYBIND_KEY } from "../infra-keybind/types.js";
-import type { InfraKeybindAPI } from "../infra-keybind/types.js";
+import { INFRA_KEYBIND_KEY } from "../keybind/types.js";
+import type { InfraKeybindAPI } from "../keybind/types.js";
 import { INFRA_SETTINGS_KEY } from "./types.js";
 import type { InfraSettingsAPI } from "./types.js";
 import { loadSection, saveSection } from "./store.js";

@@ -11,7 +11,7 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 import { WELCOME_GLOBAL_KEY, type WelcomeBridge } from "./types.js";
-import { readSettings } from "../infra-hud/utils.js";
+import { readSettings } from "../hud/utils.js";
 import { WelcomeComponent, WelcomeHeader, discoverLoadedCounts, getRecentSessions } from "./welcome.js";
 
 // ═══════════════════════════════════════════════════════════════════════════

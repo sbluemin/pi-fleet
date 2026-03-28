@@ -1,0 +1,10 @@
+{
+  "utils-improve-prompt": {
+    "reasoning": "high",
+    "provider": "openai-codex",
+    "model": "gpt-5.3-codex-spark"
+  },
+  "utils-summarize": {
+    "maxLength": 80
+  }
+}

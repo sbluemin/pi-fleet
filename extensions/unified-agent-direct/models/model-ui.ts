@@ -17,8 +17,8 @@ import {
   disconnectClient,
   setAgentPanelModelConfig,
 } from "../core/index.js";
-import { INFRA_KEYBIND_KEY } from "../../infra-keybind/types.js";
-import type { InfraKeybindAPI } from "../../infra-keybind/types.js";
+import { INFRA_KEYBIND_KEY } from "../../../extensions-infra/keybind/types.js";
+import type { InfraKeybindAPI } from "../../../extensions-infra/keybind/types.js";
 import {
   CLI_DISPLAY_NAMES,
   CLI_ORDER,
