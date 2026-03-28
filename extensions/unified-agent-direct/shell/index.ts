@@ -7,7 +7,7 @@
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import type { CliType } from "@sbluemin/unified-agent";
-import { buildConnectOptions } from "../../unified-agent-core/model-config.js";
+import { loadSelectedModels } from "../../unified-agent-core/model-config.js";
 
 /** CLI 명령어 매핑 (CliConfigs.ts의 cliCommand 값) */
 const CLI_COMMANDS: Record<string, string> = {
@@ -35,14 +35,14 @@ export interface PopupCommandOptions {
  */
 export function buildAgentPopupCommand(
   opts: PopupCommandOptions,
-  ctx: ExtensionContext,
+  _ctx: ExtensionContext,
   configDir: string,
 ): string {
   const { agentId, sessionId } = opts;
-  const connectOptions = buildConnectOptions(agentId, ctx.cwd, configDir);
+  const cliConfig = loadSelectedModels(configDir)[agentId];
   const command = CLI_COMMANDS[agentId] ?? agentId;
-  const model = typeof connectOptions.model === "string" ? connectOptions.model : undefined;
-  const effort = typeof connectOptions.effort === "string" ? connectOptions.effort : undefined;
+  const model = cliConfig?.model;
+  const effort = cliConfig?.effort;
   const args = buildResumeOrNewArgs(agentId, sessionId, model, effort);
   return joinCommand(command, args);
 }

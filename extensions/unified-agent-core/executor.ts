@@ -112,7 +112,8 @@ function raceAbort<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
 }
 
 /**
- * 연결 후 저장된 추론 설정을 세션에 적용합니다.
+ * 연결 후 추론 설정을 세션에 적용합니다.
+ * 명시적 override가 있으면 우선 적용하고, 없으면 configDir 파일에서 fallback합니다.
  * 현재 unified-agent SDK는 추론 관련 옵션을 connect 옵션으로 받지 않으므로
  * CLI 경로와 동일하게 setConfigOption으로 별도 반영합니다.
  */
@@ -120,23 +121,24 @@ async function applyPostConnectConfig(
   client: UnifiedAgentClient,
   cli: CliType,
   configDir: string,
+  overrides?: { effort?: string; budgetTokens?: number },
 ): Promise<void> {
+  // 명시적 override 우선, 없으면 configDir 파일에서 fallback
   const cliConfig = loadSelectedModels(configDir)[cli];
-  if (!cliConfig) {
-    return;
-  }
+  const effort = overrides?.effort ?? cliConfig?.effort;
+  const budgetTokens = overrides?.budgetTokens ?? cliConfig?.budgetTokens;
 
-  if (cliConfig.effort) {
+  if (effort) {
     try {
-      await client.setConfigOption("reasoning_effort", cliConfig.effort);
+      await client.setConfigOption("reasoning_effort", effort);
     } catch {
       // reasoning_effort 미지원 CLI는 조용히 무시합니다.
     }
   }
 
-  if (cli === "claude" && cliConfig.budgetTokens) {
+  if (cli === "claude" && budgetTokens) {
     try {
-      await client.setConfigOption("budget_tokens", String(cliConfig.budgetTokens));
+      await client.setConfigOption("budget_tokens", String(budgetTokens));
     } catch {
       // budget_tokens 미지원 세션은 조용히 무시합니다.
     }
@@ -309,8 +311,9 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
     const needsConnect = !isClientAlive(client);
 
     if (needsConnect) {
-      // ── 연결 옵션 구성 ──
+      // ── 연결 옵션 구성 (명시적 model override 우선) ──
       const connectOpts = buildConnectOptions(cli, cwd, configDir, {
+        model: opts.model,
         promptIdleTimeout: opts.promptIdleTimeout,
       });
 
@@ -370,9 +373,13 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
         store.set(cli, connectionInfo.sessionId);
       }
 
-      await applyPostConnectConfig(client, cli, configDir);
+      await applyPostConnectConfig(client, cli, configDir, {
+        effort: opts.effort,
+        budgetTokens: opts.budgetTokens,
+      });
     } else {
       // 이미 연결됨 — 기존 연결 정보 사용
+      // model은 connect 시점에만 지정 가능하므로 재연결 없이는 변경 불가
       const info = client.getConnectionInfo();
       connectionInfo.protocol = info.protocol ?? undefined;
       connectionInfo.sessionId = info.sessionId ?? undefined;
@@ -383,6 +390,14 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
       }
       if (connectionInfo.sessionId) {
         store.set(cli, connectionInfo.sessionId);
+      }
+
+      // effort/budgetTokens는 setConfigOption으로 사후 적용 가능 — 명시적 override가 있을 때만 적용
+      if (opts.effort || opts.budgetTokens) {
+        await applyPostConnectConfig(client, cli, configDir, {
+          effort: opts.effort,
+          budgetTokens: opts.budgetTokens,
+        });
       }
     }
 
@@ -434,10 +449,10 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
   return { responseText, thoughtText, toolCalls, connectionInfo, status, error };
 }
 
-// ─── executeOneShot: 비풀 실행 (All 모드용) ─────────────
+// ─── executeOneShot: 비풀 일회성 실행 ─────────────────────
 
 /**
- * 비풀 실행 (All 모드용)
+ * 비풀 일회성 실행
  * 매번 새 UnifiedAgentClient를 생성 → 실행 → disconnect
  * 세션 매핑을 사용하지 않습니다.
  */
@@ -476,13 +491,17 @@ export async function executeOneShot(opts: ExecuteOptions): Promise<ExecuteResul
       signal.addEventListener("abort", onAbort, { once: true });
     }
 
-    // 연결 옵션 구성
+    // 연결 옵션 구성 (명시적 model override 우선)
     const connectOpts = buildConnectOptions(cli, cwd, configDir, {
+      model: opts.model,
       promptIdleTimeout: opts.promptIdleTimeout,
     });
 
     await raceAbort(client.connect(connectOpts as any), signal);
-    await applyPostConnectConfig(client, cli, configDir);
+    await applyPostConnectConfig(client, cli, configDir, {
+      effort: opts.effort,
+      budgetTokens: opts.budgetTokens,
+    });
 
     if (aborted) {
       return { responseText, thoughtText, toolCalls, connectionInfo, status, error };

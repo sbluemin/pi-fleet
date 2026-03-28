@@ -14,7 +14,8 @@ import {
   getEffortLevels,
   getDefaultBudgetTokens,
 } from "../../unified-agent-core/model-config";
-import { cleanIdleClients } from "../../unified-agent-core/client-pool";
+import { disconnectClient } from "../../unified-agent-core/client-pool";
+import type { SessionMapStore } from "../../unified-agent-core/session-map";
 import { INFRA_KEYBIND_KEY } from "../../infra-keybind/types.js";
 import type { InfraKeybindAPI } from "../../infra-keybind/types.js";
 import {
@@ -150,6 +151,7 @@ async function selectModelForCli(
 export function registerModelCommands(
   pi: ExtensionAPI,
   extensionDir: string,
+  sessionStore: SessionMapStore,
 ): void {
   const cliTypes = CLI_ORDER;
   const keybind = (globalThis as any)[INFRA_KEYBIND_KEY] as InfraKeybindAPI;
@@ -187,7 +189,9 @@ export function registerModelCommands(
       const existing = loadSelectedModels(extensionDir);
       existing[targetCli] = selection;
       saveSelectedModels(extensionDir, existing);
-      cleanIdleClients();
+      // 변경된 CLI의 기존 세션을 강제 종료 + 세션 매핑 제거하여 다음 요청 시 새 모델로 연결
+      await disconnectClient(targetCli);
+      sessionStore.clear(targetCli);
 
       // 4. 알림 + 상태바 갱신
       const cliName = CLI_DISPLAY_NAMES[targetCli] ?? targetCli;
@@ -217,9 +221,11 @@ export function registerModelCommands(
         selectedModels[cli] = selection;
       }
 
-      // 저장
+      // 저장 후 변경된 각 CLI의 기존 세션을 강제 종료 + 세션 매핑 제거
       saveSelectedModels(extensionDir, selectedModels);
-      cleanIdleClients();
+      const changedClis = Object.keys(selectedModels) as CliType[];
+      await Promise.allSettled(changedClis.map((cli) => disconnectClient(cli)));
+      for (const cli of changedClis) sessionStore.clear(cli);
 
       // 요약 알림
       const summary = Object.entries(selectedModels).map(([k, v]) => {

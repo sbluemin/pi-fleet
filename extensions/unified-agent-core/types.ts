@@ -46,8 +46,14 @@ export interface ExecuteOptions {
   request: string;
   /** 작업 디렉토리 */
   cwd: string;
-  /** 설정 파일 디렉토리 (selected-models.json 등) */
+  /** 설정 파일 디렉토리 (selected-models.json 등, fallback용) */
   configDir: string;
+  /** 명시적 모델 ID (지정 시 configDir 파일보다 우선 적용) */
+  model?: string;
+  /** 명시적 reasoning effort (지정 시 configDir 파일보다 우선 적용) */
+  effort?: string;
+  /** 명시적 Claude thinking budget tokens (지정 시 configDir 파일보다 우선 적용) */
+  budgetTokens?: number;
   /** 세션 매핑 저장소 (executeWithPool 전용, executeOneShot에서는 미사용) */
   sessionStore?: import("./session-map").SessionMapStore;
   /** 프롬프트 유휴 타임아웃 (ms, 미지정 시 SDK 기본값 사용) */

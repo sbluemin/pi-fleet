@@ -13,6 +13,7 @@
 
 import { executeWithPool } from "../../unified-agent-core/executor";
 import type { AgentStatus } from "../../unified-agent-core/types";
+import { loadSelectedModels } from "../../unified-agent-core/model-config.js";
 import type { SessionMapStore } from "../../unified-agent-core/session-map";
 import {
   createRun,
@@ -204,12 +205,16 @@ export async function runAgentRequest(options: RunAgentRequestOptions): Promise<
   });
 
   try {
-    // 4. executeWithPool — 콜백에서 store 기록 + 패널 동기화 + 외부 전달
+    // 4. 설정 파일에서 모델 옵션을 읽어 해석된 값으로 주입 (Push 방식)
+    const cliConfig = loadSelectedModels(configDir)[cli];
     const result = await executeWithPool({
       cli,
       request,
       cwd: cwd ?? ctx.cwd,
       configDir,
+      model: cliConfig?.model,
+      effort: cliConfig?.effort,
+      budgetTokens: cliConfig?.budgetTokens,
       sessionStore,
       signal,
       onMessageChunk: (text) => {

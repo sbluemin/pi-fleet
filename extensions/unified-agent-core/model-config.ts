@@ -115,7 +115,7 @@ export function buildConnectOptions(
   cli: CliType,
   cwd: string,
   configDir: string,
-  overrides?: { promptIdleTimeout?: number },
+  overrides?: { model?: string; promptIdleTimeout?: number },
 ): Record<string, unknown> {
   const savedConfig = loadSelectedModels(configDir);
   const cliConfig = savedConfig[cli];
@@ -127,8 +127,10 @@ export function buildConnectOptions(
     clientInfo: CLIENT_INFO,
   };
 
-  // 저장된 모델이 있으면 적용
-  if (cliConfig?.model) {
+  // 명시적 override가 있으면 우선, 없으면 파일에서 읽은 값 fallback
+  if (overrides?.model) {
+    opts.model = overrides.model;
+  } else if (cliConfig?.model) {
     opts.model = cliConfig.model;
   }
 

@@ -98,7 +98,7 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
   registerDirectModes(pi, extensionDir, sessionStore);
   registerAllMode(pi, extensionDir, sessionStore);
   registerClaudeCodexMode(pi, extensionDir, sessionStore);
-  registerModelCommands(pi, extensionDir);
+  registerModelCommands(pi, extensionDir, sessionStore);
 
   // ── 에이전트 팝업 단축키 ──
   const keybind = (globalThis as any)[INFRA_KEYBIND_KEY] as InfraKeybindAPI;
