@@ -30,7 +30,7 @@ core/  (infrastructure — NO reverse deps to features)
 features (depend on core — never the reverse):
   ├── modes/            ← direct mode framework + 4 CLI modes
   ├── tools/            ← PI tool registration
-  ├── model-selection/  ← model selection UI
+  ├── models/            ← model selection UI
   ├── status/           ← service status monitoring
   └── shell/            ← agent popup command builder
 ```
@@ -41,7 +41,8 @@ features (depend on core — never the reverse):
 - **Feature → `core/index.ts` only**: Features (`modes/`, `tools/`, `status/`, etc.) access core exclusively via `core/index.ts` (the public Facade). Direct imports from `core/` sub-paths are forbidden in feature files.
   - **Exceptions**: `index.ts` (wiring layer), `types.ts` (public types), `tests/` (unit tests) may access core internals directly.
 - **`core/` must never import from feature directories**. Where core needs feature-provided behavior (e.g., service status rendering), **callback injection** via `index.ts` wiring is used.
-- **index.ts is the wiring layer**: It connects features to core via dependency injection (e.g., `setServiceStatusRenderer`), keeping core unaware of feature implementations.
+- **Features must not import from other features**. Each feature directory (`modes/`, `tools/`, `models/`, `status/`, `shell/`) is an isolated module that only depends on `core/index.ts` and shared root files (`constants.ts`, `types.ts`). When a feature needs behavior from another feature, `index.ts` (the wiring layer) injects it via a `deps` parameter — e.g., `models/` receives `getActiveModeId` and `notifyStatusUpdate` from `modes/` through `index.ts`.
+- **index.ts is the wiring layer**: It connects features to core via dependency injection (e.g., `setServiceStatusRenderer`) and cross-feature dependencies via `deps` parameters, keeping both core and features unaware of each other's implementations.
 
 ### Unified Execution Pipeline
 
@@ -92,8 +93,8 @@ Consumer (modes, tools, external extensions)
 | **tools/** | |
 | `tools/index.ts` | Registers `claude`, `codex`, `gemini` as individual pi tools. Depends on `core` (via Facade) |
 | `tools/prompts.ts` | Tool descriptions, prompt snippets, guidelines |
-| **model-selection/** | |
-| `model-selection/model-ui.ts` | Model selection UI + keybind/command registration |
+| **models/** | |
+| `models/model-ui.ts` | Model selection UI + keybind/command registration. Receives `getActiveModeId`/`notifyStatusUpdate` via DI from `index.ts` |
 | **status/** | |
 | `status/` | Service status monitoring (Claude/Codex/Gemini health checks). Renderer injected into core via `setServiceStatusRenderer` |
 | **shell/** | |
