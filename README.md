@@ -4,22 +4,47 @@ A multi-LLM orchestration kit for [pi-coding-agent](https://github.com/badlogic/
 
 ## Extensions
 
-### Core Extensions
+### Infrastructure (`extensions-infra/`)
 
 | Extension | Description |
 |-----------|-------------|
-| `unified-agent-direct` | Direct mode — `Alt+1/2/3` exclusive view, `Alt+0` tri-split view, `Alt+P` panel toggle + individual agent tools, client pool, executor, session map, model config |
-| `infra-hud` | Custom status bar editor + footer (with integrated rendering engine) |
-| `utils-welcome` | Welcome overlay on session start |
-| `utils-thinking-timer` | Inline elapsed-time display next to collapsed Thinking blocks |
-| `utils-improve-prompt` | Meta-prompting via `Alt+M`, reasoning level cycle via `Alt+R` |
-| `utils-summarize` | Auto one-line session summary |
+| `hud/` | Custom editor + status bar + footer with integrated rendering engine |
+| `keybind/` | Centralized keybinding management + overlay (`Alt+.`) |
+| `settings/` | Centralized settings API + overlay popup (`Alt+/`) |
+| `welcome/` | Welcome overlay displayed on session start |
+| `interactive-shell/` | Interactive shell session inside pi |
+| `experimental/` | System-level toggles for experimental features (`Alt+E`) |
 
-### Shared Libraries
+### Core (`extensions/`)
 
-| Library | Description | Used by |
-|---------|-------------|---------|
-| `infra-hud` (also extension) | Status bar rendering engine (segments, layout, colors, themes, git-status, icons, context builder) | `utils-welcome` |
+| Extension | Description |
+|-----------|-------------|
+| `unified-agent-direct/` | Direct mode — `Alt+1/2/3` exclusive view, `Alt+0` tri-split view, `Alt+9` 2-split (Claude & Codex) view, `Alt+P` panel toggle + individual agent tools, client pool, executor, session map, model config |
+
+### Utility (`extensions-util/`)
+
+| Extension | Description |
+|-----------|-------------|
+| `improve-prompt/` | Meta-prompting via `Alt+M`, reasoning level cycle via `Alt+R` |
+| `summarize/` | Auto one-line session summary |
+| `thinking-timer/` | Inline elapsed-time display next to collapsed Thinking blocks |
+
+### Experimental (`extensions-experimental/`)
+
+> Disabled by default. Activate inside pi with `/fleet:system:experimental on`.
+
+| Extension | Description |
+|-----------|-------------|
+| `subagent-explore/` | Sub-agent based exploration tool |
+| `subagent-librarian/` | Sub-agent based library research tool |
+| `unified-agent-orchestration/` | Multi-agent orchestration |
+| `unified-agent-task/` | Unified agent task execution |
+
+## Packages
+
+| Package | Description |
+|---------|-------------|
+| `packages/unified-agent/` | TypeScript SDK — unifies Codex CLI, Claude Code, and Gemini CLI under a single interface over the ACP protocol. Provides both a CLI binary and a programmatic SDK with event-based streaming. |
 
 ## Setup
 
