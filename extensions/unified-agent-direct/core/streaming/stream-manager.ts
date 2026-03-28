@@ -95,10 +95,10 @@ function renderStreamLines(
   lines.push("");
 
   // ── blocks 기반 렌더링 (block-renderer 사용) ──
-  // toolsExpanded=false이면 tool 블록을 제외하여 text/thought만 표시
+  // toolsExpanded=false이면 tool/thought 블록을 제외하여 text만 표시
   const visibleBlocks = toolsExpanded
     ? run.blocks
-    : run.blocks.filter((b) => b.type !== "tool");
+    : run.blocks.filter((b) => b.type !== "tool" && b.type !== "thought");
 
   if (visibleBlocks.length > 0) {
     const blockLines = renderBlockLines(visibleBlocks);
