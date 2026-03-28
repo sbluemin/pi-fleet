@@ -119,6 +119,25 @@ function renderStreamLines(
     lines.push(theme.fg("dim", "waiting for response..."));
   }
 
+  // ── compact 모드 본문 줄 수 제한 (헤더 2줄 제외) ──
+  if (!toolsExpanded) {
+    const HEADER_LINES = 2;
+    const MAX_BODY = 5;
+    const bodyCount = lines.length - HEADER_LINES;
+    if (bodyCount > MAX_BODY) {
+      const body = lines.slice(HEADER_LINES);
+      lines.length = HEADER_LINES;
+      if (isRunning) {
+        // 스트리밍 중: 마지막 5줄 표시 (tail)
+        lines.push(...body.slice(-MAX_BODY));
+      } else {
+        // 완료/에러: 처음 5줄 + 잔여 힌트
+        lines.push(...body.slice(0, MAX_BODY));
+        lines.push(theme.fg("dim", `  ··· ${bodyCount - MAX_BODY} more lines`));
+      }
+    }
+  }
+
   // ── 터미널 너비로 truncate ──
   const truncated = lines.map((line) =>
     visibleWidth(line) > width ? truncateToWidth(line, width) : line,
