@@ -50,8 +50,16 @@ export async function metaPromptWithLoader(
     loader.onAbort = () => done(null);
 
     const doMetaPrompt = async () => {
-      const apiKey = await ctx.modelRegistry.getApiKey(model);
-      if (!apiKey) throw new Error(`API 키를 가져올 수 없습니다: ${model.id}`);
+      const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
+      if (!auth.ok) {
+        throw new Error(auth.error);
+      }
+
+      if (!auth.apiKey && !auth.headers && ctx.modelRegistry.isUsingOAuth(model)) {
+        throw new Error(
+          `OAuth 인증 정보를 사용할 수 없습니다: ${model.provider}/${model.id} — /login ${model.provider} 로 다시 인증하세요.`,
+        );
+      }
 
       const response = await completeSimple(
         model,
@@ -60,7 +68,8 @@ export async function metaPromptWithLoader(
           messages: [{ role: "user", content: userPrompt, timestamp: Date.now() }],
         },
         {
-          apiKey,
+          ...(auth.apiKey && { apiKey: auth.apiKey }),
+          ...(auth.headers && { headers: auth.headers }),
           signal: loader.signal,
           ...(reasoning !== "off" && { reasoning: reasoning as ThinkingLevel }),
         },

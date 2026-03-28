@@ -33,8 +33,12 @@ export async function generateOneLiner(
   maxLength: number,
 ): Promise<string | null> {
   try {
-    const apiKey = await ctx.modelRegistry.getApiKey(model);
-    if (!apiKey) return null;
+    const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
+    if (!auth.ok) return null;
+
+    if (!auth.apiKey && !auth.headers && ctx.modelRegistry.isUsingOAuth(model)) {
+      return null;
+    }
 
     // 입력 텍스트가 너무 길면 잘라서 토큰 절약
     const truncated =
@@ -56,7 +60,11 @@ export async function generateOneLiner(
           },
         ],
       },
-      { apiKey, maxTokens: 200 },
+      {
+        ...(auth.apiKey && { apiKey: auth.apiKey }),
+        ...(auth.headers && { headers: auth.headers }),
+        maxTokens: 200,
+      },
     );
 
     const text = response.content

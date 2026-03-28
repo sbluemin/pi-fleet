@@ -170,11 +170,17 @@ pi.sendMessage({
 import { complete } from "@mariozechner/pi-ai";
 
 // Use the current session model with ctx.model
-const apiKey = await ctx.modelRegistry.getApiKey(ctx.model);
+// getApiKey() does not exist — use getApiKeyAndHeaders() instead
+const auth = await ctx.modelRegistry.getApiKeyAndHeaders(ctx.model);
+if (!auth.ok) throw new Error(auth.error);
+
 const response = await complete(
   ctx.model,
   { systemPrompt: "...", messages: [{ role: "user", content: "...", timestamp: Date.now() }] },
-  { apiKey }
+  {
+    ...(auth.apiKey && { apiKey: auth.apiKey }),
+    ...(auth.headers && { headers: auth.headers }),
+  }
 );
 
 // Extract response text
