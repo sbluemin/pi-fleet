@@ -36,7 +36,7 @@ import { onStatusUpdate, getActiveModeId } from "./modes/framework";
 import { CLI_DISPLAY_NAMES, CODEX_POPUP_KEY, DIRECT_MODE_COLORS } from "./constants";
 import { attachStatusContext, refreshStatusNow } from "./status/index.js";
 import { renderServiceStatusToken } from "./status/ui.js";
-import { exposeAgentApi, clearStreamWidgets } from "./core/agent-api.js";
+import { exposeAgentApi, clearStreamWidgets, clearCompletedStreamWidgets } from "./core/agent-api.js";
 import { setServiceStatusRenderer } from "./core/panel/config.js";
 import { registerAgentTools } from "./tools/index";
 import { buildAgentPopupCommand } from "./shell/index.js";
@@ -150,6 +150,11 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
     refreshAgentPanelFooter(ctx);
     attachStatusContext(ctx);
   };
+
+  // ── pi 호스트 응답 시작 시 완료된 스트림 위젯만 제거 (진행 중 위젯은 유지) ──
+  pi.on("before_agent_start", (_event, _ctx) => {
+    clearCompletedStreamWidgets();
+  });
 
   pi.on("session_start", (_event, ctx) => { onSessionChange(ctx); syncModelConfig(extensionDir); });
   pi.on("session_switch", (_event, ctx) => { onSessionChange(ctx); syncModelConfig(extensionDir); });
