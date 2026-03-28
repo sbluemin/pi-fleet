@@ -7,11 +7,16 @@
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 
 import type { CliType } from "@sbluemin/unified-agent";
-import type { ModelSelection, SelectedModelsConfig } from "./types";
-import { loadSelectedModels, saveSelectedModels } from "./store";
-import { getAvailableModels, getEffortLevels, getDefaultBudgetTokens } from "./provider-catalog";
-import { disconnectClient } from "../core/agent/client-pool";
-import type { SessionMapStore } from "../core/agent/session-map";
+import type { ModelSelection, SelectedModelsConfig, SessionMapStore } from "../core/index.js";
+import {
+  loadSelectedModels,
+  saveSelectedModels,
+  getAvailableModels,
+  getEffortLevels,
+  getDefaultBudgetTokens,
+  disconnectClient,
+  setAgentPanelModelConfig,
+} from "../core/index.js";
 import { INFRA_KEYBIND_KEY } from "../../infra-keybind/types.js";
 import type { InfraKeybindAPI } from "../../infra-keybind/types.js";
 import {
@@ -20,7 +25,6 @@ import {
   DIRECT_MODE_KEYS,
 } from "../constants";
 import { getActiveModeId, notifyStatusUpdate } from "../modes/framework";
-import { setAgentPanelModelConfig } from "../core/panel/config.js";
 
 // ─── 모델 설정 동기화 ────────────────────────────────────
 
