@@ -7,7 +7,7 @@ Direct mode **framework** + Direct modes for 4 CLIs (claude/codex/gemini/all) + 
 - State in `modes/framework.ts` is **shared via `globalThis`** — Avoid module-level singletons as pi bundles each extension separately.
 - `registerCustomDirectMode` is the public API for mode registration.
 - `requestUnifiedAgent` is the public agent execution API exposed via `globalThis["__pi_ua_request__"]`.
-- **All execution paths go through `core/agent-api.ts`** — Direct modes, tools, and external extensions all use `runAgentRequest()`. No direct `executeWithPool` calls outside agent-api.
+- **All execution paths go through `runAgentRequest()`** — Direct modes, tools, and external extensions all use `runAgentRequest()` from `core/`. No direct `executeWithPool` calls outside orchestrator.
 - Calling `runAgentRequest()` **automatically syncs all UIs**: agent panel column, streaming widget (when panel collapsed), and stream-store data.
 - **Same CLI concurrent calls are not supported** — UI layer manages one visible run per CLI.
 - Mutual exclusivity between modes is automatically managed by the framework (`deactivateAll`).
@@ -19,8 +19,10 @@ Direct mode **framework** + Direct modes for 4 CLIs (claude/codex/gemini/all) + 
 
 ```
 core/  (infrastructure — NO reverse deps to features)
-  ├── contracts.ts      ← shared domain types (ColBlock, AgentCol, ServiceSnapshot, etc.)
-  ├── agent-api.ts      ← unified execution entry point
+  ├── index.ts          ← public Facade (features access core ONLY through here)
+  ├── contracts.ts      ← shared domain types (ColBlock, AgentCol, ServiceSnapshot, etc.) — internal
+  ├── orchestrator.ts   ← unified execution entry point (internal — exposed via index.ts)
+  ├── agent/            ← executor, client-pool, session-map, model-config, types
   ├── panel/            ← panel state + lifecycle + widget bridge
   ├── streaming/        ← stream store + widget manager
   └── render/           ← all renderers
@@ -36,14 +38,16 @@ features (depend on core — never the reverse):
 ### Dependency Principles
 
 - **core/contracts.ts** is the single source of truth for shared domain types (`ColBlock`, `AgentCol`, `ColStatus`, `CollectedStreamData`, `ServiceSnapshot`, etc.). Streaming, render, and panel modules all import types from here — never cross-reference each other for type definitions.
-- **Feature → Core only**: Features (`modes/`, `tools/`, `status/`, etc.) may import from `core/`, but `core/` must never import from feature directories. Where core needs feature-provided behavior (e.g., service status rendering), **callback injection** via `index.ts` wiring is used.
+- **Feature → `core/index.ts` only**: Features (`modes/`, `tools/`, `status/`, etc.) access core exclusively via `core/index.ts` (the public Facade). Direct imports from `core/` sub-paths are forbidden in feature files.
+  - **Exceptions**: `index.ts` (wiring layer), `types.ts` (public types), `tests/` (unit tests) may access core internals directly.
+- **`core/` must never import from feature directories**. Where core needs feature-provided behavior (e.g., service status rendering), **callback injection** via `index.ts` wiring is used.
 - **index.ts is the wiring layer**: It connects features to core via dependency injection (e.g., `setServiceStatusRenderer`), keeping core unaware of feature implementations.
 
 ### Unified Execution Pipeline
 
 ```
 Consumer (modes, tools, external extensions)
-  → runAgentRequest() (core/agent-api.ts)
+  → runAgentRequest() (core/orchestrator.ts — exposed via core/index.ts)
     → stream-store (data)
     → agent-panel column sync (UI)
     → streaming widget when collapsed (UI)
@@ -66,8 +70,9 @@ Consumer (modes, tools, external extensions)
 | `types.ts` | Public types + globalThis bridge key/interface for `requestUnifiedAgent` |
 | `constants.ts` | Shared constants (colors, spinners, border characters, panel colors) |
 | **core/** | |
-| `core/contracts.ts` | Central domain type definitions — ColBlock, AgentCol, ColStatus, CollectedStreamData, ServiceSnapshot, ServiceStatusRendererFn. **All shared types live here** |
-| `core/agent-api.ts` | Unified execution layer (`runAgentRequest`, `exposeAgentApi`). Single `executeWithPool` call site. Auto panel/widget sync |
+| `core/index.ts` | **Public Facade** — single entry point for all feature → core access. Re-exports contracts, orchestrator, model-config, session-map, panel, render APIs |
+| `core/contracts.ts` | Central domain type definitions (internal) — ColBlock, AgentCol, ColStatus, CollectedStreamData, ServiceSnapshot, ServiceStatusRendererFn. **All shared types live here** |
+| `core/orchestrator.ts` | Unified execution layer (internal) — `runAgentRequest`, `exposeAgentApi`. Single `executeWithPool` call site. Auto panel/widget sync |
 | `core/panel/state.ts` | globalThis state singleton + column helpers |
 | `core/panel/lifecycle.ts` | Panel lifecycle API (streaming start/stop, column begin/end, toggle, mode) |
 | `core/panel/widget-sync.ts` | PI TUI widget bridge (syncWidget, syncFooterStatus). Uses injected renderer callback for service status |
@@ -85,7 +90,7 @@ Consumer (modes, tools, external extensions)
 | `modes/all.ts` | Registers All mode. Panel lifecycle + `runAgentRequest` × 3 |
 | `modes/prompts.ts` | All mode cross-report prompt (separated from tool prompts for cohesion) |
 | **tools/** | |
-| `tools/index.ts` | Registers `claude`, `codex`, `gemini` as individual pi tools. Depends on `core/agent-api` and `core/render/message-renderers` |
+| `tools/index.ts` | Registers `claude`, `codex`, `gemini` as individual pi tools. Depends on `core` (via Facade) |
 | `tools/prompts.ts` | Tool descriptions, prompt snippets, guidelines |
 | **model-selection/** | |
 | `model-selection/model-ui.ts` | Model selection UI + keybind/command registration |

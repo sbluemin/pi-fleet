@@ -1,5 +1,5 @@
 /**
- * unified-agent-direct/agent-api.ts — 통합 에이전트 실행 API
+ * core/orchestrator.ts — 에이전트 실행 오케스트레이터
  *
  * 모든 에이전트 실행의 단일 진입점입니다.
  * runAgentRequest() 호출 시 자동으로:
@@ -13,7 +13,7 @@
 
 import { executeWithPool } from "./agent/executor";
 import type { AgentStatus } from "./agent/types";
-import { loadSelectedModels } from "../model-selection/store.js";
+import { loadSelectedModels } from "./agent/model-config.js";
 import type { SessionMapStore } from "./agent/session-map";
 import {
   createRun,

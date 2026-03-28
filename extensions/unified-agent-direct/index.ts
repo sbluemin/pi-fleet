@@ -35,7 +35,7 @@ import { onStatusUpdate, getActiveModeId } from "./modes/framework";
 import { CLI_DISPLAY_NAMES, CODEX_POPUP_KEY, DIRECT_MODE_COLORS } from "./constants";
 import { attachStatusContext, refreshStatusNow } from "./status/index.js";
 import { renderServiceStatusToken } from "./status/ui.js";
-import { exposeAgentApi, clearStreamWidgets, clearCompletedStreamWidgets } from "./core/agent-api.js";
+import { exposeAgentApi, clearStreamWidgets, clearCompletedStreamWidgets } from "./core/orchestrator.js";
 import { setServiceStatusRenderer } from "./core/panel/config.js";
 import { registerAgentTools } from "./tools/index";
 import { buildAgentPopupCommand } from "./shell/index.js";

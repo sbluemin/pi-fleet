@@ -10,11 +10,10 @@ import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-age
 import type { CliType } from "@sbluemin/unified-agent";
 import { Type } from "@sinclair/typebox";
 
-import type { SessionMapStore } from "../core/agent/session-map";
+import type { SessionMapStore } from "../core/index.js";
 import { DIRECT_MODE_BG_COLORS, DIRECT_MODE_COLORS } from "../constants";
 import { toolDescription, toolPromptSnippet, toolPromptGuidelines } from "./prompts.js";
-import { createToolResultRenderer } from "../core/render/message-renderers.js";
-import { runAgentRequest } from "../core/agent-api.js";
+import { createToolResultRenderer, runAgentRequest } from "../core/index.js";
 import type { UnifiedAgentResult } from "../types.js";
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 

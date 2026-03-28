@@ -12,15 +12,14 @@
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { CliType } from "@sbluemin/unified-agent";
-import type { SessionMapStore } from "../core/agent/session-map";
-import { runAgentRequest } from "../core/agent-api.js";
-import { registerCustomDirectMode } from "./framework";
+import type { SessionMapStore, AgentCol } from "../core/index.js";
 import {
+  runAgentRequest,
   startAgentStreaming,
   stopAgentStreaming,
   getAgentPanelCols,
-} from "../core/panel/lifecycle.js";
-import type { AgentCol } from "../core/contracts.js";
+} from "../core/index.js";
+import { registerCustomDirectMode } from "./framework";
 import {
   CLI_DISPLAY_NAMES,
   CLI_ORDER,

@@ -3,7 +3,7 @@ import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { promisify } from "node:util";
 
-import { setAgentPanelServiceLoading, setAgentPanelServiceStatus } from "../core/panel/config.js";
+import { setAgentPanelServiceLoading, setAgentPanelServiceStatus } from "../core/index.js";
 import type { HealthStatus, ProviderKey, ServiceSnapshot, StatusStore } from "./types.js";
 
 const execFileAsync = promisify(execFile);

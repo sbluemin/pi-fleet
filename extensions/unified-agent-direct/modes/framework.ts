@@ -17,9 +17,13 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
-import { setAgentPanelMode, hideAgentPanel } from "../core/panel/lifecycle.js";
-import { clearCompletedStreamWidgets } from "../core/agent-api.js";
-import { createDefaultUserRenderer, createDefaultResponseRenderer } from "../core/render/message-renderers";
+import {
+  setAgentPanelMode,
+  hideAgentPanel,
+  clearCompletedStreamWidgets,
+  createDefaultUserRenderer,
+  createDefaultResponseRenderer,
+} from "../core/index.js";
 import { INFRA_KEYBIND_KEY } from "../../infra-keybind/types.js";
 import type { InfraKeybindAPI } from "../../infra-keybind/types.js";
 

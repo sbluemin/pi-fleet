@@ -1,5 +1,5 @@
 import { ANSI_RESET, PANEL_DIM_COLOR } from "../constants.js";
-import type { HealthStatus, ProviderKey, ServiceSnapshot } from "../core/contracts.js";
+import type { HealthStatus, ProviderKey, ServiceSnapshot } from "../core/index.js";
 
 const STATUS_TEXT: Record<HealthStatus, string> = {
   operational: "OP",
