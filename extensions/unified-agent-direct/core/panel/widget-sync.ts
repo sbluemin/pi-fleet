@@ -19,7 +19,7 @@ import {
   renderPanelCompact,
 } from "../render/panel-renderer";
 import { renderFooterStatus } from "../render/footer-renderer.js";
-import { getState, WIDGET_KEY } from "./state.js";
+import { getState, makeFooterCols, WIDGET_KEY } from "./state.js";
 
 // ─── footer 동기화 ───────────────────────────────────────
 
@@ -28,7 +28,7 @@ export function syncFooterStatus(ctx: ExtensionContext | null): void {
   if (!ctx) return;
   const s = getState();
   const content = renderFooterStatus({
-    cols: s.cols,
+    cols: makeFooterCols(),
     streaming: s.streaming,
     frame: s.frame,
     modelConfig: s.modelConfig,

@@ -142,3 +142,32 @@ export function syncColSessionIds(): void {
     setRunSessionId(col.cli, sessionMap[col.cli]);
   }
 }
+
+/**
+ * footer 렌더링용 칼럼 목록을 반환합니다.
+ * 패널이 일부 CLI만 표시하더라도 footer는 항상 전체 CLI 상태 슬롯을 유지합니다.
+ */
+export function makeFooterCols(): AgentCol[] {
+  const s = getState();
+  const activeCols = new Map(s.cols.map((col) => [col.cli, col] as const));
+  const store = s.sessionStore;
+  const sessionMap = (store ? store.getAll() : {}) as Readonly<Record<string, string | undefined>>;
+
+  return DEFAULT_CLIS.map((cli) => {
+    const activeCol = activeCols.get(cli);
+    if (activeCol) return activeCol;
+
+    const run = ensureVisibleRun(cli);
+    return {
+      cli,
+      sessionId: sessionMap[cli] ?? run.sessionId,
+      text: "",
+      blocks: [],
+      thinking: "",
+      toolCalls: [],
+      status: "wait" as const,
+      error: undefined,
+      scroll: 0,
+    };
+  });
+}
