@@ -18,6 +18,7 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { setAgentPanelMode, hideAgentPanel } from "../core/panel/lifecycle.js";
+import { clearStreamWidgets } from "../core/agent-api.js";
 import { createDefaultUserRenderer, createDefaultResponseRenderer } from "../core/render/message-renderers";
 import { INFRA_KEYBIND_KEY } from "../../infra-keybind/types.js";
 import type { InfraKeybindAPI } from "../../infra-keybind/types.js";
@@ -118,6 +119,7 @@ function getState(): FrameworkState {
 
 /** 모든 모드를 비활성화합니다. (패널은 활성화 코드에서 관리) */
 function deactivateAll(_ctx: ExtensionContext) {
+  clearStreamWidgets();
   const gs = getState();
   for (const [_id, state] of gs.modes) {
     state.active = false;
@@ -197,6 +199,7 @@ export function registerCustomDirectMode(
         gs.activeModeId = null;
         setAgentPanelMode(ctx, null);
         hideAgentPanel(ctx);
+        clearStreamWidgets();
         notifyStatusUpdate();
       } else {
         // 다른 모든 모드 비활성화
@@ -280,6 +283,7 @@ export function deactivateMode(ctx: ExtensionContext, modeId: string): void {
       gs.activeModeId = null;
       setAgentPanelMode(ctx, null);
       hideAgentPanel(ctx);
+      clearStreamWidgets();
       notifyStatusUpdate();
     }
   }

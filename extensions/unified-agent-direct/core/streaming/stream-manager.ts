@@ -38,6 +38,8 @@ export interface StreamWidgetManager {
   unregister(cli: string): void;
   /** 위젯을 강제 갱신합니다. */
   sync(): void;
+  /** 모든 스트림을 제거하고 타이머를 정지합니다 (모드 종료/세션 전환용). */
+  clearAll(): void;
 }
 
 // ─── 내부 싱글턴 구조 ────────────────────────────────────
@@ -64,6 +66,7 @@ function renderStreamLines(
   frame: number,
   width: number,
   theme: any,
+  toolsExpanded: boolean,
 ): string[] {
   const run = getRunById(runId);
   if (!run) return [];
@@ -92,8 +95,13 @@ function renderStreamLines(
   lines.push("");
 
   // ── blocks 기반 렌더링 (block-renderer 사용) ──
-  if (run.blocks.length > 0) {
-    const blockLines = renderBlockLines(run.blocks);
+  // toolsExpanded=false이면 tool 블록을 제외하여 text/thought만 표시
+  const visibleBlocks = toolsExpanded
+    ? run.blocks
+    : run.blocks.filter((b) => b.type !== "tool");
+
+  if (visibleBlocks.length > 0) {
+    const blockLines = renderBlockLines(visibleBlocks);
     for (const bl of blockLines) {
       if (bl.type === "thought") {
         lines.push(theme.fg("dim", bl.text));
@@ -159,12 +167,14 @@ export function createStreamWidgetManager(
 
     ctx.ui.setWidget(mgr.widgetKey, (_tui: any, theme: any) => ({
       render(width: number): string[] {
+        // ctrl+o 토글 상태를 렌더링 시점에 읽어 즉시 반영
+        const toolsExpanded = ctx.ui.getToolsExpanded();
         const allLines: string[] = [];
         let first = true;
         for (const [cli, runId] of mgr.streams) {
           if (!first) allLines.push("");
           first = false;
-          allLines.push(...renderStreamLines(cli, runId, mgr.frame, width, theme));
+          allLines.push(...renderStreamLines(cli, runId, mgr.frame, width, theme, toolsExpanded));
         }
         return allLines;
       },
@@ -172,11 +182,27 @@ export function createStreamWidgetManager(
     }));
   }
 
+  /** 모든 스트림의 run이 완료 상태인지 확인합니다. */
+  function allStreamsDone(mgr: ManagerState): boolean {
+    for (const [, runId] of mgr.streams) {
+      const run = getRunById(runId);
+      if (!run) continue;
+      const s = run.lastAgentStatus;
+      if (s === "connecting" || s === "running") return false;
+    }
+    return true;
+  }
+
   function ensureTimer(mgr: ManagerState): void {
     if (mgr.timer) return;
     mgr.timer = setInterval(() => {
       mgr.frame++;
       syncWidget(mgr);
+      // 모든 스트림 완료 시 타이머 정지 (위젯은 유지 — pi repaint 시 render() 호출됨)
+      if (mgr.streams.size > 0 && allStreamsDone(mgr)) {
+        clearInterval(mgr.timer!);
+        mgr.timer = null;
+      }
     }, ANIM_INTERVAL_MS);
   }
 
@@ -209,6 +235,18 @@ export function createStreamWidgetManager(
 
     sync() {
       syncWidget(getState());
+    },
+
+    clearAll() {
+      const mgr = getState();
+      mgr.streams.clear();
+      if (mgr.timer) {
+        clearInterval(mgr.timer);
+        mgr.timer = null;
+      }
+      if (mgr.ctx) {
+        mgr.ctx.ui.setWidget(mgr.widgetKey, undefined);
+      }
     },
   };
 }
