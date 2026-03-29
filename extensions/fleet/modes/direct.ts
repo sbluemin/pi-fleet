@@ -1,5 +1,5 @@
 /**
- * unified-agent-direct/modes — 개별 CLI 다이렉트 모드 등록
+ * fleet/modes — 개별 CLI 다이렉트 모드 등록
  *
  * claude, codex, gemini 3개 다이렉트 모드를 프레임워크에 등록합니다.
  * 각 모드는 alt+1/2/3으로 토글되며, 에이전트 패널 독점 뷰를 사용합니다.

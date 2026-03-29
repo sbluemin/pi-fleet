@@ -1,5 +1,5 @@
 /**
- * unified-agent-direct — 합성 위젯 매니저 (제네릭)
+ * fleet — 합성 위젯 매니저 (제네릭)
  *
  * router.ts의 DirectStreamManager와 streaming-widget.ts의 ToolStreamManager를
  * 단일 파라미터화된 팩토리로 통합합니다.

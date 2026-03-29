@@ -1,5 +1,5 @@
 /**
- * unified-agent-direct/modes/prompts.ts — All 모드 전용 프롬프트
+ * fleet/modes/prompts.ts — All 모드 전용 프롬프트
  *
  * All 모드의 교차 보고서 합성 프롬프트를 관리합니다.
  * tools/prompts.ts의 도구 프롬프트와 분리하여 응집도를 높입니다.

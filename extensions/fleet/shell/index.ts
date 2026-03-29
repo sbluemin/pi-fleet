@@ -1,5 +1,5 @@
 /**
- * unified-agent-direct — 에이전트 팝업 명령어 빌더
+ * fleet — 에이전트 팝업 명령어 빌더
  *
  * 현재 활성 CLI의 sessionId로 resume하거나,
  * 세션이 없으면 신규 인터랙티브 모드로 실행합니다.

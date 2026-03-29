@@ -1,5 +1,5 @@
 /**
- * unified-agent-direct — 스트림 스토어 (단일 진실 원천)
+ * fleet — 스트림 스토어 (단일 진실 원천)
  *
  * 모든 스트리밍 데이터를 `blocks: ColBlock[]` 하나로 정규화합니다.
  * `text`, `thinking`, `toolCalls`는 blocks에서 파생되는 계산 속성입니다.

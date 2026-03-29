@@ -1,5 +1,5 @@
 /**
- * unified-agent-direct/modes — All 모드 (3에이전트 동시 질의)
+ * fleet/modes — All 모드 (3에이전트 동시 질의)
  *
  * alt+0으로 토글되며, claude/codex/gemini 3개 에이전트에
  * 동시에 질의하고 에이전트 패널 3분할 뷰로 결과를 표시합니다.

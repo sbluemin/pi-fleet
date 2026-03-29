@@ -42,7 +42,7 @@ export interface SessionMapStore {
  * 독립된 SessionMapStore 인스턴스를 생성합니다.
  *
  * @param sessionDir - 세션 맵 JSON 파일이 저장될 디렉토리 경로
- *                     (예: unified-agent-direct/session-maps/)
+ *                     (예: fleet/session-maps/)
  */
 export function createSessionMapStore(sessionDir: string): SessionMapStore {
   let currentMap: SessionMap = {};

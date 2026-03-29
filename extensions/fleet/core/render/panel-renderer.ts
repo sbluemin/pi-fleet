@@ -1,5 +1,5 @@
 /**
- * unified-agent-direct — 에이전트 패널 렌더러
+ * fleet — 에이전트 패널 렌더러
  *
  * activeMode에 따라 동적 레이아웃을 제공합니다:
  * - "claude"/"codex"/"gemini" → 1칼럼 독점 뷰 (전체 폭, thinking/tools 상세)

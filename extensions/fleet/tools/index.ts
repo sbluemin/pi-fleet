@@ -1,5 +1,5 @@
 /**
- * unified-agent-direct/tools — 개별 에이전트 도구 등록
+ * fleet/tools — 개별 에이전트 도구 등록
  *
  * claude, codex, gemini 3개의 LLM 도구를 등록합니다.
  * 각 도구는 해당 에이전트에 작업을 위임하고,

@@ -1,5 +1,5 @@
 /**
- * unified-agent-direct/modes — Claude & Codex 모드 (2에이전트 동시 질의)
+ * fleet/modes — Claude & Codex 모드 (2에이전트 동시 질의)
  *
  * alt+9로 토글되며, claude/codex 2개 에이전트에
  * 동시에 질의하고 에이전트 패널 2분할 뷰로 결과를 표시합니다.

@@ -1,5 +1,5 @@
 /**
- * unified-agent-direct — 다이렉트 모드 프레임워크
+ * fleet — 다이렉트 모드 프레임워크
  *
  * 외부 확장이 import하여 커스텀 다이렉트 모드를 등록하는 공개 API입니다.
  *
@@ -24,8 +24,8 @@ import {
   createDefaultUserRenderer,
   createDefaultResponseRenderer,
 } from "../core/index.js";
-import { INFRA_KEYBIND_KEY } from "../../../infra/keybind/types.js";
-import type { InfraKeybindAPI } from "../../../infra/keybind/types.js";
+import { INFRA_KEYBIND_KEY } from "../../infra/keybind/types.js";
+import type { InfraKeybindAPI } from "../../infra/keybind/types.js";
 
 // ─── 공개 타입 ───────────────────────────────────────────
 

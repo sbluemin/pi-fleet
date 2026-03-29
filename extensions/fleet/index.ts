@@ -1,5 +1,5 @@
 /**
- * unified-agent-direct — 다이렉트 모드 PI 확장 진입점
+ * fleet — 다이렉트 모드 PI 확장 진입점
  *
  * SDK 초기화 + 세션 이벤트 + 5개 다이렉트 모드 등록
  *
@@ -41,13 +41,13 @@ import { registerAgentTools } from "./tools/index";
 import { buildAgentPopupCommand } from "./shell/index.js";
 import { getModeBannerLines } from "./core/panel/lifecycle.js";
 
-import { EDITOR_MODE_PROVIDER_KEY } from "../../infra/hud/types.js";
-import type { EditorModeProvider } from "../../infra/hud/types.js";
+import { EDITOR_MODE_PROVIDER_KEY } from "../infra/hud/types.js";
+import type { EditorModeProvider } from "../infra/hud/types.js";
 
-import { INFRA_KEYBIND_KEY } from "../../infra/keybind/types.js";
-import type { InfraKeybindAPI } from "../../infra/keybind/types.js";
-import { SHELL_POPUP_BRIDGE_KEY } from "../../infra/interactive-shell/types.js";
-import type { ShellPopupBridge } from "../../infra/interactive-shell/types.js";
+import { INFRA_KEYBIND_KEY } from "../infra/keybind/types.js";
+import type { InfraKeybindAPI } from "../infra/keybind/types.js";
+import { SHELL_POPUP_BRIDGE_KEY } from "../infra/interactive-shell/types.js";
+import type { ShellPopupBridge } from "../infra/interactive-shell/types.js";
 
 import { registerDirectModes } from "./modes/direct.js";
 import { registerAllMode } from "./modes/all.js";

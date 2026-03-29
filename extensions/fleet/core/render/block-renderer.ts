@@ -1,5 +1,5 @@
 /**
- * unified-agent-direct — 블록 렌더러 (공유 렌더링 로직)
+ * fleet — 블록 렌더러 (공유 렌더링 로직)
  *
  * ColBlock[]를 렌더링 가능한 형태로 변환합니다.
  * panel-renderer, streaming-widget, message-renderers, result-renderer의

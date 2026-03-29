@@ -1,5 +1,5 @@
 /**
- * unified-agent-direct/tools/prompts.ts — 에이전트 도구 등록용 AI 프롬프트
+ * fleet/tools/prompts.ts — 에이전트 도구 등록용 AI 프롬프트
  *
  * claude, codex, gemini 도구의 description / promptSnippet / promptGuidelines를
  * 한 곳에서 관리합니다.

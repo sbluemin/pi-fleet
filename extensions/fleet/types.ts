@@ -1,5 +1,5 @@
 /**
- * unified-agent-direct/types.ts — 공개 타입 및 globalThis 브릿지 정의
+ * fleet/types.ts — 공개 타입 및 globalThis 브릿지 정의
  */
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";

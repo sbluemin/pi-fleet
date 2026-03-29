@@ -1,5 +1,5 @@
 /**
- * unified-agent-direct — 모델 선택 UI 및 커맨드
+ * fleet — 모델 선택 UI 및 커맨드
  *
  * Per-CLI 모델/추론 설정 선택 UI와 관련 단축키/커맨드를 등록합니다.
  * 모델 변경 결과 적용(영속화 + 세션 무효화)은 core에 위임합니다.
@@ -18,8 +18,8 @@ import {
   getDefaultBudgetTokens,
   setAgentPanelModelConfig,
 } from "../core/index.js";
-import { INFRA_KEYBIND_KEY } from "../../../infra/keybind/types.js";
-import type { InfraKeybindAPI } from "../../../infra/keybind/types.js";
+import { INFRA_KEYBIND_KEY } from "../../infra/keybind/types.js";
+import type { InfraKeybindAPI } from "../../infra/keybind/types.js";
 import {
   CLI_DISPLAY_NAMES,
   CLI_ORDER,
