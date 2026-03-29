@@ -5,8 +5,8 @@ Carrier **framework SDK** (`carrier/`) + 3 captains (claude/codex/gemini) that e
 ## Core Rules
 
 - Carrier framework state in `carrier/framework.ts` is **shared via `globalThis`** — Avoid module-level singletons as pi bundles each extension separately.
-- `registerCarrier` is the public API for carrier registration (exposed via `core-index.ts`).
-- `registerSingleCarrier` is the convenience API for single CLI carrier + PI tool registration (exposed via `core-index.ts`, lives in `carrier/register.ts`).
+- `registerCarrier` is the public API for carrier registration (re-exported via `index.ts`).
+- `registerSingleCarrier` is the convenience API for single CLI carrier + PI tool registration (re-exported via `index.ts`, lives in `carrier/register.ts`).
 - Carrier tool prompt text belongs to each captain module (`captains/claude.ts`, `captains/codex.ts`, `captains/gemini.ts`) even if duplicated today — this is intentional to allow future captain-specific role divergence.
 - `requestUnifiedAgent` is the public agent execution API exposed via `globalThis["__pi_ua_request__"]`.
 - **All execution paths go through `runAgentRequest()`** — Carriers, tools, and external extensions all use `runAgentRequest()` from `operation-runner.ts`. No direct `executeWithPool` calls outside operation-runner.
@@ -20,8 +20,8 @@ Carrier **framework SDK** (`carrier/`) + 3 captains (claude/codex/gemini) that e
 ### Core / Feature Separation
 
 ```
-core-index.ts          ← public Facade (captains access Fleet core ONLY through here)
-operation-runner.ts    ← unified execution entry point (internal — exposed via core-index.ts)
+index.ts               ← extension entry point + public Facade re-exports
+operation-runner.ts    ← unified execution entry point (internal — exposed via index.ts)
 carrier/               ← Carrier framework SDK (registration, activation, input routing, single-carrier registration)
   ├── types.ts         ← CarrierConfig, CarrierHelpers, CarrierResult, internal state types
   ├── framework.ts     ← registerCarrier, activateCarrier, deactivateCarrier, getActiveCarrierId
@@ -42,11 +42,11 @@ captains/              ← 3 captain registrations (depend on Fleet core — nev
 ### Dependency Principles
 
 - **internal/contracts.ts** is the single source of truth for shared domain types (`ColBlock`, `AgentCol`, `ColStatus`, `CollectedStreamData`, `ServiceSnapshot`, etc.). Streaming, render, and panel modules all import types from here — never cross-reference each other for type definitions.
-- **Captains → `core-index.ts` only**: Captains (`captains/`) access Fleet core exclusively via `core-index.ts` (the public Facade). Direct imports from `carrier/`, `internal/`, or `operation-runner.ts` are forbidden in captain files.
-  - **Exceptions**: `index.ts` (wiring layer), `types.ts` (public types), `tests/` (unit tests) may access core internals directly.
+- **Captains → `index.ts` only**: Captains (`captains/`) access Fleet core exclusively via `index.ts` (the public Facade). Direct imports from `carrier/`, `internal/`, or `operation-runner.ts` are forbidden in captain files.
+  - **Exceptions**: `types.ts` (public types) and `tests/` (unit tests) may access internals directly.
 - **Fleet core modules must never import from `captains/`**.
 - **Internal modules reference siblings directly** — e.g., `internal/agent/model-ui.ts` imports from `internal/agent/runtime.ts`, `internal/panel/config.ts`, and `carrier/framework.ts` without going through the facade.
-- **index.ts is the wiring layer**: It connects captains to core, performing initialization, registration calls, and session event handling.
+- **`index.ts` is the only public facade**: It owns extension wiring plus export-only public re-exports. Keep business logic in `carrier/`, `internal/`, and `operation-runner.ts`.
 - **Service status is internal**: Service status monitoring (polling, rendering) lives in `internal/service-status/` and is directly referenced by sibling internal modules (e.g., `panel/widget-sync.ts` imports the renderer). No injection pattern is needed.
 - **Persistence is core-owned**: Session map and model config persistence are managed entirely by `internal/agent/runtime.ts`. Captains never access `sessionStore`, `configDir`, or persistence paths directly — they use facade APIs (`getModelConfig`, `updateModelSelection`, `getSessionId`, etc.). `index.ts` calls `initRuntime(dataDir)` once and `onHostSessionChange(piSessionId)` on PI session events. Runtime files live under `.data/`.
 
@@ -54,7 +54,7 @@ captains/              ← 3 captain registrations (depend on Fleet core — nev
 
 ```
 Consumer (captains, external extensions)
-  → runAgentRequest() (operation-runner.ts — exposed via core-index.ts)
+  → runAgentRequest() (operation-runner.ts — exposed via index.ts)
     → stream-store (data)
     → agent-panel column sync (UI)
     → streaming widget when collapsed (UI)
@@ -73,10 +73,9 @@ Consumer (captains, external extensions)
 
 | File | Role |
 |------|------|
-| `index.ts` | Entry point: Wiring only — initialization, registration calls, session events, dependency injection |
+| `index.ts` | Entry point + public Facade — wiring, initialization, session events, dependency injection, export-only public re-exports |
 | `types.ts` | Public types + globalThis bridge key/interface for `requestUnifiedAgent` |
 | `constants.ts` | Shared constants (colors, spinners, border characters, panel colors) |
-| `core-index.ts` | **Public Facade** — single entry point for captains/wiring → core access. Re-exports the supported boundary used by first-party modules |
 | `internal/contracts.ts` | Central domain type definitions (internal) — ColBlock, AgentCol, ColStatus, CollectedStreamData, ServiceSnapshot. **All shared types live here** |
 | `operation-runner.ts` | Unified execution layer (internal) — `runAgentRequest`, `exposeAgentApi`. Single `executeWithPool` call site. Auto panel/widget sync |
 | `carrier/types.ts` | Carrier framework types — CarrierConfig, CarrierHelpers, CarrierResult, internal state types |
@@ -88,7 +87,7 @@ Consumer (captains, external extensions)
 | `internal/panel/*` | Internal panel state/lifecycle/widget modules |
 | `internal/streaming/*` | Internal stream store/widget modules |
 | `internal/render/*` | Internal renderer modules |
-| `internal/service-status/store.ts` | Service status polling/fetching/store — `attachStatusContext`, `refreshStatusNow` (exposed via `core-index.ts`) |
+| `internal/service-status/store.ts` | Service status polling/fetching/store — `attachStatusContext`, `refreshStatusNow` (exposed via `index.ts`) |
 | `internal/service-status/renderer.ts` | Service status footer token renderer — `renderServiceStatusToken` (used by `panel/widget-sync.ts`) |
 | **captains/** | |
 | `captains/index.ts` | Barrel — all 3 captain registrations |
