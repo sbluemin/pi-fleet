@@ -21,8 +21,8 @@ import { convertToLlm, serializeConversation } from "@mariozechner/pi-coding-age
 import { loadSettings, saveSettings } from "./settings.js";
 import type { AutoSummarizeSettings } from "./settings.js";
 import { resolveModel, generateOneLiner } from "./summarizer.js";
-import type { InfraSettingsAPI } from "../../infra/settings/types.js";
-import { INFRA_SETTINGS_KEY } from "../../infra/settings/types.js";
+import type { InfraSettingsAPI } from "../../dock/settings/types.js";
+import { INFRA_SETTINGS_KEY } from "../../dock/settings/types.js";
 
 export default function (pi: ExtensionAPI) {
   /** 이번 세션에서 첫 턴 자동 요약이 완료되었는지 추적 */

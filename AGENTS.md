@@ -12,11 +12,27 @@
 | `packages/` | Embedded first-party libraries (e.g., `unified-agent`) |
 | `extensions/` | All extensions consolidated here (refer to its own `AGENTS.md`) |
 | `extensions/fleet/` | Agent orchestration extension — direct modes, agent tools, unified pipeline (refer to its own `AGENTS.md`) |
-| `extensions/infra/` | Infrastructure extensions — hud, keybind, settings, welcome, interactive-shell, experimental (refer to its own `AGENTS.md`) |
-| `extensions/utils/` | Utility extensions — improve-prompt, summarize, thinking-timer (refer to its own `AGENTS.md`) |
-| `extensions/experimentals/` | Experimental extensions under active development (refer to the Extension Lifecycle below) |
+| `extensions/dock/` | Infrastructure extensions — hud, keybind, settings, welcome, shell (refer to its own `AGENTS.md`) |
+| `extensions/tender/` | Utility extensions — improve-prompt, summarize, thinking-timer (refer to its own `AGENTS.md`) |
+| `.spsec/` | Archived experimental specs and planning materials |
 
 > Currently, there is no `pi/` directory — symlink setup is not required.
+
+## Fleet Architecture (Metaphor)
+
+This project is an **Agent Harness** that centrally commands and orchestrates powerful CLI tools (Claude Code, Codex, Gemini, etc.), each of which possesses its own internal sub-agent system.
+
+Beyond simple parallel API calls, the system adopts a **naval fleet metaphor** to clearly separate roles and responsibilities across the architecture.
+
+### Core Entities
+
+| Entity | Metaphor | Definition |
+|--------|----------|------------|
+| **Fleet** | The fleet | The logical unit encompassing the entire agent harness system. |
+| **Fleet Admiral** | Supreme commander | The **user** who wields the tool. Sets the ultimate strategy and final objectives for the fleet. |
+| **Admiral** | Fleet commander | The **main orchestrator (PI's LLM router)** that plans operations and issues commands to the entire fleet on behalf of the Fleet Admiral. |
+| **Carrier** | Aircraft carrier | An **execution instance (process)** of an individual CLI tool such as Claude Code, Codex, or Gemini. A large, independent asset with its own internal sub-agent ecosystem. |
+| **Captain** | Ship captain | A **persona and system prompt object** assigned to command a specific carrier (e.g., frontend specialist, refactoring specialist). All captain objects/configs are centrally managed in the `captains/` package. |
 
 ## Architecture — Agent Workflow
 
@@ -38,31 +54,12 @@ PI is the **host agent** (orchestrator). Claude, Codex, and Gemini are **sub-age
 | **Default** | Normal chat | PI handles directly (no sub-agents) |
 | **Tool delegation** | PI's own judgment | PI → tool_call(claude/codex/gemini) → sub-agent result → PI synthesizes |
 | **Direct (single)** | Alt+1/2/3 | User → single sub-agent (PI acts as router only, no synthesis) |
-| **All (3-split)** | Alt+0 | User → 3 sub-agents in parallel → PI generates cross-analysis report |
-| **Claude & Codex (2-split)** | Alt+9 | User → 2 sub-agents in parallel → PI generates cross-analysis report |
 
 ### Key Principles
 
 - **Sub-agents are fully independent** — PI provides only background, objectives, and constraints. Never prescribe implementation details.
 - **Sub-agents are unaware of each other** — Cross-analysis is performed solely by PI after all responses are collected.
 - **Communication layer**: `runAgentRequest()` → `executeWithPool()` → ACP stdio (all CLIs use the same protocol).
-
-## Extension Lifecycle
-
-All new extensions **MUST** be developed under `extensions/experimentals/` first.
-
-### Development Flow
-
-```
-extensions/experimentals/<name>/   →   (explicit promotion)   →   extensions/<name>/
-```
-
-### Rules
-
-- **New extensions start in `extensions/experimentals/`** — Do not create new extensions directly under `extensions/`.
-- **`extensions/experimentals/` is opt-in** — Users activate it via `/fleet:system:experimental on`. It is disabled by default.
-- **Promotion to `extensions/` requires explicit instruction** — An extension is moved from `extensions/experimentals/` to `extensions/` only when the user explicitly requests it. Do not promote autonomously.
-- **Demotion is also explicit** — Moving an extension back from `extensions/` to `extensions/experimentals/` also requires explicit user instruction.
 
 ## Domain Boundary Rules
 
@@ -89,7 +86,7 @@ Each extension maps to exactly one domain. Use the domain below for all commands
 | Extension | Domain | Rationale |
 |-----------|--------|-----------|
 | `fleet/` | `agent` | Sub-agent orchestration features |
-When adding a **new extension**, assign a domain that reflects the **feature category**, not the directory prefix (`infra-`, `utils-`, etc.).
+When adding a **new extension**, assign a domain that reflects the **feature category**, not the directory prefix (`dock-`, `tender-`, etc.).
 
 ### Feature Naming
 
@@ -106,7 +103,7 @@ When adding a **new extension**, assign a domain that reflects the **feature cat
 ### When to Apply
 
 - Apply this naming from the **first `registerCommand` call** in a new extension — do not rename later.
-- Commands without the `fleet:` prefix must be renamed **before promotion** from `extensions/experimentals/` to `extensions/`.
+- Commands without the `fleet:` prefix must be renamed before they are merged into active extensions.
 
 ## Git Guidelines
 

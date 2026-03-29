@@ -1,4 +1,4 @@
-// utils-interactive-shell — PTY 세션 런타임
+// utils-shell — PTY 세션 런타임
 // 프로세스 실행, 출력 버퍼링, 뷰포트 렌더링을 담당합니다.
 
 import * as pty from "node-pty";
@@ -172,7 +172,7 @@ class WriteQueue {
 
   enqueue(fn: () => Promise<void> | void): void {
     this.queue = this.queue.then(() => fn()).catch((error) => {
-      console.error("[utils-interactive-shell] WriteQueue 오류:", error);
+      console.error("[utils-shell] WriteQueue 오류:", error);
     });
   }
 

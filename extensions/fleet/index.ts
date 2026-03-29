@@ -35,13 +35,13 @@ import { CLI_DISPLAY_NAMES, CARRIER_BRIDGE_KEY, CARRIER_COLORS } from "./constan
 import { registerCaptains } from "./captains/index.js";
 import { appendAdmiralSystemPrompt } from "./prompts.js";
 
-import { EDITOR_MODE_PROVIDER_KEY } from "../infra/hud/types.js";
-import type { EditorModeProvider } from "../infra/hud/types.js";
+import { EDITOR_MODE_PROVIDER_KEY } from "../dock/hud/types.js";
+import type { EditorModeProvider } from "../dock/hud/types.js";
 
-import { INFRA_KEYBIND_KEY } from "../infra/keybind/types.js";
-import type { InfraKeybindAPI } from "../infra/keybind/types.js";
-import { SHELL_POPUP_BRIDGE_KEY } from "../infra/interactive-shell/types.js";
-import type { ShellPopupBridge } from "../infra/interactive-shell/types.js";
+import { INFRA_KEYBIND_KEY } from "../dock/keybind/types.js";
+import type { InfraKeybindAPI } from "../dock/keybind/types.js";
+import { SHELL_POPUP_BRIDGE_KEY } from "../dock/shell/types.js";
+import type { ShellPopupBridge } from "../dock/shell/types.js";
 
 export type { CollectedStreamData } from "./internal/contracts.js";
 
@@ -115,7 +115,7 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
     handler: async (ctx) => {
       const bridge = (globalThis as Record<string, unknown>)[SHELL_POPUP_BRIDGE_KEY] as ShellPopupBridge | undefined;
       if (!bridge) {
-        ctx.ui.notify("utils-interactive-shell 확장이 로드되지 않았습니다.", "warning");
+        ctx.ui.notify("utils-shell 확장이 로드되지 않았습니다.", "warning");
         return;
       }
       if (bridge.isOpen()) return;

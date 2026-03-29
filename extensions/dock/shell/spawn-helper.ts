@@ -1,4 +1,4 @@
-// utils-interactive-shell — macOS spawn-helper 보정
+// utils-shell — macOS spawn-helper 보정
 // macOS에서 node-pty helper 실행 권한을 보정합니다.
 
 import { chmodSync, statSync } from "node:fs";

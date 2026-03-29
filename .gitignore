@@ -5,3 +5,5 @@ selected-models.json
 keybindings.json
 *.bak
 .DS_Store
+.spsec/
+.specs

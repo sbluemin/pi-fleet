@@ -4,7 +4,7 @@ A multi-LLM orchestration kit for [pi-coding-agent](https://github.com/badlogic/
 
 ## Extensions
 
-### Infrastructure (`extensions/infra/`)
+### Infrastructure (`extensions/dock/`)
 
 | Extension | Description |
 |-----------|-------------|
@@ -12,16 +12,15 @@ A multi-LLM orchestration kit for [pi-coding-agent](https://github.com/badlogic/
 | `keybind/` | Centralized keybinding management + overlay (`Alt+.`) |
 | `settings/` | Centralized settings API + overlay popup (`Alt+/`) |
 | `welcome/` | Welcome overlay displayed on session start |
-| `interactive-shell/` | Interactive shell session inside pi |
-| `experimental/` | System-level toggles for experimental features (`Alt+E`) |
+| `shell/` | Interactive shell session inside pi |
 
 ### Core (`extensions/fleet/`)
 
 | Extension | Description |
 |-----------|-------------|
-| `unified-agent-direct/` | Direct mode — `Alt+1/2/3` exclusive view, `Alt+0` tri-split view, `Alt+9` 2-split (Claude & Codex) view, `Alt+P` panel toggle + individual agent tools, client pool, executor, session map, model config |
+| `unified-agent-direct/` | Direct mode — `Alt+1/2/3` exclusive view, `Alt+P` panel toggle + individual agent tools, client pool, executor, session map, model config |
 
-### Utility (`extensions/utils/`)
+### Utility (`extensions/tender/`)
 
 | Extension | Description |
 |-----------|-------------|
@@ -29,16 +28,14 @@ A multi-LLM orchestration kit for [pi-coding-agent](https://github.com/badlogic/
 | `summarize/` | Auto one-line session summary |
 | `thinking-timer/` | Inline elapsed-time display next to collapsed Thinking blocks |
 
-### Experimental (`extensions/experimentals/`)
+### Archived specs (`.spsec/`)
 
-> Disabled by default. Activate inside pi with `/fleet:system:experimental on`.
-
-| Extension | Description |
+| Directory | Description |
 |-----------|-------------|
-| `subagent-explore/` | Sub-agent based exploration tool |
-| `subagent-librarian/` | Sub-agent based library research tool |
-| `unified-agent-orchestration/` | Multi-agent orchestration |
-| `unified-agent-task/` | Unified agent task execution |
+| `fleet-orchestration/` | Archived planning/spec materials for multi-agent orchestration |
+| `fleet-task/` | Archived task system specification |
+| `fleet-unit-explore/` | Archived exploration extension notes |
+| `fleet-unit-librarian/` | Archived librarian extension notes |
 
 ## Packages
 

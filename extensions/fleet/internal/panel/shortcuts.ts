@@ -8,8 +8,8 @@
  * fleet/index.ts에서 호출됩니다.
  */
 
-import { INFRA_KEYBIND_KEY } from "../../../infra/keybind/types.js";
-import type { InfraKeybindAPI } from "../../../infra/keybind/types.js";
+import { INFRA_KEYBIND_KEY } from "../../../dock/keybind/types.js";
+import type { InfraKeybindAPI } from "../../../dock/keybind/types.js";
 import { BODY_H_STEP } from "../../constants";
 import { toggleAgentPanel } from "./lifecycle.js";
 import { adjustPanelHeight } from "./config.js";

@@ -1,4 +1,4 @@
-// utils-interactive-shell — 설정 로드
+// utils-shell — 설정 로드
 // 순수 쉘 팝업 유틸리티의 로컬/프로젝트 설정을 읽습니다.
 
 import { existsSync, readFileSync } from "node:fs";
@@ -22,8 +22,8 @@ const DEFAULT_CONFIG: PopupConfig = {
 };
 
 export function loadConfig(cwd: string): PopupConfig {
-  const projectPath = join(cwd, ".pi", "utils-interactive-shell.json");
-  const globalPath = join(getAgentDir(), "utils-interactive-shell.json");
+  const projectPath = join(cwd, ".pi", "utils-shell.json");
+  const globalPath = join(getAgentDir(), "utils-shell.json");
 
   let globalConfig: Partial<PopupConfig> = {};
   let projectConfig: Partial<PopupConfig> = {};
@@ -32,7 +32,7 @@ export function loadConfig(cwd: string): PopupConfig {
     try {
       globalConfig = JSON.parse(readFileSync(globalPath, "utf-8")) as Partial<PopupConfig>;
     } catch (error) {
-      console.error(`[utils-interactive-shell] 전역 설정 파싱 실패: ${String(error)}`);
+      console.error(`[utils-shell] 전역 설정 파싱 실패: ${String(error)}`);
     }
   }
 
@@ -40,7 +40,7 @@ export function loadConfig(cwd: string): PopupConfig {
     try {
       projectConfig = JSON.parse(readFileSync(projectPath, "utf-8")) as Partial<PopupConfig>;
     } catch (error) {
-      console.error(`[utils-interactive-shell] 프로젝트 설정 파싱 실패: ${String(error)}`);
+      console.error(`[utils-shell] 프로젝트 설정 파싱 실패: ${String(error)}`);
     }
   }
 

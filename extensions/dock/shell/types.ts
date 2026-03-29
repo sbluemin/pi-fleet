@@ -1,5 +1,5 @@
 /**
- * utils-interactive-shell — 공용 타입
+ * utils-shell — 공용 타입
  *
  * 순수 쉘 팝업 유틸리티. 에이전트 개념 없음.
  */

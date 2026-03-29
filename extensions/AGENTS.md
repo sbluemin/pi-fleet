@@ -12,14 +12,14 @@ Do not create intermediate layers that simply wrap official TUI APIs (e.g., `set
 
 | Extension | Role | Main Files |
 |-----------|------|------------|
-| `fleet/` | 5 direct entries (alt+0/1/2/3/9) + individual agent tools + unified pipeline | `index.ts` (wiring), `core/` (facade), `modes/`, `tools/`, `render/`, etc. |
-| `infra/hud/` | Custom editor + status bar + footer (with integrated rendering engine) | `index.ts` (wiring), `editor.ts` (editor/footer/widget UI) |
-| `infra/keybind/` | Centralized keybinding management + overlay (alt+.) | `index.ts` (wiring), `types.ts` (API + globalThis), `store.ts` (JSON), `registry.ts` (bindings), `overlay.ts` (UI) |
-| `infra/settings/` | Centralized settings API + overlay popup (alt+/) | `index.ts` (wiring), `types.ts` (API + globalThis), `store.ts` (JSON), `registry.ts` (sections), `overlay.ts` (UI) |
-| `infra/welcome/` | Welcome overlay/header | `index.ts` (wiring), `welcome.ts` (UI), `types.ts` (globalThis types) |
-| `utils/improve-prompt/` | Meta-prompting (alt+m), reasoning level cycle (alt+r) | `index.ts` (wiring), `ui.ts` (status bar widget) |
-| `utils/thinking-timer/` | Inline elapsed-time display for Thinking blocks | `index.ts` (wiring), `timer.ts` (patch/store/ticker) |
-| `utils/summarize/` | Auto one-line session summary | `index.ts` (wiring), `ui.ts` (status bar widget) |
+| `fleet/` | 3 direct entries (alt+1/2/3) + individual agent tools + unified pipeline | `index.ts` (wiring), `core/` (facade), `core/internal/` (internal implementation), `captains/`, `models/` |
+| `dock/hud/` | Custom editor + status bar + footer (with integrated rendering engine) | `index.ts` (wiring), `editor.ts` (editor/footer/widget UI) |
+| `dock/keybind/` | Centralized keybinding management + overlay (alt+.) | `index.ts` (wiring), `types.ts` (API + globalThis), `store.ts` (JSON), `registry.ts` (bindings), `overlay.ts` (UI) |
+| `dock/settings/` | Centralized settings API + overlay popup (alt+/) | `index.ts` (wiring), `types.ts` (API + globalThis), `store.ts` (JSON), `registry.ts` (sections), `overlay.ts` (UI) |
+| `dock/welcome/` | Welcome overlay/header | `index.ts` (wiring), `welcome.ts` (UI), `types.ts` (globalThis types) |
+| `tender/improve-prompt/` | Meta-prompting (alt+m), reasoning level cycle (alt+r) | `index.ts` (wiring), `ui.ts` (status bar widget) |
+| `tender/thinking-timer/` | Inline elapsed-time display for Thinking blocks | `index.ts` (wiring), `timer.ts` (patch/store/ticker) |
+| `tender/summarize/` | Auto one-line session summary | `index.ts` (wiring), `ui.ts` (status bar widget) |
 
 ### Shared Libraries — Directories without `index.ts`
 
@@ -27,7 +27,7 @@ These are pure libraries not recognized as extensions by pi.
 
 | Library | Role | Main Consumers |
 |---------|------|----------------|
-| `infra/hud/` (also a library) | Status bar rendering engine (segments, layout, colors, themes, presets) | `infra/welcome` |
+| `dock/hud/` (also a library) | Status bar rendering engine (segments, layout, colors, themes, presets) | `dock/welcome` |
 
 ### Extension Separation Criteria
 
@@ -42,33 +42,36 @@ Apply these criteria when creating a new extension or separating an existing one
 - **`index.ts` is for wiring only** — Keep only `registerTool`, `registerCommand`, `on`, `registerShortcut` calls, and imports. Do not inline business logic or UI code here.
 - **UI/Rendering must be in separate files** — Such as `ui.ts`, `editor.ts`, `welcome.ts`. Do not put TUI component assembly code in `index.ts`.
 - **Constants/Types must be in `types.ts`** — Values shared across modules (especially globalThis keys/bridge interfaces) must be in a separate file.
-- **AI prompts must be in `prompts.ts`** — All prompts sent to AI models (system prompts, instructions, tool descriptions, guidelines, etc.) must be defined in a dedicated `prompts.ts` file. Do not embed prompt text inline in business logic, tool registration, or constants files.
+- **AI prompts should normally be in `prompts.ts`** — All prompts sent to AI models (system prompts, instructions, tool descriptions, guidelines, etc.) should normally be defined in a dedicated `prompts.ts` file. Do not embed prompt text inline in business logic, tool registration, or constants files unless a child `AGENTS.md` explicitly documents a narrower domain-specific exception.
 - **Use `globalThis` only for "sharing actions/data of independent features"** — Use it only when an extension exposes its functionality to other extensions (e.g., the dismiss action of welcome). Do not use globalThis to relay TUI framework data.
 
 ### Prompt Separation Rules (`prompts.ts`)
 
-Any string that is ultimately consumed by an AI model must live in `prompts.ts`:
+Any string that is ultimately consumed by an AI model should live in `prompts.ts` by default:
 
 | Category | Examples | Location |
 |----------|----------|----------|
-| System prompt / instruction | `SYSTEM_PROMPT`, `SYSTEM_INSTRUCTION` | `prompts.ts` (export const) |
-| Tool prompt fields | `description`, `promptSnippet`, `promptGuidelines` | `prompts.ts` (export function) |
+| System prompt / instruction | `SYSTEM_PROMPT`, `SYSTEM_INSTRUCTION` | `prompts.ts` by default |
+| Tool prompt fields | `description`, `promptSnippet`, `promptGuidelines` | `prompts.ts` by default, or inline in the owning module when a child `AGENTS.md` explicitly allows it |
 | Short UI-only labels | button text, notification messages | `constants.ts` or inline (NOT `prompts.ts`) |
 
 **Why separate?** Prompt text often needs independent review, A/B testing, or iteration without touching business logic. Keeping prompts in a single file per extension makes them easy to locate, audit, and modify.
 
+**Allowed exception:** If a child `AGENTS.md` explicitly states that prompt text is part of the owning module's domain contract and is expected to diverge per module, prompts may live inline in that module instead of a shared `prompts.ts`.
+
 **Naming conventions:**
 - Static prompts → `export const SYSTEM_PROMPT = \`...\``
 - Dynamic prompts (parameterized) → `export function toolDescription(name: string): string`
+- Inline prompt exceptions must be documented by a child `AGENTS.md` and kept near the owning module's registration logic
 - Re-export from `constants.ts` if consumers currently import from there → `export { SYSTEM_PROMPT } from "./prompts.js"`
 
 ### globalThis Usage Rules
 
 ```
-Allowed: infra/welcome → globalThis["__pi_utils_welcome__"] = { dismiss }
+Allowed: dock/welcome → globalThis["__pi_utils_welcome__"] = { dismiss }
          (Exposes actions of an independent feature)
 
-Forbidden: infra/hud-footer → globalThis["__pi_hud_footer__"] = { footerDataRef, tuiRef }
+Forbidden: dock/hud-footer → globalThis["__pi_hud_footer__"] = { footerDataRef, tuiRef }
            (Wraps and relays TUI framework data)
 ```
 
@@ -263,8 +266,8 @@ Extensions are organized in layers. **Dependencies must only flow in one directi
 ### Dependency Direction
 
 ```
-experimentals/  →  utils/  →  fleet/ (feature)  →  infra/
-    (top)         (utility)      (feature)         (infrastructure)
+tender/  →  fleet/ (feature)  →  dock/
+(utility)      (feature)         (infrastructure)
 ```
 
 - **Allowed**: A layer may import from any layer below it (direct or transitive).
@@ -274,12 +277,11 @@ experimentals/  →  utils/  →  fleet/ (feature)  →  infra/
 
 | Layer | May import from | Must NOT import from |
 |-------|----------------|----------------------|
-| `infra/` | external packages only | any other layer |
-| `fleet/` (feature) | `infra/` | `utils/`, `experimentals/` |
-| `utils/` | `fleet/`, `infra/` | `experimentals/` |
-| `experimentals/` | all layers | — |
+| `dock/` | external packages only | any other layer |
+| `fleet/` (feature) | `dock/` | `tender/` |
+| `tender/` | `fleet/`, `dock/` | — |
 
-> **Skipping layers is allowed** — e.g., `utils/` may import directly from `infra/` without going through `fleet/`.
+> **Skipping layers is allowed** — e.g., `tender/` may import directly from `dock/` without going through `fleet/`.
 
 ### Verification (as of 2026-03-29)
 
@@ -287,9 +289,9 @@ All cross-domain imports verified — **no reverse dependency violations found**
 
 | Import | Direction | Status |
 |--------|-----------|--------|
-| `fleet/` → `infra/keybind` | fleet → infra | ✅ |
-| `utils/summarize` → `infra/settings` | utils → infra | ✅ |
-| `utils/improve-prompt` → `infra/settings`, `infra/keybind` | utils → infra | ✅ |
+| `fleet/` → `dock/keybind` | fleet → dock | ✅ |
+| `tender/summarize` → `dock/settings` | tender → dock | ✅ |
+| `tender/improve-prompt` → `dock/settings`, `dock/keybind` | tender → dock | ✅ |
 
 ### Enforcement
 

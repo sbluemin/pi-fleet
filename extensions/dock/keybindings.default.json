@@ -9,10 +9,9 @@
     "popup": "alt+/"
   },
   "fleet": {
-    "mode:claude": "alt+1",
-    "mode:codex": "alt+2",
-    "mode:gemini": "alt+3",
-    "mode:all": "alt+0",
+    "carrier:claude": "alt+1",
+    "carrier:codex": "alt+2",
+    "carrier:gemini": "alt+3",
     "cancel": "alt+x",
     "panel-toggle": "alt+p",
     "panel-grow": "alt+j",

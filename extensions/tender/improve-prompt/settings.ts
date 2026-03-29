@@ -5,8 +5,8 @@
  */
 
 import type { ReasoningLevel } from "./constants.js";
-import type { InfraSettingsAPI } from "../../infra/settings/types.js";
-import { INFRA_SETTINGS_KEY } from "../../infra/settings/types.js";
+import type { InfraSettingsAPI } from "../../dock/settings/types.js";
+import { INFRA_SETTINGS_KEY } from "../../dock/settings/types.js";
 
 const SECTION_KEY = "utils-improve-prompt";
 
