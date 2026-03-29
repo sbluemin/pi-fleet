@@ -6,7 +6,6 @@
  */
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
-import type { SessionMapStore } from "../agent/session-map";
 import { ANIM_INTERVAL_MS } from "../../constants";
 import { resetRuns } from "../streaming/stream-store";
 import { renderModeBanner } from "../render/panel-renderer";
@@ -273,13 +272,6 @@ export function resetAgentPanel(ctx: ExtensionContext): void {
   }
 
   syncWidget(ctx);
-}
-
-// ─── 세션 스토어 주입 ─────────────────────────────────────
-
-/** 세션 매핑 저장소를 패널 상태에 주입합니다. */
-export function setAgentPanelSessionStore(store: SessionMapStore): void {
-  getState().sessionStore = store;
 }
 
 // ─── Footer 갱신 ─────────────────────────────────────────

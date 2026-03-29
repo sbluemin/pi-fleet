@@ -9,7 +9,6 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
-import type { SessionMapStore } from "../core/index.js";
 import { runAgentRequest } from "../core/index.js";
 import { registerCustomDirectMode } from "./framework";
 import type { DirectModeResult } from "./framework";
@@ -21,14 +20,7 @@ import {
   DIRECT_MODE_KEYS,
 } from "../constants";
 
-/**
- * 기본 3개 CLI 다이렉트 모드를 등록합니다 (claude, codex, gemini).
- */
-export function registerDirectModes(
-  pi: ExtensionAPI,
-  extensionDir: string,
-  sessionStore: SessionMapStore,
-): void {
+export function registerDirectModes(pi: ExtensionAPI): void {
   const cliTypes = CLI_ORDER;
 
   for (const cli of cliTypes) {
@@ -54,8 +46,6 @@ export function registerDirectModes(
           request,
           ctx,
           signal: helpers.signal,
-          configDir: extensionDir,
-          sessionStore,
         });
 
         return {

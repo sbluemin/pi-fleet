@@ -12,7 +12,7 @@
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { CliType } from "@sbluemin/unified-agent";
-import type { SessionMapStore, AgentCol } from "../core/index.js";
+import type { AgentCol } from "../core/index.js";
 import {
   runAgentRequest,
   startAgentStreaming,
@@ -28,7 +28,6 @@ import {
 } from "../constants";
 import { crossReportPrompt } from "./prompts";
 
-/** 칼럼 결과를 마크다운 텍스트로 통합 */
 function colsToMarkdown(cols: AgentCol[]): string {
   return cols.map((c) => {
     const nm = CLI_DISPLAY_NAMES[c.cli] ?? c.cli;
@@ -37,14 +36,7 @@ function colsToMarkdown(cols: AgentCol[]): string {
   }).join("\n\n---\n\n");
 }
 
-/**
- * All 다이렉트 모드를 등록합니다 (alt+0).
- */
-export function registerAllMode(
-  pi: ExtensionAPI,
-  configDir: string,
-  sessionStore: SessionMapStore,
-): void {
+export function registerAllMode(pi: ExtensionAPI): void {
   const cliTypes = CLI_ORDER;
 
   registerCustomDirectMode(pi, {
@@ -55,16 +47,11 @@ export function registerAllMode(
     bgColor: DIRECT_MODE_BG_COLORS["all"],
     bottomHint: " alt+0 exit · alt+x cancel · alt+shift+m model ",
     showWorkingMessage: false,
-    // 모드 활성화 시점(alt+0)에 즉시 3분할 컬럼으로 재초기화
     clis: cliTypes,
 
     onExecute: async (request, ctx, helpers) => {
-      // 전체 패널 리셋 + 확장 (All 모드 고유 — resetRuns, makeCols, timer 시작)
       startAgentStreaming(ctx, { expand: true });
 
-      // 3개 에이전트 동시 실행 — 각각 runAgentRequest를 통해 패널 칼럼 자동 동기화
-      // beginColStreaming이 이미 초기화된 칼럼을 재초기화하지만 무해 (idempotent)
-      // endColStreaming은 다른 칼럼이 아직 스트리밍 중이면 전체 종료를 지연
       await Promise.allSettled(
         cliTypes.map((cli: CliType) =>
           runAgentRequest({
@@ -72,20 +59,15 @@ export function registerAllMode(
             request,
             ctx,
             signal: helpers.signal,
-            configDir,
-            sessionStore,
           }),
         ),
       );
 
-      // 전체 스트리밍 종료 (타이머 정지, 최종 상태 갱신)
-      // 마지막 endColStreaming이 이미 타이머를 정리했을 수 있지만 idempotent
       stopAgentStreaming(ctx);
 
       const finalCols = getAgentPanelCols();
       const rawContent = colsToMarkdown(finalCols);
 
-      // 모든 에이전트가 성공적으로 응답한 경우, PI가 교차 보고서를 자동 생성
       const doneCount = finalCols.filter((c) => c.status === "done").length;
       if (doneCount >= 2) {
         const prompt = crossReportPrompt(
@@ -98,9 +80,6 @@ export function registerAllMode(
               text: c.text,
             })),
         );
-        // executeDirectMode가 all-response 메시지를 전송한 후 실행되도록 지연
-        // source="extension"이므로 다이렉트 모드 input 핸들러를 우회하여
-        // PI의 현재 프로바이더/모델이 직접 교차 보고서를 생성
         setTimeout(() => {
           pi.sendUserMessage(prompt);
         }, 0);

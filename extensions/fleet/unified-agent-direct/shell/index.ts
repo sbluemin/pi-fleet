@@ -7,9 +7,8 @@
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import type { CliType } from "@sbluemin/unified-agent";
-import { loadSelectedModels } from "../core/index.js";
+import { getModelConfig, getSessionId } from "../core/index.js";
 
-/** CLI 명령어 매핑 (CliConfigs.ts의 cliCommand 값) */
 const CLI_COMMANDS: Record<string, string> = {
   claude: "claude",
   codex: "codex",
@@ -18,28 +17,15 @@ const CLI_COMMANDS: Record<string, string> = {
 
 export interface PopupCommandOptions {
   agentId: CliType;
-  /** 현재 활성 CLI 세션 ID (있으면 resume) */
-  sessionId?: string;
 }
 
-/**
- * 현재 저장된 모델/추론 설정과 세션 ID를 반영해 에이전트 네이티브 팝업 명령어를 조립합니다.
- *
- * - sessionId가 있으면 해당 세션을 resume
- * - sessionId가 없으면 신규 인터랙티브 실행
- *
- * Resume 인자 형식:
- *   claude: claude --resume <sessionId> [opts]
- *   codex:  codex resume <sessionId> [opts]
- *   gemini: gemini --resume <sessionId> [opts]
- */
 export function buildAgentPopupCommand(
   opts: PopupCommandOptions,
   _ctx: ExtensionContext,
-  configDir: string,
 ): string {
-  const { agentId, sessionId } = opts;
-  const cliConfig = loadSelectedModels(configDir)[agentId];
+  const { agentId } = opts;
+  const cliConfig = getModelConfig()[agentId];
+  const sessionId = getSessionId(agentId);
   const command = CLI_COMMANDS[agentId] ?? agentId;
   const model = cliConfig?.model;
   const effort = cliConfig?.effort;
@@ -47,9 +33,6 @@ export function buildAgentPopupCommand(
   return joinCommand(command, args);
 }
 
-/**
- * CLI별 resume 인자 또는 신규 실행 인자를 조립합니다.
- */
 function buildResumeOrNewArgs(
   cli: CliType,
   sessionId: string | undefined,
@@ -58,7 +41,6 @@ function buildResumeOrNewArgs(
 ): string[] {
   const args: string[] = [];
 
-  // 기본 권한 우회 옵션
   if (cli === "claude") {
     args.push("--dangerously-skip-permissions");
   } else if (cli === "codex") {
@@ -67,25 +49,20 @@ function buildResumeOrNewArgs(
     args.push("--yolo");
   }
 
-  // Resume 인자 (CLI별 형식이 다름)
   if (sessionId) {
     switch (cli) {
       case "claude":
-        // claude --resume <sessionId>
         args.push("--resume", sessionId);
         break;
       case "codex":
-        // codex resume <sessionId>
         args.push("resume", sessionId);
         break;
       case "gemini":
-        // gemini --resume <sessionId>
         args.push("--resume", sessionId);
         break;
     }
   }
 
-  // 모델 인자
   if (model) {
     if (cli === "codex") {
       args.push("-m", model);
@@ -94,7 +71,6 @@ function buildResumeOrNewArgs(
     }
   }
 
-  // Effort / reasoning 인자
   if (cli === "claude" && effort) {
     args.push("--effort", effort);
   }
@@ -112,5 +88,5 @@ function joinCommand(command: string, args: string[]): string {
 function shellQuote(value: string): string {
   if (value.length === 0) return "''";
   if (/^[A-Za-z0-9_./:=+-]+$/.test(value)) return value;
-  return `'${value.replace(/'/g, `'\"'\"'`)}'`;
+  return `'${value.replace(/'/g, `'"'"'`)}'`;
 }

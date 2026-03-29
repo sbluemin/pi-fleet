@@ -21,52 +21,46 @@ import * as path from "node:path";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-// 코어 에이전트
-import { createSessionMapStore } from "./core/agent/session-map";
-import { cleanIdleClients } from "./core/agent/client-pool";
-
-
-// 에이전트 패널
-import { refreshAgentPanelFooter, setAgentPanelSessionStore } from "./core/panel/lifecycle.js";
+import {
+  initRuntime,
+  onHostSessionChange,
+  exposeAgentApi,
+  clearStreamWidgets,
+  clearCompletedStreamWidgets,
+  refreshAgentPanelFooter,
+  setServiceStatusRenderer,
+  cleanIdleClients,
+} from "./core/index.js";
 import { registerAgentPanelShortcut } from "./core/panel/shortcuts.js";
 
-// 프레임워크
 import { onStatusUpdate, getActiveModeId, notifyStatusUpdate } from "./modes/framework";
 import { CLI_DISPLAY_NAMES, CODEX_POPUP_KEY, DIRECT_MODE_COLORS } from "./constants";
 import { attachStatusContext, refreshStatusNow } from "./status/index.js";
 import { renderServiceStatusToken } from "./status/ui.js";
-import { exposeAgentApi, clearStreamWidgets, clearCompletedStreamWidgets } from "./core/orchestrator.js";
-import { setServiceStatusRenderer } from "./core/panel/config.js";
 import { registerAgentTools } from "./tools/index";
 import { buildAgentPopupCommand } from "./shell/index.js";
 import { getModeBannerLines } from "./core/panel/lifecycle.js";
 
-// 외부 확장 브릿지 — infra-hud 에디터 모드 프로바이더
 import { EDITOR_MODE_PROVIDER_KEY } from "../../infra/hud/types.js";
 import type { EditorModeProvider } from "../../infra/hud/types.js";
 
-// 외부 확장 브릿지
 import { INFRA_KEYBIND_KEY } from "../../infra/keybind/types.js";
 import type { InfraKeybindAPI } from "../../infra/keybind/types.js";
 import { SHELL_POPUP_BRIDGE_KEY } from "../../infra/interactive-shell/types.js";
 import type { ShellPopupBridge } from "../../infra/interactive-shell/types.js";
 
-// 분해된 모듈
 import { registerDirectModes } from "./modes/direct.js";
 import { registerAllMode } from "./modes/all.js";
 import { registerClaudeCodexMode } from "./modes/claude-codex.js";
 import { registerModelCommands, syncModelConfig } from "./models/index.js";
 
-// ─── 확장 진입점 ─────────────────────────────────────────
-
 export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
   const extensionDir = path.dirname(fileURLToPath(import.meta.url));
 
-  // ── 세션 스토어 초기화 ──
-  const sessionDir = path.join(extensionDir, "session-maps");
-  const sessionStore = createSessionMapStore(sessionDir);
+  // ── Core 런타임 초기화 (영속 파일은 core/.data/ 하위에 저장) ──
+  const dataDir = path.join(extensionDir, "core", ".data");
+  initRuntime(dataDir);
 
-  // ── infra-hud 에디터 모드 프로바이더 주입 (역방향 의존 제거) ──
   (globalThis as any)[EDITOR_MODE_PROVIDER_KEY] = {
     getActiveModeId,
     getModeColor: (modeId: string) => DIRECT_MODE_COLORS[modeId] ?? null,
@@ -74,11 +68,8 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
     onStatusUpdate,
   } satisfies EditorModeProvider;
 
-  // ── 코어 와이어링 ──
-  setAgentPanelSessionStore(sessionStore);
-  exposeAgentApi({ configDir: extensionDir, sessionStore });
+  exposeAgentApi();
 
-  // 서비스 상태 렌더러 주입 (status feature → core panel, 역방향 의존 방지)
   setServiceStatusRenderer((cli, snapshots, loading) =>
     renderServiceStatusToken(
       cli as import("./core/contracts.js").ProviderKey,
@@ -86,15 +77,14 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
       loading,
     ),
   );
-  syncModelConfig(extensionDir);
+  syncModelConfig();
   registerAgentPanelShortcut();
-  registerAgentTools({ pi, configDir: extensionDir, sessionStore });
-  registerDirectModes(pi, extensionDir, sessionStore);
-  registerAllMode(pi, extensionDir, sessionStore);
-  registerClaudeCodexMode(pi, extensionDir, sessionStore);
-  registerModelCommands(pi, extensionDir, sessionStore, { getActiveModeId, notifyStatusUpdate });
+  registerAgentTools({ pi });
+  registerDirectModes(pi);
+  registerAllMode(pi);
+  registerClaudeCodexMode(pi);
+  registerModelCommands(pi, { getActiveModeId, notifyStatusUpdate });
 
-  // ── 에이전트 팝업 단축키 ──
   const keybind = (globalThis as any)[INFRA_KEYBIND_KEY] as InfraKeybindAPI;
   keybind.register({
     extension: "fleet",
@@ -122,9 +112,8 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
         return;
       }
 
-      const agentId = modeId;
-      const sessionId = sessionStore.get(agentId as import("@sbluemin/unified-agent").CliType);
-      const command = buildAgentPopupCommand({ agentId: agentId as import("@sbluemin/unified-agent").CliType, sessionId }, ctx, extensionDir);
+      const agentId = modeId as import("@sbluemin/unified-agent").CliType;
+      const command = buildAgentPopupCommand({ agentId }, ctx);
       const title = CLI_DISPLAY_NAMES[agentId] ?? agentId;
 
       try {
@@ -136,26 +125,23 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
     },
   });
 
-  // ── 세션 이벤트 ──
   const onSessionChange = (ctx: ExtensionContext) => {
-    sessionStore.restore(ctx.sessionManager.getSessionId());
+    onHostSessionChange(ctx.sessionManager.getSessionId());
     cleanIdleClients();
     clearStreamWidgets();
     refreshAgentPanelFooter(ctx);
     attachStatusContext(ctx);
   };
 
-  // ── pi 호스트 응답 시작 시 완료된 스트림 위젯만 제거 (진행 중 위젯은 유지) ──
   pi.on("before_agent_start", (_event, _ctx) => {
     clearCompletedStreamWidgets();
   });
 
-  pi.on("session_start", (_event, ctx) => { onSessionChange(ctx); syncModelConfig(extensionDir); });
-  pi.on("session_switch", (_event, ctx) => { onSessionChange(ctx); syncModelConfig(extensionDir); });
-  pi.on("session_fork", (_event, ctx) => { onSessionChange(ctx); syncModelConfig(extensionDir); });
-  pi.on("session_tree", (_event, ctx) => { onSessionChange(ctx); syncModelConfig(extensionDir); });
+  pi.on("session_start", (_event, ctx) => { onSessionChange(ctx); syncModelConfig(); });
+  pi.on("session_switch", (_event, ctx) => { onSessionChange(ctx); syncModelConfig(); });
+  pi.on("session_fork", (_event, ctx) => { onSessionChange(ctx); syncModelConfig(); });
+  pi.on("session_tree", (_event, ctx) => { onSessionChange(ctx); syncModelConfig(); });
 
-  // ── Direct Mode 전용 세션 강제 저장 ──
   pi.on("session_shutdown", async (_event, ctx) => {
     const sessionFile = ctx.sessionManager.getSessionFile();
     if (!sessionFile) return;
@@ -182,10 +168,8 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
     writeFileSync(sessionFile, content);
   });
 
-  // ── 모델 설정 동기화 콜백 ──
-  onStatusUpdate(() => { syncModelConfig(extensionDir); });
+  onStatusUpdate(() => { syncModelConfig(); });
 
-  // ── 상태 새로고침 커맨드 ──
   pi.registerCommand("fleet:agent:status", {
     description: "Claude/Codex/Gemini 상태를 즉시 새로고침",
     handler: async (_args, ctx) => {

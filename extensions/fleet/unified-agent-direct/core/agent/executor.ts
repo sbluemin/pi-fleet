@@ -16,7 +16,7 @@ import type {
   ConnectionInfo,
 } from "./types";
 import { disconnectClient, getClientPool, isClientAlive, type PooledClient } from "./client-pool";
-import type { SessionMapStore } from "./session-map";
+import { getSessionStore } from "./runtime.js";
 
 // ─── 상수 ────────────────────────────────────────────────
 
@@ -188,15 +188,7 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
   const { cli, request, cwd, signal } = opts;
   const clientPool = getClientPool();
 
-  // sessionStore가 없으면 no-op (하위 호환 / executeOneShot 경유 방지)
-  const noopStore: SessionMapStore = {
-    restore() {},
-    get() { return undefined; },
-    set() {},
-    clear() {},
-    getAll() { return {}; },
-  };
-  const store = opts.sessionStore ?? noopStore;
+  const store = getSessionStore();
 
   // 결과 상태
   let responseText = "";

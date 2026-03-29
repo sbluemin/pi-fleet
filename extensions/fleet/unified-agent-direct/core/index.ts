@@ -8,8 +8,6 @@
  * core 내부를 직접 참조할 수 있습니다.
  */
 
-// ─── 도메인 타입 (contracts) ────────────────────────────
-
 export type {
   ColBlock,
   ColStatus,
@@ -21,21 +19,25 @@ export type {
   ServiceStatusRendererFn,
 } from "./contracts.js";
 
-// ─── 오케스트레이터 (실행 진입점) ───────────────────────
-
 export {
   runAgentRequest,
   exposeAgentApi,
   clearStreamWidgets,
   clearCompletedStreamWidgets,
 } from "./orchestrator.js";
-export type { ExposeAgentApiOptions } from "./orchestrator.js";
-
-// ─── 모델 설정 (타입 + 영속화 + 카탈로그) ──────────────
 
 export {
-  loadSelectedModels,
-  saveSelectedModels,
+  initRuntime,
+  onHostSessionChange,
+  getSessionStore,
+  getSessionId,
+  getModelConfig,
+  updateModelSelection,
+  updateAllModelSelections,
+  getDataDir,
+} from "./agent/runtime.js";
+
+export {
   getAvailableModels,
   getEffortLevels,
   getDefaultBudgetTokens,
@@ -46,8 +48,6 @@ export type {
   ProviderInfo,
 } from "./agent/model-config.js";
 
-// ─── 실행 엔진 타입 ────────────────────────────────────
-
 export type {
   AgentStatus,
   ExecuteOptions,
@@ -55,13 +55,6 @@ export type {
   ToolCallInfo,
   ConnectionInfo,
 } from "./agent/types.js";
-
-// ─── 세션 매핑 ─────────────────────────────────────────
-
-export { createSessionMapStore } from "./agent/session-map.js";
-export type { SessionMapStore } from "./agent/session-map.js";
-
-// ─── 패널 lifecycle ────────────────────────────────────
 
 export {
   beginColStreaming,
@@ -72,13 +65,10 @@ export {
   setAgentPanelMode,
   hideAgentPanel,
   refreshAgentPanelFooter,
-  setAgentPanelSessionStore,
   getModeBannerLines,
   onPanelToggle,
   isAgentPanelExpanded,
 } from "./panel/lifecycle.js";
-
-// ─── 패널 설정 ─────────────────────────────────────────
 
 export {
   setAgentPanelModelConfig,
@@ -87,11 +77,7 @@ export {
   setServiceStatusRenderer,
 } from "./panel/config.js";
 
-// ─── 패널 단축키 ───────────────────────────────────────
-
 export { registerAgentPanelShortcut } from "./panel/shortcuts.js";
-
-// ─── 메시지 렌더러 ─────────────────────────────────────
 
 export {
   createDefaultUserRenderer,
@@ -99,7 +85,5 @@ export {
   createToolResultRenderer,
 } from "./render/message-renderers.js";
 export type { AgentRenderConfig } from "./render/message-renderers.js";
-
-// ─── 클라이언트 풀 ─────────────────────────────────────
 
 export { disconnectClient, cleanIdleClients } from "./agent/client-pool.js";

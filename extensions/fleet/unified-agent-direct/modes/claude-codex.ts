@@ -11,7 +11,7 @@
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { CliType } from "@sbluemin/unified-agent";
-import type { SessionMapStore, AgentCol } from "../core/index.js";
+import type { AgentCol } from "../core/index.js";
 import {
   runAgentRequest,
   startAgentStreaming,
@@ -26,10 +26,8 @@ import {
 } from "../constants";
 import { crossReportPrompt } from "./prompts";
 
-/** 대상 CLI 목록 (Gemini 제외) */
 const TARGET_CLIS = ["claude", "codex"] as const;
 
-/** 칼럼 결과를 마크다운 텍스트로 통합 */
 function colsToMarkdown(cols: AgentCol[]): string {
   return cols.map((c) => {
     const nm = CLI_DISPLAY_NAMES[c.cli] ?? c.cli;
@@ -38,14 +36,7 @@ function colsToMarkdown(cols: AgentCol[]): string {
   }).join("\n\n---\n\n");
 }
 
-/**
- * Claude & Codex 다이렉트 모드를 등록합니다 (alt+9).
- */
-export function registerClaudeCodexMode(
-  pi: ExtensionAPI,
-  configDir: string,
-  sessionStore: SessionMapStore,
-): void {
+export function registerClaudeCodexMode(pi: ExtensionAPI): void {
   registerCustomDirectMode(pi, {
     id: "claude-codex",
     displayName: "Claude & Codex",
@@ -57,10 +48,8 @@ export function registerClaudeCodexMode(
     clis: TARGET_CLIS,
 
     onExecute: async (request, ctx, helpers) => {
-      // 전체 패널 리셋 + 확장 (2개 CLI만 칼럼 생성)
       startAgentStreaming(ctx, { expand: true, clis: TARGET_CLIS });
 
-      // 2개 에이전트 동시 실행
       await Promise.allSettled(
         TARGET_CLIS.map((cli: CliType) =>
           runAgentRequest({
@@ -68,19 +57,15 @@ export function registerClaudeCodexMode(
             request,
             ctx,
             signal: helpers.signal,
-            configDir,
-            sessionStore,
           }),
         ),
       );
 
-      // 전체 스트리밍 종료
       stopAgentStreaming(ctx);
 
       const finalCols = getAgentPanelCols();
       const rawContent = colsToMarkdown(finalCols);
 
-      // 2개 에이전트 모두 성공하면 교차 보고서 자동 생성
       const doneCount = finalCols.filter((c) => c.status === "done").length;
       if (doneCount >= 2) {
         const prompt = crossReportPrompt(
@@ -93,7 +78,6 @@ export function registerClaudeCodexMode(
               text: c.text,
             })),
         );
-        // executeDirectMode가 claude-codex-response 메시지를 전송한 후 실행되도록 지연
         setTimeout(() => {
           pi.sendUserMessage(prompt);
         }, 0);

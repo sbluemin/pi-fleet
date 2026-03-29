@@ -3,7 +3,6 @@
  */
 
 import type { CliType } from "@sbluemin/unified-agent";
-import type { SessionMapStore } from "./session-map";
 
 // ─── 도구 호출 추적 ──────────────────────────────────────
 
@@ -51,8 +50,6 @@ export interface ExecuteOptions {
   effort?: string;
   /** 명시적 Claude thinking budget tokens */
   budgetTokens?: number;
-  /** 세션 매핑 저장소 (executeWithPool 전용, executeOneShot에서는 미사용) */
-  sessionStore?: SessionMapStore;
   /** 프롬프트 유휴 타임아웃 (ms, 미지정 시 SDK 기본값 사용) */
   promptIdleTimeout?: number;
   /** 취소 시그널 */

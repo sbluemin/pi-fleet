@@ -13,8 +13,7 @@
 
 import { executeWithPool } from "./agent/executor";
 import type { AgentStatus } from "./agent/types";
-import { loadSelectedModels } from "./agent/model-config.js";
-import type { SessionMapStore } from "./agent/session-map";
+import { getModelConfig } from "./agent/runtime.js";
 import {
   createRun,
   appendTextBlock,
@@ -95,19 +94,7 @@ export function clearStreamWidgets(): void {
 
 // ─── 내부 타입 ──────────────────────────────────────────
 
-interface RunAgentRequestOptions extends UnifiedAgentRequestOptions {
-  /** 모델 설정이 저장된 디렉토리 */
-  configDir: string;
-  /** direct가 소유한 세션 매핑 저장소 */
-  sessionStore: SessionMapStore;
-}
-
-export interface ExposeAgentApiOptions {
-  /** 모델 설정이 저장된 디렉토리 */
-  configDir: string;
-  /** direct가 소유한 세션 매핑 저장소 */
-  sessionStore: SessionMapStore;
-}
+interface RunAgentRequestOptions extends UnifiedAgentRequestOptions {}
 
 // ─── 내부 헬퍼 ──────────────────────────────────────────
 
@@ -151,8 +138,6 @@ export async function runAgentRequest(options: RunAgentRequestOptions): Promise<
     ctx,
     signal,
     cwd,
-    configDir,
-    sessionStore,
     onMessageChunk,
     onThoughtChunk,
     onToolCall,
@@ -206,7 +191,7 @@ export async function runAgentRequest(options: RunAgentRequestOptions): Promise<
 
   try {
     // 4. 설정 파일에서 모델 옵션을 읽어 해석된 값으로 주입 (Push 방식)
-    const cliConfig = loadSelectedModels(configDir)[cli];
+    const cliConfig = getModelConfig()[cli];
     const result = await executeWithPool({
       cli,
       request,
@@ -214,7 +199,6 @@ export async function runAgentRequest(options: RunAgentRequestOptions): Promise<
       model: cliConfig?.model,
       effort: cliConfig?.effort,
       budgetTokens: cliConfig?.budgetTokens,
-      sessionStore,
       signal,
       onMessageChunk: (text) => {
         appendTextBlock(cli, text);
@@ -304,13 +288,11 @@ export async function runAgentRequest(options: RunAgentRequestOptions): Promise<
 /**
  * 다른 확장에서 globalThis를 통해 접근할 공개 브릿지를 등록합니다.
  */
-export function exposeAgentApi({ configDir, sessionStore }: ExposeAgentApiOptions): UnifiedAgentRequestBridge {
+export function exposeAgentApi(): UnifiedAgentRequestBridge {
   const bridge: UnifiedAgentRequestBridge = {
     requestUnifiedAgent: (options) =>
       runAgentRequest({
         ...options,
-        configDir,
-        sessionStore,
       }),
   };
 

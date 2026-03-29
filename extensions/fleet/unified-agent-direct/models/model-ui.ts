@@ -2,19 +2,20 @@
  * unified-agent-direct — 모델 선택 UI 및 커맨드
  *
  * Per-CLI 모델/추론 설정 선택 UI와 관련 단축키/커맨드를 등록합니다.
+ * 모델 변경 결과 적용(영속화 + 세션 무효화)은 core에 위임합니다.
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 
 import type { CliType } from "@sbluemin/unified-agent";
-import type { ModelSelection, SelectedModelsConfig, SessionMapStore } from "../core/index.js";
+import type { ModelSelection, SelectedModelsConfig } from "../core/index.js";
 import {
-  loadSelectedModels,
-  saveSelectedModels,
+  getModelConfig,
+  updateModelSelection,
+  updateAllModelSelections,
   getAvailableModels,
   getEffortLevels,
   getDefaultBudgetTokens,
-  disconnectClient,
   setAgentPanelModelConfig,
 } from "../core/index.js";
 import { INFRA_KEYBIND_KEY } from "../../../infra/keybind/types.js";
@@ -25,26 +26,17 @@ import {
   DIRECT_MODE_KEYS,
 } from "../constants";
 
-// ─── 모델 설정 동기화 ────────────────────────────────────
-
-/** 모델 설정을 디스크에서 읽어 패널 footer에 반영합니다. */
-export function syncModelConfig(extensionDir: string): void {
-  setAgentPanelModelConfig(loadSelectedModels(extensionDir));
+/** 모델 설정을 런타임에서 읽어 패널 footer에 반영합니다. */
+export function syncModelConfig(): void {
+  setAgentPanelModelConfig(getModelConfig());
 }
 
-// ─── 모델 선택 UI ────────────────────────────────────────
-
-/**
- * 단일 CLI의 모델 + 추론 설정을 인터랙티브하게 선택합니다.
- * 취소 시 undefined를 반환합니다.
- */
 async function selectModelForCli(
   cli: CliType,
   ctx: ExtensionContext,
-  configDir: string,
 ): Promise<ModelSelection | undefined> {
   const cliName = CLI_DISPLAY_NAMES[cli] ?? cli;
-  const previousSelection = loadSelectedModels(configDir);
+  const previousSelection = getModelConfig();
   const prev = previousSelection[cli];
 
   let provider;
@@ -55,7 +47,6 @@ async function selectModelForCli(
     return undefined;
   }
 
-  // 모델 선택
   const options = provider.models.map((m) => {
     const markers: string[] = [];
     if (m.modelId === provider.defaultModel) markers.push("default");
@@ -70,7 +61,6 @@ async function selectModelForCli(
   const modelId = choice.split(" — ")[0]!.trim();
   const selection: ModelSelection = { model: modelId };
 
-  // codex 전용: reasoning effort
   if (cli === "codex") {
     const effortLevels = getEffortLevels(cli);
     if (effortLevels && effortLevels.length > 0) {
@@ -92,7 +82,6 @@ async function selectModelForCli(
     }
   }
 
-  // claude 전용: thinking (reasoning effort + budget_tokens)
   if (cli === "claude") {
     const effortLevels = getEffortLevels(cli);
     if (effortLevels && effortLevels.length > 0) {
@@ -142,15 +131,8 @@ async function selectModelForCli(
   return selection;
 }
 
-// ─── 커맨드 및 단축키 등록 ────────────────────────────────
-
-/**
- * 모델 변경 단축키(alt+shift+m)와 /fleet:agent:models 커맨드를 등록합니다.
- */
 export function registerModelCommands(
   pi: ExtensionAPI,
-  extensionDir: string,
-  sessionStore: SessionMapStore,
   deps: {
     getActiveModeId: () => string | null;
     notifyStatusUpdate: () => void;
@@ -159,7 +141,6 @@ export function registerModelCommands(
   const cliTypes = CLI_ORDER;
   const keybind = (globalThis as any)[INFRA_KEYBIND_KEY] as InfraKeybindAPI;
 
-  // ── Per-CLI 모델 변경 단축키 ──
   keybind.register({
     extension: "fleet",
     action: "model-change",
@@ -167,15 +148,12 @@ export function registerModelCommands(
     description: "활성 CLI 모델/추론 설정 변경",
     category: "Infra",
     handler: async (ctx) => {
-      // 1. 대상 CLI 결정
       const activeModeId = deps.getActiveModeId();
       let targetCli: CliType;
 
       if (activeModeId && cliTypes.includes(activeModeId as CliType)) {
-        // 독점 뷰 (alt+1/2/3) → 해당 CLI 바로 진입
         targetCli = activeModeId as CliType;
       } else {
-        // All 모드 / 비활성 → CLI 선택 UI 표시
         const cliOptions = cliTypes.map((cli) =>
           `${CLI_DISPLAY_NAMES[cli] ?? cli} (${DIRECT_MODE_KEYS[cli] ?? cli})`,
         );
@@ -184,31 +162,22 @@ export function registerModelCommands(
         targetCli = cliTypes[cliOptions.indexOf(choice)];
       }
 
-      // 2. Per-CLI 모델 선택
-      const selection = await selectModelForCli(targetCli, ctx, extensionDir);
+      const selection = await selectModelForCli(targetCli, ctx);
       if (!selection) return;
 
-      // 3. 기존 설정에 merge 저장 (다른 CLI 설정 보존)
-      const existing = loadSelectedModels(extensionDir);
-      existing[targetCli] = selection;
-      saveSelectedModels(extensionDir, existing);
-      // 변경된 CLI의 기존 세션을 강제 종료 + 세션 매핑 제거하여 다음 요청 시 새 모델로 연결
-      await disconnectClient(targetCli);
-      sessionStore.clear(targetCli);
+      await updateModelSelection(targetCli, selection);
 
-      // 4. 알림 + 상태바 갱신
       const cliName = CLI_DISPLAY_NAMES[targetCli] ?? targetCli;
       let summary = `${cliName}=${selection.model}`;
       if (selection.effort) summary += ` effort=${selection.effort}`;
       if (selection.budgetTokens) summary += ` budget=${selection.budgetTokens}`;
       ctx.ui.notify(`모델 설정 저장: ${summary}`, "info");
 
-      syncModelConfig(extensionDir);
+      syncModelConfig();
       deps.notifyStatusUpdate();
     },
   });
 
-  // ── 모델 선택 커맨드 ──
   pi.registerCommand("fleet:agent:models", {
     description: "서브에이전트별 모델 선택 (gemini → claude → codex)",
     handler: async (_args, ctx) => {
@@ -216,7 +185,7 @@ export function registerModelCommands(
       const selectedModels: SelectedModelsConfig = {};
 
       for (const cli of selectionOrder) {
-        const selection = await selectModelForCli(cli, ctx, extensionDir);
+        const selection = await selectModelForCli(cli, ctx);
         if (selection === undefined) {
           ctx.ui.notify("모델 선택이 취소되었습니다.", "warning");
           return;
@@ -224,13 +193,8 @@ export function registerModelCommands(
         selectedModels[cli] = selection;
       }
 
-      // 저장 후 변경된 각 CLI의 기존 세션을 강제 종료 + 세션 매핑 제거
-      saveSelectedModels(extensionDir, selectedModels);
-      const changedClis = Object.keys(selectedModels) as CliType[];
-      await Promise.allSettled(changedClis.map((cli) => disconnectClient(cli)));
-      for (const cli of changedClis) sessionStore.clear(cli);
+      await updateAllModelSelections(selectedModels);
 
-      // 요약 알림
       const summary = Object.entries(selectedModels).map(([k, v]) => {
         let s = `${k}=${v.model}`;
         if (v.effort) s += ` effort=${v.effort}`;
@@ -239,8 +203,7 @@ export function registerModelCommands(
       }).join(", ");
       ctx.ui.notify(`모델 선택 저장 완료: ${summary}`, "info");
 
-      // 상태바 갱신 (자체 + 외부 확장)
-      syncModelConfig(extensionDir);
+      syncModelConfig();
       deps.notifyStatusUpdate();
     },
   });

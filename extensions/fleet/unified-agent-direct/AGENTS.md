@@ -22,7 +22,7 @@ core/  (infrastructure — NO reverse deps to features)
   ├── index.ts          ← public Facade (features access core ONLY through here)
   ├── contracts.ts      ← shared domain types (ColBlock, AgentCol, ServiceSnapshot, etc.) — internal
   ├── orchestrator.ts   ← unified execution entry point (internal — exposed via index.ts)
-  ├── agent/            ← executor, client-pool, session-map, model-config, types
+  ├── agent/            ← executor, client-pool, runtime, session-map, model-config, types
   ├── panel/            ← panel state + lifecycle + widget bridge
   ├── streaming/        ← stream store + widget manager
   └── render/           ← all renderers
@@ -43,6 +43,7 @@ features (depend on core — never the reverse):
 - **`core/` must never import from feature directories**. Where core needs feature-provided behavior (e.g., service status rendering), **callback injection** via `index.ts` wiring is used.
 - **Features must not import from other features**. Each feature directory (`modes/`, `tools/`, `models/`, `status/`, `shell/`) is an isolated module that only depends on `core/index.ts` and shared root files (`constants.ts`, `types.ts`). When a feature needs behavior from another feature, `index.ts` (the wiring layer) injects it via a `deps` parameter — e.g., `models/` receives `getActiveModeId` and `notifyStatusUpdate` from `modes/` through `index.ts`.
 - **index.ts is the wiring layer**: It connects features to core via dependency injection (e.g., `setServiceStatusRenderer`) and cross-feature dependencies via `deps` parameters, keeping both core and features unaware of each other's implementations.
+- **Persistence is core-owned**: Session map and model config persistence are managed entirely by `core/agent/runtime.ts`. Features never access `sessionStore`, `configDir`, or persistence paths directly — they use facade APIs (`getModelConfig`, `updateModelSelection`, `getSessionId`, etc.). `index.ts` calls `initRuntime(dataDir)` once and `onHostSessionChange(piSessionId)` on PI session events. Runtime files live under `core/.data/`.
 
 ### Unified Execution Pipeline
 

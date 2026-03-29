@@ -10,7 +10,6 @@ import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-age
 import type { CliType } from "@sbluemin/unified-agent";
 import { Type } from "@sinclair/typebox";
 
-import type { SessionMapStore } from "../core/index.js";
 import { DIRECT_MODE_BG_COLORS, DIRECT_MODE_COLORS } from "../constants";
 import { toolDescription, toolPromptSnippet, toolPromptGuidelines } from "./prompts.js";
 import { createToolResultRenderer, runAgentRequest } from "../core/index.js";
@@ -24,12 +23,7 @@ const CLI_NAMES: Record<string, string> = {
 };
 
 export interface RegisterAgentToolsConfig {
-  /** pi ExtensionAPI 인스턴스 */
   pi: ExtensionAPI;
-  /** 확장 디렉토리 (모델 설정 파일 경로) */
-  configDir: string;
-  /** 세션 매핑 저장소 (부모와 공유) */
-  sessionStore: SessionMapStore;
 }
 
 function toToolResult(cli: CliType, result: UnifiedAgentResult) {
@@ -46,11 +40,7 @@ function toToolResult(cli: CliType, result: UnifiedAgentResult) {
   };
 }
 
-/**
- * 개별 에이전트 도구(claude, codex, gemini)를 pi에 등록합니다.
- * unified-agent-direct의 진입점에서 호출됩니다.
- */
-export function registerAgentTools({ pi, configDir, sessionStore }: RegisterAgentToolsConfig): void {
+export function registerAgentTools({ pi }: RegisterAgentToolsConfig): void {
   const cliTypes: CliType[] = ["claude", "codex", "gemini"];
 
   for (const cli of cliTypes) {
@@ -74,7 +64,6 @@ export function registerAgentTools({ pi, configDir, sessionStore }: RegisterAgen
         const isMultiline = raw.includes("\n");
         const title = theme.fg("toolTitle", theme.bold(displayName));
         const titleWidth = visibleWidth(title);
-        // render(width)를 직접 구현하여 터미널 너비 기반 동적 truncate → 항상 한 줄 보장
         return {
           render(width: number): string[] {
             const remaining = Math.max(0, width - titleWidth - 1);
@@ -107,8 +96,6 @@ export function registerAgentTools({ pi, configDir, sessionStore }: RegisterAgen
           request,
           ctx,
           signal,
-          configDir,
-          sessionStore,
         });
         return toToolResult(cli, result);
       },
