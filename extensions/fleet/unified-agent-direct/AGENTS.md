@@ -1,4 +1,4 @@
-# unified-agent-direct
+# fleet (unified-agent-direct)
 
 Direct mode **framework** + Direct modes for 4 CLIs (claude/codex/gemini/all) + individual agent tools + model selection + status bar + agent panel.
 

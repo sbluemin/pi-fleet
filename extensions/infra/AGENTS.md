@@ -1,4 +1,4 @@
-# Extensions-Infra
+# Infra
 
 Infrastructure extensions for pi-fleet. Each provides a core UI or system feature loaded alongside other extension directories.
 

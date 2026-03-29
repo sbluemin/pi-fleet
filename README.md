@@ -4,7 +4,7 @@ A multi-LLM orchestration kit for [pi-coding-agent](https://github.com/badlogic/
 
 ## Extensions
 
-### Infrastructure (`extensions-infra/`)
+### Infrastructure (`extensions/infra/`)
 
 | Extension | Description |
 |-----------|-------------|
@@ -15,13 +15,13 @@ A multi-LLM orchestration kit for [pi-coding-agent](https://github.com/badlogic/
 | `interactive-shell/` | Interactive shell session inside pi |
 | `experimental/` | System-level toggles for experimental features (`Alt+E`) |
 
-### Core (`extensions/`)
+### Core (`extensions/fleet/`)
 
 | Extension | Description |
 |-----------|-------------|
 | `unified-agent-direct/` | Direct mode — `Alt+1/2/3` exclusive view, `Alt+0` tri-split view, `Alt+9` 2-split (Claude & Codex) view, `Alt+P` panel toggle + individual agent tools, client pool, executor, session map, model config |
 
-### Utility (`extensions-util/`)
+### Utility (`extensions/utils/`)
 
 | Extension | Description |
 |-----------|-------------|
@@ -29,7 +29,7 @@ A multi-LLM orchestration kit for [pi-coding-agent](https://github.com/badlogic/
 | `summarize/` | Auto one-line session summary |
 | `thinking-timer/` | Inline elapsed-time display next to collapsed Thinking blocks |
 
-### Experimental (`extensions-experimental/`)
+### Experimental (`extensions/experimentals/`)
 
 > Disabled by default. Activate inside pi with `/fleet:system:experimental on`.
 

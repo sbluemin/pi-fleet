@@ -1,6 +1,6 @@
-# Extensions-Util
+# Utils
 
-Utility extensions for pi-fleet. Each provides a standalone productivity feature loaded alongside `extensions/`.
+Utility extensions for pi-fleet. Each provides a standalone productivity feature.
 
 ## Extensions
 

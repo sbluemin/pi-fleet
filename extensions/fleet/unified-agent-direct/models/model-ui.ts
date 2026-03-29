@@ -17,8 +17,8 @@ import {
   disconnectClient,
   setAgentPanelModelConfig,
 } from "../core/index.js";
-import { INFRA_KEYBIND_KEY } from "../../../extensions-infra/keybind/types.js";
-import type { InfraKeybindAPI } from "../../../extensions-infra/keybind/types.js";
+import { INFRA_KEYBIND_KEY } from "../../../infra/keybind/types.js";
+import type { InfraKeybindAPI } from "../../../infra/keybind/types.js";
 import {
   CLI_DISPLAY_NAMES,
   CLI_ORDER,
@@ -161,7 +161,7 @@ export function registerModelCommands(
 
   // ── Per-CLI 모델 변경 단축키 ──
   keybind.register({
-    extension: "unified-agent-direct",
+    extension: "fleet",
     action: "model-change",
     defaultKey: "alt+shift+m",
     description: "활성 CLI 모델/추론 설정 변경",

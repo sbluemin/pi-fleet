@@ -4,8 +4,8 @@
  * infra-settings API를 통해 extensions/settings.json의 "as" 키에서 읽고 쓴다.
  */
 
-import type { InfraSettingsAPI } from "../../extensions-infra/settings/types.js";
-import { INFRA_SETTINGS_KEY } from "../../extensions-infra/settings/types.js";
+import type { InfraSettingsAPI } from "../../infra/settings/types.js";
+import { INFRA_SETTINGS_KEY } from "../../infra/settings/types.js";
 
 const SECTION_KEY = "utils-summarize";
 

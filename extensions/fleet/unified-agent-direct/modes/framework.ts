@@ -24,8 +24,8 @@ import {
   createDefaultUserRenderer,
   createDefaultResponseRenderer,
 } from "../core/index.js";
-import { INFRA_KEYBIND_KEY } from "../../../extensions-infra/keybind/types.js";
-import type { InfraKeybindAPI } from "../../../extensions-infra/keybind/types.js";
+import { INFRA_KEYBIND_KEY } from "../../../infra/keybind/types.js";
+import type { InfraKeybindAPI } from "../../../infra/keybind/types.js";
 
 // ─── 공개 타입 ───────────────────────────────────────────
 
@@ -191,7 +191,7 @@ export function registerCustomDirectMode(
   // ── 단축키 등록 ──
   const keybind = (globalThis as any)[INFRA_KEYBIND_KEY] as InfraKeybindAPI;
   keybind.register({
-    extension: "unified-agent-direct",
+    extension: "fleet",
     action: `mode:${config.id}`,
     defaultKey: config.shortcutKey,
     description: `${config.displayName} 다이렉트 모드 토글`,
@@ -222,7 +222,7 @@ export function registerCustomDirectMode(
   if (!gs.cancelShortcutRegistered) {
     gs.cancelShortcutRegistered = true;
     keybind.register({
-      extension: "unified-agent-direct",
+      extension: "fleet",
       action: "cancel",
       defaultKey: "alt+x",
       description: "활성 다이렉트 모드 실행 취소",
@@ -414,7 +414,7 @@ function registerInputHandler(pi: ExtensionAPI) {
     // busy 설정 후 즉시 handled 반환 — 실행은 백그라운드에서 진행
     state.busy = true;
     executeDirectMode(state, ctx, request).catch((e) => {
-      console.error(`[unified-agent-direct] executeDirectMode 미처리 에러:`, e);
+      console.error(`[fleet] executeDirectMode 미처리 에러:`, e);
     });
 
     return { action: "handled" as const };

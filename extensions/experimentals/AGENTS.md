@@ -21,15 +21,15 @@
 
 ## Development Rules
 
-- **All new extensions must start in this directory** — Do not create extensions directly under `extensions/`.
-- Follow the Extension Authoring Guide in `extensions/AGENTS.md` for structure and conventions.
+- **All new extensions must start in this directory** — Do not create extensions directly under the parent `extensions/`.
+- Follow the Extension Authoring Guide in the parent `extensions/AGENTS.md` for structure and conventions.
 - A directory with `index.ts` is recognized as an extension by pi. (Without `index.ts`, it is treated as a shared library.)
 
 ## Promotion / Demotion
 
 | Action | Condition |
 |--------|-----------|
-| `experimental/` → `extensions/` | Requires **explicit user instruction** |
-| `extensions/` → `experimental/` | Requires **explicit user instruction** |
+| `experimentals/` → `extensions/` | Requires **explicit user instruction** |
+| `extensions/` → `experimentals/` | Requires **explicit user instruction** |
 
 Do not move extensions autonomously.

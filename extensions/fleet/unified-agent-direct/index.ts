@@ -42,14 +42,14 @@ import { buildAgentPopupCommand } from "./shell/index.js";
 import { getModeBannerLines } from "./core/panel/lifecycle.js";
 
 // 외부 확장 브릿지 — infra-hud 에디터 모드 프로바이더
-import { EDITOR_MODE_PROVIDER_KEY } from "../../extensions-infra/hud/types.js";
-import type { EditorModeProvider } from "../../extensions-infra/hud/types.js";
+import { EDITOR_MODE_PROVIDER_KEY } from "../../infra/hud/types.js";
+import type { EditorModeProvider } from "../../infra/hud/types.js";
 
 // 외부 확장 브릿지
-import { INFRA_KEYBIND_KEY } from "../../extensions-infra/keybind/types.js";
-import type { InfraKeybindAPI } from "../../extensions-infra/keybind/types.js";
-import { SHELL_POPUP_BRIDGE_KEY } from "../../extensions-infra/interactive-shell/types.js";
-import type { ShellPopupBridge } from "../../extensions-infra/interactive-shell/types.js";
+import { INFRA_KEYBIND_KEY } from "../../infra/keybind/types.js";
+import type { InfraKeybindAPI } from "../../infra/keybind/types.js";
+import { SHELL_POPUP_BRIDGE_KEY } from "../../infra/interactive-shell/types.js";
+import type { ShellPopupBridge } from "../../infra/interactive-shell/types.js";
 
 // 분해된 모듈
 import { registerDirectModes } from "./modes/direct.js";
@@ -97,7 +97,7 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
   // ── 에이전트 팝업 단축키 ──
   const keybind = (globalThis as any)[INFRA_KEYBIND_KEY] as InfraKeybindAPI;
   keybind.register({
-    extension: "unified-agent-direct",
+    extension: "fleet",
     action: "agent-popup",
     defaultKey: CODEX_POPUP_KEY,
     description: "현재 에이전트 네이티브 팝업 열기",

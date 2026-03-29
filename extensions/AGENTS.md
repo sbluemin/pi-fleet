@@ -12,14 +12,14 @@ Do not create intermediate layers that simply wrap official TUI APIs (e.g., `set
 
 | Extension | Role | Main Files |
 |-----------|------|------------|
-| `infra-hud/` | Custom editor + status bar + footer (with integrated rendering engine) | `index.ts` (wiring), `editor.ts` (editor/footer/widget UI) |
-| `infra-keybind/` | Centralized keybinding management + overlay (alt+.) | `index.ts` (wiring), `types.ts` (API + globalThis), `store.ts` (JSON), `registry.ts` (bindings), `overlay.ts` (UI) |
-| `infra-settings/` | Centralized settings API + overlay popup (alt+/) | `index.ts` (wiring), `types.ts` (API + globalThis), `store.ts` (JSON), `registry.ts` (sections), `overlay.ts` (UI) |
-| `utils-welcome/` | Welcome overlay/header | `index.ts` (wiring), `welcome.ts` (UI), `types.ts` (globalThis types) |
-| `unified-agent-direct/` | 4 Direct modes (alt+0~3) + individual agent tools + unified pipeline | `index.ts` (wiring), `agent-api.ts` (pipeline), `modes/`, `tools/`, `render/`, etc. |
-| `utils-improve-prompt/` | Meta-prompting (alt+m), reasoning level cycle (alt+r) | `index.ts` (wiring), `ui.ts` (status bar widget) |
-| `utils-thinking-timer/` | Inline elapsed-time display for Thinking blocks | `index.ts` (wiring), `timer.ts` (patch/store/ticker) |
-| `utils-summarize/` | Auto one-line session summary | `index.ts` (wiring), `ui.ts` (status bar widget) |
+| `fleet/unified-agent-direct/` | 4 Direct modes (alt+0~3) + individual agent tools + unified pipeline | `index.ts` (wiring), `core/` (facade), `modes/`, `tools/`, `render/`, etc. |
+| `infra/hud/` | Custom editor + status bar + footer (with integrated rendering engine) | `index.ts` (wiring), `editor.ts` (editor/footer/widget UI) |
+| `infra/keybind/` | Centralized keybinding management + overlay (alt+.) | `index.ts` (wiring), `types.ts` (API + globalThis), `store.ts` (JSON), `registry.ts` (bindings), `overlay.ts` (UI) |
+| `infra/settings/` | Centralized settings API + overlay popup (alt+/) | `index.ts` (wiring), `types.ts` (API + globalThis), `store.ts` (JSON), `registry.ts` (sections), `overlay.ts` (UI) |
+| `infra/welcome/` | Welcome overlay/header | `index.ts` (wiring), `welcome.ts` (UI), `types.ts` (globalThis types) |
+| `utils/improve-prompt/` | Meta-prompting (alt+m), reasoning level cycle (alt+r) | `index.ts` (wiring), `ui.ts` (status bar widget) |
+| `utils/thinking-timer/` | Inline elapsed-time display for Thinking blocks | `index.ts` (wiring), `timer.ts` (patch/store/ticker) |
+| `utils/summarize/` | Auto one-line session summary | `index.ts` (wiring), `ui.ts` (status bar widget) |
 
 ### Shared Libraries — Directories without `index.ts`
 
@@ -27,7 +27,7 @@ These are pure libraries not recognized as extensions by pi.
 
 | Library | Role | Main Consumers |
 |---------|------|----------------|
-| `infra-hud/` (also a library) | Status bar rendering engine (segments, layout, colors, themes, presets) | `utils-welcome` |
+| `infra/hud/` (also a library) | Status bar rendering engine (segments, layout, colors, themes, presets) | `infra/welcome` |
 
 ### Extension Separation Criteria
 
@@ -65,10 +65,10 @@ Any string that is ultimately consumed by an AI model must live in `prompts.ts`:
 ### globalThis Usage Rules
 
 ```
-Allowed: utils-welcome → globalThis["__pi_utils_welcome__"] = { dismiss }
+Allowed: infra/welcome → globalThis["__pi_utils_welcome__"] = { dismiss }
          (Exposes actions of an independent feature)
 
-Forbidden: hud-footer → globalThis["__pi_hud_footer__"] = { footerDataRef, tuiRef }
+Forbidden: infra/hud-footer → globalThis["__pi_hud_footer__"] = { footerDataRef, tuiRef }
            (Wraps and relays TUI framework data)
 ```
 
@@ -253,3 +253,45 @@ Path: `examples/extensions/` (Relative to pi root)
 - Extension Docs: https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/extensions.md
 - Extension Examples: https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent/examples/extensions
 - Built-in Tool Implementations: https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent/src/core/tools
+
+---
+
+## Domain Boundary Rules
+
+Extensions are organized in layers. **Dependencies must only flow in one direction — from higher layers toward lower layers.**
+
+### Dependency Direction
+
+```
+experimentals/  →  utils/  →  fleet/ (feature)  →  infra/
+    (top)         (utility)      (feature)         (infrastructure)
+```
+
+- **Allowed**: A layer may import from any layer below it (direct or transitive).
+- **Forbidden**: A layer must never import from a layer above it (no reverse dependencies).
+
+### Layer Rules
+
+| Layer | May import from | Must NOT import from |
+|-------|----------------|----------------------|
+| `infra/` | external packages only | any other layer |
+| `fleet/` (feature) | `infra/` | `utils/`, `experimentals/` |
+| `utils/` | `fleet/`, `infra/` | `experimentals/` |
+| `experimentals/` | all layers | — |
+
+> **Skipping layers is allowed** — e.g., `utils/` may import directly from `infra/` without going through `fleet/`.
+
+### Verification (as of 2026-03-29)
+
+All cross-domain imports verified — **no reverse dependency violations found**.
+
+| Import | Direction | Status |
+|--------|-----------|--------|
+| `fleet/` → `infra/keybind` | fleet → infra | ✅ |
+| `utils/summarize` → `infra/settings` | utils → infra | ✅ |
+| `utils/improve-prompt` → `infra/settings`, `infra/keybind` | utils → infra | ✅ |
+
+### Enforcement
+
+- When adding a new import across layer boundaries, **verify the direction before committing**.
+- A reverse dependency is a hard violation — **do not merge code that breaks this rule**.

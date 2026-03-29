@@ -1,5 +1,5 @@
 {
-  "name": "pi-unified-agent-direct",
+  "name": "pi-fleet",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@mariozechner/pi-coding-agent": "^0.61.0",
-    "@sbluemin/unified-agent": "file:../../packages/unified-agent"
+    "@sbluemin/unified-agent": "file:../../../packages/unified-agent"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

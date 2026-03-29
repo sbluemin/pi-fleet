@@ -13,10 +13,10 @@ import { REASONING_LEVELS, REASONING_LABELS, REASONING_COLORS, isValidReasoning 
 import { loadSettings, saveSettings } from "./settings.js";
 import type { MetaPromptSettings } from "./settings.js";
 import { resolveModel, metaPromptWithLoader } from "./engine.js";
-import type { InfraSettingsAPI } from "../../extensions-infra/settings/types.js";
-import { INFRA_SETTINGS_KEY } from "../../extensions-infra/settings/types.js";
-import { INFRA_KEYBIND_KEY } from "../../extensions-infra/keybind/types.js";
-import type { InfraKeybindAPI } from "../../extensions-infra/keybind/types.js";
+import type { InfraSettingsAPI } from "../../infra/settings/types.js";
+import { INFRA_SETTINGS_KEY } from "../../infra/settings/types.js";
+import { INFRA_KEYBIND_KEY } from "../../infra/keybind/types.js";
+import type { InfraKeybindAPI } from "../../infra/keybind/types.js";
 
 export default function (pi: ExtensionAPI) {
   // 설정 파일에서 초기 reasoning 레벨 로드 (기본: off)

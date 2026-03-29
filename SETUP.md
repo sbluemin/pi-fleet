@@ -25,8 +25,8 @@ cd pi-fleet
 cd packages/unified-agent && npm install && cd ../..
 
 # Extensions 의존성 설치
-cd extensions/unified-agent-direct && npm install && cd ../..
-cd extensions-infra/interactive-shell && npm install && cd ../..
+cd extensions/fleet/unified-agent-direct && npm install && cd ../../..
+cd extensions/infra/interactive-shell && npm install && cd ../../..
 ```
 
 ## 3. Register extensions in pi settings
@@ -38,9 +38,9 @@ Add the `extensions` field to your pi settings file, pointing to all three exten
 ```json
 {
   "extensions": [
-    "<path-to-pi-fleet>/extensions",
-    "<path-to-pi-fleet>/extensions-infra",
-    "<path-to-pi-fleet>/extensions-util"
+    "<path-to-pi-fleet>/extensions/fleet",
+    "<path-to-pi-fleet>/extensions/infra",
+    "<path-to-pi-fleet>/extensions/utils"
   ]
 }
 ```
@@ -50,18 +50,18 @@ Add the `extensions` field to your pi settings file, pointing to all three exten
 ```json
 {
   "extensions": [
-    "<path-to-pi-fleet>/extensions",
-    "<path-to-pi-fleet>/extensions-infra",
-    "<path-to-pi-fleet>/extensions-util"
+    "<path-to-pi-fleet>/extensions/fleet",
+    "<path-to-pi-fleet>/extensions/infra",
+    "<path-to-pi-fleet>/extensions/utils"
   ]
 }
 ```
 
 > Replace `<path-to-pi-fleet>` with the actual path where you cloned the repository.
 >
-> - `extensions/` — agent orchestration extensions
-> - `extensions-infra/` — infrastructure extensions (hud, keybind, settings, welcome, interactive-shell, experimental) + shared config files
-> - `extensions-util/` — utility extensions (improve-prompt, summarize, thinking-timer)
+> - `extensions/fleet/` — agent orchestration extension (`unified-agent-direct/`)
+> - `extensions/infra/` — infrastructure extensions (hud, keybind, settings, welcome, interactive-shell, experimental) + shared config files
+> - `extensions/utils/` — utility extensions (improve-prompt, summarize, thinking-timer)
 
 ## 4. Verify
 

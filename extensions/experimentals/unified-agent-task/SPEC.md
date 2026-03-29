@@ -1,6 +1,6 @@
 # unified-agent-task — 서브에이전트 태스크 시스템
 
-> **핵심 목표**: `unified-agent-direct/core/agent/executor.ts`의 `executeOneShot`을 활용하여 메인 에이전트 컨텍스트와 독립된 1회성 태스크를 **병렬 분산 처리**하는 서브에이전트 도구를 제공한다.
+> **핵심 목표**: `fleet/core/agent/executor.ts`의 `executeOneShot`을 활용하여 메인 에이전트 컨텍스트와 독립된 1회성 태스크를 **병렬 분산 처리**하는 서브에이전트 도구를 제공한다.
 
 ---
 
@@ -17,13 +17,13 @@
 
 ### 1.2 왜 `executeOneShot` 직접 호출인가
 
-`unified-agent-direct`의 `runAgentRequest()`는 세션 유지 + 에이전트 패널 동기화 + stream-store 관리 등 **인터랙티브 대화**에 특화된 파이프라인입니다. 태스크 시스템은 이와 본질적으로 다릅니다:
+`fleet`의 `runAgentRequest()`는 세션 유지 + 에이전트 패널 동기화 + stream-store 관리 등 **인터랙티브 대화**에 특화된 파이프라인입니다. 태스크 시스템은 이와 본질적으로 다릅니다:
 
 - **1회성**: 세션 매핑/복원이 불필요
 - **패널 독립**: 에이전트 패널과 무관하게 tool block으로만 표시
 - **다중 인스턴스**: 같은 CLI를 동시에 여러 개 실행해야 함 (pool의 busy 충돌 회피)
 
-따라서 `unified-agent-direct/core/agent/executor.ts`의 `executeOneShot`을 직접 사용하는 것이 올바른 계층 선택입니다.
+따라서 `fleet/core/agent/executor.ts`의 `executeOneShot`을 직접 사용하는 것이 올바른 계층 선택입니다.
 
 ### 1.3 `systemPrefix`는 user prompt 앞에 붙이는 것
 
@@ -61,8 +61,8 @@ unified-agent-task/           ← 확장 (index.ts 포함)
 
 ```
 unified-agent-task
-  ├── unified-agent-direct/core/agent/executor.ts  ← executeOneShot (직접 호출)
-  ├── unified-agent-direct/core/agent/types.ts     ← ExecuteResult, ToolCallInfo, AgentStatus
+  ├── fleet/core/agent/executor.ts  ← executeOneShot (직접 호출)
+  ├── fleet/core/agent/types.ts     ← ExecuteResult, ToolCallInfo, AgentStatus
   ├── @sbluemin/unified-agent                      ← CliType
   └── @mariozechner/pi-coding-agent                ← ExtensionAPI, ExtensionContext (pi 프레임워크)
 
@@ -568,7 +568,7 @@ pi의 tool execute에서 `onUpdate` 콜백으로 실행 중 진행 상황을 갱
 | **최대 태스크 수** | 6개 (메모리/프로세스 보호) |
 | **결과 크기 (LLM)** | 합산 50KB / 2000줄 제한 (pi 도구 출력 제한 준수) |
 | **결과 크기 (TUI)** | renderResult에서 축소/확장 뷰로 전체 표시 |
-| **패널 연동** | 없음 — `unified-agent-direct`의 에이전트 패널과 독립 |
+| **패널 연동** | 없음 — `fleet`의 에이전트 패널과 독립 |
 
 ---
 
@@ -629,8 +629,8 @@ export default function (pi: ExtensionAPI) {
 | 파일 | 책임 | 의존 |
 |------|------|------|
 | `index.ts` | 와이어링: 도구 등록, globalThis API 노출 | pi API, executor, registry, render, prompts |
-| `types.ts` | 모든 공개 타입, globalThis 키, 브릿지 인터페이스 | unified-agent-direct/core/agent/types, @sbluemin/unified-agent |
+| `types.ts` | 모든 공개 타입, globalThis 키, 브릿지 인터페이스 | fleet/core/agent/types, @sbluemin/unified-agent |
 | `prompts.ts` | 도구 description, promptSnippet, promptGuidelines (동적) | registry |
-| `executor.ts` | 실행 엔진: single/parallel/fan-out/chain, 동시성 제어 | unified-agent-direct/core/agent/executor |
+| `executor.ts` | 실행 엔진: single/parallel/fan-out/chain, 동시성 제어 | fleet/core/agent/executor |
 | `registry.ts` | 태스크 타입 CRUD, globalThis 레지스트리 | 없음 (순수 데이터) |
 | `render.ts` | renderCall + renderResult: 축소/확장 뷰, onUpdate 진행 표시 | pi-tui |
