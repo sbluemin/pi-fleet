@@ -1,15 +1,13 @@
 /**
- * fleet — 다이렉트 모드 PI 확장 진입점
+ * fleet — Carrier PI 확장 진입점
  *
- * SDK 초기화 + 세션 이벤트 + 5개 다이렉트 모드 등록
+ * SDK 초기화 + 세션 이벤트 + 3개 Carrier 등록
  *
  * ┌──────────────────────────────────────────────────────┐
  * │ alt+1 → Claude        (에이전트 패널 독점 뷰)         │
  * │ alt+2 → Codex         (에이전트 패널 독점 뷰)         │
  * │ alt+3 → Gemini        (에이전트 패널 독점 뷰)         │
- * │ alt+0 → All           (에이전트 패널 3분할 뷰)        │
- * │ alt+9 → Claude & Codex(에이전트 패널 2분할 뷰)        │
- * │ alt+t → Agent Popup   (PTY 네이티브 팝업)            │
+ * │ alt+t → Carrier Bridge (PTY 네이티브 브리지)         │
  * │ 같은 키 재입력 → 기본 모드 원복                        │
  * │ alt+p → 에이전트 패널 토글                            │
  * │ alt+shift+m → 활성 CLI 모델/추론 설정 변경             │
@@ -22,24 +20,20 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import {
-  initRuntime,
-  onHostSessionChange,
-  exposeAgentApi,
-  clearStreamWidgets,
-  clearCompletedStreamWidgets,
-  refreshAgentPanelFooter,
-  setServiceStatusRenderer,
-  cleanIdleClients,
-} from "./core/index.js";
-import { registerAgentPanelShortcut } from "./core/panel/shortcuts.js";
-
-import { onStatusUpdate, getActiveModeId, notifyStatusUpdate } from "./modes/framework";
-import { CLI_DISPLAY_NAMES, CODEX_POPUP_KEY, DIRECT_MODE_COLORS } from "./constants";
-import { attachStatusContext, refreshStatusNow } from "./status/index.js";
-import { renderServiceStatusToken } from "./status/ui.js";
-import { registerAgentTools } from "./tools/index";
-import { buildAgentPopupCommand } from "./shell/index.js";
-import { getModeBannerLines } from "./core/panel/lifecycle.js";
+  onStatusUpdate,
+  getActiveCarrierId,
+} from "./carrier/framework.js";
+import { initRuntime, onHostSessionChange } from "./internal/agent/runtime.js";
+import { cleanIdleClients } from "./internal/agent/client-pool.js";
+import { registerModelCommands, syncModelConfig } from "./internal/agent/model-ui.js";
+import { exposeAgentApi, clearStreamWidgets, clearCompletedStreamWidgets } from "./operation-runner.js";
+import { refreshAgentPanelFooter, getModeBannerLines } from "./internal/panel/lifecycle.js";
+import { registerAgentPanelShortcut } from "./internal/panel/shortcuts.js";
+import { buildBridgeCommand } from "./carrier/launch.js";
+import { attachStatusContext, refreshStatusNow } from "./internal/service-status/store.js";
+import { CLI_DISPLAY_NAMES, CARRIER_BRIDGE_KEY, CARRIER_COLORS } from "./constants";
+import { registerCaptains } from "./captains/index.js";
+import { appendAdmiralSystemPrompt } from "./prompts.js";
 
 import { EDITOR_MODE_PROVIDER_KEY } from "../infra/hud/types.js";
 import type { EditorModeProvider } from "../infra/hud/types.js";
@@ -49,49 +43,75 @@ import type { InfraKeybindAPI } from "../infra/keybind/types.js";
 import { SHELL_POPUP_BRIDGE_KEY } from "../infra/interactive-shell/types.js";
 import type { ShellPopupBridge } from "../infra/interactive-shell/types.js";
 
-import { registerDirectModes } from "./modes/direct.js";
-import { registerAllMode } from "./modes/all.js";
-import { registerClaudeCodexMode } from "./modes/claude-codex.js";
-import { registerModelCommands, syncModelConfig } from "./models/index.js";
+export type { CollectedStreamData } from "./internal/contracts.js";
+
+export { runAgentRequest } from "./operation-runner.js";
+
+export {
+  getModelConfig,
+  updateModelSelection,
+  updateAllModelSelections,
+} from "./internal/agent/runtime.js";
+
+export {
+  getAvailableModels,
+  getEffortLevels,
+  getDefaultBudgetTokens,
+} from "./internal/agent/model-config.js";
+export type {
+  ModelSelection,
+  SelectedModelsConfig,
+} from "./internal/agent/model-config.js";
+
+export type { AgentStatus } from "./internal/agent/types.js";
+
+export { syncModelConfig, registerModelCommands } from "./internal/agent/model-ui.js";
+
+export {
+  registerCarrier,
+  activateCarrier,
+  deactivateCarrier,
+  getActiveCarrierId,
+  onStatusUpdate,
+  notifyStatusUpdate,
+} from "./carrier/framework.js";
+
+export type {
+  CarrierConfig,
+  CarrierHelpers,
+  CarrierResult,
+} from "./carrier/framework.js";
+
+export { registerSingleCarrier } from "./carrier/register.js";
 
 export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
   const extensionDir = path.dirname(fileURLToPath(import.meta.url));
 
-  // ── Core 런타임 초기화 (영속 파일은 core/.data/ 하위에 저장) ──
-  const dataDir = path.join(extensionDir, "core", ".data");
+  // ── Fleet 런타임 초기화 (영속 파일은 .data/ 하위에 저장) ──
+  const dataDir = path.join(extensionDir, ".data");
   initRuntime(dataDir);
 
   (globalThis as any)[EDITOR_MODE_PROVIDER_KEY] = {
-    getActiveModeId,
-    getModeColor: (modeId: string) => DIRECT_MODE_COLORS[modeId] ?? null,
+    getActiveModeId: getActiveCarrierId,
+    getModeColor: (modeId: string) => CARRIER_COLORS[modeId] ?? null,
     getBannerLines: (width: number) => getModeBannerLines(width),
     onStatusUpdate,
   } satisfies EditorModeProvider;
 
   exposeAgentApi();
 
-  setServiceStatusRenderer((cli, snapshots, loading) =>
-    renderServiceStatusToken(
-      cli as import("./core/contracts.js").ProviderKey,
-      snapshots,
-      loading,
-    ),
-  );
   syncModelConfig();
   registerAgentPanelShortcut();
-  registerAgentTools({ pi });
-  registerDirectModes(pi);
-  registerAllMode(pi);
-  registerClaudeCodexMode(pi);
-  registerModelCommands(pi, { getActiveModeId, notifyStatusUpdate });
+  registerCaptains(pi);
+  registerModelCommands(pi);
 
   const keybind = (globalThis as any)[INFRA_KEYBIND_KEY] as InfraKeybindAPI;
   keybind.register({
     extension: "fleet",
-    action: "agent-popup",
-    defaultKey: CODEX_POPUP_KEY,
-    description: "현재 에이전트 네이티브 팝업 열기",
-    category: "Agent Panel",
+    action: "carrier-bridge",
+    defaultKey: CARRIER_BRIDGE_KEY,
+    description: "현재 carrier 네이티브 브리지 열기",
+    category: "Fleet Bridge",
     handler: async (ctx) => {
       const bridge = (globalThis as Record<string, unknown>)[SHELL_POPUP_BRIDGE_KEY] as ShellPopupBridge | undefined;
       if (!bridge) {
@@ -100,7 +120,7 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
       }
       if (bridge.isOpen()) return;
 
-      const modeId = getActiveModeId();
+      const modeId = getActiveCarrierId();
       if (modeId !== "claude" && modeId !== "codex" && modeId !== "gemini") {
         const shell = process.env.SHELL || "/bin/zsh";
         try {
@@ -113,14 +133,14 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
       }
 
       const agentId = modeId as import("@sbluemin/unified-agent").CliType;
-      const command = buildAgentPopupCommand({ agentId }, ctx);
+      const command = buildBridgeCommand(agentId);
       const title = CLI_DISPLAY_NAMES[agentId] ?? agentId;
 
       try {
         await bridge.open({ command, title, cwd: ctx.cwd });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        ctx.ui.notify(`팝업 실행 실패: ${message}`, "error");
+        ctx.ui.notify(`브리지 실행 실패: ${message}`, "error");
       }
     },
   });
@@ -133,8 +153,11 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
     attachStatusContext(ctx);
   };
 
-  pi.on("before_agent_start", (_event, _ctx) => {
+  pi.on("before_agent_start", (event, _ctx) => {
     clearCompletedStreamWidgets();
+    return {
+      systemPrompt: appendAdmiralSystemPrompt(event.systemPrompt),
+    };
   });
 
   pi.on("session_start", (_event, ctx) => { onSessionChange(ctx); syncModelConfig(); });

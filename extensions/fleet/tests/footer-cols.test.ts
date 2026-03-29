@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { createRun, finalizeRun } from "../core/streaming/stream-store.js";
-import type { AgentCol } from "../core/contracts.js";
-import { getState, makeFooterCols } from "../core/panel/state.js";
+import { createRun, finalizeRun } from "../internal/streaming/stream-store.js";
+import type { AgentCol } from "../internal/contracts.js";
+import { getState, makeFooterCols } from "../internal/panel/state.js";
 
 function makeCol(cli: string, status: AgentCol["status"]): AgentCol {
   return {

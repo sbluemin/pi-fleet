@@ -1,7 +1,7 @@
 /**
  * runtime 단위 테스트
  *
- * core/agent/runtime.ts의 핵심 계약을 검증합니다:
+ * internal/agent/runtime.ts의 핵심 계약을 검증합니다:
  * - initRuntime이 `.data` 디렉토리를 생성하는지
  * - 모델 설정 load/save가 올바른 경로에서 동작하는지
  * - 세션 매핑이 initRuntime → onHostSessionChange 흐름으로 동작하는지
@@ -20,8 +20,8 @@ import {
   getSessionId,
   getModelConfig,
   getDataDir,
-} from "../core/agent/runtime.js";
-import { saveSelectedModels } from "../core/agent/model-config.js";
+} from "../internal/agent/runtime.js";
+import { saveSelectedModels } from "../internal/agent/model-config.js";
 
 let tmpDir: string;
 
