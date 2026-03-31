@@ -1,16 +1,14 @@
 /**
  * fleet — Carrier PI 확장 진입점
  *
- * SDK 초기화 + 세션 이벤트 + 3개 Carrier 등록
+ * SDK 초기화 + 세션 이벤트 + N개 Carrier 등록
  *
  * ┌──────────────────────────────────────────────────────┐
- * │ alt+1 → Claude        (에이전트 패널 독점 뷰)         │
- * │ alt+2 → Codex         (에이전트 패널 독점 뷰)         │
- * │ alt+3 → Gemini        (에이전트 패널 독점 뷰)         │
+ * │ alt+{slot} → 해당 Carrier (에이전트 패널 독점 뷰)    │
  * │ alt+t → Carrier Bridge (PTY 네이티브 브리지)         │
  * │ 같은 키 재입력 → 기본 모드 원복                        │
  * │ alt+p → 에이전트 패널 토글                            │
- * │ alt+shift+m → 활성 CLI 모델/추론 설정 변경             │
+ * │ alt+shift+m → 활성 Carrier 모델/추론 설정 변경         │
  * └──────────────────────────────────────────────────────┘
  */
 
@@ -22,6 +20,8 @@ import { fileURLToPath } from "node:url";
 import {
   onStatusUpdate,
   getActiveCarrierId,
+  getRegisteredCarrierConfig,
+  resolveCarrierColor,
 } from "./carrier/framework.js";
 import { initRuntime, onHostSessionChange } from "./internal/agent/runtime.js";
 import { cleanIdleClients } from "./internal/agent/client-pool.js";
@@ -31,7 +31,7 @@ import { refreshAgentPanelFooter, getModeBannerLines } from "./internal/panel/li
 import { registerAgentPanelShortcut } from "./internal/panel/shortcuts.js";
 import { buildBridgeCommand } from "./carrier/launch.js";
 import { attachStatusContext, refreshStatusNow } from "./internal/service-status/store.js";
-import { CLI_DISPLAY_NAMES, CARRIER_BRIDGE_KEY, CARRIER_COLORS } from "./constants";
+import { CARRIER_BRIDGE_KEY } from "./constants";
 import { registerCaptains } from "./captains/index.js";
 import { appendAdmiralSystemPrompt } from "./prompts.js";
 
@@ -72,8 +72,15 @@ export {
   activateCarrier,
   deactivateCarrier,
   getActiveCarrierId,
+  getRegisteredOrder,
+  getRegisteredCarrierConfig,
   onStatusUpdate,
   notifyStatusUpdate,
+  resolveCarrierColor,
+  resolveCarrierBgColor,
+  resolveCarrierRgb,
+  resolveCarrierDisplayName,
+  resolveCarrierCliDisplayName,
 } from "./carrier/framework.js";
 
 export type {
@@ -83,6 +90,7 @@ export type {
 } from "./carrier/framework.js";
 
 export { registerSingleCarrier } from "./carrier/register.js";
+export type { SingleCarrierOptions } from "./carrier/register.js";
 
 export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
   const extensionDir = path.dirname(fileURLToPath(import.meta.url));
@@ -93,16 +101,16 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
 
   (globalThis as any)[EDITOR_MODE_PROVIDER_KEY] = {
     getActiveModeId: getActiveCarrierId,
-    getModeColor: (modeId: string) => CARRIER_COLORS[modeId] ?? null,
+    getModeColor: (modeId: string) => resolveCarrierColor(modeId) || null,
     getBannerLines: (width: number) => getModeBannerLines(width),
     onStatusUpdate,
   } satisfies EditorModeProvider;
 
   exposeAgentApi();
 
+  registerCaptains(pi);
   syncModelConfig();
   registerAgentPanelShortcut();
-  registerCaptains(pi);
   registerModelCommands(pi);
 
   const keybind = (globalThis as any)[INFRA_KEYBIND_KEY] as InfraKeybindAPI;
@@ -121,7 +129,8 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
       if (bridge.isOpen()) return;
 
       const modeId = getActiveCarrierId();
-      if (modeId !== "claude" && modeId !== "codex" && modeId !== "gemini") {
+      const carrierConfig = modeId ? getRegisteredCarrierConfig(modeId) : undefined;
+      if (!carrierConfig) {
         const shell = process.env.SHELL || "/bin/zsh";
         try {
           await bridge.open({ command: shell, title: "Terminal", cwd: ctx.cwd });
@@ -132,9 +141,8 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
         return;
       }
 
-      const agentId = modeId as import("@sbluemin/unified-agent").CliType;
-      const command = buildBridgeCommand(agentId);
-      const title = CLI_DISPLAY_NAMES[agentId] ?? agentId;
+      const command = buildBridgeCommand(modeId!, carrierConfig.cliType);
+      const title = carrierConfig.displayName;
 
       try {
         await bridge.open({ command, title, cwd: ctx.cwd });
@@ -194,7 +202,7 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
   onStatusUpdate(() => { syncModelConfig(); });
 
   pi.registerCommand("fleet:agent:status", {
-    description: "Claude/Codex/Gemini 상태를 즉시 새로고침",
+    description: "지원 CLI 서비스 상태를 즉시 새로고침",
     handler: async (_args, ctx) => {
       await refreshStatusNow(ctx);
     },

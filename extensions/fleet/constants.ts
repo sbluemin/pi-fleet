@@ -4,11 +4,6 @@
  * Carrier 프레임워크 및 기본 구현에서 공유되는 상수입니다.
  */
 
-// ─── CLI 순서 (모든 칼럼/순회의 단일 정의) ───────────────
-
-/** CLI 고정 순서 — 패널 칼럼, 스토어 초기화, 렌더러에서 공통 사용 */
-export const CLI_ORDER = ["claude", "codex", "gemini"] as const;
-
 // ─── CLI 표시 이름 ───────────────────────────────────────
 
 export const CLI_DISPLAY_NAMES: Record<string, string> = {
@@ -69,13 +64,6 @@ export const CARRIER_BG_COLORS: Record<string, string> = {
   claude:        "\x1b[48;2;40;25;8m",         // 따뜻한 어두운 주황
   codex:         "\x1b[48;2;35;35;35m",        // 약간 밝은 검정
   gemini:        "\x1b[48;2;15;22;42m",        // 차가운 어두운 파랑
-};
-
-/** Carrier별 토글 단축키 (alt = macOS Option 키) */
-export const CARRIER_KEYS: Record<string, string> = {
-  claude:        "alt+1",
-  codex:         "alt+2",
-  gemini:        "alt+3",
 };
 
 /** 현재 활성 carrier 브리지 팝업 단축키 */

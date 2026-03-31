@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { CARRIER_FRAMEWORK_KEY } from "../carrier/types.js";
 import { createRun, finalizeRun } from "../internal/streaming/stream-store.js";
 import type { AgentCol } from "../internal/contracts.js";
 import { getState, makeFooterCols } from "../internal/panel/state.js";
@@ -19,6 +20,15 @@ function makeCol(cli: string, status: AgentCol["status"]): AgentCol {
 beforeEach(() => {
   (globalThis as any)["__pi_agent_panel_state__"] = undefined;
   (globalThis as any)["__pi_stream_store__"] = undefined;
+  // carrier framework 상태를 테스트용으로 설정 (getRegisteredOrder 대응)
+  (globalThis as any)[CARRIER_FRAMEWORK_KEY] = {
+    modes: new Map(),
+    registeredOrder: ["claude", "codex", "gemini"],
+    activeModeId: null,
+    inputRegistered: false,
+    cancelShortcutRegistered: false,
+    statusUpdateCallbacks: [],
+  };
 });
 
 describe("makeFooterCols", () => {

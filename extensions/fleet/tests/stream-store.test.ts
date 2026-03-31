@@ -5,6 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
+import { CARRIER_FRAMEWORK_KEY } from "../carrier/types.js";
 import {
   createRun,
   appendTextBlock,
@@ -21,6 +22,15 @@ import {
 // 각 테스트 전에 globalThis 상태 초기화
 beforeEach(() => {
   (globalThis as any)["__pi_stream_store__"] = undefined;
+  // carrier framework 상태를 테스트용으로 설정 (getRegisteredOrder 대응)
+  (globalThis as any)[CARRIER_FRAMEWORK_KEY] = {
+    modes: new Map(),
+    registeredOrder: ["claude", "codex", "gemini"],
+    activeModeId: null,
+    inputRegistered: false,
+    cancelShortcutRegistered: false,
+    statusUpdateCallbacks: [],
+  };
 });
 
 describe("createRun", () => {
@@ -156,16 +166,46 @@ describe("동시성 격리", () => {
 });
 
 describe("visibleRunIdByCli 매핑", () => {
-  it("getAllVisibleRuns는 CLI_ORDER 순서로 반환한다", () => {
+  it("getAllVisibleRuns는 등록된 carrier 순서로 반환한다", () => {
     createRun("gemini");
     createRun("claude");
     // codex는 생성하지 않음
 
     const runs = getAllVisibleRuns();
-    expect(runs).toHaveLength(3); // CLI_ORDER 길이
+    expect(runs).toHaveLength(3);
     expect(runs[0]!.cli).toBe("claude");
-    expect(runs[1]).toBeUndefined(); // codex 없음
+    expect(runs[1]).toBeUndefined();
     expect(runs[2]!.cli).toBe("gemini");
+  });
+
+  it("carrierId가 cliType과 다른 carrier(scout)도 올바르게 처리한다", () => {
+    const framework = (globalThis as any)[CARRIER_FRAMEWORK_KEY];
+    framework.registeredOrder = ["claude", "codex", "gemini", "scout"];
+    framework.modes.set("scout", {
+      config: {
+        id: "scout",
+        cliType: "gemini",
+        slot: 4,
+        displayName: "Scout",
+        color: "",
+      },
+      active: false,
+      busy: false,
+      abortController: null,
+      pi: {} as any,
+      ownsWorkingMessage: false,
+    });
+
+    createRun("scout");
+    appendTextBlock("scout", "reconnaissance complete");
+
+    const run = getVisibleRun("scout");
+    expect(run).toBeDefined();
+    expect(run!.cli).toBe("scout");
+
+    const allRuns = getAllVisibleRuns();
+    expect(allRuns).toHaveLength(4);
+    expect(allRuns[3]!.cli).toBe("scout");
   });
 });
 

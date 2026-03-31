@@ -38,8 +38,10 @@ export type AgentStatus = "connecting" | "running" | "done" | "error" | "aborted
 
 /** executeWithPool / executeOneShot 공통 옵션 */
 export interface ExecuteOptions {
-  /** CLI 타입 (claude, codex, gemini) */
-  cli: CliType;
+  /** 고유 carrier 식별자 — 풀 키, 세션 스토어 키 */
+  carrierId: string;
+  /** CLI 바이너리 타입 (claude, codex, gemini) — 실제 연결 대상 */
+  cliType: CliType;
   /** 사용자 요청 텍스트 */
   request: string;
   /** 작업 디렉토리 */

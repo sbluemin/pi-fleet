@@ -12,7 +12,7 @@ Do not create intermediate layers that simply wrap official TUI APIs (e.g., `set
 
 | Extension | Role | Main Files |
 |-----------|------|------------|
-| `fleet/` | 3 direct entries (alt+1/2/3) + individual agent tools + unified pipeline | `index.ts` (wiring), `core/` (facade), `core/internal/` (internal implementation), `captains/`, `models/` |
+| `fleet/` | Dynamic N direct entries (alt+{slot}) + individual agent tools + unified pipeline. Carrier count determined by registered captains. | `index.ts` (wiring), `carrier/` (framework), `internal/` (implementation), `captains/` |
 | `dock/hud/` | Custom editor + status bar + footer (with integrated rendering engine) | `index.ts` (wiring), `editor.ts` (editor/footer/widget UI) |
 | `dock/keybind/` | Centralized keybinding management + overlay (alt+.) | `index.ts` (wiring), `types.ts` (API + globalThis), `store.ts` (JSON), `registry.ts` (bindings), `overlay.ts` (UI) |
 | `dock/settings/` | Centralized settings API + overlay popup (alt+/) | `index.ts` (wiring), `types.ts` (API + globalThis), `store.ts` (JSON), `registry.ts` (sections), `overlay.ts` (UI) |

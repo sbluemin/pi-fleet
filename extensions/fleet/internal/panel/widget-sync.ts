@@ -11,10 +11,13 @@ import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 /** footer 상태 전용 status key */
 const UA_DIRECT_FOOTER_STATUS_KEY = "ua-direct-footer";
 import {
-  CARRIER_COLORS,
   PANEL_COLOR,
   MIN_BODY_H,
 } from "../../constants";
+import {
+  resolveCarrierColor,
+  getRegisteredCarrierConfig,
+} from "../../carrier/framework.js";
 import {
   renderPanelFull,
   renderPanelCompact,
@@ -36,8 +39,10 @@ export function syncFooterStatus(ctx: ExtensionContext | null): void {
     frame: s.frame,
     modelConfig: s.modelConfig,
     // 서비스 상태 렌더러 — internal 내부 모듈 직접 참조
-    renderServiceStatus: (cli) =>
-      renderServiceStatusToken(cli as ProviderKey, s.serviceSnapshots, s.serviceLoading),
+    renderServiceStatus: (carrierId) => {
+      const cliType = getRegisteredCarrierConfig(carrierId)?.cliType ?? carrierId;
+      return renderServiceStatusToken(cliType as ProviderKey, s.serviceSnapshots, s.serviceLoading);
+    },
   });
   ctx.ui.setStatus(UA_DIRECT_FOOTER_STATUS_KEY, content);
 }
@@ -75,7 +80,7 @@ export function syncWidget(ctx: ExtensionContext): void {
 
       if (state.expanded) {
         const frameColor = state.activeMode
-          ? (CARRIER_COLORS[state.activeMode] ?? PANEL_COLOR)
+          ? (resolveCarrierColor(state.activeMode) || PANEL_COLOR)
           : PANEL_COLOR;
 
         // 터미널 높이 기반 bodyH 클램핑

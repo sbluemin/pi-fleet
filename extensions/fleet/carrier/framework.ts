@@ -19,6 +19,11 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import {
+  CLI_DISPLAY_NAMES,
+  CARRIER_COLORS,
+  CARRIER_BG_COLORS,
+} from "../constants.js";
+import {
   setAgentPanelMode,
   hideAgentPanel,
 } from "../internal/panel/lifecycle.js";
@@ -37,26 +42,32 @@ import type {
   CarrierState,
   CarrierFrameworkState,
 } from "./types.js";
+import { CARRIER_FRAMEWORK_KEY } from "./types.js";
 
 // 공개 타입 re-export — consumer가 fleet/index.ts를 통해 접근
 export type { CarrierConfig, CarrierHelpers, CarrierResult };
 // ─── globalThis 공유 상태 ────────────────────────────────
 
-// 호환성: 기존 globalThis 키 유지 (다른 확장이 참조할 수 있음)
-const FRAMEWORK_KEY = "__pi_direct_mode_framework__";
+const DEFAULT_CARRIER_RGB: [number, number, number] = [180, 160, 220];
+const CARRIER_RGBS: Record<string, [number, number, number]> = {
+  claude: [255, 149, 0],
+  codex: [169, 169, 169],
+  gemini: [66, 133, 244],
+};
 
 /** globalThis 기반 공유 상태를 반환합니다. */
 function getState(): CarrierFrameworkState {
-  let s = (globalThis as any)[FRAMEWORK_KEY] as CarrierFrameworkState | undefined;
+  let s = (globalThis as any)[CARRIER_FRAMEWORK_KEY] as CarrierFrameworkState | undefined;
   if (!s) {
     s = {
       modes: new Map(),
+      registeredOrder: [],
       activeModeId: null,
       inputRegistered: false,
       cancelShortcutRegistered: false,
       statusUpdateCallbacks: [],
     };
-    (globalThis as any)[FRAMEWORK_KEY] = s;
+    (globalThis as any)[CARRIER_FRAMEWORK_KEY] = s;
   }
   return s;
 }
@@ -130,12 +141,23 @@ export function registerCarrier(
   };
   gs.modes.set(config.id, state);
 
+  // registeredOrder에 slot 순으로 삽입
+  const idx = gs.registeredOrder.findIndex((existingId) => {
+    const existing = gs.modes.get(existingId);
+    return existing != null && existing.config.slot > config.slot;
+  });
+  if (idx === -1) {
+    gs.registeredOrder.push(config.id);
+  } else {
+    gs.registeredOrder.splice(idx, 0, config.id);
+  }
+
   // ── 단축키 등록 ──
   const keybind = (globalThis as any)[INFRA_KEYBIND_KEY] as InfraKeybindAPI;
   keybind.register({
     extension: "fleet",
     action: `carrier:${config.id}`,
-    defaultKey: config.shortcutKey,
+    defaultKey: `alt+${config.slot}`,
     description: `${config.displayName} Carrier 토글`,
     category: "Carrier",
     handler: async (ctx) => {
@@ -154,7 +176,7 @@ export function registerCarrier(
         state.active = true;
         gs.activeModeId = config.id;
         // 에이전트 패널에 모드 설정 (패널 자동 펼침 없음 — alt+p로만 열림)
-        const hint = config.bottomHint ?? ` ${config.shortcutKey} to exit `;
+        const hint = config.bottomHint ?? ` alt+${config.slot} to exit `;
         setAgentPanelMode(ctx, config.id, { bottomHint: hint, clis: config.clis });
         notifyStatusUpdate();
       }
@@ -209,7 +231,7 @@ export function activateCarrier(ctx: ExtensionContext, carrierId: string): boole
   state.active = true;
   gs.activeModeId = carrierId;
 
-  const hint = state.config.bottomHint ?? ` ${state.config.shortcutKey} to exit `;
+  const hint = state.config.bottomHint ?? ` alt+${state.config.slot} to exit `;
   // clis를 함께 전달하여 그룹 carrier 전환 시 컬럼 수도 즉시 재초기화
   setAgentPanelMode(ctx, carrierId, { bottomHint: hint, clis: state.config.clis });
   // 패널 자동 펼침 없음 — alt+p로만 열림
@@ -258,6 +280,51 @@ export function notifyStatusUpdate(): void {
   for (const cb of gs.statusUpdateCallbacks) {
     try { cb(); } catch { /* 무시 */ }
   }
+}
+
+/**
+ * slot 순으로 정렬된 carrierId 배열을 반환합니다.
+ */
+export function getRegisteredOrder(): string[] {
+  return [...getState().registeredOrder];
+}
+
+/**
+ * carrierId에 해당하는 CarrierConfig를 반환합니다.
+ */
+export function getRegisteredCarrierConfig(carrierId: string): CarrierConfig | undefined {
+  return getState().modes.get(carrierId)?.config;
+}
+
+/** carrierId 기준으로 전경(프레임) 색상을 반환합니다. */
+export function resolveCarrierColor(carrierId: string): string {
+  const cliType = getRegisteredCarrierConfig(carrierId)?.cliType ?? carrierId;
+  return CARRIER_COLORS[cliType] ?? "";
+}
+
+/** carrierId 기준으로 배경색을 반환합니다. */
+export function resolveCarrierBgColor(carrierId: string): string {
+  const cliType = getRegisteredCarrierConfig(carrierId)?.cliType ?? carrierId;
+  return CARRIER_BG_COLORS[cliType] ?? "";
+}
+
+/** carrierId 기준으로 파도 그라데이션용 RGB를 반환합니다. */
+export function resolveCarrierRgb(carrierId: string): [number, number, number] {
+  const cliType = getRegisteredCarrierConfig(carrierId)?.cliType ?? carrierId;
+  return CARRIER_RGBS[cliType] ?? DEFAULT_CARRIER_RGB;
+}
+
+/** carrierId 기준으로 captain 표시 이름을 반환합니다. */
+export function resolveCarrierDisplayName(carrierId: string): string {
+  const carrierConfig = getRegisteredCarrierConfig(carrierId);
+  if (carrierConfig?.displayName) return carrierConfig.displayName;
+  return CLI_DISPLAY_NAMES[carrierId] ?? carrierId;
+}
+
+/** carrierId 기준으로 실제 CLI 표시 이름을 반환합니다. */
+export function resolveCarrierCliDisplayName(carrierId: string): string {
+  const cliType = getRegisteredCarrierConfig(carrierId)?.cliType ?? carrierId;
+  return CLI_DISPLAY_NAMES[cliType] ?? cliType;
 }
 
 // ─── 입력 핸들러 (글로벌 1회만 등록) ─────────────────────

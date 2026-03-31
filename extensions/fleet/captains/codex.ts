@@ -25,5 +25,5 @@ export function registerCodexCaptain(pi: ExtensionAPI): void {
   registerSingleCarrier(pi, "codex", {
     ...TOOL_METADATA,
     promptGuidelines: [...TOOL_METADATA.promptGuidelines],
-  });
+  }, { slot: 2 });
 }

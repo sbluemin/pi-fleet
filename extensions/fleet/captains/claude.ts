@@ -25,5 +25,5 @@ export function registerClaudeCaptain(pi: ExtensionAPI): void {
   registerSingleCarrier(pi, "claude", {
     ...TOOL_METADATA,
     promptGuidelines: [...TOOL_METADATA.promptGuidelines],
-  });
+  }, { slot: 1 });
 }

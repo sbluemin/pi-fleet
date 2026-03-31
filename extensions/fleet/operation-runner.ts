@@ -32,6 +32,7 @@ import {
   isAgentPanelExpanded,
   onPanelToggle,
 } from "./internal/panel/lifecycle.js";
+import { getRegisteredOrder } from "./carrier/framework.js";
 import type {
   UnifiedAgentRequestBridge,
   UnifiedAgentRequestOptions,
@@ -39,11 +40,6 @@ import type {
   UnifiedAgentResult,
 } from "./types.js";
 import { UNIFIED_AGENT_REQUEST_KEY } from "./types.js";
-
-// ─── 상수 ────────────────────────────────────────────────
-
-/** 패널 칼럼 순서 (colIndex 결정용) */
-const PANEL_CLI_ORDER = ["claude", "codex", "gemini"];
 
 // ─── 통합 위젯 매니저 (싱글턴) ──────────────────────────
 
@@ -143,20 +139,21 @@ export async function runAgentRequest(options: RunAgentRequestOptions): Promise<
     onToolCall,
   } = options;
 
-  const colIndex = PANEL_CLI_ORDER.indexOf(cli);
+  const carrierId = options.carrierId ?? cli;
+  const colIndex = getRegisteredOrder().indexOf(carrierId);
 
   // 0. 이전 run 정리
   flushCompletedCleanups();
-  // 같은 CLI의 진행 중 run이 있으면 정리 (프로그래밍적 재실행 안전 가드)
-  const prevActive = activeRunCleanups.get(cli);
+  // 같은 carrier의 진행 중 run이 있으면 정리 (프로그래밍적 재실행 안전 가드)
+  const prevActive = activeRunCleanups.get(carrierId);
   if (prevActive) {
     prevActive();
-    activeRunCleanups.delete(cli);
+    activeRunCleanups.delete(carrierId);
   }
 
   // 1. store에 새 run 생성 (첫 줄만 추출하여 헤더 미리보기로 저장)
   const requestPreview = request?.trim().split(/\r?\n/, 1)[0];
-  const runId = createRun(cli, "conn", requestPreview);
+  const runId = createRun(carrierId, "conn", requestPreview);
 
   // 2. 패널 칼럼 초기화
   if (colIndex >= 0) {
@@ -169,10 +166,10 @@ export async function runAgentRequest(options: RunAgentRequestOptions): Promise<
   let unsubToggle: (() => void) | null = null;
 
   function activateWidget(): void {
-    widgetManager.register(ctx, cli, runId);
+    widgetManager.register(ctx, carrierId, runId);
   }
   function deactivateWidget(): void {
-    widgetManager.unregister(cli);
+    widgetManager.unregister(carrierId);
   }
 
   if (!isAgentPanelExpanded()) {
@@ -184,16 +181,17 @@ export async function runAgentRequest(options: RunAgentRequestOptions): Promise<
   });
 
   // 스트리밍 진행 중 cleanup 등록 — busy 중 모드 OFF/세션 전환 시에도 해제 가능
-  activeRunCleanups.set(cli, () => {
+  activeRunCleanups.set(carrierId, () => {
     deactivateWidget();
     if (unsubToggle) unsubToggle();
   });
 
   try {
     // 4. 설정 파일에서 모델 옵션을 읽어 해석된 값으로 주입 (Push 방식)
-    const cliConfig = getModelConfig()[cli];
+    const cliConfig = getModelConfig()[carrierId];
     const result = await executeWithPool({
-      cli,
+      carrierId,
+      cliType: cli,
       request,
       cwd: cwd ?? ctx.cwd,
       model: cliConfig?.model,
@@ -201,24 +199,24 @@ export async function runAgentRequest(options: RunAgentRequestOptions): Promise<
       budgetTokens: cliConfig?.budgetTokens,
       signal,
       onMessageChunk: (text) => {
-        appendTextBlock(cli, text);
-        syncColFromStore(cli, colIndex);
+        appendTextBlock(carrierId, text);
+        syncColFromStore(carrierId, colIndex);
         onMessageChunk?.(text);
       },
       onThoughtChunk: (text) => {
-        appendThoughtBlock(cli, text);
-        syncColFromStore(cli, colIndex);
+        appendThoughtBlock(carrierId, text);
+        syncColFromStore(carrierId, colIndex);
         onThoughtChunk?.(text);
       },
       onToolCall: (title, status, rawOutput, toolCallId) => {
-        upsertToolBlock(cli, title, status, toolCallId);
-        syncColFromStore(cli, colIndex);
+        upsertToolBlock(carrierId, title, status, toolCallId);
+        syncColFromStore(carrierId, colIndex);
         onToolCall?.(title, status, rawOutput, toolCallId);
       },
       // onStatusChange는 의도적으로 외부 미노출 — 위젯/패널이 자동 관리
       onStatusChange: (status) => {
-        updateRunStatus(cli, status);
-        syncColFromStore(cli, colIndex);
+        updateRunStatus(carrierId, status);
+        syncColFromStore(carrierId, colIndex);
       },
     });
 
@@ -227,27 +225,27 @@ export async function runAgentRequest(options: RunAgentRequestOptions): Promise<
     const sessionId = result.connectionInfo.sessionId;
 
     if (finalStatus === "done") {
-      finalizeRun(cli, "done", {
+      finalizeRun(carrierId, "done", {
         sessionId,
         fallbackText: result.responseText || "(no output)",
         fallbackThinking: result.thoughtText,
       });
     } else if (finalStatus === "aborted") {
-      finalizeRun(cli, "err", {
+      finalizeRun(carrierId, "err", {
         sessionId,
         error: "aborted",
         fallbackText: "Aborted.",
         fallbackThinking: result.thoughtText,
       });
     } else {
-      finalizeRun(cli, "err", {
+      finalizeRun(carrierId, "err", {
         sessionId,
         error: result.error,
         fallbackText: `Error: ${result.error ?? "unknown"}`,
         fallbackThinking: result.thoughtText,
       });
     }
-    syncColFromStore(cli, colIndex);
+    syncColFromStore(carrierId, colIndex);
 
     // 6. 결과 수집 (store에서 읽기)
     const run = getRunById(runId);
@@ -267,8 +265,8 @@ export async function runAgentRequest(options: RunAgentRequestOptions): Promise<
   } catch (error) {
     // executeWithPool이 throw한 경우 (연결 에러, abort 등)
     const message = error instanceof Error ? error.message : String(error);
-    finalizeRun(cli, "err", { error: message, fallbackText: `Error: ${message}` });
-    syncColFromStore(cli, colIndex);
+    finalizeRun(carrierId, "err", { error: message, fallbackText: `Error: ${message}` });
+    syncColFromStore(carrierId, colIndex);
     throw error;
   } finally {
     // 7. 패널 칼럼 스트리밍 종료
@@ -277,11 +275,21 @@ export async function runAgentRequest(options: RunAgentRequestOptions): Promise<
     }
     // active → completed 이동: 위젯 + 토글 구독 유지
     // before_agent_start / 다음 runAgentRequest / clearStreamWidgets() 시 정리
-    activeRunCleanups.delete(cli);
-    completedRunCleanups.set(cli, () => {
+    activeRunCleanups.delete(carrierId);
+    completedRunCleanups.set(carrierId, () => {
       deactivateWidget();
       if (unsubToggle) unsubToggle();
     });
+
+    // 2초 후 자동 소멸 — completedRunCleanups에 남아있을 때만 실행
+    // flushCompletedCleanups / clearStreamWidgets가 먼저 호출되었으면 이미 삭제되어 중복 방지
+    setTimeout(() => {
+      const cleanup = completedRunCleanups.get(carrierId);
+      if (cleanup) {
+        cleanup();
+        completedRunCleanups.delete(carrierId);
+      }
+    }, 2000);
   }
 }
 

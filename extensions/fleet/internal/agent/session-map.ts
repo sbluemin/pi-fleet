@@ -11,14 +11,13 @@
  * sessionDir은 호출처(확장)가 결정합니다.
  */
 
-import type { CliType } from "@sbluemin/unified-agent";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
 // ─── 타입 ────────────────────────────────────────────────
 
-/** CLI별 서브에이전트 sessionId 매핑 */
-type SessionMap = Partial<Record<CliType, string>>;
+/** carrierId별 서브에이전트 sessionId 매핑 */
+type SessionMap = Record<string, string>;
 
 // ─── SessionMapStore 인터페이스 ──────────────────────────
 
@@ -26,12 +25,12 @@ type SessionMap = Partial<Record<CliType, string>>;
 export interface SessionMapStore {
   /** 세션 시작/전환 시 기존 매핑을 복원합니다. */
   restore(piSessionId: string): void;
-  /** CLI의 서브에이전트 sessionId를 조회합니다. */
-  get(cli: CliType): string | undefined;
-  /** CLI의 서브에이전트 sessionId를 저장합니다 (즉시 persist). */
-  set(cli: CliType, sessionId: string): void;
-  /** CLI의 서브에이전트 sessionId를 제거합니다 (즉시 persist). */
-  clear(cli: CliType): void;
+  /** carrierId의 서브에이전트 sessionId를 조회합니다. */
+  get(carrierId: string): string | undefined;
+  /** carrierId의 서브에이전트 sessionId를 저장합니다 (즉시 persist). */
+  set(carrierId: string, sessionId: string): void;
+  /** carrierId의 서브에이전트 sessionId를 제거합니다 (즉시 persist). */
+  clear(carrierId: string): void;
   /** 현재 매핑의 읽기 전용 복사본을 반환합니다. */
   getAll(): Readonly<SessionMap>;
 }
@@ -76,19 +75,19 @@ export function createSessionMapStore(sessionDir: string): SessionMapStore {
       }
     },
 
-    get(cli: CliType): string | undefined {
-      return currentMap[cli];
+    get(carrierId: string): string | undefined {
+      return currentMap[carrierId];
     },
 
-    set(cli: CliType, sessionId: string): void {
-      if (currentMap[cli] === sessionId) return;
-      currentMap[cli] = sessionId;
+    set(carrierId: string, sessionId: string): void {
+      if (currentMap[carrierId] === sessionId) return;
+      currentMap[carrierId] = sessionId;
       persist();
     },
 
-    clear(cli: CliType): void {
-      if (!(cli in currentMap)) return;
-      delete currentMap[cli];
+    clear(carrierId: string): void {
+      if (!(carrierId in currentMap)) return;
+      delete currentMap[carrierId];
       persist();
     },
 

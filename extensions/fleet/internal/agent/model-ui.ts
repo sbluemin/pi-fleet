@@ -1,7 +1,7 @@
 /**
  * fleet/internal/agent/model-ui.ts — 모델 선택 UI 및 커맨드
  *
- * Per-CLI 모델/추론 설정 선택 UI와 관련 단축키/커맨드를 등록합니다.
+ * 캐리어별(carrierId) 모델/추론 설정 선택 UI와 관련 단축키/커맨드를 등록합니다.
  * 동일 agent/ 디렉토리의 model-config, runtime과 직접 협력합니다.
  */
 
@@ -20,13 +20,17 @@ import {
   updateAllModelSelections,
 } from "./runtime.js";
 import { setAgentPanelModelConfig } from "../panel/config.js";
-import { getActiveCarrierId, notifyStatusUpdate } from "../../carrier/framework.js";
+import {
+  getActiveCarrierId,
+  notifyStatusUpdate,
+  getRegisteredOrder,
+  getRegisteredCarrierConfig,
+  resolveCarrierDisplayName,
+} from "../../carrier/framework.js";
 import { INFRA_KEYBIND_KEY } from "../../../dock/keybind/types.js";
 import type { InfraKeybindAPI } from "../../../dock/keybind/types.js";
 import {
   CLI_DISPLAY_NAMES,
-  CLI_ORDER,
-  CARRIER_KEYS,
 } from "../../constants";
 
 /** 모델 설정을 런타임에서 읽어 패널 footer에 반영합니다. */
@@ -34,13 +38,25 @@ export function syncModelConfig(): void {
   setAgentPanelModelConfig(getModelConfig());
 }
 
+function isCliType(value: string): value is CliType {
+  return value === "claude" || value === "codex" || value === "gemini";
+}
+
+function resolveCarrierCliType(carrierId: string): CliType | undefined {
+  const cliType = getRegisteredCarrierConfig(carrierId)?.cliType;
+  if (cliType) return cliType;
+  return isCliType(carrierId) ? carrierId : undefined;
+}
+
 async function selectModelForCli(
   cli: CliType,
   ctx: ExtensionContext,
+  displayName?: string,
+  configKey?: string,
 ): Promise<ModelSelection | undefined> {
-  const cliName = CLI_DISPLAY_NAMES[cli] ?? cli;
+  const cliName = displayName ?? CLI_DISPLAY_NAMES[cli] ?? cli;
   const previousSelection = getModelConfig();
-  const prev = previousSelection[cli];
+  const prev = previousSelection[configKey ?? cli];
 
   let provider;
   try {
@@ -135,37 +151,56 @@ async function selectModelForCli(
 }
 
 export function registerModelCommands(pi: ExtensionAPI): void {
-  const cliTypes = CLI_ORDER;
   const keybind = (globalThis as any)[INFRA_KEYBIND_KEY] as InfraKeybindAPI;
 
   keybind.register({
     extension: "fleet",
     action: "model-change",
     defaultKey: "alt+shift+m",
-    description: "활성 CLI 모델/추론 설정 변경",
+    description: "활성 캐리어 모델/추론 설정 변경",
     category: "Infra",
     handler: async (ctx) => {
       const activeCarrierId = getActiveCarrierId();
+      let targetCarrierId: string;
       let targetCli: CliType;
+      let targetDisplayName: string;
 
-      if (activeCarrierId && cliTypes.includes(activeCarrierId as CliType)) {
-        targetCli = activeCarrierId as CliType;
+      if (activeCarrierId) {
+        targetCarrierId = activeCarrierId;
+        const resolvedCli = resolveCarrierCliType(activeCarrierId);
+        if (!resolvedCli) {
+          ctx.ui.notify(`등록되지 않은 carrier입니다: ${activeCarrierId}`, "error");
+          return;
+        }
+        targetCli = resolvedCli;
+        targetDisplayName = resolveCarrierDisplayName(activeCarrierId);
       } else {
-        const cliOptions = cliTypes.map((cli) =>
-          `${CLI_DISPLAY_NAMES[cli] ?? cli} (${CARRIER_KEYS[cli] ?? cli})`,
-        );
-        const choice = await ctx.ui.select("모델을 변경할 CLI 선택:", cliOptions);
+        const registeredIds = getRegisteredOrder();
+        const cliOptions = registeredIds.map((id) => {
+          const cfg = getRegisteredCarrierConfig(id);
+          const name = resolveCarrierDisplayName(id);
+          const key = cfg ? `alt+${cfg.slot}` : id;
+          return `${name} (${key})`;
+        });
+        const choice = await ctx.ui.select("모델을 변경할 캐리어 선택:", cliOptions);
         if (choice === undefined) return;
-        targetCli = cliTypes[cliOptions.indexOf(choice)];
+        const chosenId = registeredIds[cliOptions.indexOf(choice)]!;
+        targetCarrierId = chosenId;
+        const resolvedCli = resolveCarrierCliType(chosenId);
+        if (!resolvedCli) {
+          ctx.ui.notify(`등록되지 않은 carrier입니다: ${chosenId}`, "error");
+          return;
+        }
+        targetCli = resolvedCli;
+        targetDisplayName = resolveCarrierDisplayName(chosenId);
       }
 
-      const selection = await selectModelForCli(targetCli, ctx);
+      const selection = await selectModelForCli(targetCli, ctx, targetDisplayName, targetCarrierId);
       if (!selection) return;
 
-      await updateModelSelection(targetCli, selection);
+      await updateModelSelection(targetCarrierId, selection);
 
-      const cliName = CLI_DISPLAY_NAMES[targetCli] ?? targetCli;
-      let summary = `${cliName}=${selection.model}`;
+      let summary = `${targetDisplayName}=${selection.model}`;
       if (selection.effort) summary += ` effort=${selection.effort}`;
       if (selection.budgetTokens) summary += ` budget=${selection.budgetTokens}`;
       ctx.ui.notify(`모델 설정 저장: ${summary}`, "info");
@@ -176,24 +211,31 @@ export function registerModelCommands(pi: ExtensionAPI): void {
   });
 
   pi.registerCommand("fleet:agent:models", {
-    description: "서브에이전트별 모델 선택 (gemini → claude → codex)",
+    description: "등록된 캐리어의 모델 선택 (slot 순)",
     handler: async (_args, ctx) => {
-      const selectionOrder: CliType[] = ["gemini", "claude", "codex"];
+      const registeredIds = getRegisteredOrder();
       const selectedModels: SelectedModelsConfig = {};
 
-      for (const cli of selectionOrder) {
-        const selection = await selectModelForCli(cli, ctx);
+      for (const carrierId of registeredIds) {
+        const cliType = resolveCarrierCliType(carrierId);
+        if (!cliType) {
+          ctx.ui.notify(`등록되지 않은 carrier입니다: ${carrierId}`, "error");
+          return;
+        }
+        const displayName = resolveCarrierDisplayName(carrierId);
+        const selection = await selectModelForCli(cliType, ctx, displayName, carrierId);
         if (selection === undefined) {
           ctx.ui.notify("모델 선택이 취소되었습니다.", "warning");
           return;
         }
-        selectedModels[cli] = selection;
+        selectedModels[carrierId] = selection;
       }
 
       await updateAllModelSelections(selectedModels);
 
       const summary = Object.entries(selectedModels).map(([k, v]) => {
-        let s = `${k}=${v.model}`;
+        const displayName = resolveCarrierDisplayName(k);
+        let s = `${displayName}=${v.model}`;
         if (v.effort) s += ` effort=${v.effort}`;
         if (v.budgetTokens) s += ` budget=${v.budgetTokens}`;
         return s;

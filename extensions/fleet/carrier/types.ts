@@ -6,16 +6,22 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { CliType } from "@sbluemin/unified-agent";
 
 // ─── 공개 타입 ───────────────────────────────────────────
 
+/** Carrier 프레임워크 globalThis 공유 키 */
+export const CARRIER_FRAMEWORK_KEY = "__pi_direct_mode_framework__";
+
 export interface CarrierConfig {
-  /** 고유 식별자 → 메시지 `{id}-user/{id}-response` */
+  /** 고유 식별자 (carrierId) → 메시지 `{id}-user/{id}-response`, 풀/세션 키 */
   id: string;
+  /** 사용할 CLI 바이너리 타입 */
+  cliType: CliType;
+  /** Alt+{slot} 키바인딩 자동 결정용 슬롯 번호 */
+  slot: number;
   /** 표시 이름 */
   displayName: string;
-  /** 토글 단축키 */
-  shortcutKey: string;
   /** 에이전트 패널 프레임 색상 (ANSI) */
   color: string;
   /** 응답 배경색 (ANSI, 선택) */
@@ -71,6 +77,8 @@ export interface CarrierState {
 export interface CarrierFrameworkState {
   /** 등록된 모든 carrier */
   modes: Map<string, CarrierState>;
+  /** slot 순으로 정렬된 carrierId 목록 */
+  registeredOrder: string[];
   /** 현재 활성 carrier ID (null = 기본 모드) */
   activeModeId: string | null;
   /** 입력 핸들러 등록 여부 (글로벌에서 1회만) */

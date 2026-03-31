@@ -25,5 +25,5 @@ export function registerGeminiCaptain(pi: ExtensionAPI): void {
   registerSingleCarrier(pi, "gemini", {
     ...TOOL_METADATA,
     promptGuidelines: [...TOOL_METADATA.promptGuidelines],
-  });
+  }, { slot: 3 });
 }

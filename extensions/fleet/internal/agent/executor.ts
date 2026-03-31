@@ -7,7 +7,7 @@
  */
 
 import { UnifiedAgentClient } from "@sbluemin/unified-agent";
-import type { CliType } from "@sbluemin/unified-agent";
+import type { CliType } from "@sbluemin/unified-agent"; // buildConnectOptions에서 필요
 import type {
   ExecuteOptions,
   ExecuteResult,
@@ -132,6 +132,7 @@ function buildConnectOptions(
     cli,
     autoApprove: true,
     clientInfo: CLIENT_INFO,
+    timeout: 0,
   };
 
   if (overrides?.model) {
@@ -179,13 +180,13 @@ async function applyPostConnectConfig(
  * 풀 기반 실행 (agent-tool + 에이전트 모드 공통)
  *
  * 세션 관리 완전 캡슐화:
- *  1. store.get(cli) → 매핑된 세션이 있으면 connectOpts.sessionId에 설정
- *  2. 연결 성공 → store.set(cli, id) 자동 저장
- *  3. resume 실패 → store.clear(cli) + 새 세션 자동 재시도
+ *  1. store.get(carrierId) → 매핑된 세션이 있으면 connectOpts.sessionId에 설정
+ *  2. 연결 성공 → store.set(carrierId, id) 자동 저장
+ *  3. resume 실패 → store.clear(carrierId) + 새 세션 자동 재시도
  *  4. 이미 연결된 경우 기존 세션 ID를 그대로 재사용
  */
 export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResult> {
-  const { cli, request, cwd, signal } = opts;
+  const { carrierId, cliType, request, cwd, signal } = opts;
   const clientPool = getClientPool();
 
   const store = getSessionStore();
@@ -203,7 +204,7 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
   opts.onStatusChange?.("connecting");
 
   // ── 클라이언트 풀에서 가져오기 또는 새로 생성 ──
-  let poolEntry = clientPool.get(cli);
+  let poolEntry = clientPool.get(carrierId);
   let isTemporary = false;
 
   if (poolEntry) {
@@ -213,7 +214,7 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
       isTemporary = true;
     } else if (!isClientAlive(poolEntry.client)) {
       // 죽은 클라이언트 — 풀에서 제거 후 새로 생성
-      clientPool.delete(cli);
+      clientPool.delete(carrierId);
       poolEntry = undefined;
     }
   }
@@ -227,11 +228,11 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
     client = new UnifiedAgentClient();
     if (!isTemporary) {
       const newEntry: PooledClient = { client, busy: true };
-      clientPool.set(cli, newEntry);
+      clientPool.set(carrierId, newEntry);
       poolEntry = newEntry;
       client.on("exit", () => {
-        const current = clientPool.get(cli);
-        if (current?.client === client) clientPool.delete(cli);
+        const current = clientPool.get(carrierId);
+        if (current?.client === client) clientPool.delete(carrierId);
       });
     }
   }
@@ -251,7 +252,7 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
     opts.onStatusChange?.("aborted");
     void Promise.allSettled([
       client.cancelPrompt(),
-      isTemporary ? cleanupTemporary() : disconnectClient(cli, client),
+      isTemporary ? cleanupTemporary() : disconnectClient(carrierId, client),
     ]);
   };
 
@@ -332,13 +333,13 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
 
     if (needsConnect) {
       // ── 연결 옵션 구성 ──
-      const connectOpts = buildConnectOptions(cli, cwd, {
+      const connectOpts = buildConnectOptions(cliType, cwd, {
         model: opts.model,
         promptIdleTimeout: opts.promptIdleTimeout,
       });
 
       // 세션 매핑에서 저장된 sessionId를 우선 사용
-      const savedSessionId = store.get(cli) ?? poolEntry?.sessionId;
+      const savedSessionId = store.get(carrierId) ?? poolEntry?.sessionId;
       if (savedSessionId) {
         connectOpts.sessionId = savedSessionId;
       }
@@ -353,11 +354,11 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
         if (!savedSessionId) throw connectError;
 
         console.error(
-          `[unified-agent] session/load 실패 (cli=${cli}, sessionId=${savedSessionId}):`,
+          `[unified-agent] session/load 실패 (carrierId=${carrierId}, sessionId=${savedSessionId}):`,
           connectError instanceof Error ? connectError.message : connectError,
         );
 
-        store.clear(cli);
+        store.clear(carrierId);
         delete connectOpts.sessionId;
 
         // 실패한 연결 정리 후 클라이언트 재생성
@@ -366,10 +367,10 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
         client = new UnifiedAgentClient();
         if (!isTemporary) {
           poolEntry = { client, busy: true };
-          clientPool.set(cli, poolEntry);
+          clientPool.set(carrierId, poolEntry);
           client.on("exit", () => {
-            const current = clientPool.get(cli);
-            if (current?.client === client) clientPool.delete(cli);
+            const current = clientPool.get(carrierId);
+            if (current?.client === client) clientPool.delete(carrierId);
           });
         }
         attachListeners();
@@ -390,10 +391,10 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
         poolEntry.sessionId = connectionInfo.sessionId;
       }
       if (connectionInfo.sessionId) {
-        store.set(cli, connectionInfo.sessionId);
+        store.set(carrierId, connectionInfo.sessionId);
       }
 
-      await applyPostConnectConfig(client, cli, {
+      await applyPostConnectConfig(client, cliType, {
         effort: opts.effort,
         budgetTokens: opts.budgetTokens,
       });
@@ -409,12 +410,12 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
         poolEntry.sessionId = connectionInfo.sessionId;
       }
       if (connectionInfo.sessionId) {
-        store.set(cli, connectionInfo.sessionId);
+        store.set(carrierId, connectionInfo.sessionId);
       }
 
       // effort/budgetTokens는 setConfigOption으로 사후 적용 가능 — 명시적 override가 있을 때만 적용
       if (opts.effort || opts.budgetTokens) {
-        await applyPostConnectConfig(client, cli, {
+        await applyPostConnectConfig(client, cliType, {
           effort: opts.effort,
           budgetTokens: opts.budgetTokens,
         });
@@ -443,7 +444,7 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
     if (postSendInfo.sessionId && postSendInfo.sessionId !== connectionInfo.sessionId) {
       connectionInfo.sessionId = postSendInfo.sessionId;
       if (poolEntry) poolEntry.sessionId = postSendInfo.sessionId;
-      store.set(cli, postSendInfo.sessionId);
+      store.set(carrierId, postSendInfo.sessionId);
     }
 
     if (!aborted) {
@@ -477,7 +478,7 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
  * 세션 매핑을 사용하지 않습니다.
  */
 export async function executeOneShot(opts: ExecuteOptions): Promise<ExecuteResult> {
-  const { cli, request, cwd, signal } = opts;
+  const { cliType, request, cwd, signal } = opts;
 
   let responseText = "";
   let thoughtText = "";
@@ -512,13 +513,13 @@ export async function executeOneShot(opts: ExecuteOptions): Promise<ExecuteResul
     }
 
     // 연결 옵션 구성
-    const connectOpts = buildConnectOptions(cli, cwd, {
+    const connectOpts = buildConnectOptions(cliType, cwd, {
       model: opts.model,
       promptIdleTimeout: opts.promptIdleTimeout,
     });
 
     await raceAbort(client.connect(connectOpts as any), signal);
-    await applyPostConnectConfig(client, cli, {
+    await applyPostConnectConfig(client, cliType, {
       effort: opts.effort,
       budgetTokens: opts.budgetTokens,
     });

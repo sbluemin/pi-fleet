@@ -9,7 +9,6 @@
  */
 
 import { UnifiedAgentClient } from "@sbluemin/unified-agent";
-import type { CliType } from "@sbluemin/unified-agent";
 
 // ─── 상수 ────────────────────────────────────────────────
 
@@ -30,8 +29,8 @@ export interface PooledClient {
 // ─── globalThis 기반 싱글턴 풀 ───────────────────────────
 
 /** 싱글턴 풀 반환 (globalThis에서 가져오거나 생성) */
-export function getClientPool(): Map<CliType, PooledClient> {
-  let pool = (globalThis as any)[POOL_KEY] as Map<CliType, PooledClient> | undefined;
+export function getClientPool(): Map<string, PooledClient> {
+  let pool = (globalThis as any)[POOL_KEY] as Map<string, PooledClient> | undefined;
   if (!pool) {
     pool = new Map();
     (globalThis as any)[POOL_KEY] = pool;
@@ -63,15 +62,15 @@ export function cleanIdleClients(): void {
  * expectedClient가 주어지면 현재 풀 엔트리가 해당 인스턴스일 때만 종료합니다.
  */
 export async function disconnectClient(
-  cli: CliType,
+  carrierId: string,
   expectedClient?: UnifiedAgentClient,
 ): Promise<boolean> {
   const pool = getClientPool();
-  const entry = pool.get(cli);
+  const entry = pool.get(carrierId);
   if (!entry) return false;
   if (expectedClient && entry.client !== expectedClient) return false;
 
-  pool.delete(cli);
+  pool.delete(carrierId);
   entry.busy = false;
 
   try {

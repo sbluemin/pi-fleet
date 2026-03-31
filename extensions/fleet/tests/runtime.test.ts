@@ -20,6 +20,8 @@ import {
   getSessionId,
   getModelConfig,
   getDataDir,
+  updateModelSelection,
+  updateAllModelSelections,
 } from "../internal/agent/runtime.js";
 import { saveSelectedModels } from "../internal/agent/model-config.js";
 
@@ -93,6 +95,39 @@ describe("getModelConfig / saveSelectedModels", () => {
 
     const filePath = path.join(deepDir, "selected-models.json");
     expect(fs.existsSync(filePath)).toBe(true);
+  });
+
+  it("updateModelSelection은 cliType이 아닌 carrierId 키로 저장한다", async () => {
+    initRuntime(tmpDir);
+    onHostSessionChange("model-by-carrier");
+    const store = getSessionStore();
+    store.set("scout", "scout-session");
+
+    await updateModelSelection("scout", { model: "gemini-2.5-pro" });
+
+    const loaded = getModelConfig();
+    expect(loaded.scout?.model).toBe("gemini-2.5-pro");
+    expect(loaded.gemini).toBeUndefined();
+    expect(store.get("scout")).toBeUndefined();
+  });
+
+  it("updateAllModelSelections은 carrierId 키들을 그대로 저장하고 세션을 정리한다", async () => {
+    initRuntime(tmpDir);
+    onHostSessionChange("bulk-models");
+    const store = getSessionStore();
+    store.set("gemini", "gemini-session");
+    store.set("scout", "scout-session");
+
+    await updateAllModelSelections({
+      gemini: { model: "gemini-2.5-flash" },
+      scout: { model: "gemini-2.5-pro" },
+    });
+
+    const loaded = getModelConfig();
+    expect(loaded.gemini?.model).toBe("gemini-2.5-flash");
+    expect(loaded.scout?.model).toBe("gemini-2.5-pro");
+    expect(store.get("gemini")).toBeUndefined();
+    expect(store.get("scout")).toBeUndefined();
   });
 });
 

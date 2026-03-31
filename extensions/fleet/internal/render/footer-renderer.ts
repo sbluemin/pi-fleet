@@ -1,30 +1,33 @@
 /**
  * render/footer-renderer.ts — 에이전트 패널 footer 렌더링
  *
- * 패널 하단 상태 표시줄의 각 CLI 세그먼트를 렌더링합니다.
+ * 패널 하단 상태 표시줄의 각 carrier 세그먼트를 렌더링합니다.
  * 순수 렌더 함수로 구성되어 있으며 상태에 대한 직접 의존이 없습니다.
  */
 
 import {
   ANSI_RESET,
-  CLI_DISPLAY_NAMES,
-  CARRIER_COLORS,
   PANEL_COLOR,
   PANEL_DIM_COLOR,
   SPINNER_FRAMES,
   SYM_INDICATOR,
 } from "../../constants";
-import { waveText, MODE_RGB } from "./panel-renderer";
+import {
+  resolveCarrierColor,
+  resolveCarrierDisplayName,
+  resolveCarrierRgb,
+} from "../../carrier/framework.js";
+import { waveText } from "./panel-renderer";
 import type { AgentCol } from "../contracts.js";
 
-/** CLI별 모델/추론 설정 (footer 표시용) */
+/** 캐리어별(carrierId) 모델/추론 설정 (footer 표시용) */
 interface FooterModelInfo {
   model: string;
   effort?: string;
 }
 
 /** 서비스 상태 토큰 렌더링 함수 시그니처 (의존 역전) */
-type ServiceStatusRenderer = (cli: string) => string | undefined;
+type ServiceStatusRenderer = (carrierId: string) => string | undefined;
 
 /** renderFooterStatus에 필요한 최소 상태 */
 export interface FooterRenderInput {
@@ -39,7 +42,7 @@ export interface FooterRenderInput {
 // ─── 헬퍼 ────────────────────────────────────────────────
 
 export function footerIcon(col: AgentCol, frame: number): string {
-  const cliColor = CARRIER_COLORS[col.cli] ?? PANEL_COLOR;
+  const cliColor = resolveCarrierColor(col.cli) || PANEL_COLOR;
   const icon = col.status === "done"
     ? SYM_INDICATOR
     : col.status === "err"
@@ -72,11 +75,6 @@ export function footerDetail(col: AgentCol): string {
   return ` ${parts.join("·")}`;
 }
 
-export function footerSessionId(sessionId?: string): string {
-  const display = sessionId?.slice(0, 8) ?? "new";
-  return `${PANEL_DIM_COLOR} · ${display}${ANSI_RESET}`;
-}
-
 // ─── 메인 렌더 함수 ─────────────────────────────────────
 
 /**
@@ -86,8 +84,8 @@ export function footerSessionId(sessionId?: string): string {
 export function renderFooterStatus(input: FooterRenderInput): string | undefined {
   const segments = input.cols.map((col) => {
     const footerCol = input.streaming ? col : { ...col, status: "wait" as const };
-    const cliColor = CARRIER_COLORS[col.cli] ?? PANEL_COLOR;
-    const name = CLI_DISPLAY_NAMES[col.cli] ?? col.cli;
+    const cliColor = resolveCarrierColor(col.cli) || PANEL_COLOR;
+    const name = resolveCarrierDisplayName(col.cli);
     const detail = footerDetail(footerCol);
     const serviceStatus = input.renderServiceStatus?.(col.cli);
 
@@ -104,12 +102,10 @@ export function renderFooterStatus(input: FooterRenderInput): string | undefined
     const isStreaming = footerCol.status === "conn" || footerCol.status === "stream";
     // 스트리밍 중: 아이콘 유지 + 이름에 파도 그라데이션
     const namePrefix = isStreaming
-      ? `${footerIcon(footerCol, input.frame)} ${waveText(name, MODE_RGB[col.cli] ?? [180, 160, 220], input.frame)}${ANSI_RESET}`
+      ? `${footerIcon(footerCol, input.frame)} ${waveText(name, resolveCarrierRgb(col.cli), input.frame)}${ANSI_RESET}`
       : `${footerIcon(footerCol, input.frame)} ${cliColor}${name}${ANSI_RESET}`;
 
     return `${namePrefix}${serviceStatus ?? ""}${modelSuffix}${
-      footerSessionId(footerCol.sessionId)
-    }${
       detail ? `${PANEL_DIM_COLOR}${detail}${ANSI_RESET}` : ""
     }`;
   });

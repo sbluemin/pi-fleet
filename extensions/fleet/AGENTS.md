@@ -1,6 +1,8 @@
 # fleet
 
-Carrier **framework SDK** (`carrier/`) + 3 captains (claude/codex/gemini) that each operate a carrier + integrated carrier modes and agent tools + model selection + status bar + agent panel.
+Carrier **framework SDK** (`carrier/`) + N captains (e.g. claude/codex/gemini/scout, dynamically registered) that each operate a carrier + integrated carrier modes and agent tools + model selection + status bar + agent panel.
+
+The number of carriers is determined at runtime by the number of registered captains in `captains/`. Each captain specifies a `slot` number which determines its panel column position and `Alt+{slot}` keybinding automatically.
 
 ## Core Rules
 
@@ -11,7 +13,9 @@ Carrier **framework SDK** (`carrier/`) + 3 captains (claude/codex/gemini) that e
 - `requestUnifiedAgent` is the public agent execution API exposed via `globalThis["__pi_ua_request__"]`.
 - **All execution paths go through `runAgentRequest()`** — Carriers, tools, and external extensions all use `runAgentRequest()` from `operation-runner.ts`. No direct `executeWithPool` calls outside operation-runner.
 - Calling `runAgentRequest()` **automatically syncs all UIs**: agent panel column, streaming widget (when panel collapsed), and stream-store data.
-- **Same CLI concurrent calls are not supported** — UI layer manages one visible run per CLI.
+- **carrierId vs cliType**: `carrierId` (string) is the unique carrier identity used for pool keys, session keys, and panel column identity. `cliType` (CliType) is the CLI binary to execute. Multiple carriers can share the same `cliType` while maintaining fully isolated sessions and connections.
+- **Slot-based keybindings**: Each carrier registers `Alt+{slot}` automatically based on the `slot` field in `CarrierConfig`. Slots must be unique across all registered carriers.
+- **Same carrierId concurrent calls are not supported** — UI layer manages one visible run per carrierId.
 - Mutual exclusivity between carriers is automatically managed by the framework (`deactivateAll`).
 - The agent panel is the main UI for streaming — active single carriers use exclusive view, otherwise the panel falls back to the current visible CLI columns.
 
@@ -36,7 +40,7 @@ internal/
   ├── render/          ← all renderers
   └── service-status/  ← service status monitoring (polling, rendering, store)
 
-captains/              ← 3 captain registrations (depend on Fleet core — never the reverse)
+captains/              ← N captain registrations (depend on Fleet core — never the reverse)
 ```
 
 ### Dependency Principles
@@ -64,7 +68,7 @@ Consumer (captains, external extensions)
 
 ### Agent Panel Centric Design
 
-- **Exclusive View**: alt+1/2/3 → Full-width panel for the corresponding agent.
+- **Exclusive View**: alt+{slot} → Full-width panel for the corresponding agent.
 - **Fallback Multi-Column View**: No active carrier + visible runs → panel renders the current visible CLI columns.
 - **Compact View**: Panel collapsed + while streaming → 1-line status bar.
 - **Frame Color**: Applies `CARRIER_COLORS` of the active carrier.
@@ -90,7 +94,8 @@ Consumer (captains, external extensions)
 | `internal/service-status/store.ts` | Service status polling/fetching/store — `attachStatusContext`, `refreshStatusNow` (exposed via `index.ts`) |
 | `internal/service-status/renderer.ts` | Service status footer token renderer — `renderServiceStatusToken` (used by `panel/widget-sync.ts`) |
 | **captains/** | |
-| `captains/index.ts` | Barrel — all 3 captain registrations |
-| `captains/claude.ts` | Claude captain — own prompt metadata + delegates to `registerSingleCarrier(pi, "claude", metadata)` |
-| `captains/codex.ts` | Codex captain — own prompt metadata + delegates to `registerSingleCarrier(pi, "codex", metadata)` |
-| `captains/gemini.ts` | Gemini captain — own prompt metadata + delegates to `registerSingleCarrier(pi, "gemini", metadata)` |
+| `captains/index.ts` | Barrel — all captain registrations |
+| `captains/claude.ts` | Claude captain — own prompt metadata + delegates to `registerSingleCarrier(pi, "claude", metadata, { slot: 1 })` |
+| `captains/codex.ts` | Codex captain — own prompt metadata + delegates to `registerSingleCarrier(pi, "codex", metadata, { slot: 2 })` |
+| `captains/gemini.ts` | Gemini captain — own prompt metadata + delegates to `registerSingleCarrier(pi, "gemini", metadata, { slot: 3 })` |
+| `captains/scout.ts` | Scout captain — own prompt metadata + delegates to `registerSingleCarrier(pi, "gemini", metadata, { id: "scout", slot: 4 })` |

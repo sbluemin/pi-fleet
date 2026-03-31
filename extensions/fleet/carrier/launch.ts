@@ -2,7 +2,7 @@
  * fleet/carrier/launch.ts — Carrier 브리지 커맨드 조립
  *
  * 각 carrier의 네이티브 CLI 브리지 실행 커맨드를
- * CliType 기준으로 중앙에서 조립합니다.
+ * carrierId + cliType 기준으로 중앙에서 조립합니다.
  */
 
 import type { CliType } from "@sbluemin/unified-agent";
@@ -39,10 +39,10 @@ const LAUNCH_CONFIGS: Record<CliType, LaunchConfig> = {
   },
 };
 
-export function buildBridgeCommand(cli: CliType): string {
-  const launch = LAUNCH_CONFIGS[cli];
-  const cliConfig = getModelConfig()[cli];
-  const sessionId = getSessionId(cli);
+export function buildBridgeCommand(carrierId: string, cliType: CliType): string {
+  const launch = LAUNCH_CONFIGS[cliType];
+  const cliConfig = getModelConfig()[carrierId];
+  const sessionId = getSessionId(carrierId);
   const args = [...launch.baseArgs];
 
   if (sessionId && launch.buildSessionArgs) {

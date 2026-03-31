@@ -6,16 +6,24 @@
  */
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
-import { CLI_ORDER, DEFAULT_BODY_H } from "../../constants";
+import { DEFAULT_BODY_H } from "../../constants";
 import { getSessionStore } from "../agent/runtime.js";
 import { ensureVisibleRun, setRunSessionId } from "../streaming/stream-store";
+import { getRegisteredOrder } from "../../carrier/framework.js";
 import type { AgentCol, ServiceSnapshot } from "../contracts.js";
 
 export type { AgentCol } from "../contracts.js";
 
 export const STATE_KEY = "__pi_agent_panel_state__";
 export const WIDGET_KEY = "ua-panel";
-export const DEFAULT_CLIS = CLI_ORDER as readonly string[];
+/**
+ * 동적으로 등록된 carrier 순서를 반환합니다.
+ * index.ts가 registerCaptains()를 먼저 호출한 뒤 panel/runtime 초기화를 진행하므로
+ * 기본 경로에서는 여기서 빈 registeredOrder를 보지 않습니다.
+ */
+export function getDefaultClis(): readonly string[] {
+  return getRegisteredOrder();
+}
 
 export interface FooterModelInfo {
   model: string;
@@ -32,6 +40,7 @@ export interface AgentPanelState {
   lastCtx: ExtensionContext | null;
   activeMode: string | null;
   bottomHint: string;
+  /** 캐리어별(carrierId) 모델 설정 */
   modelConfig: Record<string, FooterModelInfo>;
   serviceSnapshots: ServiceSnapshot[];
   serviceLastUpdatedAt: number | null;
@@ -75,7 +84,7 @@ export function getState(): AgentPanelState {
 
 export function makeCols(clis?: readonly string[]): AgentCol[] {
   const sessionMap = getSessionStore().getAll() as Readonly<Record<string, string | undefined>>;
-  const targets = clis ?? DEFAULT_CLIS;
+  const targets = clis ?? getDefaultClis();
 
   for (const cli of targets) {
     ensureVisibleRun(cli);
@@ -108,7 +117,7 @@ export function makeFooterCols(): AgentCol[] {
   const activeCols = new Map(s.cols.map((col) => [col.cli, col] as const));
   const sessionMap = getSessionStore().getAll() as Readonly<Record<string, string | undefined>>;
 
-  return DEFAULT_CLIS.map((cli) => {
+  return getDefaultClis().map((cli) => {
     const activeCol = activeCols.get(cli);
     if (activeCol) return activeCol;
 

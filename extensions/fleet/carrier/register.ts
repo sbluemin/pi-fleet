@@ -1,7 +1,7 @@
 /**
  * fleet/carrier/register.ts — 단일 carrier 등록 공용 로직
  *
- * 개별 carrier(claude, codex, gemini)가 공유하는
+ * 개별 carrier들이 공유하는
  * Carrier + PI 도구 등록 로직을 제공합니다.
  *
  * 브리지 실행 책임은 carrier/ 아래 중앙화되며,
@@ -26,21 +26,33 @@ import {
   CLI_DISPLAY_NAMES,
   CARRIER_COLORS,
   CARRIER_BG_COLORS,
-  CARRIER_KEYS,
 } from "../constants.js";
 
 const MAX_REQUEST_PREVIEW_LINES = 8;
 const REQUEST_OVERFLOW_PREFIX = "··· ";
 const SUMMARY_PREFIX = "Operation: ";
 
+export interface SingleCarrierOptions {
+  /** Alt+{slot} 키를 결정하는 슬롯 번호 */
+  slot: number;
+  /** carrierId 오버라이드 (미지정 시 cliType 사용) */
+  id?: string;
+  /** captain 표시 이름 오버라이드 (미지정 시 CLI 표시 이름 사용) */
+  displayName?: string;
+  /** 전경색 오버라이드 (미지정 시 cliType 시그니처 색상 사용) */
+  color?: string;
+  /** 배경색 오버라이드 (미지정 시 cliType 시그니처 색상 사용) */
+  bgColor?: string;
+}
+
 // ─── 내부 헬퍼 ───────────────────────────────────────────
 
 /** 에이전트 실행 결과를 PI 도구 반환 형식으로 변환 */
-function toToolResult(cli: CliType, result: UnifiedAgentResult) {
+function toToolResult(carrierId: string, result: UnifiedAgentResult) {
   return {
     content: [{ type: "text" as const, text: result.responseText || "(no output)" }],
     details: {
-      cli,
+      cli: carrierId,
       sessionId: result.sessionId ?? undefined,
       error: result.status !== "done" ? true : undefined,
       thinking: result.thinking || undefined,
@@ -102,10 +114,11 @@ export function registerSingleCarrier(
   pi: ExtensionAPI,
   cli: CliType,
   toolMetadata: SingleCarrierToolMetadata,
+  options: SingleCarrierOptions,
 ): void {
-  const displayName = CLI_DISPLAY_NAMES[cli] ?? cli;
-  const shortcutKey = CARRIER_KEYS[cli];
-  if (!shortcutKey) return;
+  const carrierId = options.id ?? cli;
+  const displayName = options.displayName ?? CLI_DISPLAY_NAMES[cli] ?? cli;
+  const slotKey = `alt+${options.slot}`;
 
   const refinedToolMetadata = refineSingleCarrierToolMetadata({
     displayName,
@@ -114,12 +127,13 @@ export function registerSingleCarrier(
 
   // ── Carrier 등록 ──
   registerCarrier(pi, {
-    id: cli,
+    id: carrierId,
+    cliType: cli,
+    slot: options.slot,
     displayName,
-    shortcutKey,
-    color: CARRIER_COLORS[cli] ?? "",
-    bgColor: CARRIER_BG_COLORS[cli],
-    bottomHint: ` ${shortcutKey} exit · alt+x cancel · alt+shift+m model `,
+    color: options.color ?? CARRIER_COLORS[cli] ?? "",
+    bgColor: options.bgColor ?? CARRIER_BG_COLORS[cli],
+    bottomHint: ` ${slotKey} exit · alt+x cancel · alt+shift+m model `,
     showWorkingMessage: false,
 
     onExecute: async (
@@ -129,6 +143,7 @@ export function registerSingleCarrier(
     ): Promise<CarrierResult> => {
       const result = await runAgentRequest({
         cli,
+        carrierId,
         request,
         ctx,
         signal: helpers.signal,
@@ -137,7 +152,7 @@ export function registerSingleCarrier(
       return {
         content: result.responseText || (result.status === "aborted" ? "(aborted)" : "(no output)"),
         details: {
-          cli,
+          cli: carrierId,
           sessionId: result.sessionId,
           error: result.status !== "done" ? true : undefined,
           thinking: result.thinking,
@@ -150,7 +165,7 @@ export function registerSingleCarrier(
 
   // ── PI 도구 등록 ──
   pi.registerTool({
-    name: cli,
+    name: carrierId,
     label: displayName,
     description: refinedToolMetadata.description,
     promptSnippet: refinedToolMetadata.promptSnippet,
@@ -199,11 +214,12 @@ export function registerSingleCarrier(
       if (!request) throw new Error("`request` 파라미터가 비어있습니다.");
       const result = await runAgentRequest({
         cli,
+        carrierId,
         request,
         ctx,
         signal,
       });
-      return toToolResult(cli, result);
+      return toToolResult(carrierId, result);
     },
   });
 }

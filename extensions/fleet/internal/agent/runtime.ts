@@ -9,7 +9,6 @@
  * 내부 모듈(executor, operation-runner, panel)은 이 모듈을 통해 접근합니다.
  */
 
-import type { CliType } from "@sbluemin/unified-agent";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -25,7 +24,7 @@ import { disconnectClient } from "./client-pool.js";
 /** 런타임 데이터 디렉토리 (session-maps/, selected-models.json 저장 경로) */
 let dataDir: string | null = null;
 
-/** 세션 매핑 저장소 (PI 세션별 CLI→sessionId 매핑) */
+/** 세션 매핑 저장소 (PI 세션별 carrierId→sessionId 매핑) */
 let sessionStore: SessionMapStore | null = null;
 
 /** noop SessionMapStore (미초기화/host session 없는 경우 fallback) */
@@ -75,9 +74,9 @@ export function getSessionStore(): SessionMapStore {
   return sessionStore ?? noopStore;
 }
 
-/** CLI의 현재 서브에이전트 sessionId를 조회합니다. */
-export function getSessionId(cli: CliType): string | undefined {
-  return sessionStore?.get(cli);
+/** carrierId의 현재 서브에이전트 sessionId를 조회합니다. */
+export function getSessionId(carrierId: string): string | undefined {
+  return sessionStore?.get(carrierId);
 }
 
 /** 현재 모델 설정을 로드합니다. */
@@ -87,23 +86,26 @@ export function getModelConfig(): SelectedModelsConfig {
 }
 
 /**
- * CLI의 모델 설정을 변경하고 세션을 무효화합니다.
+ * Carrier의 모델 설정을 변경하고 세션을 무효화합니다.
  * 원자적 연산: save → disconnect → session clear
+ *
+ * @param carrierId - 풀/세션 키 (disconnect, session clear에 사용)
+ * @param selection - 새 모델 설정
  */
 export async function updateModelSelection(
-  cli: CliType,
+  carrierId: string,
   selection: ModelSelection,
 ): Promise<void> {
   if (!dataDir) return;
   const existing = loadSelectedModels(dataDir);
-  existing[cli] = selection;
+  existing[carrierId] = selection;
   saveSelectedModels(dataDir, existing);
-  await disconnectClient(cli);
-  sessionStore?.clear(cli);
+  await disconnectClient(carrierId);
+  sessionStore?.clear(carrierId);
 }
 
 /**
- * 전체 모델 설정을 교체하고 변경된 CLI의 세션을 무효화합니다.
+ * 전체 모델 설정을 교체하고 변경된 키의 세션을 무효화합니다.
  * 원자적 연산: save → disconnect all → session clear all
  */
 export async function updateAllModelSelections(
@@ -111,10 +113,10 @@ export async function updateAllModelSelections(
 ): Promise<void> {
   if (!dataDir) return;
   saveSelectedModels(dataDir, config);
-  const clis = Object.keys(config) as CliType[];
-  await Promise.allSettled(clis.map((cli) => disconnectClient(cli)));
-  for (const cli of clis) {
-    sessionStore?.clear(cli);
+  const keys = Object.keys(config);
+  await Promise.allSettled(keys.map((key) => disconnectClient(key)));
+  for (const key of keys) {
+    sessionStore?.clear(key);
   }
 }
 

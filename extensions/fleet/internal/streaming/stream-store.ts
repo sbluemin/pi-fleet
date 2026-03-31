@@ -14,7 +14,7 @@
  */
 
 import type { AgentStatus } from "../agent/types.js";
-import { CLI_ORDER } from "../../constants.js";
+import { getRegisteredOrder } from "../../carrier/framework.js";
 
 // 계약 타입 — internal/contracts.ts에서 정의, 하위 호환을 위해 re-export
 export type { ColStatus, CollectedStreamData } from "../contracts.js";
@@ -284,9 +284,13 @@ export function getVisibleRun(cli: string): StreamRun | undefined {
   return resolveRun(cli);
 }
 
-/** 모든 CLI에 대한 visible run 배열을 반환합니다 (CLI_ORDER 순서). */
-export function getAllVisibleRuns(): (StreamRun | undefined)[] {
-  return CLI_ORDER.map((cli) => resolveRun(cli));
+/**
+ * 등록된 carrier의 visible run 배열을 반환합니다 (slot 순서).
+ * clis를 명시하면 해당 목록 기준으로 반환합니다 (테스트 등에서 활용).
+ */
+export function getAllVisibleRuns(clis?: readonly string[]): (StreamRun | undefined)[] {
+  const ids = clis ?? getRegisteredOrder();
+  return ids.map((carrierId) => resolveRun(carrierId));
 }
 
 /** runId로 직접 조회합니다. */
@@ -299,7 +303,7 @@ export function getRunById(runId: string): StreamRun | undefined {
  * All 모드나 개별 모드 시작 시 호출합니다.
  */
 export function resetRuns(clis?: readonly string[]): void {
-  const targets = clis ?? CLI_ORDER;
+  const targets = clis ?? getRegisteredOrder();
   for (const cli of targets) {
     createRun(cli, "wait");
   }

@@ -2,8 +2,8 @@
  * fleet — 에이전트 패널 렌더러
  *
  * activeMode에 따라 동적 레이아웃을 제공합니다:
- * - "claude"/"codex"/"gemini" → 1칼럼 독점 뷰 (전체 폭, thinking/tools 상세)
- * - 그 외 커스텀 carrier 또는 null → N칼럼 동적 뷰
+ * - 활성 carrier 지정 → 1칼럼 독점 뷰 (전체 폭, thinking/tools 상세)
+ * - 비활성/null → N칼럼 동적 뷰
  * 프레임 색상은 activeMode에 맞게 동적 변경됩니다.
  */
 
@@ -12,25 +12,24 @@ import {
   ANSI_RESET,
   BORDER,
   SPINNER_FRAMES,
-  CLI_DISPLAY_NAMES,
-  CLI_ORDER,
-  CARRIER_COLORS,
-  CARRIER_BG_COLORS,
-  CARRIER_KEYS,
   PANEL_COLOR,
   PANEL_DIM_COLOR,
   SYM_INDICATOR,
 } from "../../constants";
+import {
+  getRegisteredOrder,
+  getRegisteredCarrierConfig,
+  resolveCarrierColor,
+  resolveCarrierBgColor,
+  resolveCarrierRgb,
+  resolveCarrierDisplayName,
+  resolveCarrierCliDisplayName,
+} from "../../carrier/framework.js";
 import { renderBlockLines, blockLineAnsiColor } from "./block-renderer";
 
 // 계약 타입 — internal/contracts.ts에서 정의, 하위 호환을 위해 re-export
 export type { ColBlock, AgentCol } from "../contracts.js";
 import type { AgentCol } from "../contracts.js";
-
-// ─── 레이아웃 상수 ───────────────────────────────────────
-
-/** 칼럼 CLI 순서 — CLI_ORDER에서 가져옴 */
-const COL_CLIS = CLI_ORDER;
 
 // ─── 렌더링 헬퍼 ────────────────────────────────────────
 
@@ -38,7 +37,7 @@ const COL_CLIS = CLI_ORDER;
 export function sIcon(status: string, frame: number, cli?: string): string {
   if (status === "wait") return PANEL_DIM_COLOR + "○" + ANSI_RESET;
   if (status === "conn" || status === "stream")
-    return (CARRIER_COLORS[cli ?? ""] ?? PANEL_COLOR) + SPINNER_FRAMES[frame % SPINNER_FRAMES.length] + ANSI_RESET;
+    return (resolveCarrierColor(cli ?? "") || PANEL_COLOR) + SPINNER_FRAMES[frame % SPINNER_FRAMES.length] + ANSI_RESET;
   if (status === "done") return "\x1b[38;2;100;200;100m" + SYM_INDICATOR + ANSI_RESET;
   return "\x1b[38;2;255;80;80m" + SYM_INDICATOR + ANSI_RESET;
 }
@@ -98,16 +97,16 @@ function buildHeaderLabel(
     sessionLength?: number;
   },
 ): string {
-  const fullName = CLI_DISPLAY_NAMES[col.cli] ?? col.cli;
+  const fullName = resolveCarrierDisplayName(col.cli);
   const name = options?.compact ? fullName.slice(0, 3) : fullName;
-  const nameColor = options?.dimName ? PANEL_DIM_COLOR : (CARRIER_COLORS[col.cli] ?? PANEL_COLOR);
+  const nameColor = options?.dimName ? PANEL_DIM_COLOR : (resolveCarrierColor(col.cli) || PANEL_COLOR);
   const sessionText = shortSessionId(col.sessionId, options?.sessionLength ?? 8);
   const sessionSuffix = sessionText ? `${PANEL_DIM_COLOR} · ${sessionText}${ANSI_RESET}` : "";
 
   const isStreaming = col.status === "conn" || col.status === "stream";
   if (isStreaming && !options?.dimName) {
     // 스트리밍 중: 스피너 아이콘 + 이름에 파도 그라데이션
-    const rgb = MODE_RGB[col.cli] ?? [180, 160, 220];
+    const rgb = resolveCarrierRgb(col.cli);
     return `${sIcon(col.status, frame, col.cli)} ${waveText(name, rgb, frame, 0, { speed: 0.5 })}${ANSI_RESET}${sessionSuffix}`;
   }
 
@@ -166,7 +165,7 @@ function pickExclusiveHeader(
 
 /** 대기/연결 중 플레이스홀더 텍스트 */
 function placeholder(col: AgentCol, frame: number): string {
-  const n = CLI_DISPLAY_NAMES[col.cli] ?? col.cli;
+  const n = resolveCarrierDisplayName(col.cli);
   if (col.status === "wait") return `${n} 대기 중...`;
   if (col.status === "conn") return `${n} 연결 중${".".repeat((frame % 3) + 1)}`;
   if (col.status === "err") return `Error: ${col.error ?? "unknown"}`;
@@ -428,8 +427,8 @@ function renderMultiCol(
  * 에이전트 패널의 메인 뷰를 렌더링합니다.
  *
  * activeMode에 따라 동적 레이아웃:
- * - "claude"/"codex"/"gemini" → 1칼럼 독점 뷰 (전체 폭, 상세 표시)
- * - 그 외 커스텀 carrier/null → N칼럼 동적 뷰
+ * - 활성 carrier 지정 → 1칼럼 독점 뷰 (전체 폭, 상세 표시)
+ * - 비활성/null → N칼럼 동적 뷰
  * 스트리밍 중이면 보더 와이어프레임에 파도 애니메이션 적용.
  */
 export function renderPanelFull(
@@ -442,7 +441,7 @@ export function renderPanelFull(
   bodyH: number,
 ): string[] {
   const FC = frameColor || PANEL_COLOR;
-  const activeIndex = activeMode ? (COL_CLIS as readonly string[]).indexOf(activeMode) : -1;
+  const activeIndex = activeMode ? getRegisteredOrder().indexOf(activeMode) : -1;
 
   // 패널 높이: top(1) + header(1) + sep(1) + body(bodyH) + bottom(1)
   const panelH = 3 + bodyH + 1;
@@ -451,7 +450,7 @@ export function renderPanelFull(
   // 스트리밍 중이면 보더에 대각선 스위프 애니메이션 적용
   const isStreaming = cols.some((col) => col.status === "conn" || col.status === "stream");
   const wave: WaveConfig | undefined = isStreaming
-    ? { rgb: MODE_RGB[activeMode ?? ""] ?? [180, 160, 220], frame, totalDiag, bandWidth: 12 }
+    ? { rgb: resolveCarrierRgb(activeMode ?? ""), frame, totalDiag, bandWidth: 12 }
     : undefined;
 
   if (activeIndex >= 0) {
@@ -463,13 +462,6 @@ export function renderPanelFull(
 
 
 // ─── 모드 배너 렌더러 ───────────────────────────────────
-
-/** 모드별 시그니처 RGB (파도 그라데이션 애니메이션용) */
-export const MODE_RGB: Record<string, [number, number, number]> = {
-  claude:        [255, 149, 0],
-  codex:         [169, 169, 169],
-  gemini:        [66, 133, 244],
-};
 
 /**
  * 파도 그라데이션 애니메이션을 문자별로 적용합니다.
@@ -576,14 +568,16 @@ export function renderModeBanner(
   frame: number,
   cols: AgentCol[],
 ): string[] {
-  const fg = CARRIER_COLORS[activeMode] ?? PANEL_COLOR;
-  const bg = CARRIER_BG_COLORS[activeMode] ?? "";
-  const name = CLI_DISPLAY_NAMES[activeMode] ?? activeMode;
-  const exitKey = CARRIER_KEYS[activeMode] ?? "";
-  const rgb = MODE_RGB[activeMode] ?? [180, 160, 220];
+  const fg = resolveCarrierColor(activeMode) || PANEL_COLOR;
+  const bg = resolveCarrierBgColor(activeMode);
+  const carrierConfig = getRegisteredCarrierConfig(activeMode);
+  const captainName = resolveCarrierDisplayName(activeMode);
+  const cliName = resolveCarrierCliDisplayName(activeMode);
+  const exitKey = carrierConfig ? `alt+${carrierConfig.slot}` : "";
+  const rgb = resolveCarrierRgb(activeMode);
 
-  // 스트리밍 중인 칼럼 감지 (그룹 모드면 아무 칼럼, 개별 CLI 모드면 해당 칼럼만)
-  const isSingleCliMode = (CLI_ORDER as readonly string[]).includes(activeMode);
+  // 스트리밍 중인 칼럼 감지 (등록된 carrier면 해당 칼럼만, 그 외 그룹 모드면 아무 칼럼)
+  const isSingleCliMode = getRegisteredOrder().includes(activeMode);
   const streamingCol = cols.find((col) =>
     (!isSingleCliMode || col.cli === activeMode) &&
     (col.status === "conn" || col.status === "stream"),
@@ -598,9 +592,9 @@ export function renderModeBanner(
     const lineCount = streamingCol.text.trim() ? streamingCol.text.split("\n").length : 0;
     if (lineCount > 0) parts.push(`${lineCount}L`);
     const progress = parts.length > 0 ? parts.join("·") : "running";
-    centerPlain = `${spinner} ${name} ${progress}`;
+    centerPlain = `${spinner} ${captainName} ${progress}`;
   } else {
-    centerPlain = `◈ Captain ${name} · Carrier ${name} on station`;
+    centerPlain = `◈ Captain ${captainName} · Carrier ${cliName} on station`;
   }
 
   // 우측: 단축키 힌트
@@ -646,9 +640,9 @@ export function renderPanelCompact(w: number, cols: AgentCol[], frame: number): 
   const parts: string[] = [PANEL_COLOR + "◈ Fleet" + ANSI_RESET];
 
   for (const col of cols) {
-    const nm = CLI_DISPLAY_NAMES[col.cli] ?? col.cli;
+    const nm = resolveCarrierDisplayName(col.cli);
     const icon = sIcon(col.status, frame, col.cli);
-    const clr = CARRIER_COLORS[col.cli] ?? "";
+    const clr = resolveCarrierColor(col.cli);
 
     let info = "";
     if (col.status === "stream") {
