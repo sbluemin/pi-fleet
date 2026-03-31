@@ -8,13 +8,17 @@
  * 소비자별 입력 인터페이스에 맞는 어댑터를 제공합니다.
  */
 
-import { Container, Spacer, Text, visibleWidth } from "@mariozechner/pi-tui";
+import { Container, Spacer, Text, truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
+import type { Theme } from "@mariozechner/pi-coding-agent";
 import {
   ANSI_RESET,
+  PANEL_DIM_COLOR,
   SYM_INDICATOR,
+  TOOLS_COLOR,
 } from "../../constants";
 import type { ColBlock } from "../contracts.js";
-
+import { renderBlockLines, renderBlocksToContainer, renderLegacyToContainer } from "./block-renderer";
+import { clampCompletedCompactLines } from "./compact.js";
 /** 렌더러에 필요한 최소 설정 (framework.CarrierConfig에서 추출) */
 export interface AgentRenderConfig {
   /** 표시 이름 */
@@ -24,7 +28,6 @@ export interface AgentRenderConfig {
   /** 응답 배경색 (ANSI, 선택) */
   bgColor?: string;
 }
-import { renderBlocksToContainer, renderLegacyToContainer } from "./block-renderer";
 
 // ─── 공통 내부 헬퍼 ─────────────────────────────────────
 
@@ -35,6 +38,17 @@ interface AgentResultDetails {
   thinking?: string;
   toolCalls?: { title: string; status: string }[];
   blocks?: ColBlock[];
+}
+
+interface AgentResultRenderOptions {
+  expanded?: boolean;
+}
+
+type RenderTheme = Pick<Theme, "fg" | "bold">;
+
+interface RenderComponent {
+  render(width: number): string[];
+  invalidate(): void;
 }
 
 function formatCaptainLabel(displayName: string): string {
@@ -62,13 +76,15 @@ function renderAgentResult(
   config: { displayName: string; color?: string; bgColor?: string },
   contentText: string,
   details: AgentResultDetails | undefined,
-  theme: any,
-): any {
+  options: AgentResultRenderOptions,
+  theme: RenderTheme,
+): RenderComponent {
   const isError = details?.error === true;
   const bgAnsi = config.bgColor ?? "";
   const thinkingText = details?.thinking ?? "";
   const toolCalls = details?.toolCalls ?? [];
   const blocks = details?.blocks;
+  const expanded = options.expanded === true;
 
   // 아이콘 + 이름 헤더 (세션 정보 포함)
   const icon = isError ? theme.fg("error", SYM_INDICATOR) : theme.fg("success", SYM_INDICATOR);
@@ -80,6 +96,18 @@ function renderAgentResult(
     ? theme.fg("dim", ` (session: ${details.sessionId})`)
     : "";
   const header = `${icon} ${nameStyled}${sessionSuffix}`;
+
+  if (!expanded) {
+    return createCompactResultComponent({
+      bgAnsi,
+      blocks,
+      contentText,
+      header,
+      theme,
+      thinkingText,
+      toolCalls,
+    });
+  }
 
   const inner = new Container();
   inner.addChild(new Text(header, 0, 0));
@@ -109,6 +137,84 @@ function renderAgentResult(
   };
 }
 
+function createCompactResultComponent(args: {
+  header: string;
+  bgAnsi: string;
+  blocks?: ColBlock[];
+  contentText: string;
+  thinkingText: string;
+  toolCalls: { title: string; status: string }[];
+  theme: RenderTheme;
+}): RenderComponent {
+  const { bgAnsi, blocks, contentText, header, theme, thinkingText, toolCalls } = args;
+
+  return {
+    render(width: number): string[] {
+      const rawLines = [header, "", ...renderCompactBodyLines(blocks, contentText, thinkingText, toolCalls, theme)];
+      const compactLines = clampCompletedCompactLines(rawLines, theme);
+      const truncated = compactLines.map((line) =>
+        visibleWidth(line) > width ? truncateToWidth(line, width) : line,
+      );
+      return bgAnsi ? applyBackgroundAnsi(truncated, width, bgAnsi) : truncated;
+    },
+    invalidate() {},
+  };
+}
+
+function renderCompactBodyLines(
+  blocks: readonly ColBlock[] | undefined,
+  contentText: string,
+  thinkingText: string,
+  toolCalls: readonly { title: string; status: string }[],
+  theme: RenderTheme,
+): string[] {
+  const sourceBlocks = blocks ?? buildLegacyBlocks(contentText, thinkingText, toolCalls);
+  const visibleBlocks = sourceBlocks.filter((block) => block.type !== "tool" && block.type !== "thought");
+
+  return renderBlockLines(visibleBlocks).map((line) => {
+    if (line.type === "tool-error") {
+      return theme.fg("error", line.text);
+    }
+    if (line.type === "tool-title") {
+      return `${TOOLS_COLOR}${line.text}${ANSI_RESET}`;
+    }
+    if (line.type === "tool-result" || line.type === "fold") {
+      return `${PANEL_DIM_COLOR}${line.text}${ANSI_RESET}`;
+    }
+    if (line.type === "thought") {
+      return theme.fg("dim", line.text);
+    }
+    return line.text;
+  });
+}
+
+function buildLegacyBlocks(
+  contentText: string,
+  thinkingText: string,
+  toolCalls: readonly { title: string; status: string }[],
+): ColBlock[] {
+  const blocks: ColBlock[] = [];
+  if (thinkingText) {
+    blocks.push({ type: "thought", text: thinkingText });
+  }
+  for (const toolCall of toolCalls) {
+    blocks.push({ type: "tool", title: toolCall.title, status: toolCall.status });
+  }
+  if (contentText) {
+    blocks.push({ type: "text", text: contentText });
+  }
+  return blocks;
+}
+
+function applyBackgroundAnsi(lines: readonly string[], width: number, bgAnsi: string): string[] {
+  return lines.map((line) => {
+    const restored = line.replaceAll("\x1b[0m", "\x1b[0m" + bgAnsi);
+    const vw = visibleWidth(restored);
+    const pad = Math.max(0, width - vw);
+    return bgAnsi + restored + " ".repeat(pad) + ANSI_RESET;
+  });
+}
+
 // ─── 공개 렌더러 팩토리 ─────────────────────────────────
 
 /**
@@ -116,7 +222,7 @@ function renderAgentResult(
  * 색상 바 + 입력 텍스트 표시
  */
 export function createDefaultUserRenderer(config: AgentRenderConfig) {
-  return (message: any, _options: any, _theme: any) => {
+  return (message: any, _options: unknown, _theme: RenderTheme) => {
     const color = config.color;
     const prefix = color ? `${color}▌${ANSI_RESET} ` : "";
     const content = extractContentText(message.content);
@@ -130,13 +236,14 @@ export function createDefaultUserRenderer(config: AgentRenderConfig) {
  * 배경색 래퍼 포함
  */
 export function createDefaultResponseRenderer(config: AgentRenderConfig) {
-  return (message: any, _options: any, theme: any) => {
+  return (message: any, options: AgentResultRenderOptions, theme: RenderTheme) => {
     const details = message.details as AgentResultDetails | undefined;
     const contentText = extractContentText(message.content);
     return renderAgentResult(
       { displayName: config.displayName, color: config.color, bgColor: config.bgColor },
       contentText,
       details,
+      options,
       theme,
     );
   };
@@ -152,9 +259,9 @@ export function createToolResultRenderer(config: {
   color?: string;
   bgColor?: string;
 }) {
-  return (result: any, _options: any, theme: any) => {
+  return (result: any, options: AgentResultRenderOptions, theme: RenderTheme) => {
     const details = result.details as AgentResultDetails | undefined;
     const contentText = extractContentText(result.content);
-    return renderAgentResult(config, contentText, details, theme);
+    return renderAgentResult(config, contentText, details, options, theme);
   };
 }

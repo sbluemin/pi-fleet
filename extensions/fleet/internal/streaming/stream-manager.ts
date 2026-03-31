@@ -14,6 +14,11 @@
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { renderBlockLines } from "../render/block-renderer.js";
+import {
+  clampCompletedCompactLines,
+  COMPACT_HEADER_LINES,
+  COMPACT_STREAM_BODY_LINES,
+} from "../render/compact.js";
 import { getRunById } from "./stream-store.js";
 import {
   ANSI_RESET,
@@ -131,23 +136,13 @@ function renderStreamLines(
     lines.push(theme.fg("dim", "waiting for response..."));
   }
 
-  // ── compact 모드 본문 줄 수 제한 (헤더 2줄 제외) ──
+  // ── compact 모드 줄 수 제한 ──
   if (!toolsExpanded) {
-    const HEADER_LINES = 2;
-    const MAX_BODY = 5;
-    const bodyCount = lines.length - HEADER_LINES;
-    if (bodyCount > MAX_BODY) {
-      const body = lines.slice(HEADER_LINES);
-      lines.length = HEADER_LINES;
-      if (isRunning) {
-        // 스트리밍 중: 마지막 5줄 표시 (tail)
-        lines.push(...body.slice(-MAX_BODY));
-      } else {
-        // 완료/에러: 처음 5줄 + 잔여 힌트
-        lines.push(...body.slice(0, MAX_BODY));
-        lines.push(theme.fg("dim", `  ··· ${bodyCount - MAX_BODY} more lines`));
-      }
-    }
+    const compactLines = isRunning
+      ? clampStreamingCompactLines(lines)
+      : clampCompletedCompactLines(lines, theme);
+    lines.length = 0;
+    lines.push(...compactLines);
   }
 
   // ── 터미널 너비로 truncate ──
@@ -164,6 +159,17 @@ function renderStreamLines(
     const padW = Math.max(0, width - vw);
     return bgColor + restored + " ".repeat(padW) + ANSI_RESET;
   });
+}
+
+function clampStreamingCompactLines(lines: readonly string[]): string[] {
+  const bodyCount = lines.length - COMPACT_HEADER_LINES;
+  if (bodyCount <= COMPACT_STREAM_BODY_LINES) return [...lines];
+
+  const body = lines.slice(COMPACT_HEADER_LINES);
+  return [
+    ...lines.slice(0, COMPACT_HEADER_LINES),
+    ...body.slice(-COMPACT_STREAM_BODY_LINES),
+  ];
 }
 
 // ─── 팩토리 ──────────────────────────────────────────────
