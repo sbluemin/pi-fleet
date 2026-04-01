@@ -25,7 +25,9 @@ interface RefineToolPromptOptions {
 function buildFleetContextGuideline(displayName: string): string {
   return (
     `This tool operates as the ${displayName} carrier within PI's fleet` +
-    ` — a dedicated delegation channel, not a standalone CLI invocation.`
+    ` — a dedicated delegation channel, not a standalone CLI invocation.` +
+    ` Delegate implementation, analysis, and exploration tasks to this tool` +
+    ` rather than handling them directly with read/edit/bash.`
   );
 }
 
