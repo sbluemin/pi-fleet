@@ -101,14 +101,13 @@ describe("getModelConfig / saveSelectedModels", () => {
     initRuntime(tmpDir);
     onHostSessionChange("model-by-carrier");
     const store = getSessionStore();
-    store.set("scout", "scout-session");
+    store.set("gemini", "gemini-session");
 
-    await updateModelSelection("scout", { model: "gemini-2.5-pro" });
+    await updateModelSelection("gemini", { model: "gemini-2.5-pro" });
 
     const loaded = getModelConfig();
-    expect(loaded.scout?.model).toBe("gemini-2.5-pro");
-    expect(loaded.gemini).toBeUndefined();
-    expect(store.get("scout")).toBeUndefined();
+    expect(loaded.gemini?.model).toBe("gemini-2.5-pro");
+    expect(store.get("gemini")).toBeUndefined();
   });
 
   it("updateAllModelSelections은 carrierId 키들을 그대로 저장하고 세션을 정리한다", async () => {
@@ -116,18 +115,18 @@ describe("getModelConfig / saveSelectedModels", () => {
     onHostSessionChange("bulk-models");
     const store = getSessionStore();
     store.set("gemini", "gemini-session");
-    store.set("scout", "scout-session");
+    store.set("codex", "codex-session");
 
     await updateAllModelSelections({
       gemini: { model: "gemini-2.5-flash" },
-      scout: { model: "gemini-2.5-pro" },
+      codex: { model: "gpt-5" },
     });
 
     const loaded = getModelConfig();
     expect(loaded.gemini?.model).toBe("gemini-2.5-flash");
-    expect(loaded.scout?.model).toBe("gemini-2.5-pro");
+    expect(loaded.codex?.model).toBe("gpt-5");
     expect(store.get("gemini")).toBeUndefined();
-    expect(store.get("scout")).toBeUndefined();
+    expect(store.get("codex")).toBeUndefined();
   });
 });
 

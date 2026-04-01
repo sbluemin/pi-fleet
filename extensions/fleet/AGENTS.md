@@ -1,6 +1,6 @@
 # fleet
 
-Carrier **framework SDK** (`carrier/`) + N captains (e.g. claude/codex/gemini/scout, dynamically registered) that each operate a carrier + integrated carrier modes and agent tools + model selection + status bar + agent panel.
+Carrier **framework SDK** (`carrier/`) + N captains (e.g. claude/codex/gemini, dynamically registered) that each operate a carrier + integrated carrier modes and agent tools + model selection + status bar + agent panel.
 
 The number of carriers is determined at runtime by the number of registered captains in `captains/`. Each captain specifies a `slot` number which determines its panel column position and `Alt+{slot}` keybinding automatically.
 
@@ -98,4 +98,3 @@ Consumer (captains, external extensions)
 | `captains/claude.ts` | Claude captain — own prompt metadata + delegates to `registerSingleCarrier(pi, "claude", metadata, { slot: 1 })` |
 | `captains/codex.ts` | Codex captain — own prompt metadata + delegates to `registerSingleCarrier(pi, "codex", metadata, { slot: 2 })` |
 | `captains/gemini.ts` | Gemini captain — own prompt metadata + delegates to `registerSingleCarrier(pi, "gemini", metadata, { slot: 3 })` |
-| `captains/scout.ts` | Scout captain — own prompt metadata + delegates to `registerSingleCarrier(pi, "gemini", metadata, { id: "scout", slot: 4 })` |

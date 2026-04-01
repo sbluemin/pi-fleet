@@ -178,35 +178,6 @@ describe("visibleRunIdByCli 매핑", () => {
     expect(runs[2]!.cli).toBe("gemini");
   });
 
-  it("carrierId가 cliType과 다른 carrier(scout)도 올바르게 처리한다", () => {
-    const framework = (globalThis as any)[CARRIER_FRAMEWORK_KEY];
-    framework.registeredOrder = ["claude", "codex", "gemini", "scout"];
-    framework.modes.set("scout", {
-      config: {
-        id: "scout",
-        cliType: "gemini",
-        slot: 4,
-        displayName: "Scout",
-        color: "",
-      },
-      active: false,
-      busy: false,
-      abortController: null,
-      pi: {} as any,
-      ownsWorkingMessage: false,
-    });
-
-    createRun("scout");
-    appendTextBlock("scout", "reconnaissance complete");
-
-    const run = getVisibleRun("scout");
-    expect(run).toBeDefined();
-    expect(run!.cli).toBe("scout");
-
-    const allRuns = getAllVisibleRuns();
-    expect(allRuns).toHaveLength(4);
-    expect(allRuns[3]!.cli).toBe("scout");
-  });
 });
 
 describe("finalizeRun", () => {

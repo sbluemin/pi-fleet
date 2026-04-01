@@ -9,12 +9,10 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { registerClaudeCaptain } from "./claude.js";
 import { registerCodexCaptain } from "./codex.js";
 import { registerGeminiCaptain } from "./gemini.js";
-import { registerScoutCaptain } from "./scout.js";
 
 export { registerClaudeCaptain } from "./claude.js";
 export { registerCodexCaptain } from "./codex.js";
 export { registerGeminiCaptain } from "./gemini.js";
-export { registerScoutCaptain } from "./scout.js";
 
 /**
  * 모든 captain을 한 번에 등록합니다.
@@ -26,5 +24,4 @@ export function registerCaptains(pi: ExtensionAPI): void {
   registerClaudeCaptain(pi);   // slot 1 — alt+1
   registerCodexCaptain(pi);    // slot 2 — alt+2
   registerGeminiCaptain(pi);   // slot 3 — alt+3
-  registerScoutCaptain(pi);    // slot 4 — alt+4
 }
