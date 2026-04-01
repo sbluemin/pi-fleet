@@ -2,7 +2,7 @@
  * E2E 테스트 공용 헬퍼 함수
  */
 
-import { execSync, spawn } from 'child_process';
+import { execSync, spawn, spawnSync } from 'child_process';
 import { resolve } from 'path';
 import { UnifiedAgentClient } from '../../src/index.js';
 import type { CliType } from '../../src/types/config.js';
@@ -136,4 +136,60 @@ export interface CliJsonResult {
   response: string;
   cli: string;
   sessionId: string;
+}
+
+/** 모델 실행 가능 여부 probe 결과 */
+export interface ModelAvailabilityProbe {
+  available: boolean;
+  reason?: string;
+}
+
+/**
+ * 특정 CLI/모델 조합이 현재 환경에서 실제로 실행 가능한지 동기 probe합니다.
+ *
+ * 알려진 환경 이슈(레이트 리밋, 구독/모델 미지원)인 경우만 unavailable로 처리하고,
+ * 그 외 예기치 않은 실패는 테스트가 실제로 드러내도록 available=true로 둡니다.
+ */
+export function probeCliModelAvailability(
+  cli: CliType,
+  model: string,
+): ModelAvailabilityProbe {
+  const result = spawnSync(
+    NODE,
+    [CLI_PATH, '--json', '-c', cli, '-m', model, SIMPLE_PROMPT],
+    {
+      env: { ...process.env, NO_COLOR: '1' },
+      encoding: 'utf-8',
+      timeout: 120_000,
+    },
+  );
+
+  if (result.status === 0) {
+    return { available: true };
+  }
+
+  const combined = [result.stdout, result.stderr, result.error?.message]
+    .filter(Boolean)
+    .join('\n');
+
+  if (isKnownModelUnavailable(combined)) {
+    return { available: false, reason: combined.trim() };
+  }
+
+  // 알려진 가용성 문제가 아니면 실제 테스트에서 드러나도록 실행 가능으로 간주합니다.
+  return { available: true };
+}
+
+function isKnownModelUnavailable(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return [
+    'rate limit reached',
+    'rate limit',
+    'quota',
+    'not available',
+    'does not have access',
+    'subscription',
+    'invalid value for config option model',
+    'unsupported model',
+  ].some((token) => normalized.includes(token));
 }

@@ -6,6 +6,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import {
   isCliInstalled,
+  probeCliModelAvailability,
   connectClient,
   sendAndCollect,
   runCli,
@@ -19,6 +20,7 @@ import type { CliJsonResult } from './helpers.js';
 
 const CLI = 'claude';
 const installed = isCliInstalled(CLI);
+const opus1mProbe = installed ? probeCliModelAvailability('claude', 'opus[1m]') : { available: false };
 
 describe.skipIf(!installed)('E2E: Claude ACP', () => {
   let client: UnifiedAgentClient | null = null;
@@ -118,6 +120,21 @@ describe.skipIf(!installed)('E2E: Claude ACP', () => {
       async (model) => {
         const { stdout, exitCode } = await runCli(
           ['--json', '-c', 'claude', '-m', model, SIMPLE_PROMPT],
+        );
+
+        expect(exitCode).toBe(0);
+        const result: CliJsonResult = JSON.parse(stdout.trim());
+        expect(result.response).toContain('2');
+        expect(result.cli).toBe('claude');
+      },
+      180_000,
+    );
+
+    it.skipIf(!opus1mProbe.available)(
+      'CLI: 모델 opus[1m] → 프롬프트 → 응답 검증',
+      async () => {
+        const { stdout, exitCode } = await runCli(
+          ['--json', '-c', 'claude', '-m', 'opus[1m]', SIMPLE_PROMPT],
         );
 
         expect(exitCode).toBe(0);

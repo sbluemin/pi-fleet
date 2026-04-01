@@ -39,7 +39,11 @@ export function resolveNpxPath(
 /**
  * npx를 사용한 패키지 실행 인자를 생성합니다.
  *
- * @param packageName - 실행할 npm 패키지 (e.g., '@zed-industries/claude-agent-acp@0.21.0')
+ * scoped 패키지의 경우 `npx <pkg>@<version>` 형태가 일부 환경에서
+ * 패키지 스펙을 실행 파일 이름으로 잘못 해석할 수 있으므로,
+ * 항상 `npx --package=<pkg> <bin>` 형태로 고정합니다.
+ *
+ * @param packageName - 실행할 npm 패키지 (e.g., '@agentclientprotocol/claude-agent-acp@0.24.2')
  * @param preferOffline - npm 캐시 우선 사용 여부 (기본: true)
  * @returns npx 실행 인자 배열
  */
@@ -51,6 +55,19 @@ export function buildNpxArgs(
   if (preferOffline) {
     args.push('--prefer-offline');
   }
-  args.push(packageName);
+  args.push(`--package=${packageName}`);
+  args.push(inferBinName(packageName));
   return args;
+}
+
+/**
+ * npm 패키지 스펙에서 실행 바이너리 이름을 추론합니다.
+ *
+ * 예:
+ * - @agentclientprotocol/claude-agent-acp@0.24.2 -> claude-agent-acp
+ * - @zed-industries/codex-acp@^0.10.0 -> codex-acp
+ */
+function inferBinName(packageName: string): string {
+  const lastSegment = packageName.split('/').pop() ?? packageName;
+  return lastSegment.replace(/@[^@/]+$/, '');
 }

@@ -27,6 +27,28 @@ describe('CliConfigs', () => {
         'gemini-2.5-pro',
       ]);
     });
+
+    it('Claude는 1M 지원이 포함된 최신 ACP 브리지를 사용한다', () => {
+      const config = createSpawnConfig('claude', {
+        cwd: '/tmp/workspace',
+      });
+
+      expect(config.command).toContain('npx');
+      expect(config.args).toContain('--package=@agentclientprotocol/claude-agent-acp@0.24.2');
+      expect(config.args).toContain('claude-agent-acp');
+      expect(config.useNpx).toBe(true);
+    });
+
+    it('Codex도 npx --package 형태로 브리지를 실행한다', () => {
+      const config = createSpawnConfig('codex', {
+        cwd: '/tmp/workspace',
+      });
+
+      expect(config.command).toContain('npx');
+      expect(config.args).toContain('--package=@zed-industries/codex-acp@^0.10.0');
+      expect(config.args).toContain('codex-acp');
+      expect(config.useNpx).toBe(true);
+    });
   });
 
   describe('getYoloModeId', () => {

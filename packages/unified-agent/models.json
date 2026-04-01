@@ -4,11 +4,12 @@
   "providers": {
     "claude": {
       "name": "Anthropic Claude Code",
-      "defaultModel": "opus",
+      "defaultModel": "opus[1m]",
       "models": [
         { "modelId": "haiku", "name": "Claude Haiku" },
         { "modelId": "sonnet", "name": "Claude Sonnet" },
-        { "modelId": "opus", "name": "Claude Opus" }
+        { "modelId": "opus", "name": "Claude Opus" },
+        { "modelId": "opus[1m]", "name": "Claude Opus [1M]" }
       ],
       "reasoningEffort": {
         "supported": true,

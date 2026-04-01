@@ -98,7 +98,7 @@ npm run build
 | CLI | 프로토콜 | spawn 방식 | set_config_option | set_mode |
 |-----|----------|------------|-------------------|----------|
 | Gemini | ACP | `gemini --experimental-acp` | ❌ | ❌ |
-| Claude | ACP (npx bridge) | `npx @zed-industries/claude-agent-acp@0.21.0` | ✅ | ✅ |
+| Claude | ACP (npx bridge) | `npx @agentclientprotocol/claude-agent-acp@0.24.2` | ✅ | ✅ |
 | Codex | ACP (npx bridge) | `npx @zed-industries/codex-acp@^0.10.0` | ✅ | ✅ |
 
 ## 아키텍처 의사결정
