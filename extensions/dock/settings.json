@@ -10,6 +10,6 @@
     "maxLength": 80
   },
   "fleet": {
-    "worldview": false
+    "worldview": true
   }
 }

@@ -1,8 +1,8 @@
 /**
- * fleet/carriers/sentinel — Sentinel carrier (CVN-02)
+ * fleet/carriers/sentinel — Sentinel carrier (CVN-04)
  * @specialization 인퀴지터 (QA 리드) — 숨겨진 버그 탐지 및 코드 품질 검사 특화
  *
- * Sentinel carrier를 프레임워크에 등록합니다 (alt+2, direct mode, 프롬프트 메타데이터).
+ * Sentinel carrier를 프레임워크에 등록합니다 (alt+4, direct mode, 프롬프트 메타데이터).
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -16,7 +16,7 @@ const TOOL_METADATA = {
   promptSnippet:
     "Delegate code review, bug hunting, or security audits to Sentinel — The Inquisitor's uncompromising verification",
   promptGuidelines: [
-    "Sentinel is the Captain of CVN-02 Sentinel, serving as The Inquisitor (QA Lead). Its mission is to find hidden defects (Bugs) and inefficiencies (Smells) in code written by other carriers.",
+    "Sentinel is the Captain of CVN-04 Sentinel, serving as The Inquisitor (QA Lead). Its mission is to find hidden defects (Bugs) and inefficiencies (Smells) in code written by other carriers.",
     "Sentinel relentlessly digs into security vulnerabilities and edge cases, performing uncompromising code reviews.",
     "The agent has full access to the codebase and can read, write, and execute commands.",
     "Provide only the background, context, task objective, and constraints — do NOT prescribe implementation details, specific code paths, or step-by-step instructions.",
@@ -29,5 +29,5 @@ export function registerSentinelCarrier(pi: ExtensionAPI): void {
   registerSingleCarrier(pi, "codex", {
     ...TOOL_METADATA,
     promptGuidelines: [...TOOL_METADATA.promptGuidelines],
-  }, { slot: 2, id: "sentinel", displayName: "Sentinel" });
+  }, { slot: 4, id: "sentinel", displayName: "Sentinel" });
 }

@@ -7,22 +7,22 @@
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { registerGenesisCarrier } from "./genesis.js";
-import { registerSentinelCarrier } from "./sentinel.js";
-import { registerVanguardCarrier } from "./vanguard.js";
-import { registerEchelonCarrier } from "./echelon.js";
-import { registerRavenCarrier } from "./raven.js";
-import { registerChronicleCarrier } from "./chronicle.js";
 import { registerCrucibleCarrier } from "./crucible.js";
 import { registerArbiterCarrier } from "./arbiter.js";
+import { registerSentinelCarrier } from "./sentinel.js";
+import { registerRavenCarrier } from "./raven.js";
+import { registerVanguardCarrier } from "./vanguard.js";
+import { registerEchelonCarrier } from "./echelon.js";
+import { registerChronicleCarrier } from "./chronicle.js";
 
 export { registerGenesisCarrier } from "./genesis.js";
-export { registerSentinelCarrier } from "./sentinel.js";
-export { registerVanguardCarrier } from "./vanguard.js";
-export { registerEchelonCarrier } from "./echelon.js";
-export { registerRavenCarrier } from "./raven.js";
-export { registerChronicleCarrier } from "./chronicle.js";
 export { registerCrucibleCarrier } from "./crucible.js";
 export { registerArbiterCarrier } from "./arbiter.js";
+export { registerSentinelCarrier } from "./sentinel.js";
+export { registerRavenCarrier } from "./raven.js";
+export { registerVanguardCarrier } from "./vanguard.js";
+export { registerEchelonCarrier } from "./echelon.js";
+export { registerChronicleCarrier } from "./chronicle.js";
 
 /**
  * 모든 carrier를 한 번에 등록합니다.
@@ -31,12 +31,12 @@ export { registerArbiterCarrier } from "./arbiter.js";
  * carrier 등록 순서 = slot 번호 순서 (alt+1 ~ alt+N).
  */
 export function registerCarriers(pi: ExtensionAPI): void {
-  registerGenesisCarrier(pi);    // slot 1 — alt+1
-  registerSentinelCarrier(pi);   // slot 2 — alt+2
-  registerVanguardCarrier(pi);   // slot 3 — alt+3
-  registerEchelonCarrier(pi);    // slot 4 — alt+4
-  registerRavenCarrier(pi);      // slot 5 — alt+5
-  registerChronicleCarrier(pi);  // slot 6 — alt+6
-  registerCrucibleCarrier(pi);   // slot 7 — alt+7
-  registerArbiterCarrier(pi);    // slot 8 — alt+8
+  registerGenesisCarrier(pi);    // slot 1 — alt+1  (claude)
+  registerCrucibleCarrier(pi);   // slot 2 — alt+2  (claude)
+  registerArbiterCarrier(pi);    // slot 3 — alt+3  (claude)
+  registerSentinelCarrier(pi);   // slot 4 — alt+4  (codex)
+  registerRavenCarrier(pi);      // slot 5 — alt+5  (codex)
+  registerVanguardCarrier(pi);   // slot 6 — alt+6  (gemini)
+  registerEchelonCarrier(pi);    // slot 7 — alt+7  (gemini)
+  registerChronicleCarrier(pi);  // slot 8 — alt+8  (gemini)
 }

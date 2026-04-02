@@ -100,5 +100,10 @@ Consumer (carriers, external extensions)
 | **carriers/** | |
 | `carriers/index.ts` | Barrel — all carrier registrations |
 | `carriers/genesis.ts` | Genesis carrier — own prompt metadata + delegates to `registerSingleCarrier(pi, "genesis", metadata, { slot: 1 })` |
-| `carriers/sentinel.ts` | Sentinel carrier — own prompt metadata + delegates to `registerSingleCarrier(pi, "sentinel", metadata, { slot: 2 })` |
-| `carriers/vanguard.ts` | Vanguard carrier — own prompt metadata + delegates to `registerSingleCarrier(pi, "vanguard", metadata, { slot: 3 })` |
+| `carriers/crucible.ts` | Crucible carrier — own prompt metadata + delegates to `registerSingleCarrier(pi, "crucible", metadata, { slot: 2 })` |
+| `carriers/arbiter.ts` | Arbiter carrier — own prompt metadata + delegates to `registerSingleCarrier(pi, "arbiter", metadata, { slot: 3 })` |
+| `carriers/sentinel.ts` | Sentinel carrier — own prompt metadata + delegates to `registerSingleCarrier(pi, "sentinel", metadata, { slot: 4 })` |
+| `carriers/raven.ts` | Raven carrier — own prompt metadata + delegates to `registerSingleCarrier(pi, "raven", metadata, { slot: 5 })` |
+| `carriers/vanguard.ts` | Vanguard carrier — own prompt metadata + delegates to `registerSingleCarrier(pi, "vanguard", metadata, { slot: 6 })` |
+| `carriers/echelon.ts` | Echelon carrier — own prompt metadata + delegates to `registerSingleCarrier(pi, "echelon", metadata, { slot: 7 })` |
+| `carriers/chronicle.ts` | Chronicle carrier — own prompt metadata + delegates to `registerSingleCarrier(pi, "chronicle", metadata, { slot: 8 })` |

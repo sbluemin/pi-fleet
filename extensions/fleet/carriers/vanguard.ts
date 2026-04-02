@@ -1,8 +1,8 @@
 /**
- * fleet/carriers/vanguard — Vanguard carrier (CVN-03)
+ * fleet/carriers/vanguard — Vanguard carrier (CVN-06)
  * @specialization 정찰 스페셔리스트 — 코드베이스 탐색 · 심볼 추적 · 웹 리서치 특화
  *
- * Vanguard carrier를 프레임워크에 등록합니다 (alt+3, direct mode, 프롬프트 메타데이터).
+ * Vanguard carrier를 프레임워크에 등록합니다 (alt+6, direct mode, 프롬프트 메타데이터).
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -16,7 +16,7 @@ const TOOL_METADATA = {
   promptSnippet:
     "Delegate reconnaissance, codebase exploration, and web research to Vanguard — the Vanguard Scout's agile execution",
   promptGuidelines: [
-    "Vanguard is the Captain of CVN-03 Vanguard, serving as the Vanguard Scout Specialist. Its mission is to rapidly explore codebases, trace symbols and call paths, gather intelligence, and conduct web research.",
+    "Vanguard is the Captain of CVN-06 Vanguard, serving as the Vanguard Scout Specialist. Its mission is to rapidly explore codebases, trace symbols and call paths, gather intelligence, and conduct web research.",
     "Vanguard swiftly scouts the latest web documents and codebases, reporting findings with precision back to the fleet.",
     "Prefer this tool for exploration and search-oriented tasks: fast code traversal, web research, and reconnaissance.",
     "Use this tool when the task requires searching the web or gathering external information.",
@@ -39,5 +39,5 @@ export function registerVanguardCarrier(pi: ExtensionAPI): void {
   registerSingleCarrier(pi, "gemini", {
     ...TOOL_METADATA,
     promptGuidelines: [...TOOL_METADATA.promptGuidelines],
-  }, { slot: 3, id: "vanguard", displayName: "Vanguard" });
+  }, { slot: 6, id: "vanguard", displayName: "Vanguard" });
 }
