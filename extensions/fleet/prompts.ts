@@ -77,6 +77,23 @@ Default to delegation. Handle tasks directly only when they are clearly small, l
 4. Verify results with targeted spot-checks, synthesize, and report.
 `;
 
+/**
+ * 병렬 작업 환경 경고 — 항상 주입
+ *
+ * 단일 파일시스템·브랜치에서 여러 에이전트가 동시 작업하는 환경을 전제로,
+ * 자신이 만든 변경 이외의 것을 롤백하지 않도록 경고한다.
+ */
+export const PARALLEL_WORK_WARNING = String.raw`
+# Parallel Work Environment
+
+Multiple agents may be working on this codebase simultaneously on the same filesystem and branch.
+
+- **Only touch your own changes.** Never revert, overwrite, or undo modifications you did not make — another agent may have introduced them intentionally.
+- **Prefer precise edits over full-file writes.** Use targeted replacements (edit) instead of rewriting entire files (write) to minimize collision with concurrent changes.
+- **Re-read before modifying.** Always check the current on-disk state of a file right before editing; it may have changed since you last read it.
+- **When delegating to sub-agents (Carriers), relay this warning** so they follow the same discipline.
+`;
+
 export function appendAdmiralSystemPrompt(systemPrompt: string): string {
   const parts: string[] = [systemPrompt];
 
@@ -90,6 +107,12 @@ export function appendAdmiralSystemPrompt(systemPrompt: string): string {
   const core = ADMIRAL_SYSTEM_APPEND.trim();
   if (!systemPrompt.includes(core)) {
     parts.push(core);
+  }
+
+  // 병렬 작업 경고 — 항상 주입
+  const parallel = PARALLEL_WORK_WARNING.trim();
+  if (!systemPrompt.includes(parallel)) {
+    parts.push(parallel);
   }
 
   return parts.join("\n\n");

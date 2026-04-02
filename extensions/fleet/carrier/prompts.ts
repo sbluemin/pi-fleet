@@ -31,6 +31,18 @@ function buildFleetContextGuideline(displayName: string): string {
   );
 }
 
+/**
+ * 병렬 작업 환경 경고 — 캡틴에게 전달할 1줄 guideline.
+ */
+function buildParallelWorkGuideline(): string {
+  return (
+    `Multiple agents may be working on this codebase at the same time on a single filesystem and branch.` +
+    ` Only touch changes you made — never revert or overwrite modifications made by others.` +
+    ` Prefer precise edits (edit) over full-file writes (write).` +
+    ` Always re-read a file before modifying it, as it may have changed since your last read.`
+  );
+}
+
 function normalizeLine(value: string): string {
   return value.trim().replace(/\s+/g, " ");
 }
@@ -63,6 +75,7 @@ export function refineSingleCarrierToolMetadata({
 }: RefineToolPromptOptions): SingleCarrierToolMetadata {
   const promptGuidelines = dedupeGuidelines([
     buildFleetContextGuideline(displayName),
+    buildParallelWorkGuideline(),
     ...metadata.promptGuidelines,
   ]);
 
