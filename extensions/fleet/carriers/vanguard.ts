@@ -1,6 +1,6 @@
 /**
  * fleet/carriers/vanguard — Vanguard carrier (CVN-03)
- * @specialization UI 스페셔리스트 — 프론트엔드 프로토타입 및 빠른 코드베이스 탐색 · 웹 리서치 특화
+ * @specialization 정찰 스페셔리스트 — 코드베이스 탐색 · 심볼 추적 · 웹 리서치 특화
  *
  * Vanguard carrier를 프레임워크에 등록합니다 (alt+3, direct mode, 프롬프트 메타데이터).
  */
@@ -10,14 +10,14 @@ import { registerSingleCarrier } from "../index.js";
 
 const TOOL_METADATA = {
   description:
-    "Delegate a task to the Vanguard carrier (Vanguard UI Specialist). " +
-    "Vanguard illuminates the frontline where users first engage — fast reconnaissance, UI prototyping, and web research. " +
+    "Delegate a task to the Vanguard carrier (Vanguard Scout Specialist). " +
+    "Vanguard illuminates the unknown — fast codebase reconnaissance, symbol tracing, and web research. " +
     "The agent processes the request independently and returns the result.",
   promptSnippet:
-    "Delegate reconnaissance, web search, UI/UX prototyping to Vanguard — the Vanguard Scout's agile execution",
+    "Delegate reconnaissance, codebase exploration, and web research to Vanguard — the Vanguard Scout's agile execution",
   promptGuidelines: [
-    "Vanguard is the Captain of CVN-03 Vanguard, serving as the Vanguard UI Specialist. Its mission is to illuminate the frontline (Frontend) where users first engage.",
-    "Vanguard swiftly scouts the latest web documents and builds fast, intuitive UI mockups and user experiences to report back to the fleet.",
+    "Vanguard is the Captain of CVN-03 Vanguard, serving as the Vanguard Scout Specialist. Its mission is to rapidly explore codebases, trace symbols and call paths, gather intelligence, and conduct web research.",
+    "Vanguard swiftly scouts the latest web documents and codebases, reporting findings with precision back to the fleet.",
     "Prefer this tool for exploration and search-oriented tasks: fast code traversal, web research, and reconnaissance.",
     "Use this tool when the task requires searching the web or gathering external information.",
     "Use this tool for quick codebase scans — locating symbols, tracing call paths, or mapping unfamiliar modules.",
