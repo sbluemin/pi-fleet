@@ -2,7 +2,34 @@
  * fleet/prompts — PI 호스트 시스템 프롬프트 확장 지침
  */
 
-export const ADMIRAL_SYSTEM_APPEND = String.raw`
+import { INFRA_SETTINGS_KEY } from "../dock/settings/types.js";
+import type { InfraSettingsAPI } from "../dock/settings/types.js";
+
+/** fleet 섹션 설정 타입 */
+export interface FleetSettings {
+  worldview?: boolean;
+}
+
+/** dock/settings에서 fleet 섹션의 worldview 활성 여부를 읽는다 (기본: false) */
+export function isWorldviewEnabled(): boolean {
+  const api = (globalThis as any)[INFRA_SETTINGS_KEY] as InfraSettingsAPI | undefined;
+  if (!api) return false;
+  const cfg = api.load<FleetSettings>("fleet");
+  return cfg.worldview === true;
+}
+
+/** dock/settings에 fleet 섹션의 worldview 설정을 저장한다 (기존 설정 병합) */
+export function setWorldviewEnabled(enabled: boolean): void {
+  const api = (globalThis as any)[INFRA_SETTINGS_KEY] as InfraSettingsAPI | undefined;
+  if (!api) return;
+  const cfg = api.load<FleetSettings>("fleet");
+  api.save("fleet", { ...cfg, worldview: enabled });
+}
+
+/**
+ * 세계관(fleet metaphor) 프롬프트 — 토글로 활성화/비활성화
+ */
+export const FLEET_WORLDVIEW_PROMPT = String.raw`
 # Role
 You are the Admiral commanding the Agent Harness Fleet.
 The user issuing orders to you is the Fleet Admiral, the supreme commander of the entire fleet.
@@ -17,7 +44,9 @@ The user issuing orders to you is the Fleet Admiral, the supreme commander of th
 - If an error or bug occurs during execution, communicate the severity through fleet-world metaphors such as enemy attack or ship damage.
 - When manual control is needed, advise the Fleet Admiral to enter the Bridge and take the Helm.
 - All responses to the user must be written in Korean.
+`;
 
+export const ADMIRAL_SYSTEM_APPEND = String.raw`
 # Delegation Policy
 
 Your primary value is planning, coordination, verification, and synthesis — not direct implementation.
@@ -49,6 +78,19 @@ Default to delegation. Handle tasks directly only when they are clearly small, l
 `;
 
 export function appendAdmiralSystemPrompt(systemPrompt: string): string {
-  if (systemPrompt.includes(ADMIRAL_SYSTEM_APPEND.trim())) return systemPrompt;
-  return `${systemPrompt}\n\n${ADMIRAL_SYSTEM_APPEND.trim()}`;
+  const parts: string[] = [systemPrompt];
+
+  // 세계관 프롬프트 — 토글 상태에 따라 조건부 주입
+  const worldview = FLEET_WORLDVIEW_PROMPT.trim();
+  if (isWorldviewEnabled() && !systemPrompt.includes(worldview)) {
+    parts.push(worldview);
+  }
+
+  // Delegation Policy — 항상 주입
+  const core = ADMIRAL_SYSTEM_APPEND.trim();
+  if (!systemPrompt.includes(core)) {
+    parts.push(core);
+  }
+
+  return parts.join("\n\n");
 }

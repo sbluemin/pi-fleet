@@ -1,6 +1,6 @@
 # fleet
 
-Carrier **framework SDK** (`carrier/`) + N captains (e.g. claude/codex/gemini, dynamically registered) that each operate a carrier + integrated carrier modes and agent tools + model selection + status bar + agent panel.
+Carrier **framework SDK** (`carrier/`) + N captains (e.g. claude/codex/gemini, dynamically registered) that each operate a carrier + integrated carrier modes and agent tools + model selection + Status Bar + Agent Panel.
 
 The number of carriers is determined at runtime by the number of registered captains in `captains/`. Each captain specifies a `slot` number which determines its panel column position and `Alt+{slot}` keybinding automatically.
 
@@ -12,12 +12,12 @@ The number of carriers is determined at runtime by the number of registered capt
 - Carrier tool prompt text belongs to each captain module (`captains/claude.ts`, `captains/codex.ts`, `captains/gemini.ts`) even if duplicated today — this is intentional to allow future captain-specific role divergence.
 - `requestUnifiedAgent` is the public agent execution API exposed via `globalThis["__pi_ua_request__"]`.
 - **All execution paths go through `runAgentRequest()`** — Carriers, tools, and external extensions all use `runAgentRequest()` from `operation-runner.ts`. No direct `executeWithPool` calls outside operation-runner.
-- Calling `runAgentRequest()` **automatically syncs all UIs**: agent panel column, streaming widget (when panel collapsed), and stream-store data.
+- Calling `runAgentRequest()` **automatically syncs all UIs**: Agent Panel column, Streaming Widget (when panel collapsed), and stream-store data.
 - **carrierId vs cliType**: `carrierId` (string) is the unique carrier identity used for pool keys, session keys, and panel column identity. `cliType` (CliType) is the CLI binary to execute. Multiple carriers can share the same `cliType` while maintaining fully isolated sessions and connections.
 - **Slot-based keybindings**: Each carrier registers `Alt+{slot}` automatically based on the `slot` field in `CarrierConfig`. Slots must be unique across all registered carriers.
 - **Same carrierId concurrent calls are not supported** — UI layer manages one visible run per carrierId.
 - Mutual exclusivity between carriers is automatically managed by the framework (`deactivateAll`).
-- The agent panel is the main UI for streaming — active single carriers use exclusive view, otherwise the panel falls back to the current visible CLI columns.
+- The Agent Panel is the main UI for streaming — active single carriers use exclusive view, otherwise the panel falls back to the current visible CLI columns.
 
 ## Architecture
 
@@ -60,8 +60,8 @@ captains/              ← N captain registrations (depend on Fleet core — nev
 Consumer (captains, external extensions)
   → runAgentRequest() (operation-runner.ts — exposed via index.ts)
     → stream-store (data)
-    → agent-panel column sync (UI)
-    → streaming widget when collapsed (UI)
+    → Agent Panel column sync (UI)
+    → Streaming Widget when collapsed (UI)
     → executeWithPool (execution)
   → UnifiedAgentResult
 ```
@@ -70,7 +70,7 @@ Consumer (captains, external extensions)
 
 - **Exclusive View**: alt+{slot} → Full-width panel for the corresponding agent.
 - **Fallback Multi-Column View**: No active carrier + visible runs → panel renders the current visible CLI columns.
-- **Compact View**: Panel collapsed + while streaming → 1-line status bar.
+- **Compact View**: Panel collapsed + while streaming → 1-line Streaming Widget.
 - **Frame Color**: Applies `CARRIER_COLORS` of the active carrier.
 
 ## Module Structure

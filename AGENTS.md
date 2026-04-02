@@ -61,6 +61,45 @@ PI is the **host agent** (orchestrator). Claude, Codex, and Gemini are **sub-age
 - **Sub-agents are unaware of each other** — Cross-analysis is performed solely by PI after all responses are collected.
 - **Communication layer**: `runAgentRequest()` → `executeWithPool()` → ACP stdio (all CLIs use the same protocol).
 
+## PI TUI Layout & Terminology
+
+PI renders a vertical stack of **zones**. Extensions customize these zones via official TUI APIs.
+
+```
+┌──────────────────────────────────┐
+│  Header                          │  built-in
+├──────────────────────────────────┤
+│  Messages                        │  built-in · registerMessageRenderer()
+├──────────────────────────────────┤
+│  Widget:above                    │  setWidget()
+├──────────────────────────────────┤
+│  Editor                          │  setEditorComponent()
+├──────────────────────────────────┤
+│  Widget:below                    │  setWidget()
+├──────────────────────────────────┤
+│  Footer                          │  setFooter()
+└──────────────────────────────────┘
+  Overlay                            ctx.ui.custom() — floating
+```
+
+### Canonical Terms
+
+| Term | Zone | Owner | Notes |
+|------|------|-------|-------|
+| **Header** | Header | pi | Startup info, badges |
+| **Messages** | Messages | pi | Conversation, tool calls/results, custom messages |
+| **Editor** | Editor | `dock/hud` | User input (HUD replaces default) |
+| **Footer** | Footer | `dock/hud` | Bottom tokens — dir, session, cost, model (HUD replaces default) |
+| **Status Bar** | Widget:above | `dock/hud` | Segment-based status line above Editor |
+| **Agent Panel** | Custom UI | `fleet` | Carrier streaming UI — exclusive / multi-column / compact view |
+| **Streaming Widget** | Widget | `fleet` | 1-line compact indicator when Agent Panel is collapsed |
+| **Overlay** | Overlay | various | Floating panel — keybind (Alt+.), settings (Alt+/), welcome |
+
+### Rules
+
+- Use the **canonical terms** above in all code comments, docs, and AGENTS.md files.
+- When an extension contributes UI, note which **zone** and **API** it targets.
+
 ## Domain Boundary Rules
 
 > Refer to `extensions/AGENTS.md` for the full cross-layer dependency rules, layer hierarchy, and verification table.

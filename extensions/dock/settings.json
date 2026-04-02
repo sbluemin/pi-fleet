@@ -6,5 +6,8 @@
   },
   "utils-summarize": {
     "maxLength": 80
+  },
+  "fleet": {
+    "worldview": false
   }
 }

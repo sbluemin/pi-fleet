@@ -13,7 +13,7 @@ Infrastructure extensions for pi-fleet. Each provides a core UI or system featur
 
 | Extension | Role |
 |-----------|------|
-| `hud/` | Custom editor + status bar + footer (integrated rendering engine) |
+| `hud/` | Editor + Status Bar + Footer (integrated rendering engine) |
 | `shell/` | Interactive shell session inside pi |
 | `keybind/` | Centralized keybinding management + overlay (Alt+.) |
 | `settings/` | Centralized settings API + overlay popup (Alt+/) |

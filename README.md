@@ -8,7 +8,7 @@ A multi-LLM orchestration kit for [pi-coding-agent](https://github.com/badlogic/
 
 | Extension | Description |
 |-----------|-------------|
-| `hud/` | Custom editor + status bar + footer with integrated rendering engine |
+| `hud/` | Editor + Status Bar + Footer with integrated rendering engine |
 | `keybind/` | Centralized keybinding management + overlay (`Alt+.`) |
 | `settings/` | Centralized settings API + overlay popup (`Alt+/`) |
 | `welcome/` | Welcome overlay displayed on session start |

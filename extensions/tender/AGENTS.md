@@ -6,9 +6,9 @@ Utility extensions for pi-fleet. Each provides a standalone productivity feature
 
 | Extension | Role |
 |-----------|------|
-| `improve-prompt/` | Meta-prompting (Alt+M), reasoning level cycle (Alt+R) |
-| `summarize/` | Auto one-line session summary |
-| `thinking-timer/` | Inline elapsed-time display for Thinking blocks |
+| `improve-prompt/` | Meta-prompting (Alt+M), reasoning level cycle (Alt+R). Status Bar segment |
+| `summarize/` | Auto one-line session summary. Status Bar segment |
+| `thinking-timer/` | Elapsed-time display for Thinking blocks (Messages zone) |
 
 ## Slash Command Domain Assignment
 

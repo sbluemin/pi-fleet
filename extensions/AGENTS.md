@@ -13,13 +13,13 @@ Do not create intermediate layers that simply wrap official TUI APIs (e.g., `set
 | Extension | Role | Main Files |
 |-----------|------|------------|
 | `fleet/` | Dynamic N direct entries (alt+{slot}) + individual agent tools + unified pipeline. Carrier count determined by registered captains. | `index.ts` (wiring), `carrier/` (framework), `internal/` (implementation), `captains/` |
-| `dock/hud/` | Custom editor + status bar + footer (with integrated rendering engine) | `index.ts` (wiring), `editor.ts` (editor/footer/widget UI) |
+| `dock/hud/` | Editor + Status Bar + Footer (with integrated rendering engine) | `index.ts` (wiring), `editor.ts` (editor/footer/widget UI) |
 | `dock/keybind/` | Centralized keybinding management + overlay (alt+.) | `index.ts` (wiring), `types.ts` (API + globalThis), `store.ts` (JSON), `registry.ts` (bindings), `overlay.ts` (UI) |
 | `dock/settings/` | Centralized settings API + overlay popup (alt+/) | `index.ts` (wiring), `types.ts` (API + globalThis), `store.ts` (JSON), `registry.ts` (sections), `overlay.ts` (UI) |
 | `dock/welcome/` | Welcome overlay/header | `index.ts` (wiring), `welcome.ts` (UI), `types.ts` (globalThis types) |
-| `tender/improve-prompt/` | Meta-prompting (alt+m), reasoning level cycle (alt+r) | `index.ts` (wiring), `ui.ts` (status bar widget) |
+| `tender/improve-prompt/` | Meta-prompting (alt+m), reasoning level cycle (alt+r) | `index.ts` (wiring), `ui.ts` (Status Bar segment) |
 | `tender/thinking-timer/` | Inline elapsed-time display for Thinking blocks | `index.ts` (wiring), `timer.ts` (patch/store/ticker) |
-| `tender/summarize/` | Auto one-line session summary | `index.ts` (wiring), `ui.ts` (status bar widget) |
+| `tender/summarize/` | Auto one-line session summary | `index.ts` (wiring), `ui.ts` (Status Bar segment) |
 
 ### Shared Libraries — Directories without `index.ts`
 
@@ -27,7 +27,7 @@ These are pure libraries not recognized as extensions by pi.
 
 | Library | Role | Main Consumers |
 |---------|------|----------------|
-| `dock/hud/` (also a library) | Status bar rendering engine (segments, layout, colors, themes, presets) | `dock/welcome` |
+| `dock/hud/` (also a library) | Status Bar rendering engine (segments, layout, colors, themes, presets) | `dock/welcome` |
 
 ### Extension Separation Criteria
 

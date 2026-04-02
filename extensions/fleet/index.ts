@@ -33,7 +33,10 @@ import { buildBridgeCommand } from "./carrier/launch.js";
 import { attachStatusContext, refreshStatusNow } from "./internal/service-status/store.js";
 import { CARRIER_BRIDGE_KEY } from "./constants";
 import { registerCaptains } from "./captains/index.js";
-import { appendAdmiralSystemPrompt } from "./prompts.js";
+import { appendAdmiralSystemPrompt, isWorldviewEnabled, setWorldviewEnabled } from "./prompts.js";
+
+import { INFRA_SETTINGS_KEY } from "../dock/settings/types.js";
+import type { InfraSettingsAPI } from "../dock/settings/types.js";
 
 import { EDITOR_MODE_PROVIDER_KEY } from "../dock/hud/types.js";
 import type { EditorModeProvider } from "../dock/hud/types.js";
@@ -205,6 +208,35 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
     description: "지원 CLI 서비스 상태를 즉시 새로고침",
     handler: async (_args, ctx) => {
       await refreshStatusNow(ctx);
+    },
+  });
+
+  // ── 세계관 프롬프트 토글 커맨드 ──
+
+  pi.registerCommand("fleet:agent:worldview", {
+    description: "세계관(fleet metaphor) 프롬프트 토글 (on/off)",
+    handler: async (_args, ctx) => {
+      const current = isWorldviewEnabled();
+      const next = !current;
+      setWorldviewEnabled(next);
+      ctx.ui.notify(
+        `Fleet Worldview → ${next ? "ON" : "OFF"} (다음 턴부터 적용)`,
+        "info",
+      );
+    },
+  });
+
+  // ── 설정 팝업(Alt+/) 섹션 등록 ──
+
+  const infraApi = (globalThis as any)[INFRA_SETTINGS_KEY] as InfraSettingsAPI | undefined;
+  infraApi?.registerSection({
+    key: "fleet",
+    displayName: "Fleet",
+    getDisplayFields() {
+      const enabled = isWorldviewEnabled();
+      return [
+        { label: "Worldview", value: enabled ? "ON" : "OFF", color: enabled ? "accent" : "dim" },
+      ];
     },
   });
 }
