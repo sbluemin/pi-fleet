@@ -7,8 +7,8 @@
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { registerGenesisCarrier } from "./genesis.js";
-import { registerCrucibleCarrier } from "./crucible.js";
 import { registerArbiterCarrier } from "./arbiter.js";
+import { registerCrucibleCarrier } from "./crucible.js";
 import { registerSentinelCarrier } from "./sentinel.js";
 import { registerRavenCarrier } from "./raven.js";
 import { registerVanguardCarrier } from "./vanguard.js";
@@ -16,8 +16,8 @@ import { registerEchelonCarrier } from "./echelon.js";
 import { registerChronicleCarrier } from "./chronicle.js";
 
 export { registerGenesisCarrier } from "./genesis.js";
-export { registerCrucibleCarrier } from "./crucible.js";
 export { registerArbiterCarrier } from "./arbiter.js";
+export { registerCrucibleCarrier } from "./crucible.js";
 export { registerSentinelCarrier } from "./sentinel.js";
 export { registerRavenCarrier } from "./raven.js";
 export { registerVanguardCarrier } from "./vanguard.js";
@@ -32,8 +32,8 @@ export { registerChronicleCarrier } from "./chronicle.js";
  */
 export function registerCarriers(pi: ExtensionAPI): void {
   registerGenesisCarrier(pi);    // slot 1 — alt+1  (claude)
-  registerCrucibleCarrier(pi);   // slot 2 — alt+2  (claude)
-  registerArbiterCarrier(pi);    // slot 3 — alt+3  (claude)
+  registerArbiterCarrier(pi);    // slot 2 — alt+2  (claude)
+  registerCrucibleCarrier(pi);   // slot 3 — alt+3  (codex)
   registerSentinelCarrier(pi);   // slot 4 — alt+4  (codex)
   registerRavenCarrier(pi);      // slot 5 — alt+5  (codex)
   registerVanguardCarrier(pi);   // slot 6 — alt+6  (gemini)
