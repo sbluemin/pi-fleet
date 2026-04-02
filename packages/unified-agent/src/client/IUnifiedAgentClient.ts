@@ -13,6 +13,7 @@ import type {
   AgentMode,
 } from '../types/config.js';
 import type {
+  AcpAvailableCommand,
   AcpSessionNewResult,
   AcpContentBlock,
   AcpSessionUpdateParams,
@@ -47,6 +48,8 @@ export interface UnifiedClientEvents {
   toolCallUpdate: [title: string, status: string, sessionId: string, data?: AcpToolCallUpdate];
   /** 계획 업데이트 */
   plan: [plan: string, sessionId: string];
+  /** 사용 가능한 커맨드 목록 업데이트 */
+  availableCommandsUpdate: [commands: AcpAvailableCommand[], sessionId: string];
   /** ACP 세션 업데이트 (원자적) */
   sessionUpdate: [update: AcpSessionUpdateParams];
   /** ACP 권한 요청 (콜백 기반 응답) */

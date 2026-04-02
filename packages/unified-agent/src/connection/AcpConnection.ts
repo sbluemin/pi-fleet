@@ -34,7 +34,12 @@ import {
 import { readFile, writeFile, mkdir, access } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import type { ConnectionState } from '../types/common.js';
-import type { AcpToolCall, AcpToolCallUpdate } from '../types/acp.js';
+import type {
+  AcpAvailableCommand,
+  AcpAvailableCommandsUpdate,
+  AcpToolCall,
+  AcpToolCallUpdate,
+} from '../types/acp.js';
 import { BaseConnection, type BaseConnectionOptions } from './BaseConnection.js';
 
 /** AcpConnection 생성 옵션 */
@@ -58,6 +63,7 @@ export interface AcpConnectionEventMap {
   toolCall: [title: string, status: string, sessionId: string, data?: AcpToolCall];
   toolCallUpdate: [title: string, status: string, sessionId: string, data?: AcpToolCallUpdate];
   plan: [plan: string, sessionId: string];
+  availableCommandsUpdate: [commands: AcpAvailableCommand[], sessionId: string, data?: AcpAvailableCommandsUpdate];
   sessionUpdate: [update: SessionNotification];
   permissionRequest: [params: RequestPermissionRequest, resolve: (response: RequestPermissionResponse) => void];
   fileRead: [params: ReadTextFileRequest, resolve: (response: ReadTextFileResponse) => void];
@@ -467,6 +473,7 @@ export class AcpConnection extends BaseConnection {
 
     const { update } = notification;
     const sessionId = notification.sessionId;
+    this.promptKeepAlive?.();
 
     switch (update.sessionUpdate) {
       case 'user_message_chunk': {
@@ -475,19 +482,16 @@ export class AcpConnection extends BaseConnection {
       }
 
       case 'agent_message_chunk': {
-        this.promptKeepAlive?.();
         this.emitTextChunk('messageChunk', update, sessionId);
         break;
       }
 
       case 'agent_thought_chunk': {
-        this.promptKeepAlive?.();
         this.emitTextChunk('thoughtChunk', update, sessionId);
         break;
       }
 
       case 'tool_call': {
-        this.promptKeepAlive?.();
         // sessionUpdate 필드를 제외한 나머지를 ToolCall 데이터로 전달
         const { sessionUpdate: _tc, ...toolCallData } = update;
         this.emit(
@@ -501,7 +505,6 @@ export class AcpConnection extends BaseConnection {
       }
 
       case 'tool_call_update': {
-        this.promptKeepAlive?.();
         // sessionUpdate 필드를 제외한 나머지를 ToolCallUpdate 데이터로 전달
         const { sessionUpdate: _tcu, ...toolCallUpdateData } = update;
         this.emit(
@@ -515,10 +518,19 @@ export class AcpConnection extends BaseConnection {
       }
 
       case 'plan': {
-        this.promptKeepAlive?.();
         if (update.entries) {
           this.emit('plan', JSON.stringify(update.entries), sessionId);
         }
+        break;
+      }
+
+      case 'available_commands_update': {
+        this.emit(
+          'availableCommandsUpdate',
+          update.availableCommands,
+          sessionId,
+          update,
+        );
         break;
       }
 

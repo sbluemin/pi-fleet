@@ -12,6 +12,7 @@ import type {
   AgentMode,
 } from '../types/config.js';
 import type {
+  AcpAvailableCommand,
   AcpContentBlock,
   AcpSessionUpdateParams,
   AcpPermissionRequestParams,
@@ -384,6 +385,9 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
     });
     this.acpConnection.on('plan', (plan: string, sessionId: string) => {
       this.emitTyped('plan', plan, sessionId);
+    });
+    this.acpConnection.on('availableCommandsUpdate', (commands: AcpAvailableCommand[], sessionId: string) => {
+      this.emitTyped('availableCommandsUpdate', commands, sessionId);
     });
     this.acpConnection.on('sessionUpdate', (update: AcpSessionUpdateParams) => {
       this.emitTyped('sessionUpdate', update);

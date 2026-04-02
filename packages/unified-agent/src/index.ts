@@ -92,6 +92,8 @@ export type {
   AcpSessionUpdateType,
   AcpSessionUpdateParams,
   AcpSessionUpdate,
+  AcpAvailableCommandsUpdate,
+  AcpAvailableCommand,
   AcpPermissionRequestParams,
   AcpPermissionOption,
   AcpPermissionResponse,
