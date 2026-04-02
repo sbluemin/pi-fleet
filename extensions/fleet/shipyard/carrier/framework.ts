@@ -22,18 +22,17 @@ import {
   CLI_DISPLAY_NAMES,
   CARRIER_COLORS,
   CARRIER_BG_COLORS,
-} from "../constants.js";
+} from "../../constants.js";
 import {
   setAgentPanelMode,
   hideAgentPanel,
-} from "../internal/panel/lifecycle.js";
-import { clearCompletedStreamWidgets } from "../operation-runner.js";
+} from "../../internal/panel/lifecycle.js";
 import {
   createDefaultUserRenderer,
   createDefaultResponseRenderer,
-} from "../internal/render/message-renderers.js";
-import { INFRA_KEYBIND_KEY } from "../../dock/keybind/types.js";
-import type { InfraKeybindAPI } from "../../dock/keybind/types.js";
+} from "../../internal/render/message-renderers.js";
+import { INFRA_KEYBIND_KEY } from "../../../dock/keybind/types.js";
+import type { InfraKeybindAPI } from "../../../dock/keybind/types.js";
 
 import type {
   CarrierConfig,
@@ -76,7 +75,6 @@ function getState(): CarrierFrameworkState {
 
 /** 모든 carrier를 비활성화합니다. (패널은 활성화 코드에서 관리) */
 function deactivateAll(_ctx: ExtensionContext) {
-  clearCompletedStreamWidgets(); // 진행 중 위젯은 유지, 완료된 것만 제거
   const gs = getState();
   for (const [_id, state] of gs.modes) {
     state.active = false;
@@ -167,7 +165,6 @@ export function registerCarrier(
         gs.activeModeId = null;
         setAgentPanelMode(ctx, null);
         hideAgentPanel(ctx);
-        clearCompletedStreamWidgets(); // 진행 중 위젯은 유지
         notifyStatusUpdate();
       } else {
         // 다른 모든 carrier 비활성화
@@ -251,7 +248,6 @@ export function deactivateCarrier(ctx: ExtensionContext, carrierId: string): voi
       gs.activeModeId = null;
       setAgentPanelMode(ctx, null);
       hideAgentPanel(ctx);
-      clearCompletedStreamWidgets(); // 진행 중 위젯은 유지
       notifyStatusUpdate();
     }
   }
@@ -314,7 +310,7 @@ export function resolveCarrierRgb(carrierId: string): [number, number, number] {
   return CARRIER_RGBS[cliType] ?? DEFAULT_CARRIER_RGB;
 }
 
-/** carrierId 기준으로 captain 표시 이름을 반환합니다. */
+/** carrierId 기준으로 carrier 표시 이름을 반환합니다. */
 export function resolveCarrierDisplayName(carrierId: string): string {
   const carrierConfig = getRegisteredCarrierConfig(carrierId);
   if (carrierConfig?.displayName) return carrierConfig.displayName;

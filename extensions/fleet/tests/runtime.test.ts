@@ -71,12 +71,12 @@ describe("getModelConfig / saveSelectedModels", () => {
 
   it("저장된 모델 설정을 올바르게 로드한다", () => {
     initRuntime(tmpDir);
-    const config = { claude: { model: "opus" }, codex: { model: "gpt-5" } };
+    const config = { genesis: { model: "opus" }, sentinel: { model: "gpt-5" } };
     saveSelectedModels(tmpDir, config);
 
     const loaded = getModelConfig();
-    expect(loaded.claude?.model).toBe("opus");
-    expect(loaded.codex?.model).toBe("gpt-5");
+    expect(loaded.genesis?.model).toBe("opus");
+    expect(loaded.sentinel?.model).toBe("gpt-5");
   });
 
   it("initRuntime 없이 호출하면 빈 객체를 반환한다 (graceful)", () => {
@@ -90,7 +90,7 @@ describe("getModelConfig / saveSelectedModels", () => {
     initRuntime(deepDir);
 
     expect(() => {
-      saveSelectedModels(deepDir, { gemini: { model: "gemini-3" } });
+      saveSelectedModels(deepDir, { vanguard: { model: "gemini-3" } });
     }).not.toThrow();
 
     const filePath = path.join(deepDir, "selected-models.json");
@@ -101,32 +101,32 @@ describe("getModelConfig / saveSelectedModels", () => {
     initRuntime(tmpDir);
     onHostSessionChange("model-by-carrier");
     const store = getSessionStore();
-    store.set("gemini", "gemini-session");
+    store.set("vanguard", "vanguard-session");
 
-    await updateModelSelection("gemini", { model: "gemini-2.5-pro" });
+    await updateModelSelection("vanguard", { model: "gemini-2.5-pro" });
 
     const loaded = getModelConfig();
-    expect(loaded.gemini?.model).toBe("gemini-2.5-pro");
-    expect(store.get("gemini")).toBeUndefined();
+    expect(loaded.vanguard?.model).toBe("gemini-2.5-pro");
+    expect(store.get("vanguard")).toBeUndefined();
   });
 
   it("updateAllModelSelections은 carrierId 키들을 그대로 저장하고 세션을 정리한다", async () => {
     initRuntime(tmpDir);
     onHostSessionChange("bulk-models");
     const store = getSessionStore();
-    store.set("gemini", "gemini-session");
-    store.set("codex", "codex-session");
+    store.set("vanguard", "vanguard-session");
+    store.set("sentinel", "sentinel-session");
 
     await updateAllModelSelections({
-      gemini: { model: "gemini-2.5-flash" },
-      codex: { model: "gpt-5" },
+      vanguard: { model: "gemini-2.5-flash" },
+      sentinel: { model: "gpt-5" },
     });
 
     const loaded = getModelConfig();
-    expect(loaded.gemini?.model).toBe("gemini-2.5-flash");
-    expect(loaded.codex?.model).toBe("gpt-5");
-    expect(store.get("gemini")).toBeUndefined();
-    expect(store.get("codex")).toBeUndefined();
+    expect(loaded.vanguard?.model).toBe("gemini-2.5-flash");
+    expect(loaded.sentinel?.model).toBe("gpt-5");
+    expect(store.get("vanguard")).toBeUndefined();
+    expect(store.get("sentinel")).toBeUndefined();
   });
 });
 
@@ -136,44 +136,44 @@ describe("세션 매핑 (sessionStore + onHostSessionChange)", () => {
 
     onHostSessionChange("test-session-1");
     const store = getSessionStore();
-    store.set("claude" as any, "sub-session-abc");
-    expect(store.get("claude" as any)).toBe("sub-session-abc");
+    store.set("genesis" as any, "sub-session-abc");
+    expect(store.get("genesis" as any)).toBe("sub-session-abc");
 
     onHostSessionChange("test-session-2");
-    expect(store.get("claude" as any)).toBeUndefined();
+    expect(store.get("genesis" as any)).toBeUndefined();
 
     onHostSessionChange("test-session-1");
-    expect(store.get("claude" as any)).toBe("sub-session-abc");
+    expect(store.get("genesis" as any)).toBe("sub-session-abc");
   });
 
   it("getSessionId로 CLI별 sessionId를 조회할 수 있다", () => {
     initRuntime(tmpDir);
     onHostSessionChange("sid-1");
     const store = getSessionStore();
-    store.set("codex" as any, "codex-session-xyz");
+    store.set("sentinel" as any, "sentinel-session-xyz");
 
-    expect(getSessionId("codex" as any)).toBe("codex-session-xyz");
-    expect(getSessionId("claude" as any)).toBeUndefined();
+    expect(getSessionId("sentinel" as any)).toBe("sentinel-session-xyz");
+    expect(getSessionId("genesis" as any)).toBeUndefined();
   });
 
   it("미초기화 상태에서 getSessionStore는 noop store를 반환한다", () => {
     const freshDir = path.join(tmpDir, "fresh");
     initRuntime(freshDir);
     const store = getSessionStore();
-    expect(store.get("claude" as any)).toBeUndefined();
-    store.set("claude" as any, "some-id");
+    expect(store.get("genesis" as any)).toBeUndefined();
+    store.set("genesis" as any, "some-id");
   });
 
   it("세션 매핑 파일이 session-maps/ 하위에 저장된다", () => {
     initRuntime(tmpDir);
     onHostSessionChange("persist-test");
     const store = getSessionStore();
-    store.set("gemini" as any, "gem-sess-1");
+    store.set("vanguard" as any, "gem-sess-1");
 
     const sessionFile = path.join(tmpDir, "session-maps", "persist-test.json");
     expect(fs.existsSync(sessionFile)).toBe(true);
 
     const content = JSON.parse(fs.readFileSync(sessionFile, "utf-8"));
-    expect(content.gemini).toBe("gem-sess-1");
+    expect(content.vanguard).toBe("gem-sess-1");
   });
 });

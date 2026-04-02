@@ -9,9 +9,9 @@
     "popup": "alt+/"
   },
   "fleet": {
-    "carrier:claude": "alt+1",
-    "carrier:codex": "alt+2",
-    "carrier:gemini": "alt+3",
+    "carrier:genesis": "alt+1",
+    "carrier:sentinel": "alt+2",
+    "carrier:vanguard": "alt+3",
     "cancel": "alt+x",
     "panel-toggle": "alt+p",
     "panel-grow": "alt+j",

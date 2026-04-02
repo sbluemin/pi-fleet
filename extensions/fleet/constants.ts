@@ -7,9 +7,14 @@
 // ─── CLI 표시 이름 ───────────────────────────────────────
 
 export const CLI_DISPLAY_NAMES: Record<string, string> = {
+  // cliType 키 (unified-agent CliType 기준)
   claude: "Claude",
   codex: "Codex",
   gemini: "Gemini",
+  // carrierId 키 (fleet 페르소나 기준)
+  genesis: "Genesis",
+  sentinel: "Sentinel",
+  vanguard: "Vanguard",
 };
 
 // ─── ANSI 상수 ───────────────────────────────────────────

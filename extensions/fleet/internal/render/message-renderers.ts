@@ -51,8 +51,8 @@ interface RenderComponent {
   invalidate(): void;
 }
 
-function formatCaptainLabel(displayName: string): string {
-  return `Captain ${displayName}`;
+function formatCarrierLabel(displayName: string): string {
+  return `Carrier ${displayName}`;
 }
 
 /** content 필드에서 텍스트를 추출하는 헬퍼 */
@@ -88,10 +88,10 @@ function renderAgentResult(
 
   // 아이콘 + 이름 헤더 (세션 정보 포함)
   const icon = isError ? theme.fg("error", SYM_INDICATOR) : theme.fg("success", SYM_INDICATOR);
-  const captainLabel = formatCaptainLabel(config.displayName);
+  const carrierLabel = formatCarrierLabel(config.displayName);
   const nameStyled = config.color
-    ? `${config.color}${theme.bold(captainLabel)}${ANSI_RESET}`
-    : theme.fg("accent", theme.bold(captainLabel));
+    ? `${config.color}${theme.bold(carrierLabel)}${ANSI_RESET}`
+    : theme.fg("accent", theme.bold(carrierLabel));
   const sessionSuffix = details?.sessionId
     ? theme.fg("dim", ` (session: ${details.sessionId})`)
     : "";
@@ -249,19 +249,3 @@ export function createDefaultResponseRenderer(config: AgentRenderConfig) {
   };
 }
 
-/**
- * PI 도구 실행 결과 렌더러를 생성합니다.
- * 공통 팩토리(renderAgentResult)를 사용하여
- * Carrier 응답과 동일한 렌더링을 보장합니다.
- */
-export function createToolResultRenderer(config: {
-  displayName: string;
-  color?: string;
-  bgColor?: string;
-}) {
-  return (result: any, options: AgentResultRenderOptions, theme: RenderTheme) => {
-    const details = result.details as AgentResultDetails | undefined;
-    const contentText = extractContentText(result.content);
-    return renderAgentResult(config, contentText, details, options, theme);
-  };
-}

@@ -17,7 +17,7 @@ import {
 import {
   resolveCarrierColor,
   getRegisteredCarrierConfig,
-} from "../../carrier/framework.js";
+} from "../../shipyard/carrier/framework.js";
 import {
   renderPanelFull,
   renderPanelCompact,
@@ -28,6 +28,28 @@ import type { ProviderKey } from "../contracts.js";
 import { getState, makeFooterCols, WIDGET_KEY } from "./state.js";
 
 // ─── footer 동기화 ───────────────────────────────────────
+
+/** 같은 이벤트 루프 턴의 footer 갱신 요청을 마지막 ctx 기준으로 합칩니다. */
+let pendingFooterCtx: ExtensionContext | null = null;
+let footerScheduled = false;
+
+/**
+ * footer 상태 동기화를 microtask로 예약합니다.
+ * 스트리밍 청크처럼 고빈도 경로에서 여러 호출이 들어와도 1회만 flush합니다.
+ */
+export function scheduleSyncFooter(ctx: ExtensionContext | null): void {
+  if (!ctx) return;
+  pendingFooterCtx = ctx;
+  if (footerScheduled) return;
+
+  footerScheduled = true;
+  queueMicrotask(() => {
+    footerScheduled = false;
+    const nextCtx = pendingFooterCtx;
+    pendingFooterCtx = null;
+    syncFooterStatus(nextCtx);
+  });
+}
 
 /** footer 상태를 현재 패널 상태 기준으로 PI TUI에 반영합니다. */
 export function syncFooterStatus(ctx: ExtensionContext | null): void {

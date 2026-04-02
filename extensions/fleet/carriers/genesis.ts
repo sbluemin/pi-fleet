@@ -1,7 +1,7 @@
 /**
- * fleet/captains/claude — Claude captain
+ * fleet/carriers/genesis — Genesis carrier (CVN-01)
  *
- * Claude captain이 담당 carrier(alt+1) + PI 도구를 등록합니다.
+ * Genesis carrier를 프레임워크에 등록합니다 (alt+1, direct mode, 프롬프트 메타데이터).
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -9,12 +9,14 @@ import { registerSingleCarrier } from "../index.js";
 
 const TOOL_METADATA = {
   description:
-    "Delegate a task to the Claude coding agent. " +
+    "Delegate a task to the Genesis carrier (Chief Architect). " +
+    "Genesis designs system foundations and builds the heaviest backend logic. " +
     "The agent processes the request independently and returns the result.",
   promptSnippet:
-    "Delegate implementation, analysis, or multi-file tasks to Claude — independent agent execution",
+    "Delegate architecture design, core logic, or large-scale refactoring to Genesis — independent Chief Architect execution",
   promptGuidelines: [
-    "Use this tool to delegate a coding task to Claude.",
+    "Genesis is the Captain of CVN-01 Genesis, serving as the Chief Architect. Its mission is to design the system's foundation and build the heaviest backend logic.",
+    "When writing code, Genesis always prioritizes scalability and design patterns above all else — it does not approve an operation unless it is structurally sound.",
     "The agent has full access to the codebase and can read, write, and execute commands.",
     "Provide only the background, context, task objective, and constraints — do NOT prescribe implementation details, specific code paths, or step-by-step instructions.",
     "Trust the agent's own reasoning. Let it discover the codebase and decide the approach independently.",
@@ -22,9 +24,9 @@ const TOOL_METADATA = {
   ],
 };
 
-export function registerClaudeCaptain(pi: ExtensionAPI): void {
+export function registerGenesisCarrier(pi: ExtensionAPI): void {
   registerSingleCarrier(pi, "claude", {
     ...TOOL_METADATA,
     promptGuidelines: [...TOOL_METADATA.promptGuidelines],
-  }, { slot: 1 });
+  }, { slot: 1, id: "genesis", displayName: "Genesis" });
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createToolResultRenderer } from "../internal/render/message-renderers.js";
+import { createDefaultResponseRenderer } from "../internal/render/message-renderers.js";
 import type { ColBlock } from "../internal/contracts.js";
 
 const ANSI_PATTERN = /\x1b\[[0-9;]*m/g;
@@ -20,20 +20,21 @@ function makeTextLines(count: number): string {
   return Array.from({ length: count }, (_, index) => `Line ${index + 1}`).join("\n");
 }
 
-function renderToolResultLines(options: {
+/** 응답 렌더러를 통해 렌더링 결과를 가져옵니다 (renderAgentResult 공통 팩토리 검증) */
+function renderResponseLines(options: {
   expanded: boolean;
   blocks?: ColBlock[];
   contentText?: string;
   thinkingText?: string;
   toolCalls?: { title: string; status: string }[];
 }): string[] {
-  const renderer = createToolResultRenderer({
+  const renderer = createDefaultResponseRenderer({
     displayName: "Claude",
     color: "",
   });
 
-  const result = {
-    content: [{ type: "text" as const, text: options.contentText ?? "" }],
+  const message = {
+    content: options.contentText ?? "",
     details: {
       thinking: options.thinkingText,
       toolCalls: options.toolCalls,
@@ -41,14 +42,14 @@ function renderToolResultLines(options: {
     },
   };
 
-  return renderer(result, { expanded: options.expanded }, makeTheme())
+  return renderer(message, { expanded: options.expanded }, makeTheme())
     .render(120)
     .map(stripAnsi);
 }
 
-describe("createToolResultRenderer", () => {
+describe("createDefaultResponseRenderer", () => {
   it("접힌 상태에서는 완료 결과를 compact 규칙으로 제한한다", () => {
-    const lines = renderToolResultLines({
+    const lines = renderResponseLines({
       expanded: false,
       blocks: [
         { type: "thought", text: "internal reasoning" },
@@ -66,7 +67,7 @@ describe("createToolResultRenderer", () => {
   });
 
   it("펼친 상태에서는 thought/tool/text 전체를 유지한다", () => {
-    const lines = renderToolResultLines({
+    const lines = renderResponseLines({
       expanded: true,
       blocks: [
         { type: "thought", text: "internal reasoning" },
@@ -83,7 +84,7 @@ describe("createToolResultRenderer", () => {
   });
 
   it("레거시 details 경로도 접힌 상태에서 compact 규칙을 따른다", () => {
-    const lines = renderToolResultLines({
+    const lines = renderResponseLines({
       expanded: false,
       contentText: makeTextLines(10),
       thinkingText: "legacy reasoning",

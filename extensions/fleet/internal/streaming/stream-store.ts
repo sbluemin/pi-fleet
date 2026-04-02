@@ -14,7 +14,7 @@
  */
 
 import type { AgentStatus } from "../agent/types.js";
-import { getRegisteredOrder } from "../../carrier/framework.js";
+import { getRegisteredOrder } from "../../shipyard/carrier/framework.js";
 
 // 계약 타입 — internal/contracts.ts에서 정의, 하위 호환을 위해 re-export
 export type { ColStatus, CollectedStreamData } from "../contracts.js";

@@ -45,6 +45,12 @@ export interface CarrierConfig {
   showWorkingMessage?: boolean;
   /** 사용자 정의 패널 칼럼 리스트 — Carrier 활성화 시 패널 칼럼을 이 리스트로 초기화 */
   clis?: readonly string[];
+  /** carrier 역할 설명 (sortie 프롬프트 합성에 사용) */
+  carrierDescription?: string;
+  /** carrier 프롬프트 스니펫 (sortie 프롬프트 합성에 사용) */
+  carrierPromptSnippet?: string;
+  /** carrier 프롬프트 가이드라인 (sortie 프롬프트 합성에 사용) */
+  carrierPromptGuidelines?: string[];
 }
 
 export interface CarrierHelpers {

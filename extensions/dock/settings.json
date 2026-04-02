@@ -5,6 +5,8 @@
     "model": "gpt-5.3-codex-spark"
   },
   "utils-summarize": {
+    "provider": "openai-codex",
+    "model": "gpt-5.3-codex-spark",
     "maxLength": 80
   },
   "fleet": {

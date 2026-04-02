@@ -9,7 +9,7 @@ import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { DEFAULT_BODY_H } from "../../constants";
 import { getSessionStore } from "../agent/runtime.js";
 import { ensureVisibleRun, setRunSessionId } from "../streaming/stream-store";
-import { getRegisteredOrder } from "../../carrier/framework.js";
+import { getRegisteredOrder } from "../../shipyard/carrier/framework.js";
 import type { AgentCol, ServiceSnapshot } from "../contracts.js";
 
 export type { AgentCol } from "../contracts.js";
@@ -18,7 +18,7 @@ export const STATE_KEY = "__pi_agent_panel_state__";
 export const WIDGET_KEY = "ua-panel";
 /**
  * 동적으로 등록된 carrier 순서를 반환합니다.
- * index.ts가 registerCaptains()를 먼저 호출한 뒤 panel/runtime 초기화를 진행하므로
+ * index.ts가 registerCarriers()를 먼저 호출한 뒤 panel/runtime 초기화를 진행하므로
  * 기본 경로에서는 여기서 빈 registeredOrder를 보지 않습니다.
  */
 export function getDefaultClis(): readonly string[] {

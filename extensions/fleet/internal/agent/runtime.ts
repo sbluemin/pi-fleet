@@ -5,7 +5,7 @@
  * 외부(feature/index.ts)에서는 initRuntime()으로 초기화하고,
  * onHostSessionChange()로 PI 호스트 세션 변경만 통지합니다.
  *
- * captains는 sessionStore/configDir을 직접 몰라도 됩니다.
+ * carriers는 sessionStore/configDir을 직접 몰라도 됩니다.
  * 내부 모듈(executor, operation-runner, panel)은 이 모듈을 통해 접근합니다.
  */
 

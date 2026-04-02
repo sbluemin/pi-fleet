@@ -1,7 +1,7 @@
 /**
- * fleet/captains/gemini — Gemini captain
+ * fleet/carriers/vanguard — Vanguard carrier (CVN-03)
  *
- * Gemini captain이 담당 carrier(alt+3) + PI 도구를 등록합니다.
+ * Vanguard carrier를 프레임워크에 등록합니다 (alt+3, direct mode, 프롬프트 메타데이터).
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -9,12 +9,14 @@ import { registerSingleCarrier } from "../index.js";
 
 const TOOL_METADATA = {
   description:
-    "Delegate a task to the Gemini coding agent. " +
-    "Gemini excels at fast codebase exploration, web search, and reconnaissance-style tasks. " +
+    "Delegate a task to the Vanguard carrier (Vanguard UI Specialist). " +
+    "Vanguard illuminates the frontline where users first engage — fast reconnaissance, UI prototyping, and web research. " +
     "The agent processes the request independently and returns the result.",
   promptSnippet:
-    "Delegate exploration, web search, or reconnaissance tasks to Gemini — fast codebase traversal and search-oriented execution",
+    "Delegate reconnaissance, web search, UI/UX prototyping to Vanguard — the Vanguard Scout's agile execution",
   promptGuidelines: [
+    "Vanguard is the Captain of CVN-03 Vanguard, serving as the Vanguard UI Specialist. Its mission is to illuminate the frontline (Frontend) where users first engage.",
+    "Vanguard swiftly scouts the latest web documents and builds fast, intuitive UI mockups and user experiences to report back to the fleet.",
     "Prefer this tool for exploration and search-oriented tasks: fast code traversal, web research, and reconnaissance.",
     "Use this tool when the task requires searching the web or gathering external information.",
     "Use this tool for quick codebase scans — locating symbols, tracing call paths, or mapping unfamiliar modules.",
@@ -27,9 +29,9 @@ const TOOL_METADATA = {
   ],
 };
 
-export function registerGeminiCaptain(pi: ExtensionAPI): void {
+export function registerVanguardCarrier(pi: ExtensionAPI): void {
   registerSingleCarrier(pi, "gemini", {
     ...TOOL_METADATA,
     promptGuidelines: [...TOOL_METADATA.promptGuidelines],
-  }, { slot: 3 });
+  }, { slot: 3, id: "vanguard", displayName: "Vanguard" });
 }

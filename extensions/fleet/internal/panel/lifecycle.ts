@@ -11,7 +11,7 @@ import { resetRuns } from "../streaming/stream-store";
 import { renderModeBanner } from "../render/panel-renderer";
 import { getState, makeCols, syncColSessionIds } from "./state.js";
 import type { AgentCol } from "../contracts.js";
-import { syncWidget, syncFooterStatus } from "./widget-sync.js";
+import { scheduleSyncFooter, syncWidget } from "./widget-sync.js";
 
 // 편의를 위한 re-export
 export type { AgentCol } from "../contracts.js";
@@ -250,7 +250,7 @@ export function updateAgentCol(index: number, update: Partial<AgentCol>): void {
   const s = getState();
   if (index >= 0 && index < s.cols.length) {
     Object.assign(s.cols[index], update);
-    syncFooterStatus(s.lastCtx);
+    scheduleSyncFooter(s.lastCtx);
   }
 }
 

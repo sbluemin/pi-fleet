@@ -16,7 +16,7 @@ import {
   resolveCarrierColor,
   resolveCarrierDisplayName,
   resolveCarrierRgb,
-} from "../../carrier/framework.js";
+} from "../../shipyard/carrier/framework.js";
 import { waveText } from "./panel-renderer";
 import type { AgentCol } from "../contracts.js";
 

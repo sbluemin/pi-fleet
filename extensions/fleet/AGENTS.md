@@ -1,15 +1,16 @@
 # fleet
 
-Carrier **framework SDK** (`carrier/`) + N captains (e.g. claude/codex/gemini, dynamically registered) that each operate a carrier + integrated carrier modes and agent tools + model selection + Status Bar + Agent Panel.
+Carrier **framework SDK** (`shipyard/carrier/`) + N carriers (e.g. genesis/sentinel/vanguard, dynamically registered) that each operate a carrier + integrated carrier modes and agent tools + model selection + Status Bar + Agent Panel.
 
-The number of carriers is determined at runtime by the number of registered captains in `captains/`. Each captain specifies a `slot` number which determines its panel column position and `Alt+{slot}` keybinding automatically.
+The number of carriers is determined at runtime by the number of registered carriers in `carriers/`. Each carrier specifies a `slot` number which determines its panel column position and `Alt+{slot}` keybinding automatically.
 
 ## Core Rules
 
-- Carrier framework state in `carrier/framework.ts` is **shared via `globalThis`** — Avoid module-level singletons as pi bundles each extension separately.
+- Carrier framework state in `shipyard/carrier/framework.ts` is **shared via `globalThis`** — Avoid module-level singletons as pi bundles each extension separately.
 - `registerCarrier` is the public API for carrier registration (re-exported via `index.ts`).
-- `registerSingleCarrier` is the convenience API for single CLI carrier + PI tool registration (re-exported via `index.ts`, lives in `carrier/register.ts`).
-- Carrier tool prompt text belongs to each captain module (`captains/claude.ts`, `captains/codex.ts`, `captains/gemini.ts`) even if duplicated today — this is intentional to allow future captain-specific role divergence.
+- `registerSingleCarrier` is the convenience API for single CLI carrier registration (re-exported via `index.ts`, lives in `shipyard/carrier/register.ts`). It registers the carrier in the framework with prompt metadata but does **not** register a PI tool — all tool delegation goes through `carrier_sortie`.
+- Carrier prompt text belongs to each carrier module (`carriers/genesis.ts`, `carriers/sentinel.ts`, `carriers/vanguard.ts`) even if duplicated today — this is intentional to allow future carrier-specific role divergence. These prompts are stored in `CarrierConfig` and dynamically synthesized into `carrier_sortie`'s promptGuidelines at registration time.
+- **`carrier_sortie` is the sole PI tool for carrier delegation** — there are no individual carrier tools (genesis, sentinel, vanguard). PI delegates all tasks through `carrier_sortie` with `minItems: 1`.
 - `requestUnifiedAgent` is the public agent execution API exposed via `globalThis["__pi_ua_request__"]`.
 - **All execution paths go through `runAgentRequest()`** — Carriers, tools, and external extensions all use `runAgentRequest()` from `operation-runner.ts`. No direct `executeWithPool` calls outside operation-runner.
 - Calling `runAgentRequest()` **automatically syncs all UIs**: Agent Panel column, Streaming Widget (when panel collapsed), and stream-store data.
@@ -26,11 +27,12 @@ The number of carriers is determined at runtime by the number of registered capt
 ```
 index.ts               ← extension entry point + public Facade re-exports
 operation-runner.ts    ← unified execution entry point (internal — exposed via index.ts)
-carrier/               ← Carrier framework SDK (registration, activation, input routing, single-carrier registration)
+shipyard/carrier/      ← Carrier framework SDK (registration, activation, input routing, single-carrier registration)
   ├── types.ts         ← CarrierConfig, CarrierHelpers, CarrierResult, internal state types
   ├── framework.ts     ← registerCarrier, activateCarrier, deactivateCarrier, getActiveCarrierId
-  ├── register.ts      ← registerSingleCarrier (carrier + PI tool for individual CLIs)
-  ├── prompts.ts       ← carrier가 소유한 프롬프트를 Fleet 컨텍스트로 최소 정제
+  ├── register.ts      ← registerSingleCarrier (carrier framework registration + prompt metadata)
+  ├── prompts.ts       ← carrier_sortie 도구 기본 프롬프트 관리
+  ├── sortie.ts      ← carrier_sortie (유일한 carrier 위임 PI 도구) 등록 + 동적 프롬프트 합성
   └── launch.ts        ← native bridge command builder
 internal/
   ├── contracts.ts     ← shared domain types (ColBlock, AgentCol, ServiceSnapshot, etc.)
@@ -40,24 +42,24 @@ internal/
   ├── render/          ← all renderers
   └── service-status/  ← service status monitoring (polling, rendering, store)
 
-captains/              ← N captain registrations (depend on Fleet core — never the reverse)
+carriers/              ← N carrier registrations (depend on Fleet core — never the reverse)
 ```
 
 ### Dependency Principles
 
 - **internal/contracts.ts** is the single source of truth for shared domain types (`ColBlock`, `AgentCol`, `ColStatus`, `CollectedStreamData`, `ServiceSnapshot`, etc.). Streaming, render, and panel modules all import types from here — never cross-reference each other for type definitions.
-- **Captains → `index.ts` only**: Captains (`captains/`) access Fleet core exclusively via `index.ts` (the public Facade). Direct imports from `carrier/`, `internal/`, or `operation-runner.ts` are forbidden in captain files.
+- **Carriers → `index.ts` only**: Carriers (`carriers/`) access Fleet core exclusively via `index.ts` (the public Facade). Direct imports from `shipyard/carrier/`, `internal/`, or `operation-runner.ts` are forbidden in carrier files.
   - **Exceptions**: `types.ts` (public types) and `tests/` (unit tests) may access internals directly.
-- **Fleet core modules must never import from `captains/`**.
-- **Internal modules reference siblings directly** — e.g., `internal/agent/model-ui.ts` imports from `internal/agent/runtime.ts`, `internal/panel/config.ts`, and `carrier/framework.ts` without going through the facade.
-- **`index.ts` is the only public facade**: It owns extension wiring plus export-only public re-exports. Keep business logic in `carrier/`, `internal/`, and `operation-runner.ts`.
+- **Fleet core modules must never import from `carriers/`**.
+- **Internal modules reference siblings directly** — e.g., `internal/agent/model-ui.ts` imports from `internal/agent/runtime.ts`, `internal/panel/config.ts`, and `shipyard/carrier/framework.ts` without going through the facade.
+- **`index.ts` is the only public facade**: It owns extension wiring plus export-only public re-exports. Keep business logic in `shipyard/carrier/`, `internal/`, and `operation-runner.ts`.
 - **Service status is internal**: Service status monitoring (polling, rendering) lives in `internal/service-status/` and is directly referenced by sibling internal modules (e.g., `panel/widget-sync.ts` imports the renderer). No injection pattern is needed.
-- **Persistence is core-owned**: Session map and model config persistence are managed entirely by `internal/agent/runtime.ts`. Captains never access `sessionStore`, `configDir`, or persistence paths directly — they use facade APIs (`getModelConfig`, `updateModelSelection`, `getSessionId`, etc.). `index.ts` calls `initRuntime(dataDir)` once and `onHostSessionChange(piSessionId)` on PI session events. Runtime files live under `.data/`.
+- **Persistence is core-owned**: Session map and model config persistence are managed entirely by `internal/agent/runtime.ts`. Carriers never access `sessionStore`, `configDir`, or persistence paths directly — they use facade APIs (`getModelConfig`, `updateModelSelection`, `getSessionId`, etc.). `index.ts` calls `initRuntime(dataDir)` once and `onHostSessionChange(piSessionId)` on PI session events. Runtime files live under `.data/`.
 
 ### Unified Execution Pipeline
 
 ```
-Consumer (captains, external extensions)
+Consumer (carriers, external extensions)
   → runAgentRequest() (operation-runner.ts — exposed via index.ts)
     → stream-store (data)
     → Agent Panel column sync (UI)
@@ -82,19 +84,20 @@ Consumer (captains, external extensions)
 | `constants.ts` | Shared constants (colors, spinners, border characters, panel colors) |
 | `internal/contracts.ts` | Central domain type definitions (internal) — ColBlock, AgentCol, ColStatus, CollectedStreamData, ServiceSnapshot. **All shared types live here** |
 | `operation-runner.ts` | Unified execution layer (internal) — `runAgentRequest`, `exposeAgentApi`. Single `executeWithPool` call site. Auto panel/widget sync |
-| `carrier/types.ts` | Carrier framework types — CarrierConfig, CarrierHelpers, CarrierResult, internal state types |
-| `carrier/framework.ts` | Carrier framework SDK — `registerCarrier`, `activateCarrier`, `deactivateCarrier`, `getActiveCarrierId`, `onStatusUpdate`, `notifyStatusUpdate`. Manages globalThis shared state, input interception, shortcut registration, message renderer registration |
-| `carrier/register.ts` | Single-carrier registration — `registerSingleCarrier` (carrier + PI tool via core APIs) |
-| `carrier/prompts.ts` | Carrier가 소유한 프롬프트를 Fleet 컨텍스트로 최소 정제 |
-| `carrier/launch.ts` | Carrier 네이티브 브리지 커맨드 중앙 조립 |
+| `shipyard/carrier/types.ts` | Carrier framework types — CarrierConfig, CarrierHelpers, CarrierResult, internal state types |
+| `shipyard/carrier/framework.ts` | Carrier framework SDK — `registerCarrier`, `activateCarrier`, `deactivateCarrier`, `getActiveCarrierId`, `onStatusUpdate`, `notifyStatusUpdate`. Manages globalThis shared state, input interception, shortcut registration, message renderer registration |
+| `shipyard/carrier/register.ts` | Single-carrier registration — `registerSingleCarrier` (carrier framework + prompt metadata, no PI tool) |
+| `shipyard/carrier/prompts.ts` | carrier_sortie 도구 기본 프롬프트 관리 |
+| `shipyard/carrier/sortie.ts` | Carrier Sortie 도구 — 유일한 carrier 위임 PI 도구, 동적 프롬프트 합성, 통합 진행/결과 표시 |
+| `shipyard/carrier/launch.ts` | Carrier 네이티브 브리지 커맨드 중앙 조립 |
 | `internal/agent/*` | Internal execution/runtime/session/model modules. Includes `model-ui.ts` (model selection UI + keybind/command registration) |
 | `internal/panel/*` | Internal panel state/lifecycle/widget modules |
 | `internal/streaming/*` | Internal stream store/widget modules |
 | `internal/render/*` | Internal renderer modules |
 | `internal/service-status/store.ts` | Service status polling/fetching/store — `attachStatusContext`, `refreshStatusNow` (exposed via `index.ts`) |
 | `internal/service-status/renderer.ts` | Service status footer token renderer — `renderServiceStatusToken` (used by `panel/widget-sync.ts`) |
-| **captains/** | |
-| `captains/index.ts` | Barrel — all captain registrations |
-| `captains/claude.ts` | Claude captain — own prompt metadata + delegates to `registerSingleCarrier(pi, "claude", metadata, { slot: 1 })` |
-| `captains/codex.ts` | Codex captain — own prompt metadata + delegates to `registerSingleCarrier(pi, "codex", metadata, { slot: 2 })` |
-| `captains/gemini.ts` | Gemini captain — own prompt metadata + delegates to `registerSingleCarrier(pi, "gemini", metadata, { slot: 3 })` |
+| **carriers/** | |
+| `carriers/index.ts` | Barrel — all carrier registrations |
+| `carriers/genesis.ts` | Genesis carrier — own prompt metadata + delegates to `registerSingleCarrier(pi, "genesis", metadata, { slot: 1 })` |
+| `carriers/sentinel.ts` | Sentinel carrier — own prompt metadata + delegates to `registerSingleCarrier(pi, "sentinel", metadata, { slot: 2 })` |
+| `carriers/vanguard.ts` | Vanguard carrier — own prompt metadata + delegates to `registerSingleCarrier(pi, "vanguard", metadata, { slot: 3 })` |

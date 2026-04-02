@@ -24,7 +24,7 @@ import {
   resolveCarrierRgb,
   resolveCarrierDisplayName,
   resolveCarrierCliDisplayName,
-} from "../../carrier/framework.js";
+} from "../../shipyard/carrier/framework.js";
 import { renderBlockLines, blockLineAnsiColor } from "./block-renderer";
 
 // 계약 타입 — internal/contracts.ts에서 정의, 하위 호환을 위해 re-export
@@ -571,7 +571,7 @@ export function renderModeBanner(
   const fg = resolveCarrierColor(activeMode) || PANEL_COLOR;
   const bg = resolveCarrierBgColor(activeMode);
   const carrierConfig = getRegisteredCarrierConfig(activeMode);
-  const captainName = resolveCarrierDisplayName(activeMode);
+  const carrierName = resolveCarrierDisplayName(activeMode);
   const cliName = resolveCarrierCliDisplayName(activeMode);
   const exitKey = carrierConfig ? `alt+${carrierConfig.slot}` : "";
   const rgb = resolveCarrierRgb(activeMode);
@@ -592,9 +592,9 @@ export function renderModeBanner(
     const lineCount = streamingCol.text.trim() ? streamingCol.text.split("\n").length : 0;
     if (lineCount > 0) parts.push(`${lineCount}L`);
     const progress = parts.length > 0 ? parts.join("·") : "running";
-    centerPlain = `${spinner} ${captainName} ${progress}`;
+    centerPlain = `${spinner} ${carrierName} ${progress}`;
   } else {
-    centerPlain = `◈ Captain ${captainName} · Carrier ${cliName} on station`;
+    centerPlain = `◈ Carrier ${carrierName} · ${cliName} on station`;
   }
 
   // 우측: 단축키 힌트

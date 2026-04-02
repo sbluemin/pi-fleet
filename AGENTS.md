@@ -3,7 +3,7 @@
 > **A Multi-LLM Orchestration Kit**
 >
 > A custom extension fleet based on [pi-coding-agent](https://github.com/badlogic/pi-mono).
-> The core purpose is to operate Claude Code, Codex CLI, and Gemini CLI integrated within a single interface.
+> The core purpose is to operate Genesis (Claude Code), Sentinel (Codex CLI), and Vanguard (Gemini CLI) integrated within a single interface.
 
 ## Structure
 
@@ -31,28 +31,27 @@ Beyond simple parallel API calls, the system adopts a **naval fleet metaphor** t
 | **Fleet** | The fleet | The logical unit encompassing the entire agent harness system. |
 | **Fleet Admiral** | Supreme commander | The **user** who wields the tool. Sets the ultimate strategy and final objectives for the fleet. |
 | **Admiral** | Fleet commander | The **main orchestrator (PI's LLM router)** that plans operations and issues commands to the entire fleet on behalf of the Fleet Admiral. |
-| **Carrier** | Aircraft carrier | An **execution instance (process)** of an individual CLI tool such as Claude Code, Codex, or Gemini. A large, independent asset with its own internal sub-agent ecosystem. |
-| **Captain** | Ship captain | A **persona and system prompt object** assigned to command a specific carrier (e.g., frontend specialist, refactoring specialist). All captain objects/configs are centrally managed in the `captains/` package. |
+| **Carrier** | Aircraft carrier | An **execution instance (process)** of an individual CLI tool such as Genesis (Claude Code), Sentinel (Codex), or Vanguard (Gemini). A large, independent asset with its own internal sub-agent ecosystem. Each carrier has its own persona and configuration, managed in the `carriers/` package. |
 
 ## Architecture — Agent Workflow
 
-PI is the **host agent** (orchestrator). Claude, Codex, and Gemini are **sub-agents** that execute independently via ACP protocol.
+PI is the **host agent** (orchestrator). Genesis, Sentinel, and Vanguard are **sub-agents** that execute independently via ACP protocol.
 
 ### Speakers
 
 | Speaker | Role |
 |---------|------|
 | **PI** (host) | Orchestrator — routes requests, invokes tools, synthesizes cross-reports |
-| **Claude** (sub) | Independent coding agent (Claude Code CLI via ACP) |
-| **Codex** (sub) | Independent coding agent (Codex CLI via ACP) |
-| **Gemini** (sub) | Independent coding agent (Gemini CLI via ACP) |
+| **Genesis** (sub) | CVN-01 Chief Architect (Claude Code CLI via ACP) |
+| **Sentinel** (sub) | CVN-02 The Inquisitor (Codex CLI via ACP) |
+| **Vanguard** (sub) | CVN-03 UI Specialist (Gemini CLI via ACP) |
 
 ### Execution Modes
 
 | Mode | Trigger | Flow |
 |------|---------|------|
 | **Default** | Normal chat | PI handles directly (no sub-agents) |
-| **Tool delegation** | PI's own judgment | PI → tool_call(claude/codex/gemini) → sub-agent result → PI synthesizes |
+| **Tool delegation** | PI's own judgment | PI → tool_call(genesis/sentinel/vanguard) → sub-agent result → PI synthesizes |
 | **Direct (single)** | Alt+1/2/3 | User → single sub-agent (PI acts as router only, no synthesis) |
 
 ### Key Principles

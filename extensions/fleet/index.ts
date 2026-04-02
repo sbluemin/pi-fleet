@@ -22,17 +22,18 @@ import {
   getActiveCarrierId,
   getRegisteredCarrierConfig,
   resolveCarrierColor,
-} from "./carrier/framework.js";
+} from "./shipyard/carrier/framework.js";
 import { initRuntime, onHostSessionChange } from "./internal/agent/runtime.js";
 import { cleanIdleClients } from "./internal/agent/client-pool.js";
 import { registerModelCommands, syncModelConfig } from "./internal/agent/model-ui.js";
-import { exposeAgentApi, clearStreamWidgets, clearCompletedStreamWidgets } from "./operation-runner.js";
+import { exposeAgentApi } from "./operation-runner.js";
 import { refreshAgentPanelFooter, getModeBannerLines } from "./internal/panel/lifecycle.js";
 import { registerAgentPanelShortcut } from "./internal/panel/shortcuts.js";
-import { buildBridgeCommand } from "./carrier/launch.js";
+import { buildBridgeCommand } from "./shipyard/carrier/launch.js";
 import { attachStatusContext, refreshStatusNow } from "./internal/service-status/store.js";
 import { CARRIER_BRIDGE_KEY } from "./constants";
-import { registerCaptains } from "./captains/index.js";
+import { registerCarriers } from "./carriers/index.js";
+import { registerFleetSortie } from "./shipyard/carrier/sortie.js";
 import { appendAdmiralSystemPrompt, isWorldviewEnabled, setWorldviewEnabled } from "./prompts.js";
 
 import { INFRA_SETTINGS_KEY } from "../dock/settings/types.js";
@@ -84,16 +85,16 @@ export {
   resolveCarrierRgb,
   resolveCarrierDisplayName,
   resolveCarrierCliDisplayName,
-} from "./carrier/framework.js";
+} from "./shipyard/carrier/framework.js";
 
 export type {
   CarrierConfig,
   CarrierHelpers,
   CarrierResult,
-} from "./carrier/framework.js";
+} from "./shipyard/carrier/framework.js";
 
-export { registerSingleCarrier } from "./carrier/register.js";
-export type { SingleCarrierOptions } from "./carrier/register.js";
+export { registerSingleCarrier } from "./shipyard/carrier/register.js";
+export type { SingleCarrierOptions, CarrierToolMetadata } from "./shipyard/carrier/register.js";
 
 export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
   const extensionDir = path.dirname(fileURLToPath(import.meta.url));
@@ -111,7 +112,8 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
 
   exposeAgentApi();
 
-  registerCaptains(pi);
+  registerCarriers(pi);
+  registerFleetSortie(pi);
   syncModelConfig();
   registerAgentPanelShortcut();
   registerModelCommands(pi);
@@ -159,13 +161,11 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
   const onSessionChange = (ctx: ExtensionContext) => {
     onHostSessionChange(ctx.sessionManager.getSessionId());
     cleanIdleClients();
-    clearStreamWidgets();
     refreshAgentPanelFooter(ctx);
     attachStatusContext(ctx);
   };
 
   pi.on("before_agent_start", (event, _ctx) => {
-    clearCompletedStreamWidgets();
     return {
       systemPrompt: appendAdmiralSystemPrompt(event.systemPrompt),
     };

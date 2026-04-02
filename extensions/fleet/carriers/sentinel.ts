@@ -1,7 +1,7 @@
 /**
- * fleet/captains/codex — Codex captain
+ * fleet/carriers/sentinel — Sentinel carrier (CVN-02)
  *
- * Codex captain이 담당 carrier(alt+2) + PI 도구를 등록합니다.
+ * Sentinel carrier를 프레임워크에 등록합니다 (alt+2, direct mode, 프롬프트 메타데이터).
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -9,12 +9,14 @@ import { registerSingleCarrier } from "../index.js";
 
 const TOOL_METADATA = {
   description:
-    "Delegate a task to the Codex coding agent. " +
+    "Delegate a task to the Sentinel carrier (The Inquisitor / QA Lead). " +
+    "Sentinel hunts down hidden bugs and inefficiencies with ruthless precision. " +
     "The agent processes the request independently and returns the result.",
   promptSnippet:
-    "Delegate implementation, analysis, or multi-file tasks to Codex — independent agent execution",
+    "Delegate code review, bug hunting, or security audits to Sentinel — The Inquisitor's uncompromising verification",
   promptGuidelines: [
-    "Use this tool to delegate a coding task to Codex.",
+    "Sentinel is the Captain of CVN-02 Sentinel, serving as The Inquisitor (QA Lead). Its mission is to find hidden defects (Bugs) and inefficiencies (Smells) in code written by other carriers.",
+    "Sentinel relentlessly digs into security vulnerabilities and edge cases, performing uncompromising code reviews.",
     "The agent has full access to the codebase and can read, write, and execute commands.",
     "Provide only the background, context, task objective, and constraints — do NOT prescribe implementation details, specific code paths, or step-by-step instructions.",
     "Trust the agent's own reasoning. Let it discover the codebase and decide the approach independently.",
@@ -22,9 +24,9 @@ const TOOL_METADATA = {
   ],
 };
 
-export function registerCodexCaptain(pi: ExtensionAPI): void {
+export function registerSentinelCarrier(pi: ExtensionAPI): void {
   registerSingleCarrier(pi, "codex", {
     ...TOOL_METADATA,
     promptGuidelines: [...TOOL_METADATA.promptGuidelines],
-  }, { slot: 2 });
+  }, { slot: 2, id: "sentinel", displayName: "Sentinel" });
 }
