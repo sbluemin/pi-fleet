@@ -27,6 +27,11 @@ const TOOL_METADATA = {
     "Trust the agent's own reasoning. Let it discover the codebase and decide the approach independently.",
     "If you are about to use read, bash, or web search to investigate a task, consider delegating the entire reconnaissance to this tool instead.",
     "If the request fails (e.g. timeout or connection error), retry automatically up to 3 times before reporting failure.",
+    // 코드 탐색 응답 포맷 규격
+    "When reporting code exploration results, always use absolute file paths so the orchestrator can act on them directly.",
+    "Begin exploration responses with a thoroughness summary (quick / medium / thorough) indicating the depth of the scan performed.",
+    "Structure exploration results as: (1) summary of findings, (2) relevant file paths with line references, (3) key observations or next-step suggestions for the orchestrator.",
+    "Code exploration is read-only reconnaissance — never modify files during an exploration task unless explicitly instructed.",
   ],
 };
 
