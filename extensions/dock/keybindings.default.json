@@ -10,8 +10,8 @@
   },
   "fleet": {
     "carrier:genesis": "alt+1",
-    "carrier:crucible": "alt+2",
-    "carrier:arbiter": "alt+3",
+    "carrier:arbiter": "alt+2",
+    "carrier:crucible": "alt+3",
     "carrier:sentinel": "alt+4",
     "carrier:raven": "alt+5",
     "carrier:vanguard": "alt+6",
@@ -22,7 +22,8 @@
     "panel-grow": "alt+j",
     "panel-shrink": "alt+k",
     "model-change": "alt+shift+m",
-    "agent-popup": "alt+t"
+    "agent-popup": "alt+t",
+    "carrier-status": "alt+o"
   },
   "utils-improve-prompt": {
     "meta-prompt": "alt+m",

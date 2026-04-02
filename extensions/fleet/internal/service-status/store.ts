@@ -468,3 +468,13 @@ export async function refreshStatusNow(ctx: ExtensionContext): Promise<void> {
   setAgentPanelServiceLoading();
   await refreshSnapshots({ force: true, notify: true });
 }
+
+/** 현재 캐시된 서비스 상태 스냅샷을 반환합니다. */
+export function getServiceSnapshots(): ServiceSnapshot[] {
+  return [...getStore().snapshots];
+}
+
+/** 백그라운드로 서비스 상태를 갱신합니다 (notify 없이 조용히 수행). */
+export function refreshStatusQuiet(): void {
+  void refreshSnapshots();
+}

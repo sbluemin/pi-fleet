@@ -9,6 +9,7 @@
  * │ 같은 키 재입력 → 기본 모드 원복                        │
  * │ alt+p → 에이전트 패널 토글                            │
  * │ alt+shift+m → 활성 Carrier 모델/추론 설정 변경         │
+ * │ alt+o → 캐리어 함대 현황 오버레이                      │
  * └──────────────────────────────────────────────────────┘
  */
 
@@ -20,21 +21,29 @@ import { fileURLToPath } from "node:url";
 import {
   onStatusUpdate,
   getActiveCarrierId,
+  getRegisteredOrder,
   getRegisteredCarrierConfig,
+  notifyStatusUpdate,
   resolveCarrierColor,
+  resolveCarrierDisplayName,
+  resolveCarrierCliDisplayName,
 } from "./shipyard/carrier/framework.js";
-import { initRuntime, onHostSessionChange } from "./internal/agent/runtime.js";
+import { initRuntime, onHostSessionChange, getModelConfig, updateModelSelection } from "./internal/agent/runtime.js";
+import { getAvailableModels, getEffortLevels, getDefaultBudgetTokens } from "./internal/agent/model-config.js";
 import { cleanIdleClients } from "./internal/agent/client-pool.js";
 import { registerModelCommands, syncModelConfig } from "./internal/agent/model-ui.js";
 import { exposeAgentApi } from "./operation-runner.js";
 import { refreshAgentPanelFooter, getModeBannerLines } from "./internal/panel/lifecycle.js";
 import { registerAgentPanelShortcut } from "./internal/panel/shortcuts.js";
 import { buildBridgeCommand } from "./shipyard/carrier/launch.js";
-import { attachStatusContext, refreshStatusNow } from "./internal/service-status/store.js";
+import { attachStatusContext, refreshStatusNow, getServiceSnapshots, refreshStatusQuiet } from "./internal/service-status/store.js";
 import { CARRIER_BRIDGE_KEY } from "./constants";
 import { registerCarriers } from "./carriers/index.js";
 import { registerFleetSortie } from "./shipyard/carrier/sortie.js";
 import { appendAdmiralSystemPrompt, isWorldviewEnabled, setWorldviewEnabled } from "./prompts.js";
+import { CarrierStatusOverlay } from "./shipyard/carrier/status-overlay.js";
+import type { CarrierStatusGroup, CarrierStatusEntry } from "./shipyard/carrier/status-overlay.js";
+import type { ProviderKey } from "./internal/contracts.js";
 
 import { INFRA_SETTINGS_KEY } from "../dock/settings/types.js";
 import type { InfraSettingsAPI } from "../dock/settings/types.js";
@@ -154,6 +163,120 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         ctx.ui.notify(`브리지 실행 실패: ${message}`, "error");
+      }
+    },
+  });
+
+  // ── 캐리어 함대 현황 오버레이 (Alt+O) ──
+
+  let activeStatusPopup: Promise<void> | null = null;
+
+  keybind.register({
+    extension: "fleet",
+    action: "carrier-status",
+    defaultKey: "alt+o",
+    description: "캐리어 함대 현황 오버레이",
+    category: "Fleet",
+    handler: async (ctx) => {
+      if (!ctx.hasUI) return;
+      if (activeStatusPopup) return;
+
+      // 데이터 수집
+      const carrierIds = getRegisteredOrder();
+      const modelConfig = getModelConfig();
+
+      // CLI 타입별 그룹핑
+      const groupMap = new Map<string, { header: string; color: string; providerKey: ProviderKey; entries: CarrierStatusEntry[] }>();
+      const cliOrder = ["claude", "codex", "gemini"] as const;
+
+      for (const id of carrierIds) {
+        const config = getRegisteredCarrierConfig(id);
+        if (!config) continue;
+
+        const cliType = config.cliType;
+        if (!groupMap.has(cliType)) {
+          groupMap.set(cliType, {
+            header: resolveCarrierCliDisplayName(id),
+            color: resolveCarrierColor(id),
+            providerKey: cliType,
+            entries: [],
+          });
+        }
+
+        const selection = modelConfig[id];
+        const provider = getAvailableModels(cliType);
+
+        const model = selection?.model ?? provider.defaultModel;
+        const isDefault = !selection?.model;
+        const effort = selection?.effort ?? null;
+        const budgetTokens = selection?.budgetTokens ?? null;
+
+        // carrierDescription에서 괄호 안 역할명 추출 (e.g., "Chief Architect")
+        let role: string | null = null;
+        if (config.carrierDescription) {
+          const match = config.carrierDescription.match(/\(([^)]+)\)/);
+          role = match ? match[1] : null;
+        }
+
+        groupMap.get(cliType)!.entries.push({
+          carrierId: id,
+          slot: config.slot,
+          cliType,
+          displayName: resolveCarrierDisplayName(id),
+          color: resolveCarrierColor(id),
+          cliDisplayName: resolveCarrierCliDisplayName(id),
+          model,
+          isDefault,
+          effort,
+          budgetTokens,
+          role,
+          roleDescription: config.carrierDescription ?? null,
+        });
+      }
+
+      // CLI 순서대로 그룹 배열 생성
+      const groups: CarrierStatusGroup[] = [];
+      for (const cli of cliOrder) {
+        const group = groupMap.get(cli);
+        if (group) groups.push(group);
+      }
+
+      activeStatusPopup = ctx.ui.custom(
+        (tui: any, theme: any, _keybindings: any, done: () => void) =>
+          new CarrierStatusOverlay(
+            tui,
+            theme,
+            groups,
+            getServiceSnapshots,
+            {
+              getAvailableModels,
+              getEffortLevels,
+              getDefaultBudgetTokens,
+              updateModelSelection,
+              onModelUpdated: () => {
+                syncModelConfig();
+                notifyStatusUpdate();
+              },
+            },
+            done,
+          ),
+        {
+          overlay: true,
+          overlayOptions: {
+            width: "70%",
+            maxHeight: "60%",
+            anchor: "center",
+            margin: 1,
+          },
+        },
+      );
+
+      try {
+        // 오버레이가 열린 후 백그라운드로 서비스 상태 갱신
+        refreshStatusQuiet();
+        await activeStatusPopup;
+      } finally {
+        activeStatusPopup = null;
       }
     },
   });
