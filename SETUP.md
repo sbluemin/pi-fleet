@@ -21,13 +21,16 @@ cd pi-fleet
 ## 2. Install dependencies
 
 ```bash
-# 코어 SDK 선행 빌드
-cd packages/unified-agent && npm install && cd ../..
+# 코어 SDK 빌드 + CLI 전역 등록
+cd packages/unified-agent && npm install && npm link && cd ../..
 
 # Extensions 의존성 설치
 cd extensions/fleet && npm install && cd ../..
 cd extensions/dock/shell && npm install && cd ../../..
 ```
+
+> `npm install`이 `prepare` 스크립트를 통해 자동 빌드하고, `npm link`가 `unified-agent` CLI를 전역으로 등록합니다.
+> 해제하려면: `npm unlink -g @sbluemin/unified-agent`
 
 ## 3. Register extensions in pi settings
 
@@ -68,6 +71,8 @@ Add the `extensions` field to your pi settings file, pointing to all three exten
 Launch `pi` and run `/reload`, then check:
 
 - No extension load errors in the output
+- `unified-agent --help` 가 정상 출력되는지 확인
+- `unified-agent --list-models` 로 모델 목록 확인
 - `Alt+1` / `Alt+2` / `Alt+3` to enter each agent's direct mode
 - `Alt+T` popup opens correctly
 - Claude Code, Codex CLI, Gemini CLI are each authenticated
