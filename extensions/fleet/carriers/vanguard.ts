@@ -1,5 +1,6 @@
 /**
  * fleet/carriers/vanguard — Vanguard carrier (CVN-03)
+ * @specialization UI 스페셔리스트 — 프론트엔드 프로토타입 및 빠른 코드베이스 탐색 · 웹 리서치 특화
  *
  * Vanguard carrier를 프레임워크에 등록합니다 (alt+3, direct mode, 프롬프트 메타데이터).
  */

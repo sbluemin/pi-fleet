@@ -16,15 +16,11 @@ import {
 } from "../../constants";
 import {
   resolveCarrierColor,
-  getRegisteredCarrierConfig,
 } from "../../shipyard/carrier/framework.js";
 import {
   renderPanelFull,
-  renderPanelCompact,
 } from "../render/panel-renderer";
-import { renderFooterStatus } from "../render/footer-renderer.js";
-import { renderServiceStatusToken } from "../service-status/renderer.js";
-import type { ProviderKey } from "../contracts.js";
+import { renderFooterStatus } from "../../shipyard/carrier/footer-renderer.js";
 import { getState, makeFooterCols, WIDGET_KEY } from "./state.js";
 
 // ─── footer 동기화 ───────────────────────────────────────
@@ -59,12 +55,6 @@ export function syncFooterStatus(ctx: ExtensionContext | null): void {
     cols: makeFooterCols(),
     streaming: s.streaming,
     frame: s.frame,
-    modelConfig: s.modelConfig,
-    // 서비스 상태 렌더러 — internal 내부 모듈 직접 참조
-    renderServiceStatus: (carrierId) => {
-      const cliType = getRegisteredCarrierConfig(carrierId)?.cliType ?? carrierId;
-      return renderServiceStatusToken(cliType as ProviderKey, s.serviceSnapshots, s.serviceLoading);
-    },
   });
   ctx.ui.setStatus(UA_DIRECT_FOOTER_STATUS_KEY, content);
 }
@@ -76,22 +66,14 @@ export function syncFooterStatus(ctx: ExtensionContext | null): void {
  *
  * 렌더링 분기:
  * - expanded → aboveEditor 위젯으로 renderPanelFull 표시 (터미널 높이 기반 클램핑)
- * - !expanded + activeMode → 위젯 제거 (배너는 infra-hud/editor.ts에서 직접 렌더링)
- * - !expanded + streaming → 컴팩트 상태바 (renderPanelCompact)
- * - 그 외 → 위젯 제거
+ * - !expanded → 위젯 제거 (배너는 infra-hud/editor.ts에서 직접 렌더링)
  */
 export function syncWidget(ctx: ExtensionContext): void {
   const s = getState();
   syncFooterStatus(ctx);
 
-  // 패널 접힘 + 활성 모드 → 배너는 에디터가 직접 렌더링하므로 위젯 불필요
-  if (!s.expanded && s.activeMode) {
-    ctx.ui.setWidget(WIDGET_KEY, undefined);
-    return;
-  }
-
-  // 위젯 완전 제거 조건: 패널 접힘 + 모드 비활성 + 스트리밍 없음(또는 compact 숨김)
-  if (!s.expanded && (!s.streaming || !s.showCompactWhenCollapsed)) {
+  // 패널 접힘 → 위젯 불필요 (배너는 에디터가 직접 렌더링)
+  if (!s.expanded) {
     ctx.ui.setWidget(WIDGET_KEY, undefined);
     return;
   }
@@ -99,27 +81,21 @@ export function syncWidget(ctx: ExtensionContext): void {
   ctx.ui.setWidget(WIDGET_KEY, (_tui, _theme) => ({
     render(width: number): string[] {
       const state = getState();
+      const frameColor = state.activeMode
+        ? (resolveCarrierColor(state.activeMode) || PANEL_COLOR)
+        : PANEL_COLOR;
 
-      if (state.expanded) {
-        const frameColor = state.activeMode
-          ? (resolveCarrierColor(state.activeMode) || PANEL_COLOR)
-          : PANEL_COLOR;
+      // 터미널 높이 기반 bodyH 클램핑
+      // 에디터(30%) + footer(2) + spacer/status 여유(5) 확보
+      const termH = process.stdout.rows ?? 24;
+      const reserved = Math.ceil(termH * 0.3) + 7;
+      const maxBodyH = Math.max(MIN_BODY_H, termH - reserved);
+      const effectiveBodyH = Math.min(state.bodyH, maxBodyH);
 
-        // 터미널 높이 기반 bodyH 클램핑
-        // 에디터(30%) + footer(2) + spacer/status 여유(5) 확보
-        const termH = process.stdout.rows ?? 24;
-        const reserved = Math.ceil(termH * 0.3) + 7;
-        const maxBodyH = Math.max(MIN_BODY_H, termH - reserved);
-        const effectiveBodyH = Math.min(state.bodyH, maxBodyH);
-
-        return renderPanelFull(
-          width, state.cols, state.frame, frameColor,
-          state.bottomHint, state.activeMode, effectiveBodyH,
-        );
-      }
-
-      // 스트리밍 중 compact 상태바
-      return renderPanelCompact(width, state.cols, state.frame);
+      return renderPanelFull(
+        width, state.cols, state.frame, frameColor,
+        state.bottomHint, state.activeMode, effectiveBodyH,
+      );
     },
     invalidate() {},
   }));

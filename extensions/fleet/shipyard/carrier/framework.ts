@@ -285,6 +285,27 @@ export function getRegisteredOrder(): string[] {
   return [...getState().registeredOrder];
 }
 
+/** CliType 표시 우선순위: claude → codex → gemini */
+const CLI_TYPE_DISPLAY_ORDER: Record<string, number> = { claude: 0, codex: 1, gemini: 2 };
+
+/**
+ * registeredOrder를 CliType 우선순위(claude→codex→gemini)로 재정렬합니다.
+ * 같은 CliType 내에서는 slot 순서를 유지합니다.
+ * registerSingleCarrier 호출 시점마다 자동으로 실행됩니다.
+ */
+export function reorderRegisteredByCliType(): void {
+  const gs = getState();
+  gs.registeredOrder.sort((a, b) => {
+    const configA = gs.modes.get(a)?.config;
+    const configB = gs.modes.get(b)?.config;
+    const orderA = CLI_TYPE_DISPLAY_ORDER[configA?.cliType ?? ""] ?? 99;
+    const orderB = CLI_TYPE_DISPLAY_ORDER[configB?.cliType ?? ""] ?? 99;
+    if (orderA !== orderB) return orderA - orderB;
+    // 같은 CliType 내에서는 slot 순 유지
+    return (configA?.slot ?? 99) - (configB?.slot ?? 99);
+  });
+}
+
 /**
  * carrierId에 해당하는 CarrierConfig를 반환합니다.
  */

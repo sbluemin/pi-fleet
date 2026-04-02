@@ -27,14 +27,12 @@ import {
 } from "../../shipyard/carrier/framework.js";
 import { renderBlockLines, blockLineAnsiColor } from "./block-renderer";
 
-// 계약 타입 — internal/contracts.ts에서 정의, 하위 호환을 위해 re-export
-export type { ColBlock, AgentCol } from "../contracts.js";
 import type { AgentCol } from "../contracts.js";
 
 // ─── 렌더링 헬퍼 ────────────────────────────────────────
 
 /** 상태별 아이콘 */
-export function sIcon(status: string, frame: number, cli?: string): string {
+function sIcon(status: string, frame: number, cli?: string): string {
   if (status === "wait") return PANEL_DIM_COLOR + "○" + ANSI_RESET;
   if (status === "conn" || status === "stream")
     return (resolveCarrierColor(cli ?? "") || PANEL_COLOR) + SPINNER_FRAMES[frame % SPINNER_FRAMES.length] + ANSI_RESET;
@@ -630,35 +628,3 @@ export function renderModeBanner(
   return [line];
 }
 
-// ─── Compact 상태바 렌더러 ──────────────────────────────
-
-/**
- * 컴팩트 상태바를 렌더링합니다 (1줄).
- * 패널 접힘 + 스트리밍 중에 aboveEditor에 표시.
- */
-export function renderPanelCompact(w: number, cols: AgentCol[], frame: number): string[] {
-  const parts: string[] = [PANEL_COLOR + "◈ Fleet" + ANSI_RESET];
-
-  for (const col of cols) {
-    const nm = resolveCarrierDisplayName(col.cli);
-    const icon = sIcon(col.status, frame, col.cli);
-    const clr = resolveCarrierColor(col.cli);
-
-    let info = "";
-    if (col.status === "stream") {
-      const lines = col.text.split("\n").length;
-      info = ` ${lines}L`;
-    } else if (col.status === "done") {
-      const chars = col.text.length;
-      info = chars < 1024 ? ` ${chars}c` : ` ${(chars / 1024).toFixed(1)}K`;
-    } else if (col.status === "err") {
-      info = " err";
-    }
-
-    parts.push(icon + " " + clr + nm + ANSI_RESET + (info ? PANEL_DIM_COLOR + info + ANSI_RESET : ""));
-  }
-
-  const line = parts.join("  ");
-  const vw = visibleWidth(line);
-  return [vw <= w ? line : line.slice(0, w)];
-}

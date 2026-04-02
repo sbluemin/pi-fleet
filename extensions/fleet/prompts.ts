@@ -75,6 +75,13 @@ Default to delegation. Handle tasks directly only when they are clearly small, l
 2. Select agent(s), provide background, objective, constraints, and acceptance criteria.
 3. Let the agent determine the approach — avoid prescribing steps unless the user explicitly requires a specific method.
 4. Verify results with targeted spot-checks, synthesize, and report.
+5. **DeepDive on speculation** — If any part of the returned result appears speculative, assumed, or unverified, immediately sortie a follow-up Carrier to drill deeper. Never surface unconfirmed speculation to the Fleet Admiral as fact.
+
+## DeepDive Protocol
+- After receiving results from any delegated **analysis, review, or investigation** task, scrutinize every claim for signs of speculation (e.g., "likely", "probably", "I think", "may be", "not sure but...").
+- If **any** speculative element is detected, **immediately sortie a follow-up Carrier** — targeting exactly that uncertain area — before reporting back.
+- Repeat the DeepDive cycle until all speculative elements are either confirmed with evidence or explicitly flagged as **unresolvable unknowns**.
+- Do **not** flatten uncertainty into confident-sounding summaries — preserve and surface ambiguity honestly.
 `;
 
 /**

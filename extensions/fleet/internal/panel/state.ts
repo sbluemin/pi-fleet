@@ -34,7 +34,6 @@ export interface AgentPanelState {
   cols: AgentCol[];
   expanded: boolean;
   streaming: boolean;
-  showCompactWhenCollapsed: boolean;
   frame: number;
   animTimer: ReturnType<typeof setInterval> | null;
   lastCtx: ExtensionContext | null;
@@ -56,7 +55,6 @@ export function getState(): AgentPanelState {
       cols: makeCols(),
       expanded: false,
       streaming: false,
-      showCompactWhenCollapsed: true,
       frame: 0,
       animTimer: null,
       lastCtx: null,

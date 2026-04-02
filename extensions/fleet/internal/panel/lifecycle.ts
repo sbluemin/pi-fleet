@@ -7,7 +7,6 @@
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { ANIM_INTERVAL_MS } from "../../constants";
-import { resetRuns } from "../streaming/stream-store";
 import { renderModeBanner } from "../render/panel-renderer";
 import { getState, makeCols, syncColSessionIds } from "./state.js";
 import type { AgentCol } from "../contracts.js";
@@ -59,44 +58,6 @@ export function getAgentPanelMode(): string | null {
 // ─── 스트리밍 라이프사이클 ───────────────────────────────
 
 /**
- * 스트리밍을 시작합니다.
- * 칼럼을 초기화하고 애니메이션 타이머를 가동합니다.
- *
- * @param ctx - 현재 ExtensionContext
- * @param options.expand - true이면 패널을 자동으로 펼침
- * @param options.clis - 커스텀 CLI 리스트 (기본: claude, codex, gemini)
- * @param options.showCompactWhenCollapsed - false이면 접힌 상태에서는 위젯을 숨기고 상태만 유지
- */
-export function startAgentStreaming(
-  ctx: ExtensionContext,
-  options?: { expand?: boolean; clis?: readonly string[]; showCompactWhenCollapsed?: boolean },
-): void {
-  const s = getState();
-  // store의 runs도 리셋하여 일관된 상태 유지
-  resetRuns(options?.clis);
-  s.cols = makeCols(options?.clis);
-  s.streaming = true;
-  s.showCompactWhenCollapsed = options?.showCompactWhenCollapsed ?? true;
-  s.lastCtx = ctx;
-  s.frame = 0;
-
-  if (options?.expand) {
-    s.expanded = true;
-  }
-
-  // 기존 타이머 정리
-  if (s.animTimer) clearInterval(s.animTimer);
-
-  // 애니메이션 타이머 시작 (100ms 간격으로 위젯 갱신)
-  s.animTimer = setInterval(() => {
-    s.frame++;
-    syncWidget(ctx);
-  }, ANIM_INTERVAL_MS);
-
-  syncWidget(ctx);
-}
-
-/**
  * 스트리밍을 종료합니다.
  * 애니메이션 타이머를 정지하고 위젯을 최종 상태로 갱신합니다.
  * expanded가 true이면 패널은 최종 결과를 정적으로 표시합니다.
@@ -104,7 +65,6 @@ export function startAgentStreaming(
 export function stopAgentStreaming(ctx: ExtensionContext): void {
   const s = getState();
   s.streaming = false;
-  s.showCompactWhenCollapsed = true;
 
   if (s.animTimer) {
     clearInterval(s.animTimer);
@@ -182,14 +142,12 @@ export function isAgentPanelExpanded(): boolean {
 
 /**
  * 개별 CLI의 스트리밍을 시작합니다.
- * startAgentStreaming과 달리 해당 칼럼만 초기화하고
- * 다른 칼럼의 기존 데이터는 보존합니다.
+ * 해당 칼럼만 초기화하고 다른 칼럼의 기존 데이터는 보존합니다.
  */
 export function beginColStreaming(ctx: ExtensionContext, colIndex: number): void {
   const s = getState();
   s.lastCtx = ctx;
   s.streaming = true;
-  s.showCompactWhenCollapsed = false;
 
   // 해당 칼럼만 초기화
   if (colIndex >= 0 && colIndex < s.cols.length) {
@@ -230,7 +188,6 @@ export function endColStreaming(ctx: ExtensionContext, colIndex: number): void {
 
   if (!stillStreaming) {
     s.streaming = false;
-    s.showCompactWhenCollapsed = true;
     if (s.animTimer) {
       clearInterval(s.animTimer);
       s.animTimer = null;
@@ -264,7 +221,6 @@ export function resetAgentPanel(ctx: ExtensionContext): void {
   const s = getState();
   s.cols = makeCols();
   s.streaming = false;
-  s.showCompactWhenCollapsed = true;
 
   if (s.animTimer) {
     clearInterval(s.animTimer);

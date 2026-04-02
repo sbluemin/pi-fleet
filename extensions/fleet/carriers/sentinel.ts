@@ -1,5 +1,6 @@
 /**
  * fleet/carriers/sentinel — Sentinel carrier (CVN-02)
+ * @specialization 인퀴지터 (QA 리드) — 숨겨진 버그 탐지 및 코드 품질 검사 특화
  *
  * Sentinel carrier를 프레임워크에 등록합니다 (alt+2, direct mode, 프롬프트 메타데이터).
  */

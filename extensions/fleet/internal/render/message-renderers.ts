@@ -20,7 +20,7 @@ import type { ColBlock } from "../contracts.js";
 import { renderBlockLines, renderBlocksToContainer, renderLegacyToContainer } from "./block-renderer";
 import { clampCompletedCompactLines } from "./compact.js";
 /** 렌더러에 필요한 최소 설정 (framework.CarrierConfig에서 추출) */
-export interface AgentRenderConfig {
+interface AgentRenderConfig {
   /** 표시 이름 */
   displayName: string;
   /** 에이전트 패널 프레임 색상 (ANSI) */

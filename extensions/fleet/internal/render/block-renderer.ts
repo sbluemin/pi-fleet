@@ -31,7 +31,7 @@ const ERROR_COLOR = "\x1b[38;2;255;80;80m";
 // ─── 라인 기반 렌더링 (패널/위젯용) ──────────────────────
 
 /** 렌더링된 블록 라인의 의미적 타입 */
-export type BlockLineType =
+type BlockLineType =
   | "thought"
   | "text"
   | "tool-title"
@@ -40,7 +40,7 @@ export type BlockLineType =
   | "fold";
 
 /** 블록에서 파생된 포맷팅 라인 */
-export interface BlockLine {
+interface BlockLine {
   type: BlockLineType;
   /** 프리픽스(심볼/들여쓰기) 포함된 포맷팅 텍스트 */
   text: string;

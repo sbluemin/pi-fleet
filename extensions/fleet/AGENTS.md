@@ -27,7 +27,7 @@ The number of carriers is determined at runtime by the number of registered carr
 ```
 index.ts               ← extension entry point + public Facade re-exports
 operation-runner.ts    ← unified execution entry point (internal — exposed via index.ts)
-shipyard/carrier/      ← Carrier framework SDK (registration, activation, input routing, single-carrier registration)
+shipyard/carrier/      ← Carrier framework SDK + carrier visual representation (registration, activation, input routing, footer rendering)
   ├── types.ts         ← CarrierConfig, CarrierHelpers, CarrierResult, internal state types
   ├── framework.ts     ← registerCarrier, activateCarrier, deactivateCarrier, getActiveCarrierId
   ├── register.ts      ← registerSingleCarrier (carrier framework registration + prompt metadata)
@@ -39,7 +39,7 @@ internal/
   ├── agent/           ← executor, client-pool, runtime, session-map, model-config, model-ui, types
   ├── panel/           ← panel state + lifecycle + widget bridge
   ├── streaming/       ← stream store + widget manager
-  ├── render/          ← all renderers
+  ├── render/          ← panel rendering engine (panel layout, block transform, message renderers)
   └── service-status/  ← service status monitoring (polling, rendering, store)
 
 carriers/              ← N carrier registrations (depend on Fleet core — never the reverse)
@@ -89,6 +89,7 @@ Consumer (carriers, external extensions)
 | `shipyard/carrier/register.ts` | Single-carrier registration — `registerSingleCarrier` (carrier framework + prompt metadata, no PI tool) |
 | `shipyard/carrier/prompts.ts` | carrier_sortie 도구 기본 프롬프트 관리 |
 | `shipyard/carrier/sortie.ts` | Carrier Sortie 도구 — 유일한 carrier 위임 PI 도구, 동적 프롬프트 합성, 통합 진행/결과 표시 |
+| `shipyard/carrier/footer-renderer.ts` | Carrier footer segment renderer — carrier 아이콘 + 이름 + 상태별 색상을 footer 세그먼트로 렌더링 |
 | `shipyard/carrier/launch.ts` | Carrier 네이티브 브리지 커맨드 중앙 조립 |
 | `internal/agent/*` | Internal execution/runtime/session/model modules. Includes `model-ui.ts` (model selection UI + keybind/command registration) |
 | `internal/panel/*` | Internal panel state/lifecycle/widget modules |

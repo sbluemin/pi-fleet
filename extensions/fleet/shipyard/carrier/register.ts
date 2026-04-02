@@ -9,7 +9,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import type { CliType } from "@sbluemin/unified-agent";
 
-import { registerCarrier } from "./framework.js";
+import { registerCarrier, reorderRegisteredByCliType } from "./framework.js";
 import { runAgentRequest } from "../../operation-runner.js";
 import type { CarrierResult } from "./types.js";
 import {
@@ -98,4 +98,7 @@ export function registerSingleCarrier(
       };
     },
   });
+
+  // 등록 후 CliType 우선순위(claude→codex→gemini)로 순서 재정렬
+  reorderRegisteredByCliType();
 }
