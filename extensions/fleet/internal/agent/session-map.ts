@@ -19,6 +19,30 @@ import * as path from "node:path";
 /** carrierId별 서브에이전트 sessionId 매핑 */
 type SessionMap = Record<string, string>;
 
+// ─── Legacy 키 마이그레이션 ──────────────────────────────
+
+/** cliType 기반 legacy 키 목록 (carrierId 체계 전환 이전에 사용된 키) */
+const LEGACY_CLI_KEYS = new Set(["claude", "codex", "gemini"]);
+
+/**
+ * cliType 기반 legacy 키를 제거합니다.
+ * carrierId 체계 전환 이전에 저장된 세션 맵 파일에 잔존하는
+ * "claude", "codex", "gemini" 등의 키를 정리하여
+ * 동일 cliType을 사용하는 복수 carrier 간 세션 충돌을 방지합니다.
+ *
+ * @returns 마이그레이션이 발생했으면 true
+ */
+function migrateLegacyKeys(map: SessionMap): boolean {
+  let migrated = false;
+  for (const key of LEGACY_CLI_KEYS) {
+    if (key in map) {
+      delete map[key];
+      migrated = true;
+    }
+  }
+  return migrated;
+}
+
 // ─── SessionMapStore 인터페이스 ──────────────────────────
 
 /** 세션 매핑 저장소 인터페이스 */
@@ -69,6 +93,10 @@ export function createSessionMapStore(sessionDir: string): SessionMapStore {
       try {
         if (fs.existsSync(mapFilePath)) {
           currentMap = JSON.parse(fs.readFileSync(mapFilePath, "utf-8"));
+          // legacy cliType 키("claude" 등)가 잔존하면 제거 후 즉시 persist
+          if (migrateLegacyKeys(currentMap)) {
+            persist();
+          }
         }
       } catch {
         currentMap = {};

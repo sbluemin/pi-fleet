@@ -88,7 +88,7 @@ export async function runAgentRequest(options: RunAgentRequestOptions): Promise<
     onToolCall,
   } = options;
 
-  const carrierId = options.carrierId ?? cli;
+  const carrierId = options.carrierId;
   const colIndex = getRegisteredOrder().indexOf(carrierId);
 
   // 1. store에 새 run 생성 (첫 줄만 추출하여 헤더 미리보기로 저장)

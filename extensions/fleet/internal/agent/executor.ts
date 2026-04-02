@@ -359,6 +359,7 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
         );
 
         store.clear(carrierId);
+        if (poolEntry) delete poolEntry.sessionId;
         delete connectOpts.sessionId;
 
         // 실패한 연결 정리 후 클라이언트 재생성
@@ -464,6 +465,15 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
     if (signal) signal.removeEventListener("abort", onAbort);
     detachListeners();
     if (poolEntry) poolEntry.busy = false;
+
+    // 임시 클라이언트가 얻은 sessionId를 풀의 기존 엔트리에도 반영하여
+    // 다음 실행 시 최신 세션으로 resume할 수 있게 합니다.
+    if (isTemporary && connectionInfo.sessionId) {
+      const existingEntry = clientPool.get(carrierId);
+      if (existingEntry) {
+        existingEntry.sessionId = connectionInfo.sessionId;
+      }
+    }
     await cleanupTemporary();
   }
 

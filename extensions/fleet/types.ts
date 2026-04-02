@@ -16,8 +16,8 @@ export type UnifiedAgentRequestStatus = Extract<AgentStatus, "done" | "error" | 
 export interface UnifiedAgentRequestOptions {
   /** 대상 CLI 바이너리 타입 */
   cli: CliType;
-  /** 고유 carrier 식별자 (미지정 시 cli를 사용) — 풀 키, 세션 스토어 키 */
-  carrierId?: string;
+  /** 고유 carrier 식별자 — 풀 키, 세션 스토어 키 */
+  carrierId: string;
   /** 에이전트에게 전달할 요청 */
   request: string;
   /** 위젯 렌더링과 기본 cwd 해석에 사용할 컨텍스트 */
