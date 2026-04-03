@@ -23,15 +23,15 @@ interface FleetStates {
  * @param dataDir .data 디렉토리 경로
  * @param validIds 현재 등록된 carrier ID 집합 (유효성 필터용)
  */
-export function loadSortieDisabled(dataDir: string, validIds: Set<string>): string[] {
+export function loadSortieDisabled(dataDir: string, validIds?: Set<string>): string[] {
   const filePath = path.join(dataDir, FILENAME);
   try {
     if (!existsSync(filePath)) return [];
     const raw = JSON.parse(readFileSync(filePath, "utf-8")) as FleetStates;
     const ids = raw?.sortieDisabled;
     if (!Array.isArray(ids)) return [];
-    // 문자열이면서 현재 등록된 carrier만 허용
-    return ids.filter((id): id is string => typeof id === "string" && validIds.has(id));
+    // 문자열만 허용, validIds가 주어지면 등록된 carrier만 필터링
+    return ids.filter((id): id is string => typeof id === "string" && (!validIds || validIds.has(id)));
   } catch {
     // 파일 손상·파싱 실패 시 빈 상태로 시작
     return [];

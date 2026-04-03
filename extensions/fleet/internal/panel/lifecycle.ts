@@ -45,6 +45,10 @@ export function setAgentPanelMode(
     s.cols = makeCols(options.clis);
   } else if (mode === null) {
     s.cols = makeCols();
+  } else if (mode !== null && !s.cols.some((c) => c.cli === mode)) {
+    // 활성 carrier가 cols에 없으면 기본 칼럼으로 재생성
+    // (carrier 등록 타이밍 경합으로 stale cols가 남은 경우 복구)
+    s.cols = makeCols();
   }
 
   syncWidget(ctx);

@@ -77,6 +77,13 @@ export function getState(): AgentPanelState {
   if (s.serviceLoading === undefined) s.serviceLoading = false;
   if (!s.toggleCallbacks) s.toggleCallbacks = [];
   if (s.bodyH === undefined) s.bodyH = DEFAULT_BODY_H;
+
+  // cols가 비어있는데 캐리어가 이미 등록된 경우 lazy 재생성
+  // 초기화 타이밍 경합(state 생성 시점 < 캐리어 등록 시점)으로 발생하는 빈 패널을 복구한다
+  if (s.cols.length === 0 && getDefaultClis().length > 0) {
+    s.cols = makeCols();
+  }
+
   return s;
 }
 

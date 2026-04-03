@@ -67,6 +67,7 @@ function getState(): CarrierFrameworkState {
       statusUpdateCallbacks: [],
       sortieDisabledCarriers: new Set(),
       sortieStateChangeCallbacks: [],
+      sortieRegisterTimer: null,
     };
     (globalThis as any)[CARRIER_FRAMEWORK_KEY] = s;
   }
@@ -215,6 +216,15 @@ export function registerCarrier(
     gs.inputRegistered = true;
     registerInputHandler(pi);
   }
+
+  // ── Sortie 도구 온디맨드 재등록 트리거 (debounce) ──
+  // 복수 carrier가 동시에 등록될 때 콜백이 N번 발화되는 것을 방지합니다.
+  // 모든 carrier 등록이 완료된 직후 단 1회 notifySortieStateChange를 호출합니다.
+  if (gs.sortieRegisterTimer) clearTimeout(gs.sortieRegisterTimer);
+  gs.sortieRegisterTimer = setTimeout(() => {
+    gs.sortieRegisterTimer = null;
+    notifySortieStateChange();
+  }, 0);
 }
 
 /**

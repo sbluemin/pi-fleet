@@ -439,7 +439,7 @@ export function renderPanelFull(
   bodyH: number,
 ): string[] {
   const FC = frameColor || PANEL_COLOR;
-  const activeIndex = activeMode ? getRegisteredOrder().indexOf(activeMode) : -1;
+  const activeIndex = activeMode ? cols.findIndex((col) => col.cli === activeMode) : -1;
 
   // 패널 높이: top(1) + header(1) + sep(1) + body(bodyH) + bottom(1)
   const panelH = 3 + bodyH + 1;

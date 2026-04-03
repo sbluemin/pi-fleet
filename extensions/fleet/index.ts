@@ -134,9 +134,10 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
 
   exposeAgentApi();
 
-  // ── Sortie 비활성 상태 복원 (등록된 carrier만 필터링) ──
-  const validCarrierIds = new Set(getRegisteredOrder());
-  const restoredDisabled = loadSortieDisabled(dataDir, validCarrierIds);
+  // ── Sortie 비활성 상태 복원 ──
+  // 부팅 시에는 carrier 등록 전이므로 validIds 필터 없이 전체 로드.
+  // 아직 미등록 carrier ID도 보존하여 debounced 콜백의 덮어쓰기를 방지한다.
+  const restoredDisabled = loadSortieDisabled(dataDir);
   if (restoredDisabled.length > 0) {
     setSortieDisabledCarriers(restoredDisabled, true);
   }

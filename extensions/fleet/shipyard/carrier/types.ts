@@ -97,4 +97,9 @@ export interface CarrierFrameworkState {
   sortieDisabledCarriers: Set<string>;
   /** sortie 가용 상태 변경 시 호출되는 콜백 */
   sortieStateChangeCallbacks: Array<() => void>;
+  /**
+   * carrier 등록 시 sortie 도구 재등록용 debounce 타이머
+   * (복수 carrier 동시 등록 시 콜백이 N번 발화되는 것을 방지)
+   */
+  sortieRegisterTimer: ReturnType<typeof setTimeout> | null;
 }
