@@ -6,58 +6,48 @@
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { CarrierMetadata } from "../fleet/shipyard/carrier/types.js";
 import { registerSingleCarrier } from "../fleet/shipyard/carrier/register.js";
 
-const TOOL_METADATA = {
-  description:
-    "Delegate a task to the Sentinel carrier (The Inquisitor / QA Lead). " +
-    "Sentinel hunts down hidden bugs and inefficiencies with ruthless precision. " +
-    "The agent processes the request independently and returns the result.",
-  promptSnippet:
-    "Delegate code review, bug hunting, or quality audits to Sentinel — The Inquisitor's uncompromising verification",
-  promptGuidelines: [
-    // ── 역할 정의
-    "Sentinel is the Captain of CVN-04 Sentinel, serving as The Inquisitor (QA Lead). Its mission is to find hidden defects (Bugs) and inefficiencies (Smells) in code written by other carriers.",
-    "Sentinel relentlessly digs into edge cases and code quality issues, performing uncompromising code reviews. Every line is suspect until proven correct.",
-    // ── 호출 조건
-    "Use this tool for code review of changes made by other carriers or manual edits.",
-    "Use this tool when subtle bugs, race conditions, or logic errors are suspected but not yet located.",
-    "Use this tool for systematic quality audits across modules — code smells, error handling gaps, type safety issues.",
-    "Use this tool for test execution, debugging sessions, or iterative root-cause investigation.",
-    "Do NOT use this tool for security-specific penetration testing (use Raven), refactoring (use Crucible), or new feature development (use Genesis).",
-    // ── 권한 및 제약
-    "Sentinel's primary mode is detection and reporting — it identifies and documents issues. It MAY apply fixes when explicitly instructed, but defaults to report-only.",
-    "The agent has full access to the codebase and can read, write, and execute commands.",
-    // ── Request 구성 방법
-    "Structure your request to Sentinel using the following tagged blocks for clarity:",
-    "  <target> — Which files, modules, PRs, or recent changes to inspect.",
-    "  <concern> — (Optional) Specific suspicion, symptom, or area of worry to focus on.",
-    "  <context> — (Optional) Background on what the code does and what behavior is expected.",
-    "  <fix_mode> — (Optional) Set to 'report' (default) for findings only, or 'fix' to apply corrections.",
-    // ── 출력 형식 강제
-    "ALWAYS append the following <output_format> block verbatim at the end of every request sent to Sentinel:",
-    "  <output_format>",
-    "  Report findings as a structured defect manifest:",
-    "  For each finding, use this format:",
-    "  - **[SEVERITY]** (critical/high/medium/low) **file:line** — 1-line description",
-    "    - Evidence: what proves this is a real issue",
-    "    - Impact: what breaks or degrades if unfixed",
-    "    - Suggested fix: concrete remediation (1-2 lines)",
-    "  Group findings by severity (critical first).",
-    "  End with:",
-    "  **Summary** — Total count by severity. Overall quality assessment in 1-2 sentences.",
-    "  **Verdict** — PASS (no critical/high) or FAIL (critical/high found) with brief justification.",
-    "  </output_format>",
-    // ── 일반 원칙
-    "Provide only the background, context, task objective, and constraints — do NOT prescribe implementation details, specific code paths, or step-by-step instructions.",
-    "Trust the agent's own reasoning. Let it discover the codebase and decide the approach independently.",
-    "If you are about to use read, edit, or bash to accomplish the user's task, consider whether this tool should handle the entire workflow instead.",
+const CARRIER_METADATA: CarrierMetadata = {
+  // ── Tier 1: Routing ──
+  title: "The Inquisitor / QA Lead",
+  summary: "Bug hunter — code review, defect detection, quality audits with ruthless precision.",
+  whenToUse: [
+    "code review",
+    "bug hunting",
+    "quality audits",
+    "test execution",
+    "debugging and root-cause investigation",
   ],
+  whenNotToUse: "security penetration testing (→raven), refactoring (→crucible), new features (→genesis)",
+
+  // ── Tier 2: Composition ──
+  permissions: [
+    "Primary mode is detection and reporting — defaults to report-only. May apply fixes when explicitly instructed.",
+    "Full access to the codebase — read, write, and execute commands.",
+  ],
+  requestBlocks: [
+    { tag: "target", hint: "Which files, modules, PRs, or recent changes to inspect.", required: true },
+    { tag: "concern", hint: "Specific suspicion, symptom, or area of worry to focus on.", required: false },
+    { tag: "context", hint: "Background on what the code does and expected behavior.", required: false },
+    { tag: "fix_mode", hint: "'report' (default) for findings only, or 'fix' to apply corrections.", required: false },
+  ],
+  outputFormat:
+    `<output_format>\n` +
+    `Report findings as a structured defect manifest:\n` +
+    `For each finding, use this format:\n` +
+    `- **[SEVERITY]** (critical/high/medium/low) **file:line** — 1-line description\n` +
+    `  - Evidence: what proves this is a real issue\n` +
+    `  - Impact: what breaks or degrades if unfixed\n` +
+    `  - Suggested fix: concrete remediation (1-2 lines)\n` +
+    `Group findings by severity (critical first).\n` +
+    `End with:\n` +
+    `**Summary** — Total count by severity. Overall quality assessment in 1-2 sentences.\n` +
+    `**Verdict** — PASS (no critical/high) or FAIL (critical/high found) with brief justification.\n` +
+    `</output_format>`,
 };
 
 export function registerSentinelCarrier(pi: ExtensionAPI): void {
-  registerSingleCarrier(pi, "codex", {
-    ...TOOL_METADATA,
-    promptGuidelines: [...TOOL_METADATA.promptGuidelines],
-  }, { slot: 4, id: "sentinel", displayName: "Sentinel" });
+  registerSingleCarrier(pi, "codex", CARRIER_METADATA, { slot: 4, id: "sentinel", displayName: "Sentinel" });
 }

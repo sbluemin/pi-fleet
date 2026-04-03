@@ -2,8 +2,8 @@
  * fleet/carrier/register.ts — 단일 carrier 등록 공용 로직
  *
  * 개별 carrier들이 공유하는 Carrier 프레임워크 등록 로직을 제공합니다.
- * 프롬프트 원본은 각 carrier가 소유하며, CarrierConfig에 저장되어
- * carrier_sortie 도구의 프롬프트 합성에 사용됩니다.
+ * 프롬프트 원본은 각 carrier가 소유하며, CarrierMetadata로 저장되어
+ * Tier 1(compact roster)과 Tier 2(실행 시 자동 주입)에 사용됩니다.
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
@@ -11,20 +11,13 @@ import type { CliType } from "@sbluemin/unified-agent";
 
 import { registerCarrier, reorderRegisteredByCliType } from "./framework.js";
 import { runAgentRequest } from "../../operation-runner.js";
-import type { CarrierResult } from "./types.js";
+import type { CarrierMetadata, CarrierResult } from "./types.js";
 import {
   CLI_DISPLAY_NAMES,
   CARRIER_COLORS,
   CARRIER_BG_COLORS,
   PANEL_EXCLUSIVE_HINT,
 } from "../../constants.js";
-
-/** carrier 프롬프트 메타데이터 (각 carrier 파일에서 전달) */
-export interface CarrierToolMetadata {
-  description: string;
-  promptSnippet: string;
-  promptGuidelines: string[];
-}
 
 export interface SingleCarrierOptions {
   /** 정렬 및 표시용 슬롯 번호 */
@@ -45,19 +38,19 @@ export interface SingleCarrierOptions {
  * 단일 carrier를 등록합니다.
  *
  * - Carrier 프레임워크: 에이전트 패널 독점 뷰, 입력 인터셉트
- * - 프롬프트 메타데이터: CarrierConfig에 저장 → sortie 프롬프트 합성에 사용
+ * - CarrierMetadata: Tier 1(compact roster) + Tier 2(실행 시 request 자동 주입)
  *
  * 독점 모드에서의 실행은 `runAgentRequest()`를 통해 처리됩니다.
  */
 export function registerSingleCarrier(
   pi: ExtensionAPI,
   cli: CliType,
-  toolMetadata: CarrierToolMetadata,
+  metadata: CarrierMetadata,
   options: SingleCarrierOptions,
 ): void {
   const carrierId = options.id ?? cli;
   const displayName = options.displayName ?? CLI_DISPLAY_NAMES[cli] ?? cli;
-  // ── Carrier 등록 (프롬프트 메타데이터 포함) ──
+  // ── Carrier 등록 (메타데이터 포함) ──
   registerCarrier(pi, {
     id: carrierId,
     cliType: cli,
@@ -67,19 +60,20 @@ export function registerSingleCarrier(
     bgColor: options.bgColor ?? CARRIER_BG_COLORS[cli],
     bottomHint: PANEL_EXCLUSIVE_HINT,
     showWorkingMessage: false,
-    carrierDescription: toolMetadata.description,
-    carrierPromptSnippet: toolMetadata.promptSnippet,
-    carrierPromptGuidelines: [...toolMetadata.promptGuidelines],
+    carrierMetadata: metadata,
 
     onExecute: async (
       request: string,
       ctx: ExtensionContext,
       helpers,
     ): Promise<CarrierResult> => {
+      // ── Tier 2: permissions + principles를 request 앞에, outputFormat을 끝에 자동 주입 ──
+      const composedRequest = composeTier2Request(metadata, request);
+
       const result = await runAgentRequest({
         cli,
         carrierId,
-        request,
+        request: composedRequest,
         ctx,
         signal: helpers.signal,
       });
@@ -100,4 +94,39 @@ export function registerSingleCarrier(
 
   // 등록 후 CliType 우선순위(claude→codex→gemini)로 순서 재정렬
   reorderRegisteredByCliType();
+}
+
+// ─── Tier 2 Composition ─────────────────────────────────
+
+/**
+ * Tier 2 자동 주입: permissions + principles를 앞에, outputFormat을 끝에 붙여
+ * 최종 request를 조립합니다.
+ */
+function composeTier2Request(metadata: CarrierMetadata, originalRequest: string): string {
+  const directives: string[] = [];
+
+  // Permissions & Constraints
+  if (metadata.permissions.length > 0) {
+    directives.push("## Permissions & Constraints");
+    for (const p of metadata.permissions) directives.push(`- ${p}`);
+  }
+
+  // Principles
+  if (metadata.principles?.length) {
+    if (directives.length > 0) directives.push("");
+    directives.push("## Principles");
+    for (const p of metadata.principles) directives.push(`- ${p}`);
+  }
+
+  const parts: string[] = [];
+  if (directives.length > 0) {
+    parts.push(directives.join("\n") + "\n\n---\n");
+  }
+  parts.push(originalRequest);
+
+  if (metadata.outputFormat) {
+    parts.push("\n" + metadata.outputFormat);
+  }
+
+  return parts.join("\n");
 }

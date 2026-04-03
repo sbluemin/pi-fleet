@@ -8,6 +8,46 @@
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import type { CliType } from "@sbluemin/unified-agent";
 
+// ─── Carrier 메타데이터 (2-Tier) ────────────────────────
+
+/** 구조화 요청 블록 정의 */
+export interface RequestBlock {
+  /** 태그 이름 (e.g., "objective", "scope") */
+  tag: string;
+  /** 1줄 설명 */
+  hint: string;
+  /** 필수 여부 */
+  required: boolean;
+}
+
+/**
+ * Carrier 메타데이터 — 2-Tier 구조
+ *
+ * - Tier 1 (Routing): 시스템 프롬프트에 carrier당 ~4줄의 compact roster로 상주
+ * - Tier 2 (Composition): 실행 시점에만 request에 자동 주입
+ */
+export interface CarrierMetadata {
+  // ── Tier 1: Routing (→ promptGuidelines compact roster) ──
+  /** 직함 (e.g., "Chief Engineer") */
+  title: string;
+  /** 한줄 역할+특징 요약 */
+  summary: string;
+  /** 긍정 호출 조건 (N개, 짧은 구문) */
+  whenToUse: string[];
+  /** 부정 조건 한줄 (e.g., "architecture decisions (→oracle), bug hunting (→sentinel)") */
+  whenNotToUse: string;
+
+  // ── Tier 2: Composition (→ 실행 시 request에 자동 주입) ──
+  /** 권한/제약 (여러 줄) */
+  permissions: string[];
+  /** 구조화 요청 블록 */
+  requestBlocks: RequestBlock[];
+  /** <output_format> 전체 블록 — framework가 request 끝에 자동 append */
+  outputFormat: string;
+  /** 일반 원칙 (carrier 고유 행동 지침, 2-3줄) */
+  principles?: string[];
+}
+
 // ─── 공개 타입 ───────────────────────────────────────────
 
 /** Carrier 프레임워크 globalThis 공유 키 */
@@ -45,12 +85,8 @@ export interface CarrierConfig {
   showWorkingMessage?: boolean;
   /** 사용자 정의 패널 칼럼 리스트 — Carrier 활성화 시 패널 칼럼을 이 리스트로 초기화 */
   clis?: readonly string[];
-  /** carrier 역할 설명 (sortie 프롬프트 합성에 사용) */
-  carrierDescription?: string;
-  /** carrier 프롬프트 스니펫 (sortie 프롬프트 합성에 사용) */
-  carrierPromptSnippet?: string;
-  /** carrier 프롬프트 가이드라인 (sortie 프롬프트 합성에 사용) */
-  carrierPromptGuidelines?: string[];
+  /** carrier 메타데이터 (2-Tier: Routing + Composition) */
+  carrierMetadata?: CarrierMetadata;
 }
 
 export interface CarrierHelpers {

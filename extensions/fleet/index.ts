@@ -117,7 +117,8 @@ export type {
 } from "./shipyard/carrier/framework.js";
 
 export { registerSingleCarrier } from "./shipyard/carrier/register.js";
-export type { SingleCarrierOptions, CarrierToolMetadata } from "./shipyard/carrier/register.js";
+export type { SingleCarrierOptions } from "./shipyard/carrier/register.js";
+export type { CarrierMetadata, RequestBlock } from "./shipyard/carrier/types.js";
 
 export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
   const extensionDir = path.dirname(fileURLToPath(import.meta.url));
@@ -246,12 +247,9 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
         const effort = selection?.effort ?? null;
         const budgetTokens = selection?.budgetTokens ?? null;
 
-        // carrierDescription에서 괄호 안 역할명 추출 (e.g., "Chief Architect")
-        let role: string | null = null;
-        if (config.carrierDescription) {
-          const match = config.carrierDescription.match(/\(([^)]+)\)/);
-          role = match ? match[1] : null;
-        }
+        // carrierMetadata에서 직함 추출
+        const meta = config.carrierMetadata;
+        const role = meta?.title ?? null;
 
         groupMap.get(cliType)!.entries.push({
           carrierId: id,
@@ -265,7 +263,7 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
           effort,
           budgetTokens,
           role,
-          roleDescription: config.carrierDescription ?? null,
+          roleDescription: meta ? `${meta.title} — ${meta.summary}` : null,
           isSortieEnabled: isSortieCarrierEnabled(id),
         });
       }

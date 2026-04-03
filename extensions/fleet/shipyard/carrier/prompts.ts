@@ -83,6 +83,9 @@ const SORTIE_BASE_GUIDELINES: string[] = [
   ` Always use this tool — never attempt to invoke carriers directly.`,
   `You can launch a single carrier or multiple carriers in parallel.` +
   ` When launching multiple carriers, this tool provides unified progress tracking and a consolidated result view.`,
+  `When composing a carrier request, provide only background, context, objective, and constraints.` +
+  ` Do NOT prescribe implementation details or step-by-step instructions — trust the carrier's own reasoning.` +
+  ` Use the Tags listed for each carrier to structure your request.`,
   SORTIE_DEDUP_GUIDELINE,
   SORTIE_COMPLETENESS_GUIDELINE,
   SORTIE_PARALLEL_WORK_GUIDELINE,
@@ -149,8 +152,11 @@ export function buildSortieToolSchema(enabledIds: string[]): TObject {
 // ─────────────────────────────────────────────────────────
 
 /**
- * 등록된 carrier들의 프롬프트 메타데이터를 읽어
- * "## Available Carriers" 블록을 포함한 guideline 배열을 반환합니다.
+ * 등록된 carrier들의 CarrierMetadata를 읽어
+ * "## Available Carriers" compact roster를 생성합니다.
+ *
+ * carrier당 ~4줄로 압축하여 시스템 프롬프트 토큰을 절약합니다.
+ * (기존 ~180줄 → ~36줄)
  */
 function buildCarrierGuidelines(carrierIds: string[]): string[] {
   const lines: string[] = [];
@@ -160,15 +166,26 @@ function buildCarrierGuidelines(carrierIds: string[]): string[] {
     const config = getRegisteredCarrierConfig(carrierId);
     if (!config) continue;
 
-    const name = config.displayName;
-    const desc = config.carrierDescription ?? `Delegate tasks to ${name}.`;
-    lines.push(`- **${carrierId}** (${name}): ${desc}`);
+    const meta = config.carrierMetadata;
+    if (!meta) {
+      // 메타데이터 없는 carrier는 기본 1줄 표시
+      lines.push(`- **${carrierId}** (${config.displayName}): Delegate tasks to ${config.displayName}.`);
+      continue;
+    }
 
-    // carrier 고유 가이드라인이 있으면 하위 항목으로 추가
-    if (config.carrierPromptGuidelines?.length) {
-      for (const gl of config.carrierPromptGuidelines) {
-        lines.push(`  - ${gl}`);
-      }
+    const name = config.displayName;
+    // 1줄: carrier ID, 표시명, 직함, 요약
+    lines.push(`- **${carrierId}** (${name} · ${meta.title}): ${meta.summary}`);
+    // 2줄: 긍정 호출 조건
+    lines.push(`  Use for: ${meta.whenToUse.join(", ")}.`);
+    // 3줄: 부정 조건
+    lines.push(`  NOT for: ${meta.whenNotToUse}`);
+    // 4줄: 요청 블록 태그 (required는 그대로, optional은 ?로 표시)
+    if (meta.requestBlocks.length > 0) {
+      const tags = meta.requestBlocks
+        .map((b) => b.required ? `<${b.tag}>` : `<${b.tag}?>`)
+        .join(" ");
+      lines.push(`  Tags: ${tags}`);
     }
   }
 
