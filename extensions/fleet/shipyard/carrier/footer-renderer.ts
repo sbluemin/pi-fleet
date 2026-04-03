@@ -18,6 +18,7 @@ import {
   resolveCarrierRgb,
   isSortieCarrierEnabled,
 } from "./framework.js";
+import { isTaskForceFullyConfigured } from "../../internal/agent/runtime.js";
 import { waveText } from "../../internal/render/panel-renderer";
 import type { AgentCol } from "../../internal/contracts.js";
 
@@ -31,6 +32,12 @@ interface FooterRenderInput {
 /** sortie 비활성 캐리어용 dim 색상 */
 const DISABLED_COLOR = "\x1b[38;2;100;100;100m";
 
+/** TF 구성 완료 배지 색상 */
+const TF_BADGE_COLOR = "\x1b[38;2;100;180;255m";
+
+/** TF 구성 완료 배지 문자열 */
+const TF_BADGE = `${TF_BADGE_COLOR}[TF]${ANSI_RESET}`;
+
 // ─── 메인 렌더 함수 ─────────────────────────────────────
 
 /**
@@ -43,17 +50,18 @@ export function renderFooterStatus(input: FooterRenderInput): string | undefined
     const disabled = !isSortieCarrierEnabled(col.cli);
     const name = resolveCarrierDisplayName(col.cli);
 
-    // sortie 비활성 캐리어: 아이콘·이름 모두 dim 처리
+    // sortie 비활성 캐리어: 아이콘·이름 모두 dim 처리 (TF 배지 미표시)
     if (disabled) {
       return `${footerIcon(footerCol, input.frame, true)} ${DISABLED_COLOR}${name}${ANSI_RESET}`;
     }
 
     const cliColor = resolveCarrierColor(col.cli) || PANEL_COLOR;
     const isStreaming = footerCol.status === "conn" || footerCol.status === "stream";
+    const tfBadge = isTaskForceFullyConfigured(col.cli) ? ` ${TF_BADGE}` : "";
     // 스트리밍 중: 아이콘 유지 + 이름에 파도 그라데이션
     return isStreaming
-      ? `${footerIcon(footerCol, input.frame, false)} ${waveText(name, resolveCarrierRgb(col.cli), input.frame)}${ANSI_RESET}`
-      : `${footerIcon(footerCol, input.frame, false)} ${cliColor}${name}${ANSI_RESET}`;
+      ? `${footerIcon(footerCol, input.frame, false)} ${waveText(name, resolveCarrierRgb(col.cli), input.frame)}${tfBadge}${ANSI_RESET}`
+      : `${footerIcon(footerCol, input.frame, false)} ${cliColor}${name}${tfBadge}${ANSI_RESET}`;
   });
 
   if (segments.length === 0) return undefined;
