@@ -72,7 +72,8 @@ const SORTIE_COMPLETENESS_GUIDELINE =
   `When planning a parallel launch, ALL intended carriers MUST be listed together in the carriers array of a SINGLE carrier_sortie call.` +
   ` Do NOT split a planned parallel operation into separate sequential calls.` +
   ` Before submitting the call, mentally verify: every carrier you planned is present in the carriers array.` +
-  ` A carrier omitted from the array will silently not be launched — there is no automatic retry.`;
+  ` A carrier omitted from the array will silently not be launched — there is no automatic retry.` +
+  ` If a previous carrier_sortie call failed for any reason (for example, a validation error), retry with ALL originally intended carriers without dropping any.`;
 
 /**
  * carrier_sortie promptGuidelines 고정 항목.
@@ -141,7 +142,7 @@ export function buildSortieToolSchema(enabledIds: string[]): TObject {
       }),
       {
         minItems: 1,
-        description: "Array of carrier assignments (1 or more)",
+        description: "Array of carrier assignments (1 or more). MUST be a native JSON array [...], NOT a stringified JSON string. Example: [{\"carrier\": \"genesis\", \"request\": \"...\"}]",
       },
     ),
   });
