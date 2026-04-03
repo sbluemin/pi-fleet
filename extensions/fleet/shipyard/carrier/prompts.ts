@@ -56,6 +56,25 @@ const SORTIE_PARALLEL_WORK_GUIDELINE =
   ` Always re-read a file before modifying it, as it may have changed since your last read.`;
 
 /**
+ * 중복 carrier 금지 규칙 — 동일 carrier ID를 carriers 배열에 2회 이상 등록하면
+ * 시스템이 즉시 에러를 반환하며 전체 sortie가 실패한다.
+ */
+const SORTIE_DEDUP_GUIDELINE =
+  `Each carrier ID may appear at most once per carriers_sortie call.` +
+  ` Duplicate carrier IDs in the same call are rejected by the system and cause the entire sortie to fail.` +
+  ` If you need two different workloads of the same type, split the work between two different carriers.`;
+
+/**
+ * 병렬 출격 시 누락 방지 규칙 — 계획한 모든 carrier를 단일 carrier_sortie 호출의
+ * carriers 배열에 빠짐없이 포함해야 한다. 분리된 tool call로 나누지 말 것.
+ */
+const SORTIE_COMPLETENESS_GUIDELINE =
+  `When planning a parallel launch, ALL intended carriers MUST be listed together in the carriers array of a SINGLE carrier_sortie call.` +
+  ` Do NOT split a planned parallel operation into separate sequential calls.` +
+  ` Before submitting the call, mentally verify: every carrier you planned is present in the carriers array.` +
+  ` A carrier omitted from the array will silently not be launched — there is no automatic retry.`;
+
+/**
  * carrier_sortie promptGuidelines 고정 항목.
  * 시스템 프롬프트 "Guidelines" 섹션의 기본 bullets.
  */
@@ -64,6 +83,8 @@ const SORTIE_BASE_GUIDELINES: string[] = [
   ` Always use this tool — never attempt to invoke carriers directly.`,
   `You can launch a single carrier or multiple carriers in parallel.` +
   ` When launching multiple carriers, this tool provides unified progress tracking and a consolidated result view.`,
+  SORTIE_DEDUP_GUIDELINE,
+  SORTIE_COMPLETENESS_GUIDELINE,
   SORTIE_PARALLEL_WORK_GUIDELINE,
 ];
 
