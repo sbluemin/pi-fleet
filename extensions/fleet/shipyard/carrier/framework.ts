@@ -119,7 +119,6 @@ function clearWorkingMessageIfOwned(ctx: ExtensionContext, state: CarrierState):
  * 커스텀 Carrier를 등록합니다.
  *
  * 프레임워크가 자동으로:
- *  - 단축키 토글 등록
  *  - 상호 배타적 carrier 전환 (globalThis 공유)
  *  - 에이전트 패널 모드 설정 + 표시/숨김
  *  - 입력 인터셉트 (글로벌 1회만 등록)
@@ -153,35 +152,8 @@ export function registerCarrier(
     gs.registeredOrder.splice(idx, 0, config.id);
   }
 
-  // ── 단축키 등록 ──
+  // ── 단축키 등록 (alt+x 취소만 — 개별 carrier 단축키는 인라인 내비게이션으로 대체) ──
   const keybind = (globalThis as any)[INFRA_KEYBIND_KEY] as InfraKeybindAPI;
-  keybind.register({
-    extension: "fleet",
-    action: `carrier:${config.id}`,
-    defaultKey: `alt+${config.slot}`,
-    description: `${config.displayName} Carrier 토글`,
-    category: "Carrier",
-    handler: async (ctx) => {
-      if (state.active) {
-        // 같은 키 재입력 → 비활성화 (busy 중이어도 허용 — 실행은 백그라운드에서 완료됨)
-        state.active = false;
-        gs.activeModeId = null;
-        setAgentPanelMode(ctx, null);
-        hideAgentPanel(ctx);
-        notifyStatusUpdate();
-      } else {
-        // 다른 모든 carrier 비활성화
-        deactivateAll(ctx);
-        // 이 carrier 활성화
-        state.active = true;
-        gs.activeModeId = config.id;
-        // 에이전트 패널에 모드 설정 (패널 자동 펼침 없음 — alt+p로만 열림)
-        const hint = config.bottomHint ?? ` alt+${config.slot} to exit `;
-        setAgentPanelMode(ctx, config.id, { bottomHint: hint, clis: config.clis });
-        notifyStatusUpdate();
-      }
-    },
-  });
 
   if (!gs.cancelShortcutRegistered) {
     gs.cancelShortcutRegistered = true;
@@ -240,10 +212,9 @@ export function activateCarrier(ctx: ExtensionContext, carrierId: string): boole
   state.active = true;
   gs.activeModeId = carrierId;
 
-  const hint = state.config.bottomHint ?? ` alt+${state.config.slot} to exit `;
+  const hint = state.config.bottomHint ?? " h← l→ switch · alt+x cancel ";
   // clis를 함께 전달하여 그룹 carrier 전환 시 컬럼 수도 즉시 재초기화
   setAgentPanelMode(ctx, carrierId, { bottomHint: hint, clis: state.config.clis });
-  // 패널 자동 펼침 없음 — alt+p로만 열림
   notifyStatusUpdate();
   return true;
 }
@@ -301,7 +272,7 @@ export function getRegisteredOrder(): string[] {
 
 /**
  * 지정 carrier를 sortie에서 비활성화합니다.
- * direct 모드(alt+{slot})에는 영향 없음.
+ * 독점 모드(패널 독점 뷰)에는 영향 없음.
  */
 export function disableSortieCarrier(id: string): void {
   const gs = getState();

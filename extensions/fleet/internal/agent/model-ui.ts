@@ -179,8 +179,8 @@ export function registerModelCommands(pi: ExtensionAPI): void {
         const cliOptions = registeredIds.map((id) => {
           const cfg = getRegisteredCarrierConfig(id);
           const name = resolveCarrierDisplayName(id);
-          const key = cfg ? `alt+${cfg.slot}` : id;
-          return `${name} (${key})`;
+          return `${name} (#${cfg?.slot ?? "?"})`;
+
         });
         const choice = await ctx.ui.select("모델을 변경할 캐리어 선택:", cliOptions);
         if (choice === undefined) return;

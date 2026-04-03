@@ -95,6 +95,7 @@ export function syncWidget(ctx: ExtensionContext): void {
       return renderPanelFull(
         width, state.cols, state.frame, frameColor,
         state.bottomHint, state.activeMode, effectiveBodyH,
+        state.cursorColumn,
       );
     },
     invalidate() {},

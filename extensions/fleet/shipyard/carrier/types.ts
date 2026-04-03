@@ -18,7 +18,7 @@ export interface CarrierConfig {
   id: string;
   /** 사용할 CLI 바이너리 타입 */
   cliType: CliType;
-  /** Alt+{slot} 키바인딩 자동 결정용 슬롯 번호 */
+  /** 정렬 및 표시용 슬롯 번호 (키바인딩에는 사용되지 않음) */
   slot: number;
   /** 표시 이름 */
   displayName: string;
@@ -93,7 +93,7 @@ export interface CarrierFrameworkState {
   cancelShortcutRegistered: boolean;
   /** 상태바 갱신 콜백 */
   statusUpdateCallbacks: Array<() => void>;
-  /** sortie 비활성화된 carrier ID 집합 (direct 모드는 영향 없음) */
+  /** sortie 비활성화된 carrier ID 집합 (독점 모드는 영향 없음) */
   sortieDisabledCarriers: Set<string>;
   /** sortie 가용 상태 변경 시 호출되는 콜백 */
   sortieStateChangeCallbacks: Array<() => void>;

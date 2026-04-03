@@ -46,6 +46,8 @@ export interface AgentPanelState {
   serviceLoading: boolean;
   toggleCallbacks: Array<(expanded: boolean) => void>;
   bodyH: number;
+  /** 인라인 슬롯 내비게이션 커서 위치 (-1 = 비활성) */
+  cursorColumn: number;
 }
 
 export function getState(): AgentPanelState {
@@ -59,24 +61,26 @@ export function getState(): AgentPanelState {
       animTimer: null,
       lastCtx: null,
       activeMode: null,
-      bottomHint: " alt+p toggle · j↑ k↓",
+      bottomHint: " alt+p toggle · h← l→ · j↑ k↓",
       modelConfig: {},
       serviceSnapshots: [],
       serviceLastUpdatedAt: null,
       serviceLoading: false,
       toggleCallbacks: [],
       bodyH: DEFAULT_BODY_H,
+      cursorColumn: -1,
     };
     (globalThis as any)[STATE_KEY] = s;
   }
   if (s.activeMode === undefined) s.activeMode = null;
-  if (s.bottomHint === undefined) s.bottomHint = " alt+p toggle · j↑ k↓";
+  if (s.bottomHint === undefined) s.bottomHint = " alt+p toggle · h← l→ · j↑ k↓";
   if (!s.modelConfig) s.modelConfig = {};
   if (!s.serviceSnapshots) s.serviceSnapshots = [];
   if (s.serviceLastUpdatedAt === undefined) s.serviceLastUpdatedAt = null;
   if (s.serviceLoading === undefined) s.serviceLoading = false;
   if (!s.toggleCallbacks) s.toggleCallbacks = [];
   if (s.bodyH === undefined) s.bodyH = DEFAULT_BODY_H;
+  if (s.cursorColumn === undefined) s.cursorColumn = -1;
 
   // cols가 비어있는데 캐리어가 이미 등록된 경우 lazy 재생성
   // 초기화 타이밍 경합(state 생성 시점 < 캐리어 등록 시점)으로 발생하는 빈 패널을 복구한다

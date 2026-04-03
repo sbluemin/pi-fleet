@@ -26,7 +26,7 @@ export interface CarrierToolMetadata {
 }
 
 export interface SingleCarrierOptions {
-  /** Alt+{slot} 키를 결정하는 슬롯 번호 */
+  /** 정렬 및 표시용 슬롯 번호 */
   slot: number;
   /** carrierId 오버라이드 (미지정 시 cliType 사용) */
   id?: string;
@@ -43,10 +43,10 @@ export interface SingleCarrierOptions {
 /**
  * 단일 carrier를 등록합니다.
  *
- * - Carrier 프레임워크: 단축키 토글, 에이전트 패널 독점 뷰, 입력 인터셉트
+ * - Carrier 프레임워크: 에이전트 패널 독점 뷰, 입력 인터셉트
  * - 프롬프트 메타데이터: CarrierConfig에 저장 → sortie 프롬프트 합성에 사용
  *
- * direct mode(Alt+{slot})에서의 실행은 `runAgentRequest()`를 통해 처리됩니다.
+ * 독점 모드에서의 실행은 `runAgentRequest()`를 통해 처리됩니다.
  */
 export function registerSingleCarrier(
   pi: ExtensionAPI,
@@ -56,8 +56,6 @@ export function registerSingleCarrier(
 ): void {
   const carrierId = options.id ?? cli;
   const displayName = options.displayName ?? CLI_DISPLAY_NAMES[cli] ?? cli;
-  const slotKey = `alt+${options.slot}`;
-
   // ── Carrier 등록 (프롬프트 메타데이터 포함) ──
   registerCarrier(pi, {
     id: carrierId,
@@ -66,7 +64,7 @@ export function registerSingleCarrier(
     displayName,
     color: options.color ?? CARRIER_COLORS[cli] ?? "",
     bgColor: options.bgColor ?? CARRIER_BG_COLORS[cli],
-    bottomHint: ` ${slotKey} exit · alt+x cancel · alt+shift+m model `,
+    bottomHint: " h← l→ switch · alt+x cancel · alt+shift+m model ",
     showWorkingMessage: false,
     carrierDescription: toolMetadata.description,
     carrierPromptSnippet: toolMetadata.promptSnippet,

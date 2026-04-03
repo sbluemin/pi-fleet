@@ -18,7 +18,6 @@ import {
 } from "../../constants";
 import {
   getRegisteredOrder,
-  getRegisteredCarrierConfig,
   resolveCarrierColor,
   resolveCarrierBgColor,
   resolveCarrierRgb,
@@ -345,6 +344,7 @@ function renderMultiCol(
   bodyH: number,
   wave?: WaveConfig,
   _activeMode?: string | null,
+  cursorColumn = -1,
 ): string[] {
   const n = cols.length;
   // 내부 폭 = 전체 폭 - 세로 구분선 수 (양쪽 보더 + 칼럼 사이 구분선)
@@ -369,8 +369,16 @@ function renderMultiCol(
   R.push(renderTopBorder(w, FC, wave));
   ri++;
 
-  // ── 칼럼 헤더 (가운데 정렬) ──
+  // ── 칼럼 헤더 (가운데 정렬, cursorColumn 하이라이트) ──
   const hdrCells = cols.map((col, i) => {
+    const isSelected = i === cursorColumn;
+    if (isSelected) {
+      // 선택된 칼럼: ▸ 접두사 + carrier 색상 강조
+      const color = resolveCarrierColor(col.cli) || PANEL_COLOR;
+      const name = resolveCarrierDisplayName(col.cli);
+      const selectedLabel = `${color}▸ ${name}${ANSI_RESET}`;
+      return centerText(selectedLabel, cw[i]);
+    }
     const label = pickHeaderLabel(col, frame, cw[i]);
     return centerText(label, cw[i]);
   });
@@ -437,6 +445,7 @@ export function renderPanelFull(
   bottomHint: string,
   activeMode: string | null,
   bodyH: number,
+  cursorColumn = -1,
 ): string[] {
   const FC = frameColor || PANEL_COLOR;
   const activeIndex = activeMode ? cols.findIndex((col) => col.cli === activeMode) : -1;
@@ -455,7 +464,7 @@ export function renderPanelFull(
     return renderExclusive(w, cols, frame, FC, bottomHint, activeIndex, bodyH, wave);
   }
 
-  return renderMultiCol(w, cols, frame, FC, bottomHint, bodyH, wave, activeMode);
+  return renderMultiCol(w, cols, frame, FC, bottomHint, bodyH, wave, activeMode, cursorColumn);
 }
 
 
@@ -568,10 +577,8 @@ export function renderModeBanner(
 ): string[] {
   const fg = resolveCarrierColor(activeMode) || PANEL_COLOR;
   const bg = resolveCarrierBgColor(activeMode);
-  const carrierConfig = getRegisteredCarrierConfig(activeMode);
   const carrierName = resolveCarrierDisplayName(activeMode);
   const cliName = resolveCarrierCliDisplayName(activeMode);
-  const exitKey = carrierConfig ? `alt+${carrierConfig.slot}` : "";
   const rgb = resolveCarrierRgb(activeMode);
 
   // 스트리밍 중인 칼럼 감지 (등록된 carrier면 해당 칼럼만, 그 외 그룹 모드면 아무 칼럼)
@@ -596,7 +603,7 @@ export function renderModeBanner(
   }
 
   // 우측: 단축키 힌트
-  const rightText = ` ${exitKey} exit · alt+p bridge · j↑ k↓ `;
+  const rightText = " h← l→ switch · alt+p toggle · j↑ k↓ ";
 
   // 전체 폭 기준 가운데 정렬, 우측 힌트와 겹치면 폴백
   const centerW = visibleWidth(centerPlain);
