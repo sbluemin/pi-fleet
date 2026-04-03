@@ -251,9 +251,12 @@ export function registerFleetSortie(pi: ExtensionAPI): void {
         // 결과 캐시에 저장 (renderCall이 완료 후에도 참조 가능하도록)
         setResultCache(results);
 
-        // LLM에 전달할 텍스트 요약
+        // LLM에 전달할 텍스트 요약 (연속 빈 줄 압축으로 토큰 절약)
         const contentText = results
-          .map((r) => `[${r.displayName}] (${r.status})\n${r.responseText}`)
+          .map((r) => {
+            const trimmed = r.responseText.replace(/\n{3,}/g, "\n\n").trim();
+            return `[${r.displayName}] (${r.status})\n${trimmed}`;
+          })
           .join("\n\n---\n\n");
 
         return {
@@ -520,8 +523,9 @@ function renderCarrierContentLines(
   const blockLines = renderBlockLines(run.blocks);
   if (blockLines.length === 0) return [];
 
-  // tail 방식: 마지막 MAX_CONTENT_LINES줄만 사용
-  const tail = blockLines.slice(-MAX_CONTENT_LINES);
+  // 빈 줄 필터링 후 tail 방식: 마지막 MAX_CONTENT_LINES줄만 사용
+  const nonEmpty = blockLines.filter((bl) => bl.text.trim());
+  const tail = nonEmpty.slice(-MAX_CONTENT_LINES);
   const indent = `  ${PANEL_DIM_COLOR}${connector}${ANSI_RESET}    `;
 
   return tail.map((bl) => {

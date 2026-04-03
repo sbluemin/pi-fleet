@@ -23,6 +23,7 @@ const TOOL_METADATA = {
     "Use this tool for code review of changes made by other carriers or manual edits.",
     "Use this tool when subtle bugs, race conditions, or logic errors are suspected but not yet located.",
     "Use this tool for systematic quality audits across modules — code smells, error handling gaps, type safety issues.",
+    "Use this tool for test execution, debugging sessions, or iterative root-cause investigation.",
     "Do NOT use this tool for security-specific penetration testing (use Raven), refactoring (use Crucible), or new feature development (use Genesis).",
     // ── 권한 및 제약
     "Sentinel's primary mode is detection and reporting — it identifies and documents issues. It MAY apply fixes when explicitly instructed, but defaults to report-only.",

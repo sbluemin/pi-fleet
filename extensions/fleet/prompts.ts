@@ -49,11 +49,9 @@ Default to delegation. Handle tasks directly only when they are clearly small, l
 - Strategic advice, design explanations, and planning.
 
 ## Delegate
-- Any task involving code writing, modification, refactoring, or generation.
-- Tasks spanning multiple modules or requiring broad codebase exploration.
-- Test execution, debugging, or iterative investigation.
-- Tasks whose scope is still unclear after checking 1–2 files.
-- Review or specify tasks that require reading more than 1–2 files or web research.
+- When a task exceeds a quick 1–2 file lookup, delegate immediately — do not accumulate context yourself.
+- Choose the appropriate Carrier based on its tool description and promptGuidelines — each Carrier defines exactly what tasks it handles.
+- If scope is unclear after a brief check, sortie a reconnaissance Carrier to scout before committing a specialized one.
 
 ## Anti-patterns — do NOT do these
 - Reading many files to "understand first" before delegating — delegate the investigation itself.
