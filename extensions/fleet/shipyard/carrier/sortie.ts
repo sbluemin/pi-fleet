@@ -24,6 +24,7 @@ import { getVisibleRun } from "../../internal/streaming/stream-store.js";
 import { renderBlockLines, blockLineAnsiColor } from "../../internal/render/block-renderer.js";
 import {
   getRegisteredOrder,
+  getSortieEnabledIds,
   resolveCarrierColor,
   resolveCarrierDisplayName,
   getRegisteredCarrierConfig,
@@ -39,6 +40,7 @@ import {
   FLEET_SORTIE_DESCRIPTION,
   FLEET_SORTIE_PROMPT_SNIPPET,
   FLEET_SORTIE_PROMPT_GUIDELINES,
+  buildCarrierGuidelines,
 } from "./prompts.js";
 
 // ─── 상수 ────────────────────────────────────────────────
@@ -217,15 +219,22 @@ function renderCarrierContentLines(
  * index.ts에서 호출됩니다.
  */
 export function registerFleetSortie(pi: ExtensionAPI): void {
-  const registeredOrder = getRegisteredOrder();
-  if (registeredOrder.length < 1) return; // Carrier가 없으면 등록 불필요
+  const allCarriers = getRegisteredOrder();
+  if (allCarriers.length < 1) return; // Carrier가 없으면 등록 불필요
 
-  // ── 등록된 carrier 프롬프트를 동적 합성 ──
-  const carrierGuidelines = buildCarrierGuidelines(registeredOrder);
+  // sortie 가용 carrier만 프롬프트/파라미터에 반영
+  const enabledIds = getSortieEnabledIds();
+
+  // 모든 carrier가 비활성이어도 도구 자체는 등록 (execute guard가 거부)
+  const carrierGuidelines = buildCarrierGuidelines(enabledIds);
   const mergedGuidelines = [
     ...FLEET_SORTIE_PROMPT_GUIDELINES,
     ...carrierGuidelines,
   ];
+
+  const availableDesc = enabledIds.length > 0
+    ? `Carrier ID to sortie. Available: ${enabledIds.join(", ")}`
+    : "Carrier ID to sortie. (No carriers currently available)";
 
   pi.registerTool({
     name: "carrier_sortie",
@@ -237,7 +246,7 @@ export function registerFleetSortie(pi: ExtensionAPI): void {
       carriers: Type.Array(
         Type.Object({
           carrier: Type.String({
-            description: `Carrier ID to sortie. Available: ${registeredOrder.join(", ")}`,
+            description: availableDesc,
           }),
           request: Type.String({
             description: "The task/prompt to send to this carrier",
@@ -371,10 +380,21 @@ export function registerFleetSortie(pi: ExtensionAPI): void {
       }
 
       // Carrier ID 유효성 검증
-      const validIds = new Set(getRegisteredOrder());
+      const allIds = new Set(getRegisteredOrder());
+      const enabledIds = new Set(getSortieEnabledIds());
       for (const a of assignments) {
-        if (!validIds.has(a.carrier)) {
-          throw new Error(`Unknown carrier: "${a.carrier}". Available: ${[...validIds].join(", ")}`);
+        if (!allIds.has(a.carrier)) {
+          // 미등록 carrier — 등록된 전체 목록을 표시하여 LLM이 올바른 ID를 파악하도록 함
+          const registered = [...allIds].join(", ") || "(none)";
+          throw new Error(`Unknown carrier: "${a.carrier}". Registered carriers: ${registered}`);
+        }
+        // sortie 비활성 carrier 가드 — throw 대신 content로 에러 반환하여 LLM이 재시도 가능
+        if (!enabledIds.has(a.carrier)) {
+          const available = [...enabledIds].join(", ") || "(none)";
+          return {
+            content: [{ type: "text" as const, text: `Carrier "${a.carrier}" is currently disabled for sortie. Available carriers: ${available}` }],
+            details: { results: [] },
+          };
         }
       }
 
@@ -469,36 +489,6 @@ export function registerFleetSortie(pi: ExtensionAPI): void {
       }
     },
   });
-}
-
-// ─── 프롬프트 합성 헬퍼 ──────────────────────────────────
-
-/**
- * 등록된 carrier들의 프롬프트 메타데이터를 읽어
- * sortie promptGuidelines에 합성할 가이드라인을 생성합니다.
- */
-function buildCarrierGuidelines(carrierIds: string[]): string[] {
-  const lines: string[] = [];
-  lines.push(`## Available Carriers`);
-
-  for (const carrierId of carrierIds) {
-    const config = getRegisteredCarrierConfig(carrierId);
-    if (!config) continue;
-
-    const name = config.displayName;
-    const desc = config.carrierDescription ?? `Delegate tasks to ${name}.`;
-    lines.push(`- **${carrierId}** (${name}): ${desc}`);
-
-    // carrier 고유 가이드라인이 있으면 하위 항목으로 추가
-    if (config.carrierPromptGuidelines?.length) {
-      for (const gl of config.carrierPromptGuidelines) {
-        lines.push(`  - ${gl}`);
-      }
-    }
-  }
-
-  // 전체를 하나의 guideline 문자열로 합침 (PI가 guidelines를 배열로 렌더링)
-  return [lines.join("\n")];
 }
 
 // ─── 내부 헬퍼 ──────────────────────────────────────────

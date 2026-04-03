@@ -41,6 +41,8 @@ export interface CarrierStatusEntry {
   role: string | null;
   /** carrier 설명 전문 */
   roleDescription: string | null;
+  /** sortie 가용 여부 (false면 sortie 위임 불가, direct 모드는 가능) */
+  isSortieEnabled: boolean;
 }
 
 /** CLI 타입별 그룹 */
@@ -56,6 +58,8 @@ export interface CarrierStatusGroup {
 }
 
 const ANSI_RESET = "\x1b[0m";
+/** sortie 비활성 캐리어용 dim 색상 */
+const ANSI_DIM = "\x1b[38;2;100;100;100m";
 /** 라벨 컬럼 너비 */
 const SLOT_WIDTH = 4;
 const NAME_WIDTH = 12;
@@ -94,6 +98,8 @@ export interface CarrierOverlayCallbacks {
     selection: { model: string; effort?: string; budgetTokens?: number },
   ) => Promise<void>;
   onModelUpdated: () => void;
+  /** sortie 가용 상태 토글 (없으면 토글 기능 비활성) */
+  toggleSortieEnabled?: (carrierId: string) => void;
 }
 
 type OverlayMode = "browse" | "model" | "effort" | "saving";
@@ -171,6 +177,12 @@ export class CarrierStatusOverlay implements Component, Focusable {
 
     if (this.mode === "browse" && matchesKey(data, Key.tab)) {
       this.toggleDetails();
+      return;
+    }
+
+    // `d` 키: sortie 가용 상태 토글
+    if (this.mode === "browse" && data === "d") {
+      this.toggleSortieState();
       return;
     }
 
@@ -260,25 +272,33 @@ export class CarrierStatusOverlay implements Component, Focusable {
         const slotPad = " ".repeat(Math.max(0, SLOT_WIDTH - slotStr.length));
 
         const namePad = " ".repeat(Math.max(0, NAME_WIDTH - entry.displayName.length));
-        const coloredName = `${entry.color}${entry.displayName}${ANSI_RESET}`;
+        // sortie 비활성 캐리어: 이름·모델·역할 모두 dim 처리하여 비활성 상태를 직관적으로 전달
+        const isDisabled = !entry.isSortieEnabled;
+        const nameColor = isDisabled ? ANSI_DIM : entry.color;
+        const coloredName = `${nameColor}${entry.displayName}${ANSI_RESET}`;
 
-        // 모델 표시 (기본 모델이면 dim)
-        const modelStr = entry.isDefault
+        // 모델 표시 (기본 모델이면 dim, 비활성이면 항상 dim)
+        const modelStr = (entry.isDefault || isDisabled)
           ? dim(entry.model)
           : entry.model;
 
         // effort 표시
         const effortStr = entry.effort
-          ? dim(" · ") + entry.effort
+          ? dim(" · ") + (isDisabled ? dim(entry.effort) : entry.effort)
+          : "";
+
+        // sortie 비활성 태그
+        const sortieTag = isDisabled
+          ? `  \x1b[38;2;255;80;80m✕ sortie off${ANSI_RESET}`
           : "";
 
         // 역할 (있으면 모델·effort 뒤에 dim 괄호로 표시)
         const roleStr = entry.role ? dim(`  (${entry.role})`) : "";
         const selectedPrefix = isSelected
-          ? `${entry.color}▸${ANSI_RESET}`
+          ? `${isDisabled ? ANSI_DIM : entry.color}▸${ANSI_RESET}`
           : " ";
 
-        const content = `  ${selectedPrefix} ${dim(slotStr)}${slotPad}${coloredName}${namePad}${modelStr}${effortStr}${roleStr}`;
+        const content = `  ${selectedPrefix} ${dim(slotStr)}${slotPad}${coloredName}${namePad}${modelStr}${effortStr}${roleStr}${sortieTag}`;
         lines.push(row(content));
 
         if (isSelected && this.mode !== "browse") {
@@ -430,6 +450,20 @@ export class CarrierStatusOverlay implements Component, Focusable {
     void this.commitSelection(entry, selection);
   }
 
+  private toggleSortieState(): void {
+    const entry = this.getSelectedEntry();
+    if (!entry) return;
+    if (!this.callbacks.toggleSortieEnabled) return;
+
+    this.callbacks.toggleSortieEnabled(entry.carrierId);
+    // UI 상태 즉시 반영
+    entry.isSortieEnabled = !entry.isSortieEnabled;
+    this.feedbackMessage = entry.isSortieEnabled
+      ? `${entry.displayName} sortie 활성화됨`
+      : `${entry.displayName} sortie 비활성화됨`;
+    this.tui.requestRender();
+  }
+
   private cancelEdit(): void {
     this.mode = "browse";
     this.pendingModelId = null;
@@ -522,7 +556,7 @@ export class CarrierStatusOverlay implements Component, Focusable {
     }
 
     if (this.mode === "browse") {
-      return "↑↓ select  Enter edit  Tab detail  Esc close";
+      return "↑↓ select  Enter edit  d sortie toggle  Tab detail  Esc close";
     }
 
     return "↑↓ select  Enter confirm  Esc cancel";

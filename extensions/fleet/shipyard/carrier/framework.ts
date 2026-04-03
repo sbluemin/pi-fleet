@@ -65,6 +65,8 @@ function getState(): CarrierFrameworkState {
       inputRegistered: false,
       cancelShortcutRegistered: false,
       statusUpdateCallbacks: [],
+      sortieDisabledCarriers: new Set(),
+      sortieStateChangeCallbacks: [],
     };
     (globalThis as any)[CARRIER_FRAMEWORK_KEY] = s;
   }
@@ -283,6 +285,79 @@ export function notifyStatusUpdate(): void {
  */
 export function getRegisteredOrder(): string[] {
   return [...getState().registeredOrder];
+}
+
+// ─── Sortie 가용 상태 관리 ─────────────────────────────
+
+/**
+ * 지정 carrier를 sortie에서 비활성화합니다.
+ * direct 모드(alt+{slot})에는 영향 없음.
+ */
+export function disableSortieCarrier(id: string): void {
+  const gs = getState();
+  if (!gs.modes.has(id)) return;
+  if (gs.sortieDisabledCarriers.has(id)) return;
+  gs.sortieDisabledCarriers.add(id);
+  notifySortieStateChange();
+}
+
+/**
+ * 지정 carrier를 sortie에서 다시 활성화합니다.
+ */
+export function enableSortieCarrier(id: string): void {
+  const gs = getState();
+  if (!gs.sortieDisabledCarriers.has(id)) return;
+  gs.sortieDisabledCarriers.delete(id);
+  notifySortieStateChange();
+}
+
+/**
+ * 지정 carrier가 sortie에서 활성 상태인지 반환합니다.
+ */
+export function isSortieCarrierEnabled(id: string): boolean {
+  return !getState().sortieDisabledCarriers.has(id);
+}
+
+/**
+ * sortie 가용한 carrier ID만 registeredOrder 순서로 반환합니다.
+ */
+export function getSortieEnabledIds(): string[] {
+  const gs = getState();
+  return gs.registeredOrder.filter((id) => !gs.sortieDisabledCarriers.has(id));
+}
+
+/**
+ * 현재 sortie 비활성화된 carrier ID 목록을 반환합니다.
+ */
+export function getSortieDisabledIds(): string[] {
+  return [...getState().sortieDisabledCarriers];
+}
+
+/**
+ * sortie 비활성화 목록을 일괄 설정합니다.
+ * @param silent true면 콜백을 호출하지 않음 (부팅 시 복원용)
+ */
+export function setSortieDisabledCarriers(ids: string[], silent = false): void {
+  const gs = getState();
+  gs.sortieDisabledCarriers = new Set(ids);
+  if (!silent) notifySortieStateChange();
+}
+
+/**
+ * sortie 상태 변경 시 호출될 콜백을 등록합니다.
+ * 재초기화(/reload) 시 이전 콜백이 누적되지 않도록 기존 목록을 클리어합니다.
+ */
+export function onSortieStateChange(callback: () => void): void {
+  const gs = getState();
+  gs.sortieStateChangeCallbacks = [callback];
+}
+
+/** sortie 상태 변경 콜백을 모두 호출합니다. */
+function notifySortieStateChange(): void {
+  const gs = getState();
+  for (const cb of gs.sortieStateChangeCallbacks) {
+    try { cb(); } catch { /* 무시 */ }
+  }
 }
 
 /** CliType 표시 우선순위: claude → codex → gemini */

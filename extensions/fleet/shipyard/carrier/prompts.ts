@@ -1,9 +1,11 @@
 /**
  * fleet/carrier/prompts.ts — carrier_sortie 도구 프롬프트 관리
  *
- * carrier_sortie 도구의 기본 프롬프트 텍스트를 정의합니다.
- * 등록된 carrier들의 역할 설명은 sortie.ts에서 동적으로 합성합니다.
+ * carrier_sortie 도구의 기본 프롬프트 텍스트와
+ * 등록된 carrier 기반 동적 프롬프트 합성 로직을 정의합니다.
  */
+
+import { getRegisteredCarrierConfig } from "./framework.js";
 
 /**
  * 병렬 작업 환경 경고 guideline.
@@ -37,3 +39,31 @@ export const FLEET_SORTIE_PROMPT_GUIDELINES: string[] = [
   ` When launching multiple carriers, this tool provides unified progress tracking and a consolidated result view.`,
   buildParallelWorkGuideline(),
 ];
+
+/**
+ * 등록된 carrier들의 프롬프트 메타데이터를 읽어
+ * sortie promptGuidelines에 합성할 가이드라인을 생성합니다.
+ */
+export function buildCarrierGuidelines(carrierIds: string[]): string[] {
+  const lines: string[] = [];
+  lines.push(`## Available Carriers`);
+
+  for (const carrierId of carrierIds) {
+    const config = getRegisteredCarrierConfig(carrierId);
+    if (!config) continue;
+
+    const name = config.displayName;
+    const desc = config.carrierDescription ?? `Delegate tasks to ${name}.`;
+    lines.push(`- **${carrierId}** (${name}): ${desc}`);
+
+    // carrier 고유 가이드라인이 있으면 하위 항목으로 추가
+    if (config.carrierPromptGuidelines?.length) {
+      for (const gl of config.carrierPromptGuidelines) {
+        lines.push(`  - ${gl}`);
+      }
+    }
+  }
+
+  // 전체를 하나의 guideline 문자열로 합침 (PI가 guidelines를 배열로 렌더링)
+  return [lines.join("\n")];
+}

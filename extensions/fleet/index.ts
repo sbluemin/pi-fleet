@@ -27,11 +27,18 @@ import {
   resolveCarrierColor,
   resolveCarrierDisplayName,
   resolveCarrierCliDisplayName,
+  disableSortieCarrier,
+  enableSortieCarrier,
+  isSortieCarrierEnabled,
+  getSortieDisabledIds,
+  setSortieDisabledCarriers,
+  onSortieStateChange,
 } from "./shipyard/carrier/framework.js";
 import { initRuntime, onHostSessionChange, getModelConfig, updateModelSelection } from "./internal/agent/runtime.js";
 import { getAvailableModels, getEffortLevels, getDefaultBudgetTokens } from "./internal/agent/model-config.js";
 import { cleanIdleClients } from "./internal/agent/client-pool.js";
 import { registerModelCommands, syncModelConfig } from "./internal/agent/model-ui.js";
+import { loadSortieDisabled, saveSortieDisabled } from "./shipyard/carrier/sortie-store.js";
 import { exposeAgentApi } from "./operation-runner.js";
 import { refreshAgentPanelFooter, getModeBannerLines } from "./internal/panel/lifecycle.js";
 import { registerAgentPanelShortcut } from "./internal/panel/shortcuts.js";
@@ -94,6 +101,13 @@ export {
   resolveCarrierRgb,
   resolveCarrierDisplayName,
   resolveCarrierCliDisplayName,
+  disableSortieCarrier,
+  enableSortieCarrier,
+  isSortieCarrierEnabled,
+  getSortieEnabledIds,
+  getSortieDisabledIds,
+  setSortieDisabledCarriers,
+  onSortieStateChange,
 } from "./shipyard/carrier/framework.js";
 
 export type {
@@ -122,7 +136,23 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
   exposeAgentApi();
 
   registerCarriers(pi);
+
+  // ── Sortie 비활성 상태 복원 (등록된 carrier만 필터링) ──
+  const validCarrierIds = new Set(getRegisteredOrder());
+  const restoredDisabled = loadSortieDisabled(dataDir, validCarrierIds);
+  if (restoredDisabled.length > 0) {
+    setSortieDisabledCarriers(restoredDisabled, true);
+  }
+
   registerFleetSortie(pi);
+
+  // sortie 상태 변경 시 → 도구 재등록 + 영속화 + 상태바 갱신
+  onSortieStateChange(() => {
+    registerFleetSortie(pi);
+    saveSortieDisabled(dataDir, getSortieDisabledIds());
+    notifyStatusUpdate();
+  });
+
   syncModelConfig();
   registerAgentPanelShortcut();
   registerModelCommands(pi);
@@ -231,6 +261,7 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
           budgetTokens,
           role,
           roleDescription: config.carrierDescription ?? null,
+          isSortieEnabled: isSortieCarrierEnabled(id),
         });
       }
 
@@ -256,6 +287,13 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
               onModelUpdated: () => {
                 syncModelConfig();
                 notifyStatusUpdate();
+              },
+              toggleSortieEnabled: (carrierId: string) => {
+                if (isSortieCarrierEnabled(carrierId)) {
+                  disableSortieCarrier(carrierId);
+                } else {
+                  enableSortieCarrier(carrierId);
+                }
               },
             },
             done,

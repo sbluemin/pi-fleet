@@ -16,6 +16,7 @@ import {
   resolveCarrierColor,
   resolveCarrierDisplayName,
   resolveCarrierRgb,
+  isSortieCarrierEnabled,
 } from "./framework.js";
 import { waveText } from "../../internal/render/panel-renderer";
 import type { AgentCol } from "../../internal/contracts.js";
@@ -29,7 +30,14 @@ interface FooterRenderInput {
 
 // ─── 헬퍼 ────────────────────────────────────────────────
 
-function footerIcon(col: AgentCol, frame: number): string {
+/** sortie 비활성 캐리어용 dim 색상 */
+const DISABLED_COLOR = "\x1b[38;2;100;100;100m";
+
+function footerIcon(col: AgentCol, frame: number, disabled: boolean): string {
+  // sortie 비활성 캐리어: dim 아이콘으로 표시
+  if (disabled) {
+    return `${DISABLED_COLOR}○${ANSI_RESET}`;
+  }
   const cliColor = resolveCarrierColor(col.cli) || PANEL_COLOR;
   const icon = col.status === "done"
     ? SYM_INDICATOR
@@ -50,14 +58,20 @@ function footerIcon(col: AgentCol, frame: number): string {
 export function renderFooterStatus(input: FooterRenderInput): string | undefined {
   const segments = input.cols.map((col) => {
     const footerCol = input.streaming ? col : { ...col, status: "wait" as const };
-    const cliColor = resolveCarrierColor(col.cli) || PANEL_COLOR;
+    const disabled = !isSortieCarrierEnabled(col.cli);
     const name = resolveCarrierDisplayName(col.cli);
 
+    // sortie 비활성 캐리어: 아이콘·이름 모두 dim 처리
+    if (disabled) {
+      return `${footerIcon(footerCol, input.frame, true)} ${DISABLED_COLOR}${name}${ANSI_RESET}`;
+    }
+
+    const cliColor = resolveCarrierColor(col.cli) || PANEL_COLOR;
     const isStreaming = footerCol.status === "conn" || footerCol.status === "stream";
     // 스트리밍 중: 아이콘 유지 + 이름에 파도 그라데이션
     return isStreaming
-      ? `${footerIcon(footerCol, input.frame)} ${waveText(name, resolveCarrierRgb(col.cli), input.frame)}${ANSI_RESET}`
-      : `${footerIcon(footerCol, input.frame)} ${cliColor}${name}${ANSI_RESET}`;
+      ? `${footerIcon(footerCol, input.frame, false)} ${waveText(name, resolveCarrierRgb(col.cli), input.frame)}${ANSI_RESET}`
+      : `${footerIcon(footerCol, input.frame, false)} ${cliColor}${name}${ANSI_RESET}`;
   });
 
   if (segments.length === 0) return undefined;
