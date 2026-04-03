@@ -86,8 +86,7 @@ export function getSessionId(carrierId: string): string | undefined {
 
 /** 현재 모델 설정을 로드합니다. */
 export function getModelConfig(): SelectedModelsConfig {
-  if (!dataDir) return {};
-  return loadSelectedModels(dataDir);
+  return readWithDataDir({}, loadSelectedModels);
 }
 
 /**
@@ -140,8 +139,7 @@ export function getTaskForceModelConfig(
   carrierId: string,
   cliType: string,
 ): Omit<ModelSelection, "taskforce"> | undefined {
-  if (!dataDir) return undefined;
-  return getTaskForceModelConfigLow(dataDir, carrierId, cliType);
+  return readWithDataDir(undefined, (dir) => getTaskForceModelConfigLow(dir, carrierId, cliType));
 }
 
 /**
@@ -152,30 +150,40 @@ export async function updateTaskForceModelSelection(
   cliType: string,
   selection: Omit<ModelSelection, "taskforce">,
 ): Promise<void> {
-  if (!dataDir) return;
-  updateTaskForceModelSelectionLow(dataDir, carrierId, cliType, selection);
+  runWithDataDir((dir) => {
+    updateTaskForceModelSelectionLow(dir, carrierId, cliType, selection);
+  });
 }
 
 /**
  * Task Force 백엔드별 모델 설정을 초기화합니다 (origin으로 되돌림).
  */
 export function resetTaskForceModelSelection(carrierId: string, cliType: string): void {
-  if (!dataDir) return;
-  resetTaskForceModelSelectionLow(dataDir, carrierId, cliType);
+  runWithDataDir((dir) => {
+    resetTaskForceModelSelectionLow(dir, carrierId, cliType);
+  });
 }
 
 /**
  * 지정 캐리어가 모든 CLI 백엔드에 대해 Task Force 설정을 완료했는지 확인합니다.
  */
 export function isTaskForceFullyConfigured(carrierId: string): boolean {
-  if (!dataDir) return false;
-  return isTaskForceFullyConfiguredLow(dataDir, carrierId);
+  return readWithDataDir(false, (dir) => isTaskForceFullyConfiguredLow(dir, carrierId));
 }
 
 /**
  * 등록된 전체 캐리어 중 Task Force 설정이 완전히 구성된 캐리어 ID 목록을 반환합니다.
  */
 export function getConfiguredTaskForceCarrierIds(registeredIds: string[]): string[] {
-  if (!dataDir) return [];
-  return getConfiguredTaskForceCarrierIdsLow(dataDir, registeredIds);
+  return readWithDataDir([], (dir) => getConfiguredTaskForceCarrierIdsLow(dir, registeredIds));
+}
+
+function readWithDataDir<T>(fallback: T, reader: (dir: string) => T): T {
+  if (!dataDir) return fallback;
+  return reader(dataDir);
+}
+
+function runWithDataDir(action: (dir: string) => void): void {
+  if (!dataDir) return;
+  action(dataDir);
 }

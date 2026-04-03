@@ -121,9 +121,8 @@ export function getTaskForceModelConfig(
 ): TaskForceSelection | undefined {
   const resolvedCliType = toTaskForceCliType(cliType);
   const config = loadSelectedModels(configDir);
-  const carrierConfig = config[carrierId];
-
-  return sanitizeTaskForceSelection(resolvedCliType, carrierConfig?.taskforce?.[resolvedCliType]) ?? undefined;
+  const taskforceConfig = getSanitizedTaskForceConfig(config, carrierId);
+  return taskforceConfig?.[resolvedCliType];
 }
 
 /**
@@ -131,19 +130,15 @@ export function getTaskForceModelConfig(
  * Task Force 설정을 완료했는지 확인합니다.
  */
 export function isTaskForceFullyConfigured(configDir: string, carrierId: string): boolean {
-  const config = loadSelectedModels(configDir);
-  const carrierConfig = config[carrierId];
-  if (!carrierConfig?.taskforce) return false;
-  return TASKFORCE_CLI_TYPES.every((cli) =>
-    sanitizeTaskForceSelection(cli, carrierConfig.taskforce?.[cli]) !== null,
-  );
+  return isTaskForceFullyConfiguredInConfig(loadSelectedModels(configDir), carrierId);
 }
 
 /**
  * 등록된 전체 캐리어 중 Task Force 설정이 완전히 구성된 캐리어 ID 목록을 반환합니다.
  */
 export function getConfiguredTaskForceCarrierIds(configDir: string, registeredIds: string[]): string[] {
-  return registeredIds.filter((id) => isTaskForceFullyConfigured(configDir, id));
+  const config = loadSelectedModels(configDir);
+  return registeredIds.filter((id) => isTaskForceFullyConfiguredInConfig(config, id));
 }
 
 /**
@@ -252,6 +247,22 @@ function sanitizeTaskforceConfig(value: unknown): TaskForceConfig | undefined {
   }
 
   return Object.keys(taskforce).length > 0 ? taskforce : undefined;
+}
+
+function getSanitizedTaskForceConfig(
+  config: SelectedModelsConfig,
+  carrierId: string,
+): TaskForceConfig | undefined {
+  return sanitizeTaskforceConfig(config[carrierId]?.taskforce);
+}
+
+function isTaskForceFullyConfiguredInConfig(
+  config: SelectedModelsConfig,
+  carrierId: string,
+): boolean {
+  const taskforceConfig = getSanitizedTaskForceConfig(config, carrierId);
+  if (!taskforceConfig) return false;
+  return TASKFORCE_CLI_TYPES.every((cli) => taskforceConfig[cli] != null);
 }
 
 function sanitizeTaskForceSelection(cliType: CliType, value: unknown): TaskForceSelection | null {

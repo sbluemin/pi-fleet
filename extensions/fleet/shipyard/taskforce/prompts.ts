@@ -36,6 +36,9 @@ const TASKFORCE_WHEN_NOT_TO_USE =
   ` Avoid it when only one backend is needed or when execution speed is critical.` +
   ` Do not use as a substitute for carrier_sortie with multiple carriers.`;
 
+const TASKFORCE_CONFIGURE_HINT =
+  `open Carrier Status (Alt+O) and press T to configure all three CLI backends (Claude, Codex, Gemini)`;
+
 /** 기본 가이드라인 항목 목록 */
 const TASKFORCE_BASE_GUIDELINES: string[] = [
   TASKFORCE_WHEN_TO_USE,
@@ -73,7 +76,7 @@ export function buildTaskForceSchema(configuredCarrierIds: string[]): TObject {
   const availableDesc =
     configuredCarrierIds.length > 0
       ? `Carrier ID whose persona to apply. Available: ${configuredCarrierIds.join(", ")}`
-      : `Carrier ID whose persona to apply. (No carriers currently configured for Task Force — open Carrier Status (Alt+O) and press T to configure)`;
+      : `Carrier ID whose persona to apply. (No carriers currently configured for Task Force — ${TASKFORCE_CONFIGURE_HINT})`;
 
   return Type.Object({
     carrier: Type.String({ description: availableDesc }),
@@ -92,7 +95,7 @@ function buildCarrierRoster(carrierIds: string[]): string[] {
   if (carrierIds.length === 0) {
     return [
       `## Task Force Carriers\nNo carriers are currently fully configured for Task Force.` +
-      ` To configure, open Carrier Status (Alt+O), select a carrier, and press T to set up all three CLI backends (Claude, Codex, Gemini).`,
+      ` To configure, ${TASKFORCE_CONFIGURE_HINT}.`,
     ];
   }
 

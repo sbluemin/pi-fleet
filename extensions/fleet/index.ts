@@ -171,19 +171,21 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
 
   registerFleetSortie(pi);
   registerFleetTaskForce(pi);
+  const refreshTaskForceState = () => {
+    registerFleetTaskForce(pi);
+    notifyStatusUpdate();
+  };
 
   // sortie 상태 변경 시 → 도구 재등록 + 영속화 + 상태바 갱신
   onSortieStateChange(() => {
     registerFleetSortie(pi);
-    registerFleetTaskForce(pi);
+    refreshTaskForceState();
     saveSortieDisabled(dataDir, getSortieDisabledIds());
-    notifyStatusUpdate();
   });
 
   // Task Force 설정 변경 시 → 도구 재등록 + 상태바 갱신
   onTaskForceConfigChange(() => {
-    registerFleetTaskForce(pi);
-    notifyStatusUpdate();
+    refreshTaskForceState();
   });
 
   syncModelConfig();
@@ -341,7 +343,7 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
                 dismissStatusPopup?.();
                 const carrierConfig = getRegisteredCarrierConfig(carrierId);
                 if (!carrierConfig) {
-                  ctx.ui.notify(`등록되지 않은 carrier입니다: ${carrierId}`, "error");
+                  ctx.ui.notify(`등록되지 않은 carrier입니다: ${JSON.stringify(carrierId)}`, "error");
                   return;
                 }
                 const carrierDisplayName = carrierConfig?.displayName ?? carrierId;
@@ -378,10 +380,6 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
                   },
                   resetBackendConfig: (cliType: string) => {
                     resetTaskForceModelSelection(carrierId, requireTaskForceCliType(cliType));
-                  },
-                  onConfigUpdated: () => {
-                    syncModelConfig();
-                    notifyStatusUpdate();
                   },
                 };
                 void ctx.ui.custom(

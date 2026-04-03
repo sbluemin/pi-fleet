@@ -15,7 +15,6 @@ import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 import { executeOneShot } from "../../internal/agent/executor.js";
 import {
   getTaskForceModelConfig,
-  isTaskForceFullyConfigured,
   getConfiguredTaskForceCarrierIds,
 } from "../../internal/agent/runtime.js";
 import {
@@ -173,25 +172,34 @@ export function registerFleetTaskForce(pi: ExtensionAPI): void {
 
 // ─── 내부 상태 관리 ──────────────────────────────────────
 
+function formatCarrierIdForMessage(carrierId: string): string {
+  return JSON.stringify(carrierId);
+}
+
 function assertRegisteredCarrier(carrierId: string): void {
   const allIds = new Set(getRegisteredOrder());
   if (!allIds.has(carrierId)) {
-    const registered = [...allIds].join(", ") || "(none)";
-    throw new Error(`Unknown carrier: "${carrierId}". Registered carriers: ${registered}`);
+    const registered = [...allIds].map(formatCarrierIdForMessage).join(", ") || "(none)";
+    throw new Error(
+      `Unknown carrier: ${formatCarrierIdForMessage(carrierId)}. Registered carriers: ${registered}`,
+    );
   }
 }
 
 function assertTaskForceConfigured(carrierId: string): void {
-  if (isTaskForceFullyConfigured(carrierId)) return;
+  const missing = getMissingTaskForceBackends(carrierId);
+  if (missing.length === 0) return;
 
-  // 미구성 백엔드 목록 생성
-  const missing = TASKFORCE_CLI_TYPES.filter((cli) => !getTaskForceModelConfig(carrierId, cli));
   const missingList = missing.map((cli) => CLI_DISPLAY_NAMES[cli] ?? cli).join(", ");
   throw new Error(
-    `Carrier "${carrierId}" is not fully configured for Task Force.\n` +
+    `Carrier ${formatCarrierIdForMessage(carrierId)} is not fully configured for Task Force.\n` +
     `Missing backends: ${missingList}\n` +
-    `→ Open Carrier Status (Alt+O), select ${carrierId}, press T to configure.`,
+    `→ Open Carrier Status (Alt+O), select ${formatCarrierIdForMessage(carrierId)}, press T to configure.`,
   );
+}
+
+function getMissingTaskForceBackends(carrierId: string): TaskForceCliType[] {
+  return TASKFORCE_CLI_TYPES.filter((cliType) => !getTaskForceModelConfig(carrierId, cliType));
 }
 
 function buildComposedTaskForceRequest(carrierId: string, request: string): string {
@@ -199,6 +207,15 @@ function buildComposedTaskForceRequest(carrierId: string, request: string): stri
   return carrierConfig?.carrierMetadata
     ? composeTier2Request(carrierConfig.carrierMetadata, request)
     : request;
+}
+
+function getRequiredTaskForceModelConfig(
+  carrierId: string,
+  cliType: TaskForceCliType,
+): NonNullable<ReturnType<typeof getTaskForceModelConfig>> {
+  const modelConfig = getTaskForceModelConfig(carrierId, cliType);
+  if (modelConfig) return modelConfig;
+  throw new Error(`Task Force config missing for ${cliType} on carrier "${carrierId}".`);
 }
 
 async function runTaskForceBackend(
@@ -213,10 +230,7 @@ async function runTaskForceBackend(
   progress.status = "connecting";
 
   const syntheticId = buildTaskForceRunId(carrierId, cliType);
-  const modelConfig = getTaskForceModelConfig(carrierId, cliType);
-  if (!modelConfig) {
-    throw new Error(`Task Force config missing for ${cliType} on carrier "${carrierId}".`);
-  }
+  const modelConfig = getRequiredTaskForceModelConfig(carrierId, cliType);
 
   // synthetic run은 동일 키로 재사용하여 반복 실행 누적을 방지합니다.
   prepareTaskForceRun(syntheticId);

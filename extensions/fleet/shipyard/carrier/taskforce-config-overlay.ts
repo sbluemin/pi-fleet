@@ -44,7 +44,6 @@ export interface TaskForceOverlayCallbacks {
   ) => Promise<void>;
   /** 백엔드 설정 초기화 (origin으로) */
   resetBackendConfig: (cliType: string) => void;
-  onConfigUpdated: () => void;
 }
 
 type OverlayMode = "browse" | "model" | "effort" | "saving";
@@ -372,7 +371,6 @@ export class TaskForceConfigOverlay implements Component, Focusable {
     }
 
     this.callbacks.resetBackendConfig(entry.cliType);
-    this.callbacks.onConfigUpdated();
     notifyTaskForceConfigChange();
     this.feedbackMessage = `${entry.displayName} 설정을 origin으로 초기화했습니다.`;
     this.tui.requestRender();
@@ -417,7 +415,6 @@ export class TaskForceConfigOverlay implements Component, Focusable {
 
     try {
       await this.callbacks.updateBackendConfig(cliType, selection);
-      this.callbacks.onConfigUpdated();
       notifyTaskForceConfigChange();
       this.feedbackMessage = `${entry.displayName} 설정을 저장했습니다.`;
     } catch (error) {

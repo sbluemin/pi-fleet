@@ -279,8 +279,7 @@ export function setSortieDisabledCarriers(ids: string[], silent = false): void {
  * 재초기화(/reload) 시 이전 콜백이 누적되지 않도록 기존 목록을 클리어합니다.
  */
 export function onSortieStateChange(callback: () => void): void {
-  const gs = getState();
-  gs.sortieStateChangeCallbacks = [callback];
+  replaceStateChangeCallbacks("sortieStateChangeCallbacks", callback);
 }
 
 // ─── Task Force 설정 변경 관리 ──────────────────────────
@@ -290,8 +289,7 @@ export function onSortieStateChange(callback: () => void): void {
  * 재초기화(/reload) 시 이전 콜백이 누적되지 않도록 기존 목록을 클리어합니다.
  */
 export function onTaskForceConfigChange(callback: () => void): void {
-  const gs = getState();
-  gs.taskforceConfigChangeCallbacks = [callback];
+  replaceStateChangeCallbacks("taskforceConfigChangeCallbacks", callback);
 }
 
 /**
@@ -299,10 +297,7 @@ export function onTaskForceConfigChange(callback: () => void): void {
  * taskforce-config-overlay에서 설정 저장/리셋 성공 시 호출합니다.
  */
 export function notifyTaskForceConfigChange(): void {
-  const gs = getState();
-  for (const cb of gs.taskforceConfigChangeCallbacks) {
-    try { cb(); } catch { /* 무시 */ }
-  }
+  notifyStateChangeCallbacks("taskforceConfigChangeCallbacks");
 }
 
 /**
@@ -437,9 +432,21 @@ function clearWorkingMessageIfOwned(ctx: ExtensionContext, state: CarrierState):
 
 /** sortie 상태 변경 콜백을 모두 호출합니다. */
 function notifySortieStateChange(): void {
-  const gs = getState();
-  for (const cb of gs.sortieStateChangeCallbacks) {
-    try { cb(); } catch { /* 무시 */ }
+  notifyStateChangeCallbacks("sortieStateChangeCallbacks");
+}
+
+function replaceStateChangeCallbacks(
+  key: "sortieStateChangeCallbacks" | "taskforceConfigChangeCallbacks",
+  callback: () => void,
+): void {
+  getState()[key] = [callback];
+}
+
+function notifyStateChangeCallbacks(
+  key: "sortieStateChangeCallbacks" | "taskforceConfigChangeCallbacks",
+): void {
+  for (const callback of getState()[key]) {
+    try { callback(); } catch { /* 무시 */ }
   }
 }
 
