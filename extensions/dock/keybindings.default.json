@@ -9,14 +9,9 @@
     "popup": "alt+/"
   },
   "fleet": {
-    "carrier:genesis": "alt+1",
-    "carrier:arbiter": "alt+2",
-    "carrier:crucible": "alt+3",
-    "carrier:sentinel": "alt+4",
-    "carrier:raven": "alt+5",
-    "carrier:vanguard": "alt+6",
-    "carrier:echelon": "alt+7",
-    "carrier:chronicle": "alt+8",
+    "carrier-prev": "alt+h",
+    "carrier-next": "alt+l",
+    "carrier-activate": "ctrl+enter",
     "cancel": "alt+x",
     "panel-toggle": "alt+p",
     "panel-grow": "alt+j",

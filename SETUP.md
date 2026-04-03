@@ -63,6 +63,8 @@ Launch `pi` and run `/reload`, then check:
 - No extension load errors in the output
 - `unified-agent --help` 가 정상 출력되는지 확인
 - `unified-agent --list-models` 로 모델 목록 확인
-- `Alt+1` / `Alt+2` / `Alt+3` to enter each agent's direct mode
-- `Alt+T` popup opens correctly
+- `Alt+H` / `Alt+L` to move cursor between carrier slots
+- `Ctrl+Enter` to activate the carrier at cursor (exclusive mode)
+- `Alt+P` to toggle the Agent Panel
+- `Alt+X` to cancel active carrier execution
 - Claude Code, Codex CLI, Gemini CLI are each authenticated

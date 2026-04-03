@@ -18,7 +18,7 @@ A multi-LLM orchestration kit for [pi-coding-agent](https://github.com/badlogic/
 
 | Extension | Description |
 |-----------|-------------|
-| `unified-agent-direct/` | Direct mode — `Alt+1/2/3` exclusive view, `Alt+P` panel toggle + individual agent tools, client pool, executor, session map, model config |
+| `unified-agent-direct/` | Direct mode — `Alt+H/L` inline slot navigation, `Ctrl+Enter` activation, `Alt+P` panel toggle + individual agent tools, client pool, executor, session map, model config |
 
 ### Utility (`extensions/tender/`)
 

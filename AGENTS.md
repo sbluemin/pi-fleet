@@ -11,7 +11,7 @@
 |------|-------------|
 | `packages/` | Embedded first-party libraries (e.g., `unified-agent`) |
 | `extensions/` | All extensions consolidated here (refer to its own `AGENTS.md`) |
-| `extensions/fleet/` | Agent orchestration extension — direct modes, agent tools, unified pipeline (refer to its own `AGENTS.md`) |
+| `extensions/fleet/` | Agent orchestration extension — agent tools, unified pipeline (refer to its own `AGENTS.md`) |
 | `extensions/carriers/` | Carrier registrations — independent extension that defines individual carriers (refer to its own `AGENTS.md`) |
 | `extensions/dock/` | Infrastructure extensions — hud, keybind, settings, welcome, shell (refer to its own `AGENTS.md`) |
 | `extensions/tender/` | Utility extensions — improve-prompt, summarize, thinking-timer (refer to its own `AGENTS.md`) |
@@ -58,7 +58,7 @@ PI is the **host agent** (orchestrator). Genesis, Sentinel, and Vanguard are **s
 |------|---------|------|
 | **Default** | Normal chat | PI handles directly (no sub-agents) |
 | **Tool delegation** | PI's own judgment | PI → tool_call(genesis/sentinel/vanguard) → sub-agent result → PI synthesizes |
-| **Direct (single)** | Alt+1/2/3 | User → single sub-agent (PI acts as router only, no synthesis) |
+| **Direct (single)** | Alt+H/L → Ctrl+Enter | User → single sub-agent (PI acts as router only, no synthesis) |
 
 ### Key Principles
 
