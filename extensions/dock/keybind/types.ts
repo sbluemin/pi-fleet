@@ -6,9 +6,6 @@
  * (AGENTS.md: "globalThis key와 bridge interface는 소유 확장의 types.ts에 정의")
  */
 
-/** globalThis 브릿지 키 */
-export const INFRA_KEYBIND_KEY = "__infra_keybind__";
-
 /** 단축키 등록 요청 */
 export interface KeybindRegistration {
   /** 확장 디렉토리명 (e.g. "utils-improve-prompt") */
@@ -42,6 +39,9 @@ export interface InfraKeybindAPI {
   /** 특정 확장/액션의 최종 키 반환 */
   getKey(extension: string, action: string): string | undefined;
 }
+
+/** globalThis 브릿지 키 */
+export const INFRA_KEYBIND_KEY = "__infra_keybind__";
 
 // ── 큐 기반 stub API (globalThis 객체에 상태 보관) ──
 // ⚠️ pi는 각 확장을 별도 번들로 로드하므로 모듈 레벨 변수는

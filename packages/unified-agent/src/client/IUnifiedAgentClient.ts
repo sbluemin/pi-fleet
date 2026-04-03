@@ -5,6 +5,8 @@
  * 이벤트 맵, 연결 결과, public 메서드 시그니처를 포함합니다.
  */
 
+import type { PromptResponse } from '@agentclientprotocol/sdk';
+
 import type {
   CliType,
   ProtocolType,
@@ -27,7 +29,6 @@ import type {
   AcpToolCallUpdate,
 } from '../types/acp.js';
 import type { ConnectionState } from '../types/common.js';
-import type { PromptResponse } from '@agentclientprotocol/sdk';
 import type { ProviderModelInfo } from '../models/schemas.js';
 
 // ─── 이벤트 맵 ────────────────────────────────────────────

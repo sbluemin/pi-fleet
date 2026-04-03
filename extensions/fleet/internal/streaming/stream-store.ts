@@ -15,10 +15,21 @@
 
 import type { AgentStatus } from "../agent/types.js";
 import { getRegisteredOrder } from "../../shipyard/carrier/framework.js";
+import type { ColBlock, ColStatus, CollectedStreamData } from "../contracts.js";
 
 // 계약 타입 — internal/contracts.ts에서 정의, 하위 호환을 위해 re-export
 export type { ColStatus, CollectedStreamData } from "../contracts.js";
-import type { ColBlock, ColStatus, CollectedStreamData } from "../contracts.js";
+
+interface StreamStoreState {
+  /** runId → StreamRun */
+  runs: Map<string, StreamRun>;
+  /** CLI → 현재 표시할 runId */
+  visibleRunIdByCli: Map<string, string>;
+  /** runId 생성용 카운터 */
+  counter: number;
+}
+
+const STORE_KEY = "__pi_stream_store__";
 
 // ─── StreamRun 클래스 ────────────────────────────────────
 
@@ -97,51 +108,6 @@ export class StreamRun {
     };
   }
 }
-
-// ─── globalThis 싱글턴 ──────────────────────────────────
-
-const STORE_KEY = "__pi_stream_store__";
-
-interface StreamStoreState {
-  /** runId → StreamRun */
-  runs: Map<string, StreamRun>;
-  /** CLI → 현재 표시할 runId */
-  visibleRunIdByCli: Map<string, string>;
-  /** runId 생성용 카운터 */
-  counter: number;
-}
-
-function getStoreState(): StreamStoreState {
-  let s = (globalThis as any)[STORE_KEY] as StreamStoreState | undefined;
-  if (!s) {
-    s = {
-      runs: new Map(),
-      visibleRunIdByCli: new Map(),
-      counter: 0,
-    };
-    (globalThis as any)[STORE_KEY] = s;
-  }
-  return s;
-}
-
-// ─── 내부 헬퍼 ──────────────────────────────────────────
-
-/** 유니크 runId 생성 */
-function nextRunId(cli: string): string {
-  const s = getStoreState();
-  s.counter++;
-  return `${cli}-${s.counter}-${Date.now().toString(36)}`;
-}
-
-/** CLI에 대한 현재 활성 run을 조회 */
-function resolveRun(cli: string): StreamRun | undefined {
-  const s = getStoreState();
-  const runId = s.visibleRunIdByCli.get(cli);
-  if (!runId) return undefined;
-  return s.runs.get(runId);
-}
-
-// ─── 도메인 특화 API (외부 mutation 진입점) ──────────────
 
 /**
  * 새 run을 생성하고 해당 CLI의 visible run으로 설정합니다.
@@ -329,4 +295,32 @@ export function ensureVisibleRun(cli: string): StreamRun {
   if (existing) return existing;
   createRun(cli, "wait");
   return resolveRun(cli)!;
+}
+
+function getStoreState(): StreamStoreState {
+  let s = (globalThis as any)[STORE_KEY] as StreamStoreState | undefined;
+  if (!s) {
+    s = {
+      runs: new Map(),
+      visibleRunIdByCli: new Map(),
+      counter: 0,
+    };
+    (globalThis as any)[STORE_KEY] = s;
+  }
+  return s;
+}
+
+/** 유니크 runId 생성 */
+function nextRunId(cli: string): string {
+  const s = getStoreState();
+  s.counter++;
+  return `${cli}-${s.counter}-${Date.now().toString(36)}`;
+}
+
+/** CLI에 대한 현재 활성 run을 조회 */
+function resolveRun(cli: string): StreamRun | undefined {
+  const s = getStoreState();
+  const runId = s.visibleRunIdByCli.get(cli);
+  if (!runId) return undefined;
+  return s.runs.get(runId);
 }

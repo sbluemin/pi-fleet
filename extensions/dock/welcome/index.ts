@@ -28,6 +28,61 @@ interface WelcomeState {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// 확장 진입점
+// ═══════════════════════════════════════════════════════════════════════════
+
+export default function welcome(pi: ExtensionAPI) {
+  const state: WelcomeState = {
+    dismissFn: null,
+    headerActive: false,
+    shouldDismiss: false,
+  };
+
+  // globalThis 브릿지 등록 — 다른 확장이 dismiss를 트리거할 수 있음
+  (globalThis as any)[WELCOME_GLOBAL_KEY] = {
+    dismiss: () => dismissWelcome(state as any, state),
+  } satisfies WelcomeBridge;
+
+  // ── 이벤트 핸들러 ──
+
+  pi.on("session_start", async (_event, ctx) => {
+    // globalThis 브릿지 업데이트 (ctx 바인딩)
+    (globalThis as any)[WELCOME_GLOBAL_KEY] = {
+      dismiss: () => dismissWelcome(ctx, state),
+    } satisfies WelcomeBridge;
+
+    state.dismissFn = null;
+    state.headerActive = false;
+    state.shouldDismiss = false;
+
+    if (!ctx.hasUI) return;
+
+    const settings = readSettings();
+    if (settings.quietStartup === true) {
+      setupWelcomeHeader(ctx, state);
+    } else {
+      setupWelcomeOverlay(ctx, state);
+    }
+  });
+
+  pi.on("agent_start", async (_event, ctx) => {
+    dismissWelcome(ctx, state);
+  });
+
+  pi.on("tool_call", async (_event, ctx) => {
+    dismissWelcome(ctx, state);
+  });
+
+  pi.on("session_switch", async (_event, ctx) => {
+    dismissWelcome(ctx, state);
+    // ctx 바인딩 갱신
+    (globalThis as any)[WELCOME_GLOBAL_KEY] = {
+      dismiss: () => dismissWelcome(ctx, state),
+    } satisfies WelcomeBridge;
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // dismiss 헬퍼
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -154,59 +209,4 @@ function setupWelcomeOverlay(ctx: any, state: WelcomeState): void {
       },
     ).catch(() => {});
   }, 100);
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// 확장 진입점
-// ═══════════════════════════════════════════════════════════════════════════
-
-export default function welcome(pi: ExtensionAPI) {
-  const state: WelcomeState = {
-    dismissFn: null,
-    headerActive: false,
-    shouldDismiss: false,
-  };
-
-  // globalThis 브릿지 등록 — 다른 확장이 dismiss를 트리거할 수 있음
-  (globalThis as any)[WELCOME_GLOBAL_KEY] = {
-    dismiss: () => dismissWelcome(state as any, state),
-  } satisfies WelcomeBridge;
-
-  // ── 이벤트 핸들러 ──
-
-  pi.on("session_start", async (_event, ctx) => {
-    // globalThis 브릿지 업데이트 (ctx 바인딩)
-    (globalThis as any)[WELCOME_GLOBAL_KEY] = {
-      dismiss: () => dismissWelcome(ctx, state),
-    } satisfies WelcomeBridge;
-
-    state.dismissFn = null;
-    state.headerActive = false;
-    state.shouldDismiss = false;
-
-    if (!ctx.hasUI) return;
-
-    const settings = readSettings();
-    if (settings.quietStartup === true) {
-      setupWelcomeHeader(ctx, state);
-    } else {
-      setupWelcomeOverlay(ctx, state);
-    }
-  });
-
-  pi.on("agent_start", async (_event, ctx) => {
-    dismissWelcome(ctx, state);
-  });
-
-  pi.on("tool_call", async (_event, ctx) => {
-    dismissWelcome(ctx, state);
-  });
-
-  pi.on("session_switch", async (_event, ctx) => {
-    dismissWelcome(ctx, state);
-    // ctx 바인딩 갱신
-    (globalThis as any)[WELCOME_GLOBAL_KEY] = {
-      dismiss: () => dismissWelcome(ctx, state),
-    } satisfies WelcomeBridge;
-  });
 }

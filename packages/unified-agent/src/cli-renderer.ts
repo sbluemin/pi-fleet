@@ -5,9 +5,6 @@
 
 import type { AcpToolCall, AcpToolCallUpdate, AcpToolCallContent } from './types/acp.js';
 
-/** 도구 결과 줄 접기 시 최대 표시 줄 수 */
-const MAX_RESULT_LINES = 4;
-
 /** 추적 중인 도구 호출 */
 interface TrackedToolCall {
   title: string;
@@ -30,6 +27,9 @@ export interface CliRendererOptions {
   /** stderr 색상 함수 */
   colorErr: ColorFns;
 }
+
+/** 도구 결과 줄 접기 시 최대 표시 줄 수 */
+const MAX_RESULT_LINES = 4;
 
 /**
  * Claude Code 스타일 CLI 출력 렌더러.

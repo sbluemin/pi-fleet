@@ -11,6 +11,21 @@ import { fileURLToPath } from "node:url";
 const EXT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const GLOBAL_SETTINGS_PATH = path.resolve(EXT_DIR, "..", "settings.json");
 
+/** 특정 섹션 로드 */
+export function loadSection<T = Record<string, unknown>>(key: string): T {
+  const global = readGlobalJson();
+  const section = global[key];
+  if (typeof section !== "object" || section === null) return {} as T;
+  return section as T;
+}
+
+/** 특정 섹션 저장 (기존 데이터와 병합) */
+export function saveSection(key: string, data: unknown): void {
+  const global = readGlobalJson();
+  global[key] = data;
+  writeGlobalJson(global);
+}
+
 /** 전체 JSON 객체 읽기 */
 function readGlobalJson(): Record<string, unknown> {
   try {
@@ -26,19 +41,4 @@ function readGlobalJson(): Record<string, unknown> {
 /** 전체 JSON 객체 쓰기 */
 function writeGlobalJson(data: Record<string, unknown>): void {
   fs.writeFileSync(GLOBAL_SETTINGS_PATH, JSON.stringify(data, null, 2), "utf-8");
-}
-
-/** 특정 섹션 로드 */
-export function loadSection<T = Record<string, unknown>>(key: string): T {
-  const global = readGlobalJson();
-  const section = global[key];
-  if (typeof section !== "object" || section === null) return {} as T;
-  return section as T;
-}
-
-/** 특정 섹션 저장 (기존 데이터와 병합) */
-export function saveSection(key: string, data: unknown): void {
-  const global = readGlobalJson();
-  global[key] = data;
-  writeGlobalJson(global);
 }

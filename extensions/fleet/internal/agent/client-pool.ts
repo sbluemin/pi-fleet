@@ -10,11 +10,6 @@
 
 import { UnifiedAgentClient } from "@sbluemin/unified-agent";
 
-// ─── 상수 ────────────────────────────────────────────────
-
-/** globalThis 키 */
-const POOL_KEY = "__pi_unified_agent_client_pool__";
-
 // ─── 타입 ────────────────────────────────────────────────
 
 /** 풀에 보관되는 클라이언트 엔트리 */
@@ -25,6 +20,11 @@ export interface PooledClient {
   /** 마지막으로 알려진 세션 ID (재연결 시 복원용) */
   sessionId?: string;
 }
+
+// ─── 상수 ────────────────────────────────────────────────
+
+/** globalThis 키 */
+const POOL_KEY = "__pi_unified_agent_client_pool__";
 
 // ─── globalThis 기반 싱글턴 풀 ───────────────────────────
 

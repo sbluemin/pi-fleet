@@ -19,32 +19,6 @@ import * as path from "node:path";
 /** carrierId별 서브에이전트 sessionId 매핑 */
 type SessionMap = Record<string, string>;
 
-// ─── Legacy 키 마이그레이션 ──────────────────────────────
-
-/** cliType 기반 legacy 키 목록 (carrierId 체계 전환 이전에 사용된 키) */
-const LEGACY_CLI_KEYS = new Set(["claude", "codex", "gemini"]);
-
-/**
- * cliType 기반 legacy 키를 제거합니다.
- * carrierId 체계 전환 이전에 저장된 세션 맵 파일에 잔존하는
- * "claude", "codex", "gemini" 등의 키를 정리하여
- * 동일 cliType을 사용하는 복수 carrier 간 세션 충돌을 방지합니다.
- *
- * @returns 마이그레이션이 발생했으면 true
- */
-function migrateLegacyKeys(map: SessionMap): boolean {
-  let migrated = false;
-  for (const key of LEGACY_CLI_KEYS) {
-    if (key in map) {
-      delete map[key];
-      migrated = true;
-    }
-  }
-  return migrated;
-}
-
-// ─── SessionMapStore 인터페이스 ──────────────────────────
-
 /** 세션 매핑 저장소 인터페이스 */
 export interface SessionMapStore {
   /** 세션 시작/전환 시 기존 매핑을 복원합니다. */
@@ -58,6 +32,11 @@ export interface SessionMapStore {
   /** 현재 매핑의 읽기 전용 복사본을 반환합니다. */
   getAll(): Readonly<SessionMap>;
 }
+
+// ─── Legacy 키 마이그레이션 ──────────────────────────────
+
+/** cliType 기반 legacy 키 목록 (carrierId 체계 전환 이전에 사용된 키) */
+const LEGACY_CLI_KEYS = new Set(["claude", "codex", "gemini"]);
 
 // ─── 팩토리 ──────────────────────────────────────────────
 
@@ -123,4 +102,23 @@ export function createSessionMapStore(sessionDir: string): SessionMapStore {
       return { ...currentMap };
     },
   };
+}
+
+/**
+ * cliType 기반 legacy 키를 제거합니다.
+ * carrierId 체계 전환 이전에 저장된 세션 맵 파일에 잔존하는
+ * "claude", "codex", "gemini" 등의 키를 정리하여
+ * 동일 cliType을 사용하는 복수 carrier 간 세션 충돌을 방지합니다.
+ *
+ * @returns 마이그레이션이 발생했으면 true
+ */
+function migrateLegacyKeys(map: SessionMap): boolean {
+  let migrated = false;
+  for (const key of LEGACY_CLI_KEYS) {
+    if (key in map) {
+      delete map[key];
+      migrated = true;
+    }
+  }
+  return migrated;
 }

@@ -43,11 +43,6 @@ import {
   type CarrierAssignment,
 } from "./prompts.js";
 
-// ─── 상수 ────────────────────────────────────────────────
-
-/** Carrier당 최대 콘텐츠 라인 수 (tail 방식으로 최근 N줄만 표시) */
-const MAX_CONTENT_LINES = 6;
-
 // ─── 타입 ────────────────────────────────────────────────
 
 /** 개별 Carrier 실행 결과 */
@@ -73,12 +68,6 @@ interface SortieRenderContext {
   lastComponent?: unknown;
 }
 
-// ─── globalThis 진행 상태 (renderCall에서 참조) ────────────
-
-const SORTIE_STATE_KEY = "__pi_carrier_sortie_state__";
-/** 히스토리 복원용 결과 캐시 키 */
-const SORTIE_RESULT_CACHE_KEY = "__pi_carrier_sortie_result_cache__";
-
 /** 개별 Carrier의 진행 상태 */
 interface CarrierProgress {
   status: "queued" | "connecting" | "streaming" | "done" | "error";
@@ -97,6 +86,189 @@ interface SortieState {
   /** 프레임 타이머 */
   timer: ReturnType<typeof setInterval> | null;
 }
+
+// ─── 상수 ────────────────────────────────────────────────
+
+/** Carrier당 최대 콘텐츠 라인 수 (tail 방식으로 최근 N줄만 표시) */
+const MAX_CONTENT_LINES = 6;
+
+/** globalThis 진행 상태 키 (renderCall에서 참조) */
+const SORTIE_STATE_KEY = "__pi_carrier_sortie_state__";
+
+/** 히스토리 복원용 결과 캐시 키 */
+const SORTIE_RESULT_CACHE_KEY = "__pi_carrier_sortie_result_cache__";
+
+// ─── 공개 API ────────────────────────────────────────────
+
+/**
+ * carrier_sortie 도구를 PI에 등록합니다.
+ * index.ts에서 호출됩니다.
+ */
+export function registerFleetSortie(pi: ExtensionAPI): void {
+  const allCarriers = getRegisteredOrder();
+  if (allCarriers.length < 1) return; // Carrier가 없으면 등록 불필요
+
+  // sortie 가용 carrier만 프롬프트/파라미터에 반영
+  const enabledIds = getSortieEnabledIds();
+
+  // 모든 carrier가 비활성이어도 도구 자체는 등록 (execute guard가 거부)
+  const mergedGuidelines = buildSortieToolPromptGuidelines(enabledIds);
+
+  pi.registerTool({
+    name: "carrier_sortie",
+    label: "Carrier Sortie",
+    description: FLEET_SORTIE_DESCRIPTION,
+    promptSnippet: buildSortieToolPromptSnippet(),
+    promptGuidelines: mergedGuidelines,
+    parameters: buildSortieToolSchema(enabledIds),
+
+    // ── renderCall: 스트리밍 콘텐츠 + 최종 결과까지 통합 표시 ──
+    renderCall(args: { carriers?: CarrierAssignment[] }, theme: any, context?: SortieRenderContext) {
+      const entries = args.carriers ?? [];
+      const component = context?.lastComponent instanceof SortieCallComponent
+        ? context.lastComponent
+        : new SortieCallComponent();
+      component.setState(entries, theme, context);
+      return component;
+    },
+
+    // ── renderResult: 빈 컴포넌트 (renderCall이 모든 것을 표시) ──
+    // 히스토리 복원용으로 결과를 globalThis 캐시에 저장
+    renderResult(result: any, _options: { expanded: boolean; isPartial: boolean }, _theme: any) {
+      const details = result.details as SortieResultDetails | undefined;
+      if (details?.results) {
+        setResultCache(details.results);
+      }
+      // 빈 컴포넌트 — renderCall이 모든 상태를 통합 표시
+      return { render() { return []; }, invalidate() {} };
+    },
+
+    // ── execute: N개 Carrier 병렬 실행 ──
+    async execute(
+      _id: string,
+      params: { carriers: CarrierAssignment[] },
+      signal: AbortSignal | undefined,
+      onUpdate: any,
+      ctx: ExtensionContext,
+    ) {
+      const assignments = params.carriers;
+      if (!assignments || assignments.length < 1) {
+        throw new Error("carrier_sortie requires at least 1 carrier assignment.");
+      }
+
+      // Carrier ID 유효성 검증
+      const allIds = new Set(getRegisteredOrder());
+      const enabledIds = new Set(getSortieEnabledIds());
+      for (const a of assignments) {
+        if (!allIds.has(a.carrier)) {
+          // 미등록 carrier — 등록된 전체 목록을 표시하여 LLM이 올바른 ID를 파악하도록 함
+          const registered = [...allIds].join(", ") || "(none)";
+          throw new Error(`Unknown carrier: "${a.carrier}". Registered carriers: ${registered}`);
+        }
+        // sortie 비활성 carrier 가드 — throw 대신 content로 에러 반환하여 LLM이 재시도 가능
+        if (!enabledIds.has(a.carrier)) {
+          const available = [...enabledIds].join(", ") || "(none)";
+          return {
+            content: [{ type: "text" as const, text: `Carrier "${a.carrier}" is currently disabled for sortie. Available carriers: ${available}` }],
+            details: { results: [] },
+          };
+        }
+      }
+
+      // 중복 carrier 검증
+      const seen = new Set<string>();
+      for (const a of assignments) {
+        if (seen.has(a.carrier)) {
+          throw new Error(`Duplicate carrier: "${a.carrier}". Each carrier can only be assigned once.`);
+        }
+        seen.add(a.carrier);
+      }
+
+      // 진행 상태 초기화
+      const state = initSortieState(assignments.map((a) => a.carrier));
+
+      // 진행률 업데이트 타이머 (200ms 간격으로 onUpdate 호출)
+      const updateTimer = setInterval(() => {
+        if (!onUpdate) return;
+        const partial = buildPartialUpdate(state, assignments);
+        onUpdate(partial);
+      }, 200);
+
+      try {
+        // N개 Carrier 병렬 실행
+        const settledResults = await Promise.allSettled(
+          assignments.map(async (a) => {
+            const progress = state.carriers.get(a.carrier)!;
+            progress.status = "connecting";
+
+            const cliType = getRegisteredCarrierConfig(a.carrier)?.cliType ?? a.carrier;
+            const result = await runAgentRequest({
+              cli: cliType as CliType,
+              carrierId: a.carrier,
+              request: a.request,
+              ctx,
+              signal,
+              onMessageChunk: () => {
+                progress.status = "streaming";
+                progress.lineCount++;
+              },
+              onToolCall: () => {
+                progress.status = "streaming";
+                progress.toolCallCount++;
+              },
+            });
+
+            progress.status = result.status === "done" ? "done" : "error";
+            return {
+              carrierId: a.carrier,
+              displayName: resolveCarrierDisplayName(a.carrier),
+              status: result.status,
+              responseText: result.responseText || "(no output)",
+              sessionId: result.sessionId,
+              error: result.error,
+              thinking: result.thinking,
+              toolCalls: result.toolCalls,
+            } as CarrierSortieResult;
+          }),
+        );
+
+        // 결과 수집
+        const results: CarrierSortieResult[] = settledResults.map((settled, i) => {
+          if (settled.status === "fulfilled") return settled.value;
+          // reject된 경우 에러 결과 생성
+          const errorMessage = settled.reason instanceof Error
+            ? settled.reason.message
+            : String(settled.reason);
+          return {
+            carrierId: assignments[i].carrier,
+            displayName: resolveCarrierDisplayName(assignments[i].carrier),
+            status: "error" as const,
+            responseText: `Error: ${errorMessage}`,
+            error: errorMessage,
+          };
+        });
+
+        // 결과 캐시에 저장 (renderCall이 완료 후에도 참조 가능하도록)
+        setResultCache(results);
+
+        // LLM에 전달할 텍스트 요약
+        const contentText = results
+          .map((r) => `[${r.displayName}] (${r.status})\n${r.responseText}`)
+          .join("\n\n---\n\n");
+
+        return {
+          content: [{ type: "text" as const, text: contentText }],
+          details: { results } satisfies SortieResultDetails,
+        };
+      } finally {
+        clearInterval(updateTimer);
+        clearSortieState();
+      }
+    },
+  });
+}
+
+// ─── 내부 헬퍼 ──────────────────────────────────────────
 
 function getSortieState(): SortieState | null {
   return (globalThis as any)[SORTIE_STATE_KEY] ?? null;
@@ -131,8 +303,6 @@ function setResultCache(results: CarrierSortieResult[]): void {
 function getResultCache(): CarrierSortieResult[] | null {
   return (globalThis as any)[SORTIE_RESULT_CACHE_KEY] ?? null;
 }
-
-// ─── 렌더링 헬퍼 ──────────────────────────────────────────
 
 /**
  * carrier_sortie의 renderCall 전용 컴포넌트입니다.
@@ -367,178 +537,6 @@ function renderCarrierContentLines(
     return truncated;
   });
 }
-
-// ─── 공개 API ────────────────────────────────────────────
-
-/**
- * carrier_sortie 도구를 PI에 등록합니다.
- * index.ts에서 호출됩니다.
- */
-export function registerFleetSortie(pi: ExtensionAPI): void {
-  const allCarriers = getRegisteredOrder();
-  if (allCarriers.length < 1) return; // Carrier가 없으면 등록 불필요
-
-  // sortie 가용 carrier만 프롬프트/파라미터에 반영
-  const enabledIds = getSortieEnabledIds();
-
-  // 모든 carrier가 비활성이어도 도구 자체는 등록 (execute guard가 거부)
-  const mergedGuidelines = buildSortieToolPromptGuidelines(enabledIds);
-
-  pi.registerTool({
-    name: "carrier_sortie",
-    label: "Carrier Sortie",
-    description: FLEET_SORTIE_DESCRIPTION,
-    promptSnippet: buildSortieToolPromptSnippet(),
-    promptGuidelines: mergedGuidelines,
-    parameters: buildSortieToolSchema(enabledIds),
-
-    // ── renderCall: 스트리밍 콘텐츠 + 최종 결과까지 통합 표시 ──
-    renderCall(args: { carriers?: CarrierAssignment[] }, theme: any, context?: SortieRenderContext) {
-      const entries = args.carriers ?? [];
-      const component = context?.lastComponent instanceof SortieCallComponent
-        ? context.lastComponent
-        : new SortieCallComponent();
-      component.setState(entries, theme, context);
-      return component;
-    },
-
-    // ── renderResult: 빈 컴포넌트 (renderCall이 모든 것을 표시) ──
-    // 히스토리 복원용으로 결과를 globalThis 캐시에 저장
-    renderResult(result: any, _options: { expanded: boolean; isPartial: boolean }, _theme: any) {
-      const details = result.details as SortieResultDetails | undefined;
-      if (details?.results) {
-        setResultCache(details.results);
-      }
-      // 빈 컴포넌트 — renderCall이 모든 상태를 통합 표시
-      return { render() { return []; }, invalidate() {} };
-    },
-
-    // ── execute: N개 Carrier 병렬 실행 ──
-    async execute(
-      _id: string,
-      params: { carriers: CarrierAssignment[] },
-      signal: AbortSignal | undefined,
-      onUpdate: any,
-      ctx: ExtensionContext,
-    ) {
-      const assignments = params.carriers;
-      if (!assignments || assignments.length < 1) {
-        throw new Error("carrier_sortie requires at least 1 carrier assignment.");
-      }
-
-      // Carrier ID 유효성 검증
-      const allIds = new Set(getRegisteredOrder());
-      const enabledIds = new Set(getSortieEnabledIds());
-      for (const a of assignments) {
-        if (!allIds.has(a.carrier)) {
-          // 미등록 carrier — 등록된 전체 목록을 표시하여 LLM이 올바른 ID를 파악하도록 함
-          const registered = [...allIds].join(", ") || "(none)";
-          throw new Error(`Unknown carrier: "${a.carrier}". Registered carriers: ${registered}`);
-        }
-        // sortie 비활성 carrier 가드 — throw 대신 content로 에러 반환하여 LLM이 재시도 가능
-        if (!enabledIds.has(a.carrier)) {
-          const available = [...enabledIds].join(", ") || "(none)";
-          return {
-            content: [{ type: "text" as const, text: `Carrier "${a.carrier}" is currently disabled for sortie. Available carriers: ${available}` }],
-            details: { results: [] },
-          };
-        }
-      }
-
-      // 중복 carrier 검증
-      const seen = new Set<string>();
-      for (const a of assignments) {
-        if (seen.has(a.carrier)) {
-          throw new Error(`Duplicate carrier: "${a.carrier}". Each carrier can only be assigned once.`);
-        }
-        seen.add(a.carrier);
-      }
-
-      // 진행 상태 초기화
-      const state = initSortieState(assignments.map((a) => a.carrier));
-
-      // 진행률 업데이트 타이머 (200ms 간격으로 onUpdate 호출)
-      const updateTimer = setInterval(() => {
-        if (!onUpdate) return;
-        const partial = buildPartialUpdate(state, assignments);
-        onUpdate(partial);
-      }, 200);
-
-      try {
-        // N개 Carrier 병렬 실행
-        const settledResults = await Promise.allSettled(
-          assignments.map(async (a) => {
-            const progress = state.carriers.get(a.carrier)!;
-            progress.status = "connecting";
-
-            const cliType = getRegisteredCarrierConfig(a.carrier)?.cliType ?? a.carrier;
-            const result = await runAgentRequest({
-              cli: cliType as CliType,
-              carrierId: a.carrier,
-              request: a.request,
-              ctx,
-              signal,
-              onMessageChunk: () => {
-                progress.status = "streaming";
-                progress.lineCount++;
-              },
-              onToolCall: () => {
-                progress.status = "streaming";
-                progress.toolCallCount++;
-              },
-            });
-
-            progress.status = result.status === "done" ? "done" : "error";
-            return {
-              carrierId: a.carrier,
-              displayName: resolveCarrierDisplayName(a.carrier),
-              status: result.status,
-              responseText: result.responseText || "(no output)",
-              sessionId: result.sessionId,
-              error: result.error,
-              thinking: result.thinking,
-              toolCalls: result.toolCalls,
-            } as CarrierSortieResult;
-          }),
-        );
-
-        // 결과 수집
-        const results: CarrierSortieResult[] = settledResults.map((settled, i) => {
-          if (settled.status === "fulfilled") return settled.value;
-          // reject된 경우 에러 결과 생성
-          const errorMessage = settled.reason instanceof Error
-            ? settled.reason.message
-            : String(settled.reason);
-          return {
-            carrierId: assignments[i].carrier,
-            displayName: resolveCarrierDisplayName(assignments[i].carrier),
-            status: "error" as const,
-            responseText: `Error: ${errorMessage}`,
-            error: errorMessage,
-          };
-        });
-
-        // 결과 캐시에 저장 (renderCall이 완료 후에도 참조 가능하도록)
-        setResultCache(results);
-
-        // LLM에 전달할 텍스트 요약
-        const contentText = results
-          .map((r) => `[${r.displayName}] (${r.status})\n${r.responseText}`)
-          .join("\n\n---\n\n");
-
-        return {
-          content: [{ type: "text" as const, text: contentText }],
-          details: { results } satisfies SortieResultDetails,
-        };
-      } finally {
-        clearInterval(updateTimer);
-        clearSortieState();
-      }
-    },
-  });
-}
-
-// ─── 내부 헬퍼 ──────────────────────────────────────────
 
 /** onUpdate용 partial result 생성 */
 function buildPartialUpdate(

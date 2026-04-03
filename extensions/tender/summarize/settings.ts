@@ -7,8 +7,6 @@
 import type { InfraSettingsAPI } from "../../dock/settings/types.js";
 import { INFRA_SETTINGS_KEY } from "../../dock/settings/types.js";
 
-const SECTION_KEY = "utils-summarize";
-
 export interface AutoSummarizeSettings {
   /** 모델 프로바이더 (미설정 시 세션 모델 사용) */
   provider?: string;
@@ -18,11 +16,7 @@ export interface AutoSummarizeSettings {
   maxLength?: number;
 }
 
-function getAPI(): InfraSettingsAPI {
-  const api = (globalThis as any)[INFRA_SETTINGS_KEY];
-  if (!api) throw new Error("infra-settings API not available");
-  return api;
-}
+const SECTION_KEY = "utils-summarize";
 
 /** 설정 로드 (extensions/settings.json → "as") */
 export function loadSettings(): AutoSummarizeSettings {
@@ -36,4 +30,10 @@ export function loadSettings(): AutoSummarizeSettings {
 /** 설정 저장 (extensions/settings.json → "as") */
 export function saveSettings(settings: AutoSummarizeSettings): void {
   getAPI().save(SECTION_KEY, settings);
+}
+
+function getAPI(): InfraSettingsAPI {
+  const api = (globalThis as any)[INFRA_SETTINGS_KEY];
+  if (!api) throw new Error("infra-settings API not available");
+  return api;
 }

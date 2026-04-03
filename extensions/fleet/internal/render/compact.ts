@@ -1,9 +1,9 @@
-const COMPACT_MAX_LINES = 8;
-const COMPACT_OVERFLOW_PREFIX = "··· ";
-
 interface CompactOverflowTheme {
   fg(token: string, text: string): string;
 }
+
+const COMPACT_MAX_LINES = 8;
+const COMPACT_OVERFLOW_PREFIX = "··· ";
 
 export function clampCompletedCompactLines(
   lines: readonly string[],

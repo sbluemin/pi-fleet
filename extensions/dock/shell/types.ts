@@ -29,12 +29,6 @@ export interface ShellPopupBridge {
   isOpen(): boolean;
 }
 
-/** globalThis 브릿지 키 */
-export const SHELL_POPUP_BRIDGE_KEY = "__utils_interactive_shell__";
-
-export const HEADER_LINES = 4;
-export const FOOTER_LINES = 2;
-
 export type PopupState = "interactive" | "exited";
 
 /** 내부 컨트롤러 인터페이스 */
@@ -43,3 +37,9 @@ export interface ShellPopupController {
   open(opts: ShellPopupOptions): Promise<ShellPopupResult | void>;
   isOpen(): boolean;
 }
+
+/** globalThis 브릿지 키 */
+export const SHELL_POPUP_BRIDGE_KEY = "__utils_interactive_shell__";
+
+export const HEADER_LINES = 4;
+export const FOOTER_LINES = 2;

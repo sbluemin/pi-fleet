@@ -80,14 +80,6 @@ export function stopAgentStreaming(ctx: ExtensionContext): void {
 
 // ─── UI 토글 ─────────────────────────────────────────────
 
-/** 등록된 토글 리스너에 expanded 상태를 전파합니다. */
-function notifyToggle(expanded: boolean): void {
-  const s = getState();
-  for (const cb of s.toggleCallbacks) {
-    try { cb(expanded); } catch { /* 리스너 에러 무시 */ }
-  }
-}
-
 /** 패널을 펼칩니다. */
 export function showAgentPanel(ctx: ExtensionContext): void {
   const s = getState();
@@ -140,6 +132,49 @@ export function getModeBannerLines(width: number): string[] {
 /** 패널이 펼쳐져 있는지 반환합니다. */
 export function isAgentPanelExpanded(): boolean {
   return getState().expanded;
+}
+
+// ─── 칼럼 업데이트 ───────────────────────────────────────
+
+/**
+ * 특정 칼럼의 데이터를 업데이트합니다.
+ * 렌더링은 animTimer의 다음 tick에서 자동 반영됩니다.
+ */
+export function updateAgentCol(index: number, update: Partial<AgentCol>): void {
+  const s = getState();
+  if (index >= 0 && index < s.cols.length) {
+    Object.assign(s.cols[index], update);
+    scheduleSyncFooter(s.lastCtx);
+  }
+}
+
+/** 현재 칼럼 배열을 반환합니다 (참조 — 직접 수정 주의). */
+export function getAgentPanelCols(): AgentCol[] {
+  return getState().cols;
+}
+
+/** 칼럼을 초기화하고 스트리밍을 중단합니다. */
+export function resetAgentPanel(ctx: ExtensionContext): void {
+  const s = getState();
+  s.cols = makeCols();
+  s.streaming = false;
+
+  if (s.animTimer) {
+    clearInterval(s.animTimer);
+    s.animTimer = null;
+  }
+
+  syncWidget(ctx);
+}
+
+// ─── Footer 갱신 ─────────────────────────────────────────
+
+/** footer 상태를 현재 패널 상태 기준으로 즉시 동기화합니다. */
+export function refreshAgentPanelFooter(ctx: ExtensionContext): void {
+  const s = getState();
+  s.lastCtx = ctx;
+  syncColSessionIds();
+  syncWidget(ctx);
 }
 
 // ─── 개별 칼럼 스트리밍 (Carrier용) ─────────────────────
@@ -201,45 +236,12 @@ export function endColStreaming(ctx: ExtensionContext, colIndex: number): void {
   syncWidget(ctx);
 }
 
-// ─── 칼럼 업데이트 ───────────────────────────────────────
+// ─── UI 토글 헬퍼 ────────────────────────────────────────
 
-/**
- * 특정 칼럼의 데이터를 업데이트합니다.
- * 렌더링은 animTimer의 다음 tick에서 자동 반영됩니다.
- */
-export function updateAgentCol(index: number, update: Partial<AgentCol>): void {
+/** 등록된 토글 리스너에 expanded 상태를 전파합니다. */
+function notifyToggle(expanded: boolean): void {
   const s = getState();
-  if (index >= 0 && index < s.cols.length) {
-    Object.assign(s.cols[index], update);
-    scheduleSyncFooter(s.lastCtx);
+  for (const cb of s.toggleCallbacks) {
+    try { cb(expanded); } catch { /* 리스너 에러 무시 */ }
   }
-}
-
-/** 현재 칼럼 배열을 반환합니다 (참조 — 직접 수정 주의). */
-export function getAgentPanelCols(): AgentCol[] {
-  return getState().cols;
-}
-
-/** 칼럼을 초기화하고 스트리밍을 중단합니다. */
-export function resetAgentPanel(ctx: ExtensionContext): void {
-  const s = getState();
-  s.cols = makeCols();
-  s.streaming = false;
-
-  if (s.animTimer) {
-    clearInterval(s.animTimer);
-    s.animTimer = null;
-  }
-
-  syncWidget(ctx);
-}
-
-// ─── Footer 갱신 ─────────────────────────────────────────
-
-/** footer 상태를 현재 패널 상태 기준으로 즉시 동기화합니다. */
-export function refreshAgentPanelFooter(ctx: ExtensionContext): void {
-  const s = getState();
-  s.lastCtx = ctx;
-  syncColSessionIds();
-  syncWidget(ctx);
 }

@@ -4,27 +4,18 @@
  * (shebang은 tsup banner로 자동 추가)
  */
 
+import { parseArgs } from 'node:util';
+import picocolors from 'picocolors';
+
+import { CliRenderer } from './cli-renderer.js';
+import { UnifiedAgentClient } from './client/UnifiedAgentClient.js';
+import { getModelsRegistry, getProviderModels } from './models/ModelRegistry.js';
+import type { CliType } from './types/config.js';
+
 // Claude Code 내부에서 실행될 때 환경변수 충돌 방지
 // (cli.ts 프로세스 자체가 Claude Code 세션 안에서 spawn되므로 즉시 제거)
 delete process.env.CLAUDECODE;
 delete process.env.CLAUDE_CODE_ENTRYPOINT;
-
-import { parseArgs } from 'node:util';
-import { UnifiedAgentClient } from './client/UnifiedAgentClient.js';
-import type { CliType } from './types/config.js';
-import { getModelsRegistry, getProviderModels } from './models/ModelRegistry.js';
-
-import picocolors from 'picocolors';
-import { CliRenderer } from './cli-renderer.js';
-
-// stdout에 데이터를 쓰고 flush가 완료된 후 resolve하는 헬퍼
-// process.stdout.write()는 파이프 환경(non-TTY)에서 비동기이므로,
-// process.exit() 전에 write 콜백을 기다려야 데이터 유실을 방지할 수 있음
-function stdoutWrite(data: string): Promise<void> {
-  return new Promise<void>((resolve) => {
-    process.stdout.write(data, () => resolve());
-  });
-}
 
 // ─── ANSI 색상 (TTY일 때만 활성화) ─────────────────────────
 
@@ -316,4 +307,13 @@ try {
 } finally {
   await client.disconnect();
   process.exit(process.exitCode ?? 0);
+}
+
+// stdout에 데이터를 쓰고 flush가 완료된 후 resolve하는 헬퍼
+// process.stdout.write()는 파이프 환경(non-TTY)에서 비동기이므로,
+// process.exit() 전에 write 콜백을 기다려야 데이터 유실을 방지할 수 있음
+function stdoutWrite(data: string): Promise<void> {
+  return new Promise<void>((resolve) => {
+    process.stdout.write(data, () => resolve());
+  });
 }

@@ -8,8 +8,6 @@
  */
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
-/** footer 상태 전용 status key */
-const UA_DIRECT_FOOTER_STATUS_KEY = "ua-direct-footer";
 import {
   PANEL_COLOR,
   MIN_BODY_H,
@@ -22,6 +20,9 @@ import {
 } from "../render/panel-renderer";
 import { renderFooterStatus } from "../../shipyard/carrier/footer-renderer.js";
 import { getState, makeFooterCols, WIDGET_KEY } from "./state.js";
+
+/** footer 상태 전용 status key */
+const UA_DIRECT_FOOTER_STATUS_KEY = "ua-direct-footer";
 
 // ─── footer 동기화 ───────────────────────────────────────
 

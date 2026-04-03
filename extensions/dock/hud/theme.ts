@@ -1,6 +1,6 @@
 /**
  * Theme system for hud
- * 
+ *
  * Colors are resolved in order:
  * 1. User overrides from theme.json (if exists)
  * 2. Preset colors
@@ -53,49 +53,14 @@ const GEEK_COLORS: Required<ColorScheme> = {
 
 // Rainbow colors for high thinking levels
 const RAINBOW_COLORS = [
-  "#b281d6", "#d787af", "#febc38", "#e4c00f", 
+  "#b281d6", "#d787af", "#febc38", "#e4c00f",
   "#89d281", "#00afaf", "#178fb9", "#b281d6",
 ];
+const CACHE_TTL = 5000;
 
 // Cache for user theme overrides
 let userThemeCache: ColorScheme | null = null;
-let userThemeCacheTime = 0;
-const CACHE_TTL = 5000; // 5 seconds
-
-/**
- * Get the path to the hud theme override file
- */
-function getThemePath(): string {
-  const homeDir = process.env.HOME || process.env.USERPROFILE || "";
-  return join(homeDir, ".pi", "agent", "hud-theme.json");
-}
-
-/**
- * Load user theme overrides from theme.json
- */
-function loadUserTheme(): ColorScheme {
-  const now = Date.now();
-  if (userThemeCache && now - userThemeCacheTime < CACHE_TTL) {
-    return userThemeCache;
-  }
-
-  const themePath = getThemePath();
-  try {
-    if (existsSync(themePath)) {
-      const content = readFileSync(themePath, "utf-8");
-      const parsed = JSON.parse(content);
-      userThemeCache = parsed.colors ?? {};
-      userThemeCacheTime = now;
-      return userThemeCache;
-    }
-  } catch {
-    // Ignore errors, use defaults
-  }
-
-  userThemeCache = {};
-  userThemeCacheTime = now;
-  return userThemeCache;
-}
+let userThemeCacheTime = 0; // 5 seconds
 
 /**
  * Resolve a semantic color to an actual color value
@@ -105,29 +70,11 @@ export function resolveColor(
   presetColors?: ColorScheme
 ): ColorValue {
   const userTheme = loadUserTheme();
-  
+
   // Priority: user overrides > preset colors > defaults
-  return userTheme[semantic] 
-    ?? presetColors?.[semantic] 
+  return userTheme[semantic]
+    ?? presetColors?.[semantic]
     ?? DEFAULT_COLORS[semantic];
-}
-
-/**
- * Check if a color value is a hex color
- */
-function isHexColor(color: ColorValue): color is `#${string}` {
-  return typeof color === "string" && color.startsWith("#");
-}
-
-/**
- * Convert hex color to ANSI escape code
- */
-function hexToAnsi(hex: string): string {
-  const h = hex.replace("#", "");
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-  return `\x1b[38;2;${r};${g};${b}m`;
 }
 
 /**
@@ -186,4 +133,57 @@ export function getDefaultColors(): Required<ColorScheme> {
  */
 export function getGeekColors(): Required<ColorScheme> {
   return { ...GEEK_COLORS };
+}
+
+/**
+ * Get the path to the hud theme override file
+ */
+function getThemePath(): string {
+  const homeDir = process.env.HOME || process.env.USERPROFILE || "";
+  return join(homeDir, ".pi", "agent", "hud-theme.json");
+}
+
+/**
+ * Load user theme overrides from theme.json
+ */
+function loadUserTheme(): ColorScheme {
+  const now = Date.now();
+  if (userThemeCache && now - userThemeCacheTime < CACHE_TTL) {
+    return userThemeCache;
+  }
+
+  const themePath = getThemePath();
+  try {
+    if (existsSync(themePath)) {
+      const content = readFileSync(themePath, "utf-8");
+      const parsed = JSON.parse(content);
+      userThemeCache = parsed.colors ?? {};
+      userThemeCacheTime = now;
+      return userThemeCache;
+    }
+  } catch {
+    // Ignore errors, use defaults
+  }
+
+  userThemeCache = {};
+  userThemeCacheTime = now;
+  return userThemeCache;
+}
+
+/**
+ * Check if a color value is a hex color
+ */
+function isHexColor(color: ColorValue): color is `#${string}` {
+  return typeof color === "string" && color.startsWith("#");
+}
+
+/**
+ * Convert hex color to ANSI escape code
+ */
+function hexToAnsi(hex: string): string {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `\x1b[38;2;${r};${g};${b}m`;
 }

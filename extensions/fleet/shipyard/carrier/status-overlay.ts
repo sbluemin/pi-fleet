@@ -57,31 +57,6 @@ export interface CarrierStatusGroup {
   entries: CarrierStatusEntry[];
 }
 
-const ANSI_RESET = "\x1b[0m";
-/** sortie 비활성 캐리어용 dim 색상 */
-const ANSI_DIM = "\x1b[38;2;100;100;100m";
-/** 라벨 컬럼 너비 */
-const SLOT_WIDTH = 4;
-const NAME_WIDTH = 12;
-
-/** 서비스 상태 약색 텍스트 */
-const STATUS_TEXT: Record<HealthStatus, string> = {
-  operational: "OP",
-  partial_outage: "DEG",
-  major_outage: "OUT",
-  maintenance: "MNT",
-  unknown: "UNK",
-};
-
-/** 서비스 상태 ANSI 색상 */
-const STATUS_COLORS: Record<HealthStatus, string> = {
-  operational: "\x1b[38;2;80;200;120m",
-  partial_outage: "\x1b[38;2;220;180;50m",
-  major_outage: "\x1b[38;2;220;80;80m",
-  maintenance: "\x1b[38;2;200;170;60m",
-  unknown: "\x1b[38;2;120;120;120m",
-};
-
 /** 서비스 스냅샷 공급 함수 타입 */
 export type ServiceSnapshotGetter = () => ServiceSnapshot[];
 
@@ -108,6 +83,31 @@ interface FlatCarrierEntry {
   group: CarrierStatusGroup;
   entry: CarrierStatusEntry;
 }
+
+const ANSI_RESET = "\x1b[0m";
+/** sortie 비활성 캐리어용 dim 색상 */
+const ANSI_DIM = "\x1b[38;2;100;100;100m";
+/** 라벨 컬럼 너비 */
+const SLOT_WIDTH = 4;
+const NAME_WIDTH = 12;
+
+/** 서비스 상태 약색 텍스트 */
+const STATUS_TEXT: Record<HealthStatus, string> = {
+  operational: "OP",
+  partial_outage: "DEG",
+  major_outage: "OUT",
+  maintenance: "MNT",
+  unknown: "UNK",
+};
+
+/** 서비스 상태 ANSI 색상 */
+const STATUS_COLORS: Record<HealthStatus, string> = {
+  operational: "\x1b[38;2;80;200;120m",
+  partial_outage: "\x1b[38;2;220;180;50m",
+  major_outage: "\x1b[38;2;220;80;80m",
+  maintenance: "\x1b[38;2;200;170;60m",
+  unknown: "\x1b[38;2;120;120;120m",
+};
 
 export class CarrierStatusOverlay implements Component, Focusable {
   focused = false;

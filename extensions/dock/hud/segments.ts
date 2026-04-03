@@ -1,63 +1,12 @@
 import { hostname as osHostname } from "node:os";
 import { basename } from "node:path";
 import type { RenderedSegment, SegmentContext, SemanticColor, StatusLineSegment, StatusLineSegmentId } from "./types.js";
+import { fg, rainbow, applyColor } from "./theme.js";
+import { getIcons, SEP_DOT, getThinkingText } from "./icons.js";
 // footer 전용 status key (패키지 경계 독립 — 문자열 계약)
 const UA_DIRECT_FOOTER_STATUS_KEY = "ua-direct-footer";
 const MP_FOOTER_STATUS_KEY = "mp-footer";
 const AS_FOOTER_STATUS_KEY = "as-footer";
-import { fg, rainbow, applyColor } from "./theme.js";
-import { getIcons, SEP_DOT, getThinkingText } from "./icons.js";
-
-// Helper to apply semantic color from context
-function color(ctx: SegmentContext, semantic: SemanticColor, text: string): string {
-  return fg(ctx.theme, semantic, text, ctx.colors);
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Helpers
-// ═══════════════════════════════════════════════════════════════════════════
-
-function withIcon(icon: string, text: string): string {
-  return icon ? `${icon} ${text}` : text;
-}
-
-function formatTokens(n: number): string {
-  if (n < 1000) return n.toString();
-  if (n < 10000) return `${(n / 1000).toFixed(1)}k`;
-  if (n < 1000000) return `${Math.round(n / 1000)}k`;
-  if (n < 10000000) return `${(n / 1000000).toFixed(1)}M`;
-  return `${Math.round(n / 1000000)}M`;
-}
-
-function formatDuration(ms: number): string {
-  const seconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-
-  if (hours > 0) return `${hours}h${minutes % 60}m`;
-  if (minutes > 0) return `${minutes}m${seconds % 60}s`;
-  return `${seconds}s`;
-}
-
-/**
- * 5칸 블록 막대 — 컨텍스트 사용량 시각화
- * 예: ████░ (80%), ██░░░ (40%), ░░░░░ (0%)
- */
-function contextBar(pct: number, width = 5): string {
-  const filled = Math.min(Math.round((pct / 100) * width), width);
-  return "█".repeat(filled) + "░".repeat(width - filled);
-}
-
-/**
- * Geek 스타일 비용 포맷 — 과학적 단위 시스템
- * μ$ (마이크로달러) / m$ (밀리달러) / $ 로 계층화
- */
-function formatCostGeek(cost: number): string {
-  if (cost <= 0) return "";
-  if (cost < 0.001) return `${(cost * 1_000_000).toFixed(0)}μ$`;
-  if (cost < 0.1)   return `${(cost * 1_000).toFixed(1)}m$`;
-  return `$${cost.toFixed(2)}`;
-}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Segment Implementations
@@ -161,8 +110,8 @@ const gitSegment: StatusLineSegment = {
     const icons = getIcons();
     const opts = ctx.options.git ?? {};
     const { branch, staged, unstaged, untracked } = ctx.git;
-    const gitStatus = (staged > 0 || unstaged > 0 || untracked > 0) 
-      ? { staged, unstaged, untracked } 
+    const gitStatus = (staged > 0 || unstaged > 0 || untracked > 0)
+      ? { staged, unstaged, untracked }
       : null;
 
     if (!branch && !gitStatus) return { content: "", visible: false };
@@ -494,4 +443,55 @@ export function renderSegment(id: StatusLineSegmentId, ctx: SegmentContext): Ren
     return { content: "", visible: false };
   }
   return segment.render(ctx);
+}
+
+// Helper to apply semantic color from context
+function color(ctx: SegmentContext, semantic: SemanticColor, text: string): string {
+  return fg(ctx.theme, semantic, text, ctx.colors);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Helpers
+// ═══════════════════════════════════════════════════════════════════════════
+
+function withIcon(icon: string, text: string): string {
+  return icon ? `${icon} ${text}` : text;
+}
+
+function formatTokens(n: number): string {
+  if (n < 1000) return n.toString();
+  if (n < 10000) return `${(n / 1000).toFixed(1)}k`;
+  if (n < 1000000) return `${Math.round(n / 1000)}k`;
+  if (n < 10000000) return `${(n / 1000000).toFixed(1)}M`;
+  return `${Math.round(n / 1000000)}M`;
+}
+
+function formatDuration(ms: number): string {
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+
+  if (hours > 0) return `${hours}h${minutes % 60}m`;
+  if (minutes > 0) return `${minutes}m${seconds % 60}s`;
+  return `${seconds}s`;
+}
+
+/**
+ * 5칸 블록 막대 — 컨텍스트 사용량 시각화
+ * 예: ████░ (80%), ██░░░ (40%), ░░░░░ (0%)
+ */
+function contextBar(pct: number, width = 5): string {
+  const filled = Math.min(Math.round((pct / 100) * width), width);
+  return "█".repeat(filled) + "░".repeat(width - filled);
+}
+
+/**
+ * Geek 스타일 비용 포맷 — 과학적 단위 시스템
+ * μ$ (마이크로달러) / m$ (밀리달러) / $ 로 계층화
+ */
+function formatCostGeek(cost: number): string {
+  if (cost <= 0) return "";
+  if (cost < 0.001) return `${(cost * 1_000_000).toFixed(0)}μ$`;
+  if (cost < 0.1)   return `${(cost * 1_000).toFixed(1)}m$`;
+  return `$${cost.toFixed(2)}`;
 }

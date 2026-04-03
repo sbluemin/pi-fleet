@@ -26,69 +26,6 @@ export class CliDetector {
   private cache: Map<CliType, CliDetectionResult> = new Map();
 
   /**
-   * 특정 CLI의 사용 가능 여부를 확인합니다.
-   *
-   * @param command - CLI 커맨드 이름
-   * @returns 사용 가능 여부
-   */
-  private async isCliAvailable(command: string): Promise<boolean> {
-    const whichCommand = isWindows() ? 'where' : 'which';
-
-    try {
-      await this.execCommand(whichCommand, [command], 3000);
-      return true;
-    } catch {
-      if (isWindows()) {
-        // Windows: PowerShell Get-Command 폴백
-        try {
-          await this.execCommand(
-            'powershell',
-            ['-NoProfile', '-Command', `Get-Command -All ${command}`],
-            5000,
-          );
-          return true;
-        } catch {
-          return false;
-        }
-      }
-      return false;
-    }
-  }
-
-  /**
-   * CLI의 버전을 감지합니다.
-   *
-   * @param command - CLI 커맨드 이름
-   * @returns 버전 문자열 또는 undefined
-   */
-  private async detectVersion(command: string): Promise<string | undefined> {
-    try {
-      const output = await this.execCommand(command, ['--version'], 5000);
-      const match = output.match(/(\d+\.\d+\.\d+)/);
-      return match ? match[1] : output;
-    } catch {
-      return undefined;
-    }
-  }
-
-  /**
-   * CLI 커맨드의 전체 경로를 가져옵니다.
-   *
-   * @param command - CLI 커맨드 이름
-   * @returns 전체 경로 또는 커맨드 이름
-   */
-  private async getCliPath(command: string): Promise<string> {
-    const whichCommand = isWindows() ? 'where' : 'which';
-
-    try {
-      const result = await this.execCommand(whichCommand, [command], 3000);
-      return result.split(/\r?\n/)[0].trim();
-    } catch {
-      return command;
-    }
-  }
-
-  /**
    * 모든 CLI를 감지합니다.
    *
    * @param forceRefresh - 캐시 무시 여부
@@ -191,6 +128,69 @@ export class CliDetector {
    */
   clearCache(): void {
     this.cache.clear();
+  }
+
+  /**
+   * 특정 CLI의 사용 가능 여부를 확인합니다.
+   *
+   * @param command - CLI 커맨드 이름
+   * @returns 사용 가능 여부
+   */
+  private async isCliAvailable(command: string): Promise<boolean> {
+    const whichCommand = isWindows() ? 'where' : 'which';
+
+    try {
+      await this.execCommand(whichCommand, [command], 3000);
+      return true;
+    } catch {
+      if (isWindows()) {
+        // Windows: PowerShell Get-Command 폴백
+        try {
+          await this.execCommand(
+            'powershell',
+            ['-NoProfile', '-Command', `Get-Command -All ${command}`],
+            5000,
+          );
+          return true;
+        } catch {
+          return false;
+        }
+      }
+      return false;
+    }
+  }
+
+  /**
+   * CLI의 버전을 감지합니다.
+   *
+   * @param command - CLI 커맨드 이름
+   * @returns 버전 문자열 또는 undefined
+   */
+  private async detectVersion(command: string): Promise<string | undefined> {
+    try {
+      const output = await this.execCommand(command, ['--version'], 5000);
+      const match = output.match(/(\d+\.\d+\.\d+)/);
+      return match ? match[1] : output;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * CLI 커맨드의 전체 경로를 가져옵니다.
+   *
+   * @param command - CLI 커맨드 이름
+   * @returns 전체 경로 또는 커맨드 이름
+   */
+  private async getCliPath(command: string): Promise<string> {
+    const whichCommand = isWindows() ? 'where' : 'which';
+
+    try {
+      const result = await this.execCommand(whichCommand, [command], 3000);
+      return result.split(/\r?\n/)[0].trim();
+    } catch {
+      return command;
+    }
   }
 
   /**

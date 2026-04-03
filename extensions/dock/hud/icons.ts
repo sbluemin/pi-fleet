@@ -19,6 +19,21 @@ export interface IconSet {
 }
 
 // Separator characters
+export interface SeparatorChars {
+  arrowLeft: string;
+  arrowRight: string;
+  arrowThinLeft: string;
+  arrowThinRight: string;
+  slash: string;
+  pipe: string;
+  block: string;
+  space: string;
+  asciiLeft: string;
+  asciiRight: string;
+  dot: string;
+}
+
+// Separator characters
 export const SEP_DOT = " · ";
 
 // Thinking level display text (Unicode/ASCII) - model segment inline용
@@ -39,14 +54,6 @@ export const THINKING_TEXT_NERD: Record<string, string> = {
   xhigh: "\u{F06D} xhi",     // fire
 };
 
-// Get thinking text based on font support
-export function getThinkingText(level: string): string | undefined {
-  if (hasNerdFonts()) {
-    return THINKING_TEXT_NERD[level];
-  }
-  return THINKING_TEXT_UNICODE[level];
-}
-
 // Geek 스타일 thinking sparkline 막대 (독립 thinking 세그먼트용)
 // 연산 부하 시각화: 낮을수록 가늘고, 높을수록 굵고 많음
 export const THINKING_SPARKLINES: Record<string, string> = {
@@ -57,10 +64,6 @@ export const THINKING_SPARKLINES: Record<string, string> = {
   high: "▆▆▆▆",
   xhigh: "▇▇▇▇▇",
 };
-
-export function getThinkingSparkline(level: string): string {
-  return THINKING_SPARKLINES[level] ?? level;
-}
 
 // Nerd Font icons (matching oh-my-pi exactly)
 export const NERD_ICONS: IconSet = {
@@ -104,26 +107,11 @@ export const ASCII_ICONS: IconSet = {
   warning: "⚠",
 };
 
-// Separator characters
-export interface SeparatorChars {
-  arrowLeft: string;
-  arrowRight: string;
-  arrowThinLeft: string;
-  arrowThinRight: string;
-  slash: string;
-  pipe: string;
-  block: string;
-  space: string;
-  asciiLeft: string;
-  asciiRight: string;
-  dot: string;
-}
-
 export const NERD_SEPARATORS: SeparatorChars = {
-  arrowLeft: "\uE0B0",    // 
-  arrowRight: "\uE0B2",   // 
-  arrowThinLeft: "\uE0B1", // 
-  arrowThinRight: "\uE0B3", // 
+  arrowLeft: "\uE0B0",    //
+  arrowRight: "\uE0B2",   //
+  arrowThinLeft: "\uE0B1", //
+  arrowThinRight: "\uE0B3", //
   slash: "/",
   pipe: "|",
   block: "█",
@@ -147,15 +135,27 @@ export const ASCII_SEPARATORS: SeparatorChars = {
   dot: ".",
 };
 
+// Get thinking text based on font support
+export function getThinkingText(level: string): string | undefined {
+  if (hasNerdFonts()) {
+    return THINKING_TEXT_NERD[level];
+  }
+  return THINKING_TEXT_UNICODE[level];
+}
+
+export function getThinkingSparkline(level: string): string {
+  return THINKING_SPARKLINES[level] ?? level;
+}
+
 // Detect Nerd Font support (check TERM or specific env var)
 export function hasNerdFonts(): boolean {
   // User can set this env var to force Nerd Fonts
   if (process.env.HUD_CORE_NERD_FONTS === "1") return true;
   if (process.env.HUD_CORE_NERD_FONTS === "0") return false;
-  
+
   // Check for Ghostty (survives into tmux via GHOSTTY_RESOURCES_DIR)
   if (process.env.GHOSTTY_RESOURCES_DIR) return true;
-  
+
   // Check common terminals known to support Nerd Fonts (case-insensitive)
   const term = (process.env.TERM_PROGRAM || "").toLowerCase();
   const nerdTerms = ["iterm", "wezterm", "kitty", "ghostty", "alacritty"];

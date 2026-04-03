@@ -165,13 +165,6 @@ export interface SegmentStateProvider {
   sessionStartTime: number;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// 에디터 모드 프로바이더 (외부 확장이 주입하는 확장 포인트)
-// ═══════════════════════════════════════════════════════════════════════════
-
-/** globalThis 키 — EditorModeProvider 슬롯 */
-export const EDITOR_MODE_PROVIDER_KEY = "__pi_infra_hud_mode_provider__";
-
 /**
  * 에디터 렌더링에 필요한 모드 정보를 제공하는 인터페이스.
  *
@@ -189,3 +182,10 @@ export interface EditorModeProvider {
   /** 상태 변경 콜백 등록 */
   onStatusUpdate(callback: () => void): void;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 에디터 모드 프로바이더 (외부 확장이 주입하는 확장 포인트)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** globalThis 키 — EditorModeProvider 슬롯 */
+export const EDITOR_MODE_PROVIDER_KEY = "__pi_infra_hud_mode_provider__";

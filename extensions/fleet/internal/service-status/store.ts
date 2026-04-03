@@ -15,10 +15,6 @@ import { promisify } from "node:util";
 import { setAgentPanelServiceLoading, setAgentPanelServiceStatus } from "../panel/config.js";
 import type { HealthStatus, ProviderKey, ServiceSnapshot } from "../contracts.js";
 
-const execFileAsync = promisify(execFile);
-
-// ─── 내부 타입 ──────────────────────────────────────────
-
 interface StatusStore {
   ctx: ExtensionContext | null;
   timer: ReturnType<typeof setInterval> | null;
@@ -30,7 +26,22 @@ interface StatusStore {
   providerLastChecked: Record<ProviderKey, number>;
 }
 
-// ─── 상수 ───────────────────────────────────────────────
+interface ComponentResponse {
+  components?: Array<{
+    name?: string;
+    status?: string;
+    updated_at?: string;
+  }>;
+}
+
+interface ProviderFetchConfig {
+  key: ProviderKey;
+  intervalMs: number;
+  fetcher: () => Promise<ServiceSnapshot>;
+  fallback: (error: unknown) => ServiceSnapshot;
+}
+
+const execFileAsync = promisify(execFile);
 
 // Claude/OpenAI: 가벼운 JSON fetch → 3분
 // Gemini: headless Chrome DOM dump → 10분 (프로세스 spawn 리소스 부담 고려)
@@ -57,14 +68,64 @@ const OPENAI_COMPONENT_NAMES = [
 
 const STORE_KEY = "__pi_unified_agent_status_store__";
 
-// ─── 헬퍼 ───────────────────────────────────────────────
+const PROVIDER_CONFIGS: ProviderFetchConfig[] = [
+  {
+    key: "claude",
+    intervalMs: JSON_API_INTERVAL_MS,
+    fetcher: fetchClaudeStatus,
+    fallback: (err) => buildUnknownSnapshot(
+      "claude", "Claude", CLAUDE_COMPONENT_NAMES[0], "https://status.claude.com/#", err,
+    ),
+  },
+  {
+    key: "codex",
+    intervalMs: JSON_API_INTERVAL_MS,
+    fetcher: fetchOpenAiStatus,
+    fallback: (err) => buildUnknownSnapshot(
+      "codex", "Codex", OPENAI_COMPONENT_NAMES[0], "https://status.openai.com/", err,
+    ),
+  },
+  {
+    key: "gemini",
+    intervalMs: GEMINI_INTERVAL_MS,
+    fetcher: fetchGeminiStatus,
+    fallback: (err) => buildUnknownSnapshot(
+      "gemini", "Gemini", "API", "https://aistudio.google.com/status", err,
+    ),
+  },
+];
 
-interface ComponentResponse {
-  components?: Array<{
-    name?: string;
-    status?: string;
-    updated_at?: string;
-  }>;
+const PROVIDER_ORDER: ProviderKey[] = ["claude", "codex", "gemini"];
+
+export function attachStatusContext(ctx: ExtensionContext): void {
+  const store = getStore();
+  store.ctx = ctx;
+
+  if (store.snapshots.length > 0) {
+    syncPanelStatus();
+  }
+  // 초기 구동 시 네트워크 요청을 생략하여 Pi 부팅 속도 개선
+  // 상태 갱신은 POLL_TICK_MS(3분) 후 자동 시작되며,
+  // 즉시 확인이 필요하면 /fleet:agent:status 사용
+
+  ensurePolling();
+}
+
+export async function refreshStatusNow(ctx: ExtensionContext): Promise<void> {
+  const store = getStore();
+  store.ctx = ctx;
+  setAgentPanelServiceLoading();
+  await refreshSnapshots({ force: true, notify: true });
+}
+
+/** 현재 캐시된 서비스 상태 스냅샷을 반환합니다. */
+export function getServiceSnapshots(): ServiceSnapshot[] {
+  return [...getStore().snapshots];
+}
+
+/** 백그라운드로 서비스 상태를 갱신합니다 (notify 없이 조용히 수행). */
+export function refreshStatusQuiet(): void {
+  void refreshSnapshots();
 }
 
 function getStore(): StatusStore {
@@ -165,8 +226,6 @@ function buildUnknownSnapshot(
     note: message,
   };
 }
-
-// ─── Provider fetcher ───────────────────────────────────
 
 async function fetchClaudeStatus(): Promise<ServiceSnapshot> {
   const sourceUrl = "https://status.claude.com/api/v2/components.json";
@@ -323,46 +382,6 @@ async function fetchGeminiStatus(): Promise<ServiceSnapshot> {
   };
 }
 
-// ─── Provider config ────────────────────────────────────
-
-interface ProviderFetchConfig {
-  key: ProviderKey;
-  intervalMs: number;
-  fetcher: () => Promise<ServiceSnapshot>;
-  fallback: (error: unknown) => ServiceSnapshot;
-}
-
-const PROVIDER_CONFIGS: ProviderFetchConfig[] = [
-  {
-    key: "claude",
-    intervalMs: JSON_API_INTERVAL_MS,
-    fetcher: fetchClaudeStatus,
-    fallback: (err) => buildUnknownSnapshot(
-      "claude", "Claude", CLAUDE_COMPONENT_NAMES[0], "https://status.claude.com/#", err,
-    ),
-  },
-  {
-    key: "codex",
-    intervalMs: JSON_API_INTERVAL_MS,
-    fetcher: fetchOpenAiStatus,
-    fallback: (err) => buildUnknownSnapshot(
-      "codex", "Codex", OPENAI_COMPONENT_NAMES[0], "https://status.openai.com/", err,
-    ),
-  },
-  {
-    key: "gemini",
-    intervalMs: GEMINI_INTERVAL_MS,
-    fetcher: fetchGeminiStatus,
-    fallback: (err) => buildUnknownSnapshot(
-      "gemini", "Gemini", "API", "https://aistudio.google.com/status", err,
-    ),
-  },
-];
-
-const PROVIDER_ORDER: ProviderKey[] = ["claude", "codex", "gemini"];
-
-// ─── Snapshot 로드/갱신 ─────────────────────────────────
-
 async function loadSnapshots(force: boolean): Promise<ServiceSnapshot[]> {
   const store = getStore();
   const now = Date.now();
@@ -444,37 +463,4 @@ function ensurePolling(): void {
     void refreshSnapshots();
   }, POLL_TICK_MS);
   store.timer.unref?.();
-}
-
-// ─── 공개 API ───────────────────────────────────────────
-
-export function attachStatusContext(ctx: ExtensionContext): void {
-  const store = getStore();
-  store.ctx = ctx;
-
-  if (store.snapshots.length > 0) {
-    syncPanelStatus();
-  }
-  // 초기 구동 시 네트워크 요청을 생략하여 Pi 부팅 속도 개선
-  // 상태 갱신은 POLL_TICK_MS(3분) 후 자동 시작되며,
-  // 즉시 확인이 필요하면 /fleet:agent:status 사용
-
-  ensurePolling();
-}
-
-export async function refreshStatusNow(ctx: ExtensionContext): Promise<void> {
-  const store = getStore();
-  store.ctx = ctx;
-  setAgentPanelServiceLoading();
-  await refreshSnapshots({ force: true, notify: true });
-}
-
-/** 현재 캐시된 서비스 상태 스냅샷을 반환합니다. */
-export function getServiceSnapshots(): ServiceSnapshot[] {
-  return [...getStore().snapshots];
-}
-
-/** 백그라운드로 서비스 상태를 갱신합니다 (notify 없이 조용히 수행). */
-export function refreshStatusQuiet(): void {
-  void refreshSnapshots();
 }

@@ -18,62 +18,6 @@ import { computeResponsiveLayout } from "./layout.js";
 import { WELCOME_GLOBAL_KEY } from "../welcome/types.js";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// globalThis 접근 헬퍼
-// ═══════════════════════════════════════════════════════════════════════════
-
-function dismissWelcomeViaGlobal(): void {
-  (globalThis as any)[WELCOME_GLOBAL_KEY]?.dismiss?.();
-}
-
-/** globalThis에서 EditorModeProvider를 가져온다 (주입 전이면 undefined). */
-function getModeProvider(): EditorModeProvider | undefined {
-  return (globalThis as any)[EDITOR_MODE_PROVIDER_KEY] as EditorModeProvider | undefined;
-}
-
-function centerLine(line: string, width: number): string {
-  const visLen = visibleWidth(line);
-  const pad = Math.max(0, Math.floor((width - visLen) / 2));
-  return truncateToWidth(" ".repeat(pad) + line, width);
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// 레이아웃 캐시
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * 캐시된 반응형 레이아웃을 반환하거나 새로 계산.
- * 같은 렌더 사이클(50ms 이내) 내에서 동일 너비면 캐시 재사용.
- */
-function getResponsiveLayout(
-  width: number,
-  theme: Theme,
-  state: HudEditorState,
-): { topContent: string; secondaryContent: string } {
-  const now = Date.now();
-  const cache = state.layoutCache;
-
-  if (cache.result && cache.width === width && now - cache.timestamp < 50) {
-    return cache.result;
-  }
-
-  const presetDef = getPreset(state.config.preset);
-
-  const provider: SegmentStateProvider = {
-    footerDataRef: state.footerDataRef,
-    getThinkingLevelFn: state.getThinkingLevelFn,
-    sessionStartTime: state.sessionStartTime,
-  };
-
-  const segmentCtx = buildSegmentContext(state.currentCtx, theme, provider, state.config);
-
-  cache.width = width;
-  cache.result = computeResponsiveLayout(segmentCtx, presetDef, width);
-  cache.timestamp = now;
-
-  return cache.result;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
 // Footer 설정
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -263,4 +207,60 @@ export function setupCustomEditor(ctx: any, state: HudEditorState): void {
     }, { placement: "aboveEditor" });
 
   });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// globalThis 접근 헬퍼
+// ═══════════════════════════════════════════════════════════════════════════
+
+function dismissWelcomeViaGlobal(): void {
+  (globalThis as any)[WELCOME_GLOBAL_KEY]?.dismiss?.();
+}
+
+/** globalThis에서 EditorModeProvider를 가져온다 (주입 전이면 undefined). */
+function getModeProvider(): EditorModeProvider | undefined {
+  return (globalThis as any)[EDITOR_MODE_PROVIDER_KEY] as EditorModeProvider | undefined;
+}
+
+function centerLine(line: string, width: number): string {
+  const visLen = visibleWidth(line);
+  const pad = Math.max(0, Math.floor((width - visLen) / 2));
+  return truncateToWidth(" ".repeat(pad) + line, width);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 레이아웃 캐시
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * 캐시된 반응형 레이아웃을 반환하거나 새로 계산.
+ * 같은 렌더 사이클(50ms 이내) 내에서 동일 너비면 캐시 재사용.
+ */
+function getResponsiveLayout(
+  width: number,
+  theme: Theme,
+  state: HudEditorState,
+): { topContent: string; secondaryContent: string } {
+  const now = Date.now();
+  const cache = state.layoutCache;
+
+  if (cache.result && cache.width === width && now - cache.timestamp < 50) {
+    return cache.result;
+  }
+
+  const presetDef = getPreset(state.config.preset);
+
+  const provider: SegmentStateProvider = {
+    footerDataRef: state.footerDataRef,
+    getThinkingLevelFn: state.getThinkingLevelFn,
+    sessionStartTime: state.sessionStartTime,
+  };
+
+  const segmentCtx = buildSegmentContext(state.currentCtx, theme, provider, state.config);
+
+  cache.width = width;
+  cache.result = computeResponsiveLayout(segmentCtx, presetDef, width);
+  cache.timestamp = now;
+
+  return cache.result;
 }

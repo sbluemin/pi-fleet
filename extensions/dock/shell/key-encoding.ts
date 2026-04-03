@@ -61,6 +61,15 @@ const NAMED_KEYS: Record<string, string> = {
 
 /** Ctrl 조합 */
 const CTRL_KEYS: Record<string, string> = {};
+
+const MODIFIABLE_KEYS = new Set([
+  "up", "down", "left", "right", "home", "end",
+  "pageup", "pgup", "ppage", "pagedown", "pgdn", "npage",
+  "insert", "ic", "delete", "del", "dc",
+]);
+
+const BRACKETED_PASTE_START = "\x1b[200~";
+const BRACKETED_PASTE_END = "\x1b[201~";
 for (let i = 0; i < 26; i++) {
   const char = String.fromCharCode(97 + i);
   CTRL_KEYS[`ctrl+${char}`] = String.fromCharCode(i + 1);
@@ -71,45 +80,6 @@ CTRL_KEYS["ctrl+]"] = "\x1d";
 CTRL_KEYS["ctrl+^"] = "\x1e";
 CTRL_KEYS["ctrl+_"] = "\x1f";
 CTRL_KEYS["ctrl+?"] = "\x7f";
-
-const MODIFIABLE_KEYS = new Set([
-  "up", "down", "left", "right", "home", "end",
-  "pageup", "pgup", "ppage", "pagedown", "pgdn", "npage",
-  "insert", "ic", "delete", "del", "dc",
-]);
-
-const BRACKETED_PASTE_START = "\x1b[200~";
-const BRACKETED_PASTE_END = "\x1b[201~";
-
-function altKey(char: string): string {
-  return `\x1b${char}`;
-}
-
-function xtermModifier(shift: boolean, alt: boolean, ctrl: boolean): number {
-  let mod = 1;
-  if (shift) mod += 1;
-  if (alt) mod += 2;
-  if (ctrl) mod += 4;
-  return mod;
-}
-
-function applyXtermModifier(sequence: string, modifier: number): string | null {
-  const arrowMatch = sequence.match(/^\x1b\[([A-D])$/);
-  if (arrowMatch) return `\x1b[1;${modifier}${arrowMatch[1]}`;
-
-  const numMatch = sequence.match(/^\x1b\[(\d+)~$/);
-  if (numMatch) return `\x1b[${numMatch[1]};${modifier}~`;
-
-  const hfMatch = sequence.match(/^\x1b\[([HF])$/);
-  if (hfMatch) return `\x1b[1;${modifier}${hfMatch[1]}`;
-
-  return null;
-}
-
-function encodePaste(text: string, bracketed = true): string {
-  if (!bracketed) return text;
-  return `${BRACKETED_PASTE_START}${text}${BRACKETED_PASTE_END}`;
-}
 
 export function encodeKeyToken(token: string): string {
   const normalized = token.trim().toLowerCase();
@@ -207,4 +177,35 @@ export function translateInput(
   }
 
   return result;
+}
+
+
+function altKey(char: string): string {
+  return `\x1b${char}`;
+}
+
+function xtermModifier(shift: boolean, alt: boolean, ctrl: boolean): number {
+  let mod = 1;
+  if (shift) mod += 1;
+  if (alt) mod += 2;
+  if (ctrl) mod += 4;
+  return mod;
+}
+
+function applyXtermModifier(sequence: string, modifier: number): string | null {
+  const arrowMatch = sequence.match(/^\x1b\[([A-D])$/);
+  if (arrowMatch) return `\x1b[1;${modifier}${arrowMatch[1]}`;
+
+  const numMatch = sequence.match(/^\x1b\[(\d+)~$/);
+  if (numMatch) return `\x1b[${numMatch[1]};${modifier}~`;
+
+  const hfMatch = sequence.match(/^\x1b\[([HF])$/);
+  if (hfMatch) return `\x1b[1;${modifier}${hfMatch[1]}`;
+
+  return null;
+}
+
+function encodePaste(text: string, bracketed = true): string {
+  if (!bracketed) return text;
+  return `${BRACKETED_PASTE_START}${text}${BRACKETED_PASTE_END}`;
 }

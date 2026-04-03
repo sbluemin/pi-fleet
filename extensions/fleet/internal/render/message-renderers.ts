@@ -51,6 +51,38 @@ interface RenderComponent {
   invalidate(): void;
 }
 
+/**
+ * 기본 사용자 입력 렌더러를 생성합니다.
+ * 색상 바 + 입력 텍스트 표시
+ */
+export function createDefaultUserRenderer(config: AgentRenderConfig) {
+  return (message: any, _options: unknown, _theme: RenderTheme) => {
+    const color = config.color;
+    const prefix = color ? `${color}▌${ANSI_RESET} ` : "";
+    const content = extractContentText(message.content);
+    return new Text(prefix + content, 0, 0);
+  };
+}
+
+/**
+ * 기본 응답 렌더러를 생성합니다.
+ * 아이콘 + 이름 헤더, thinking 블록, toolCalls 블록, Markdown 본문,
+ * 배경색 래퍼 포함
+ */
+export function createDefaultResponseRenderer(config: AgentRenderConfig) {
+  return (message: any, options: AgentResultRenderOptions, theme: RenderTheme) => {
+    const details = message.details as AgentResultDetails | undefined;
+    const contentText = extractContentText(message.content);
+    return renderAgentResult(
+      { displayName: config.displayName, color: config.color, bgColor: config.bgColor },
+      contentText,
+      details,
+      options,
+      theme,
+    );
+  };
+}
+
 function formatCarrierLabel(displayName: string): string {
   return `Carrier ${displayName}`;
 }
@@ -214,38 +246,3 @@ function applyBackgroundAnsi(lines: readonly string[], width: number, bgAnsi: st
     return bgAnsi + restored + " ".repeat(pad) + ANSI_RESET;
   });
 }
-
-// ─── 공개 렌더러 팩토리 ─────────────────────────────────
-
-/**
- * 기본 사용자 입력 렌더러를 생성합니다.
- * 색상 바 + 입력 텍스트 표시
- */
-export function createDefaultUserRenderer(config: AgentRenderConfig) {
-  return (message: any, _options: unknown, _theme: RenderTheme) => {
-    const color = config.color;
-    const prefix = color ? `${color}▌${ANSI_RESET} ` : "";
-    const content = extractContentText(message.content);
-    return new Text(prefix + content, 0, 0);
-  };
-}
-
-/**
- * 기본 응답 렌더러를 생성합니다.
- * 아이콘 + 이름 헤더, thinking 블록, toolCalls 블록, Markdown 본문,
- * 배경색 래퍼 포함
- */
-export function createDefaultResponseRenderer(config: AgentRenderConfig) {
-  return (message: any, options: AgentResultRenderOptions, theme: RenderTheme) => {
-    const details = message.details as AgentResultDetails | undefined;
-    const contentText = extractContentText(message.content);
-    return renderAgentResult(
-      { displayName: config.displayName, color: config.color, bgColor: config.bgColor },
-      contentText,
-      details,
-      options,
-      theme,
-    );
-  };
-}
-

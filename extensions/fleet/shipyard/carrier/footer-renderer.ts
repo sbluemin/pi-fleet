@@ -28,26 +28,8 @@ interface FooterRenderInput {
   frame: number;
 }
 
-// ─── 헬퍼 ────────────────────────────────────────────────
-
 /** sortie 비활성 캐리어용 dim 색상 */
 const DISABLED_COLOR = "\x1b[38;2;100;100;100m";
-
-function footerIcon(col: AgentCol, frame: number, disabled: boolean): string {
-  // sortie 비활성 캐리어: dim 아이콘으로 표시
-  if (disabled) {
-    return `${DISABLED_COLOR}○${ANSI_RESET}`;
-  }
-  const cliColor = resolveCarrierColor(col.cli) || PANEL_COLOR;
-  const icon = col.status === "done"
-    ? SYM_INDICATOR
-    : col.status === "err"
-      ? SYM_INDICATOR
-      : col.status === "conn" || col.status === "stream"
-        ? SPINNER_FRAMES[frame % SPINNER_FRAMES.length]
-        : "○";
-  return `${cliColor}${icon}${ANSI_RESET}`;
-}
 
 // ─── 메인 렌더 함수 ─────────────────────────────────────
 
@@ -76,4 +58,22 @@ export function renderFooterStatus(input: FooterRenderInput): string | undefined
 
   if (segments.length === 0) return undefined;
   return segments.join(`${PANEL_DIM_COLOR} │ ${ANSI_RESET}`);
+}
+
+// ─── 내부 헬퍼 ────────────────────────────────────────────
+
+function footerIcon(col: AgentCol, frame: number, disabled: boolean): string {
+  // sortie 비활성 캐리어: dim 아이콘으로 표시
+  if (disabled) {
+    return `${DISABLED_COLOR}○${ANSI_RESET}`;
+  }
+  const cliColor = resolveCarrierColor(col.cli) || PANEL_COLOR;
+  const icon = col.status === "done"
+    ? SYM_INDICATOR
+    : col.status === "err"
+      ? SYM_INDICATOR
+      : col.status === "conn" || col.status === "stream"
+        ? SPINNER_FRAMES[frame % SPINNER_FRAMES.length]
+        : "○";
+  return `${cliColor}${icon}${ANSI_RESET}`;
 }

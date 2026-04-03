@@ -32,6 +32,10 @@ export type Store = {
 const STORE_KEY = Symbol.for("pi.extensions.thinkingTimer.store");
 const PATCH_KEY = Symbol.for("pi.extensions.thinkingTimer.patch");
 
+// ─── Ticker ───────────────────────────────────────────────────────────────────
+
+let ticker: ReturnType<typeof setInterval> | null = null;
+
 // ─── 유틸리티 ─────────────────────────────────────────────────────────────────
 
 export function getStore(): Store | undefined {
@@ -45,28 +49,6 @@ export function setStore(store: Store): void {
 export function keyFor(timestamp: number, contentIndex: number): string {
 	return `${timestamp}:${contentIndex}`;
 }
-
-function formatElapsed(ms: number): string {
-	const totalSeconds = ms / 1000;
-	if (totalSeconds < 60) return `${totalSeconds.toFixed(1)}s`;
-	const minutes = Math.floor(totalSeconds / 60);
-	const seconds = totalSeconds - minutes * 60;
-	return `${minutes}:${seconds.toFixed(1).padStart(4, "0")}`;
-}
-
-function makeThinkingLabel(theme: Store["theme"] | undefined, ms: number | null): string {
-	if (!theme) {
-		return ms === null ? "Thinking..." : `Thinking... ${formatElapsed(ms)}`;
-	}
-	if (ms === null) {
-		return theme.italic(theme.fg("thinkingText", "Thinking..."));
-	}
-	const base = theme.fg("thinkingText", "Thinking...");
-	const time = theme.fg("dim", ` ${formatElapsed(ms)}`);
-	return theme.italic(base + time);
-}
-
-// ─── Monkey-patch ─────────────────────────────────────────────────────────────
 
 export function ensureAssistantMessagePatchInstalled(): void {
 	const proto: any = AssistantMessageComponent.prototype as any;
@@ -132,28 +114,10 @@ export function ensureAssistantMessagePatchInstalled(): void {
 	};
 }
 
-// ─── Ticker ───────────────────────────────────────────────────────────────────
-
-let ticker: ReturnType<typeof setInterval> | null = null;
-
 export function stopTicker(): void {
 	if (ticker) {
 		clearInterval(ticker);
 		ticker = null;
-	}
-}
-
-function tick(): void {
-	const s = getStore();
-	if (!s) return;
-	if (s.starts.size === 0) {
-		stopTicker();
-		return;
-	}
-	for (const [k, start] of s.starts.entries()) {
-		const label = s.labels.get(k);
-		if (!label) continue;
-		label.setText(makeThinkingLabel(s.theme, Date.now() - start));
 	}
 }
 
@@ -180,5 +144,41 @@ export function finalizeThinkingBlock(k: string, endTimeMs = Date.now()): void {
 	const label = s.labels.get(k);
 	if (label) {
 		label.setText(makeThinkingLabel(s.theme, dur));
+	}
+}
+
+function formatElapsed(ms: number): string {
+	const totalSeconds = ms / 1000;
+	if (totalSeconds < 60) return `${totalSeconds.toFixed(1)}s`;
+	const minutes = Math.floor(totalSeconds / 60);
+	const seconds = totalSeconds - minutes * 60;
+	return `${minutes}:${seconds.toFixed(1).padStart(4, "0")}`;
+}
+
+function makeThinkingLabel(theme: Store["theme"] | undefined, ms: number | null): string {
+	if (!theme) {
+		return ms === null ? "Thinking..." : `Thinking... ${formatElapsed(ms)}`;
+	}
+	if (ms === null) {
+		return theme.italic(theme.fg("thinkingText", "Thinking..."));
+	}
+	const base = theme.fg("thinkingText", "Thinking...");
+	const time = theme.fg("dim", ` ${formatElapsed(ms)}`);
+	return theme.italic(base + time);
+}
+
+// ─── Monkey-patch ─────────────────────────────────────────────────────────────
+
+function tick(): void {
+	const s = getStore();
+	if (!s) return;
+	if (s.starts.size === 0) {
+		stopTicker();
+		return;
+	}
+	for (const [k, start] of s.starts.entries()) {
+		const label = s.labels.get(k);
+		if (!label) continue;
+		label.setText(makeThinkingLabel(s.theme, Date.now() - start));
 	}
 }

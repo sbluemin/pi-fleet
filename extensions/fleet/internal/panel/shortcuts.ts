@@ -13,19 +13,20 @@
  * fleet/index.ts에서 호출됩니다.
  */
 
+import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
+
 import { INFRA_KEYBIND_KEY } from "../../../dock/keybind/types.js";
 import type { InfraKeybindAPI } from "../../../dock/keybind/types.js";
 import { BODY_H_STEP } from "../../constants";
-import { toggleAgentPanel, showAgentPanel } from "./lifecycle.js";
-import { adjustPanelHeight } from "./config.js";
-import { getState } from "./state.js";
-import { syncWidget } from "./widget-sync.js";
-
 import {
   activateCarrier,
   deactivateCarrier,
   getActiveCarrierId,
 } from "../../shipyard/carrier/framework.js";
+import { toggleAgentPanel, showAgentPanel } from "./lifecycle.js";
+import { adjustPanelHeight } from "./config.js";
+import { getState } from "./state.js";
+import { syncWidget } from "./widget-sync.js";
 
 export function registerAgentPanelShortcut(): void {
   const keybind = (globalThis as any)[INFRA_KEYBIND_KEY] as InfraKeybindAPI;
@@ -118,8 +119,6 @@ export function registerAgentPanelShortcut(): void {
 }
 
 // ─── 슬롯 내비게이션 헬퍼 ────────────────────────────────
-
-import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 
 function navigateSlot(ctx: ExtensionContext, delta: number): void {
   const s = getState();

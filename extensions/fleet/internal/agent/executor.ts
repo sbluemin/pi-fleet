@@ -18,6 +18,12 @@ import type {
 import { disconnectClient, getClientPool, isClientAlive, type PooledClient } from "./client-pool";
 import { getSessionStore } from "./runtime.js";
 
+type ToolCallLike = {
+  content?: unknown;
+  rawOutput?: unknown;
+  toolCallId?: string;
+};
+
 // ─── 상수 ────────────────────────────────────────────────
 
 /** SDK 연결 시 사용할 공통 clientInfo */
@@ -25,154 +31,6 @@ const CLIENT_INFO = { name: "pi-unified-agent", version: "1.0.0" } as const;
 
 /** 도구 호출 최대 보관 수 (메모리 보호) */
 const MAX_TOOL_CALLS_TO_KEEP = 30;
-
-// ─── 도구 호출 텍스트 추출 ──────────────────────────────
-
-type ToolCallLike = {
-  content?: unknown;
-  rawOutput?: unknown;
-  toolCallId?: string;
-};
-
-function extractToolResultText(data?: ToolCallLike): string | undefined {
-  if (!data) return undefined;
-
-  const contentText = extractContentText(data.content);
-  if (contentText) {
-    return contentText;
-  }
-
-  if (data.rawOutput !== undefined && data.rawOutput !== null) {
-    return typeof data.rawOutput === "string"
-      ? data.rawOutput
-      : JSON.stringify(data.rawOutput, null, 2);
-  }
-
-  return undefined;
-}
-
-function extractContentText(content: unknown): string | undefined {
-  if (!Array.isArray(content) || content.length === 0) {
-    return undefined;
-  }
-
-  const parts: string[] = [];
-  for (const item of content) {
-    if (!item || typeof item !== "object") continue;
-
-    const typedItem = item as {
-      type?: unknown;
-      content?: { type?: unknown; text?: unknown };
-      path?: unknown;
-      newText?: unknown;
-      oldText?: unknown;
-    };
-
-    if (typedItem.type === "content") {
-      const block = typedItem.content;
-      if (block?.type === "text" && typeof block.text === "string") {
-        parts.push(block.text);
-      }
-      continue;
-    }
-
-    if (typedItem.type === "diff" && typeof typedItem.path === "string" && typeof typedItem.newText === "string") {
-      const newLines = typedItem.newText.split("\n").length;
-      const oldLines = typeof typedItem.oldText === "string"
-        ? typedItem.oldText.split("\n").length
-        : 0;
-      const delta = newLines - oldLines;
-      const sign = delta >= 0 ? `+${delta}` : `${delta}`;
-      parts.push(`${typedItem.path}: ${sign} lines`);
-    }
-  }
-
-  if (parts.length === 0) {
-    return undefined;
-  }
-
-  return parts.join("\n");
-}
-
-// ─── AbortSignal 경합 헬퍼 ───────────────────────────────
-
-/**
- * promise와 AbortSignal을 경합시켜, signal abort 시 즉시 reject합니다.
- * connect() 등 내부적으로 signal을 지원하지 않는 비동기 작업에서
- * abort 반응성을 확보하기 위해 사용합니다.
- */
-function raceAbort<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
-  if (!signal) return promise;
-  if (signal.aborted) return Promise.reject(new Error("Aborted"));
-  return Promise.race([
-    promise,
-    new Promise<never>((_, reject) => {
-      signal.addEventListener(
-        "abort",
-        () => reject(new Error("Aborted")),
-        { once: true },
-      );
-    }),
-  ]);
-}
-
-// ─── 연결 옵션 구성 (executor 전용 private) ──────────────
-
-/**
- * CLI 연결에 필요한 공통 옵션 객체를 구성합니다.
- * 호출자가 주입한 model 값을 그대로 사용합니다.
- */
-function buildConnectOptions(
-  cli: CliType,
-  cwd: string,
-  overrides?: { model?: string; promptIdleTimeout?: number },
-): Record<string, unknown> {
-  const opts: Record<string, unknown> = {
-    cwd,
-    cli,
-    autoApprove: true,
-    clientInfo: CLIENT_INFO,
-    timeout: 0,
-  };
-
-  if (overrides?.model) {
-    opts.model = overrides.model;
-  }
-
-  if (overrides?.promptIdleTimeout !== undefined) {
-    opts.promptIdleTimeout = overrides.promptIdleTimeout;
-  }
-
-  return opts;
-}
-
-// ─── 연결 후 추론 설정 적용 ─────────────────────────────
-
-/**
- * 연결 후 추론 설정을 세션에 적용합니다.
- * 호출자가 주입한 effort/budgetTokens 값을 그대로 사용합니다.
- */
-async function applyPostConnectConfig(
-  client: UnifiedAgentClient,
-  cli: CliType,
-  overrides?: { effort?: string; budgetTokens?: number },
-): Promise<void> {
-  if (overrides?.effort) {
-    try {
-      await client.setConfigOption("reasoning_effort", overrides.effort);
-    } catch {
-      // reasoning_effort 미지원 CLI는 조용히 무시합니다.
-    }
-  }
-
-  if (cli === "claude" && overrides?.budgetTokens) {
-    try {
-      await client.setConfigOption("budget_tokens", String(overrides.budgetTokens));
-    } catch {
-      // budget_tokens 미지원 세션은 조용히 무시합니다.
-    }
-  }
-}
 
 // ─── executeWithPool: 풀 기반 실행 ─────────────────────
 
@@ -597,4 +455,138 @@ export async function executeOneShot(opts: ExecuteOptions): Promise<ExecuteResul
   }
 
   return { responseText, thoughtText, toolCalls, connectionInfo, status, error };
+}
+
+function extractToolResultText(data?: ToolCallLike): string | undefined {
+  if (!data) return undefined;
+
+  const contentText = extractContentText(data.content);
+  if (contentText) {
+    return contentText;
+  }
+
+  if (data.rawOutput !== undefined && data.rawOutput !== null) {
+    return typeof data.rawOutput === "string"
+      ? data.rawOutput
+      : JSON.stringify(data.rawOutput, null, 2);
+  }
+
+  return undefined;
+}
+
+function extractContentText(content: unknown): string | undefined {
+  if (!Array.isArray(content) || content.length === 0) {
+    return undefined;
+  }
+
+  const parts: string[] = [];
+  for (const item of content) {
+    if (!item || typeof item !== "object") continue;
+
+    const typedItem = item as {
+      type?: unknown;
+      content?: { type?: unknown; text?: unknown };
+      path?: unknown;
+      newText?: unknown;
+      oldText?: unknown;
+    };
+
+    if (typedItem.type === "content") {
+      const block = typedItem.content;
+      if (block?.type === "text" && typeof block.text === "string") {
+        parts.push(block.text);
+      }
+      continue;
+    }
+
+    if (typedItem.type === "diff" && typeof typedItem.path === "string" && typeof typedItem.newText === "string") {
+      const newLines = typedItem.newText.split("\n").length;
+      const oldLines = typeof typedItem.oldText === "string"
+        ? typedItem.oldText.split("\n").length
+        : 0;
+      const delta = newLines - oldLines;
+      const sign = delta >= 0 ? `+${delta}` : `${delta}`;
+      parts.push(`${typedItem.path}: ${sign} lines`);
+    }
+  }
+
+  if (parts.length === 0) {
+    return undefined;
+  }
+
+  return parts.join("\n");
+}
+
+/**
+ * promise와 AbortSignal을 경합시켜, signal abort 시 즉시 reject합니다.
+ * connect() 등 내부적으로 signal을 지원하지 않는 비동기 작업에서
+ * abort 반응성을 확보하기 위해 사용합니다.
+ */
+function raceAbort<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.reject(new Error("Aborted"));
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => {
+      signal.addEventListener(
+        "abort",
+        () => reject(new Error("Aborted")),
+        { once: true },
+      );
+    }),
+  ]);
+}
+
+/**
+ * CLI 연결에 필요한 공통 옵션 객체를 구성합니다.
+ * 호출자가 주입한 model 값을 그대로 사용합니다.
+ */
+function buildConnectOptions(
+  cli: CliType,
+  cwd: string,
+  overrides?: { model?: string; promptIdleTimeout?: number },
+): Record<string, unknown> {
+  const opts: Record<string, unknown> = {
+    cwd,
+    cli,
+    autoApprove: true,
+    clientInfo: CLIENT_INFO,
+    timeout: 0,
+  };
+
+  if (overrides?.model) {
+    opts.model = overrides.model;
+  }
+
+  if (overrides?.promptIdleTimeout !== undefined) {
+    opts.promptIdleTimeout = overrides.promptIdleTimeout;
+  }
+
+  return opts;
+}
+
+/**
+ * 연결 후 추론 설정을 세션에 적용합니다.
+ * 호출자가 주입한 effort/budgetTokens 값을 그대로 사용합니다.
+ */
+async function applyPostConnectConfig(
+  client: UnifiedAgentClient,
+  cli: CliType,
+  overrides?: { effort?: string; budgetTokens?: number },
+): Promise<void> {
+  if (overrides?.effort) {
+    try {
+      await client.setConfigOption("reasoning_effort", overrides.effort);
+    } catch {
+      // reasoning_effort 미지원 CLI는 조용히 무시합니다.
+    }
+  }
+
+  if (cli === "claude" && overrides?.budgetTokens) {
+    try {
+      await client.setConfigOption("budget_tokens", String(overrides.budgetTokens));
+    } catch {
+      // budget_tokens 미지원 세션은 조용히 무시합니다.
+    }
+  }
 }

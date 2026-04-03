@@ -6,9 +6,6 @@ import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import type { CliType } from "@sbluemin/unified-agent";
 import type { AgentStatus, CollectedStreamData } from "./index.js";
 
-/** globalThis 공개 브릿지 키 */
-export const UNIFIED_AGENT_REQUEST_KEY = "__pi_ua_request__";
-
 /** requestUnifiedAgent에서 허용하는 최종 상태 */
 export type UnifiedAgentRequestStatus = Extract<AgentStatus, "done" | "error" | "aborted">;
 
@@ -66,3 +63,6 @@ export interface UnifiedAgentResult {
 export interface UnifiedAgentRequestBridge {
   requestUnifiedAgent(options: UnifiedAgentRequestOptions): Promise<UnifiedAgentResult>;
 }
+
+/** globalThis 공개 브릿지 키 */
+export const UNIFIED_AGENT_REQUEST_KEY = "__pi_ua_request__";

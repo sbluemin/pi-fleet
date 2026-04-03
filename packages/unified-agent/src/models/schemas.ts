@@ -5,6 +5,8 @@
 
 import { z } from 'zod';
 
+// Zod 추론 타입은 아래 스키마 const를 기반으로 계산되므로,
+// 이 파일은 예외적으로 스키마 상수를 타입 선언보다 먼저 둡니다.
 /** 개별 모델 항목 스키마 */
 export const ModelEntrySchema = z.object({
   /** 모델 고유 식별자 (session/set_model에 전달되는 값) */

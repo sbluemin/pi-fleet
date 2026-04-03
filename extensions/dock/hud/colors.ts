@@ -8,22 +8,21 @@ export interface AnsiColors {
   reset: string;
 }
 
+// Color name to ANSI code mapping
+type ColorName =
+  | "sep" | "model" | "path" | "gitClean" | "gitDirty"
+  | "context" | "spend" | "staged" | "unstaged" | "untracked"
+  | "output" | "cost" | "subagents" | "accent" | "border"
+  | "warning" | "error" | "text"
+  | "thinkingOff" | "thinkingMinimal" | "thinkingLow"
+  | "thinkingMedium" | "thinkingHigh" | "thinkingXhigh";
+
 export const ansi: AnsiColors = {
   getBgAnsi: (r, g, b) => `\x1b[48;2;${r};${g};${b}m`,
   getFgAnsi: (r, g, b) => `\x1b[38;2;${r};${g};${b}m`,
   getFgAnsi256: (code) => `\x1b[38;5;${code}m`,
   reset: "\x1b[0m",
 };
-
-// Convert hex to RGB tuple
-function hexToRgb(hex: string): [number, number, number] {
-  const h = hex.replace("#", "");
-  return [
-    parseInt(h.slice(0, 2), 16),
-    parseInt(h.slice(2, 4), 16),
-    parseInt(h.slice(4, 6), 16),
-  ];
-}
 
 // oh-my-pi dark theme colors (exact match)
 const THEME = {
@@ -58,34 +57,6 @@ const THEME = {
   thinkingXhigh: "#e5c1ff",           // Bright lavender
 };
 
-// Color name to ANSI code mapping
-type ColorName = 
-  | "sep" | "model" | "path" | "gitClean" | "gitDirty" 
-  | "context" | "spend" | "staged" | "unstaged" | "untracked"
-  | "output" | "cost" | "subagents" | "accent" | "border"
-  | "warning" | "error" | "text"
-  | "thinkingOff" | "thinkingMinimal" | "thinkingLow" 
-  | "thinkingMedium" | "thinkingHigh" | "thinkingXhigh";
-
-function getAnsiCode(color: ColorName): string {
-  const value = THEME[color as keyof typeof THEME];
-  
-  if (value === undefined || value === "") {
-    return ""; // No color, use terminal default
-  }
-  
-  if (typeof value === "number") {
-    return ansi.getFgAnsi256(value);
-  }
-  
-  if (typeof value === "string" && value.startsWith("#")) {
-    const [r, g, b] = hexToRgb(value);
-    return ansi.getFgAnsi(r, g, b);
-  }
-  
-  return "";
-}
-
 // Helper to apply foreground color only (no reset - caller manages reset)
 export function fgOnly(color: ColorName, text: string): string {
   const code = getAnsiCode(color);
@@ -97,3 +68,31 @@ export function getFgAnsiCode(color: ColorName): string {
   return getAnsiCode(color);
 }
 
+// Convert hex to RGB tuple
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace("#", "");
+  return [
+    parseInt(h.slice(0, 2), 16),
+    parseInt(h.slice(2, 4), 16),
+    parseInt(h.slice(4, 6), 16),
+  ];
+}
+
+function getAnsiCode(color: ColorName): string {
+  const value = THEME[color as keyof typeof THEME];
+
+  if (value === undefined || value === "") {
+    return ""; // No color, use terminal default
+  }
+
+  if (typeof value === "number") {
+    return ansi.getFgAnsi256(value);
+  }
+
+  if (typeof value === "string" && value.startsWith("#")) {
+    const [r, g, b] = hexToRgb(value);
+    return ansi.getFgAnsi(r, g, b);
+  }
+
+  return "";
+}

@@ -25,12 +25,26 @@ const api: InfraSettingsAPI = {
   unregisterSection,
 };
 
-// 즉시 등록 — 다른 확장의 모듈 초기화 시점에도 접근 가능하도록
-(globalThis as any)[INFRA_SETTINGS_KEY] = api;
-
 // ── 팝업 상태 ──
 
 let activePopup: Promise<void> | null = null;
+
+// 즉시 등록 — 다른 확장의 모듈 초기화 시점에도 접근 가능하도록
+(globalThis as any)[INFRA_SETTINGS_KEY] = api;
+
+export default function (_pi: ExtensionAPI) {
+  const keybind = (globalThis as any)[INFRA_KEYBIND_KEY] as InfraKeybindAPI;
+  keybind.register({
+    extension: "infra-settings",
+    action: "popup",
+    defaultKey: "alt+/",
+    description: "설정 오버레이 팝업 표시",
+    category: "Infra",
+    handler: async (ctx) => {
+      await openSettingsPopup(ctx);
+    },
+  });
+}
 
 /** 설정 오버레이 팝업 열기 */
 async function openSettingsPopup(ctx: ExtensionContext): Promise<void> {
@@ -61,17 +75,3 @@ async function openSettingsPopup(ctx: ExtensionContext): Promise<void> {
 }
 
 // ── 확장 진입점 ──
-
-export default function (_pi: ExtensionAPI) {
-  const keybind = (globalThis as any)[INFRA_KEYBIND_KEY] as InfraKeybindAPI;
-  keybind.register({
-    extension: "infra-settings",
-    action: "popup",
-    defaultKey: "alt+/",
-    description: "설정 오버레이 팝업 표시",
-    category: "Infra",
-    handler: async (ctx) => {
-      await openSettingsPopup(ctx);
-    },
-  });
-}

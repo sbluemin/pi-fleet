@@ -8,8 +8,6 @@ import type { ReasoningLevel } from "./constants.js";
 import type { InfraSettingsAPI } from "../../dock/settings/types.js";
 import { INFRA_SETTINGS_KEY } from "../../dock/settings/types.js";
 
-const SECTION_KEY = "utils-improve-prompt";
-
 /** 설정 파일 구조 */
 export interface MetaPromptSettings {
   /** 모델 프로바이더 (e.g. "anthropic", "github-copilot") */
@@ -20,11 +18,7 @@ export interface MetaPromptSettings {
   reasoning?: ReasoningLevel;
 }
 
-function getAPI(): InfraSettingsAPI {
-  const api = (globalThis as any)[INFRA_SETTINGS_KEY];
-  if (!api) throw new Error("infra-settings API not available");
-  return api;
-}
+const SECTION_KEY = "utils-improve-prompt";
 
 /** 설정 로드 (extensions/settings.json → "mp") */
 export function loadSettings(): MetaPromptSettings {
@@ -38,4 +32,10 @@ export function loadSettings(): MetaPromptSettings {
 /** 설정 저장 (extensions/settings.json → "mp") */
 export function saveSettings(settings: MetaPromptSettings): void {
   getAPI().save(SECTION_KEY, settings);
+}
+
+function getAPI(): InfraSettingsAPI {
+  const api = (globalThis as any)[INFRA_SETTINGS_KEY];
+  if (!api) throw new Error("infra-settings API not available");
+  return api;
 }

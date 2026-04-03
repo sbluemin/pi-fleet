@@ -5,9 +5,6 @@
  * (AGENTS.md: "globalThis key와 bridge interface는 소유 확장의 types.ts에 정의")
  */
 
-/** globalThis 브릿지 키 */
-export const INFRA_SETTINGS_KEY = "__infra_settings__";
-
 /** 팝업에 표시할 필드 하나 */
 export interface DisplayField {
   label: string;
@@ -37,3 +34,6 @@ export interface InfraSettingsAPI {
   /** 팝업 표시용 섹션 해제 */
   unregisterSection(sectionKey: string): void;
 }
+
+/** globalThis 브릿지 키 */
+export const INFRA_SETTINGS_KEY = "__infra_settings__";

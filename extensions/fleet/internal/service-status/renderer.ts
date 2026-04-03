@@ -24,11 +24,6 @@ const STATUS_ANSI_COLORS: Record<HealthStatus, string> = {
   unknown: "\x1b[38;2;120;120;120m",
 };
 
-function renderPart(snapshot: ServiceSnapshot): string {
-  const statusColor = STATUS_ANSI_COLORS[snapshot.status];
-  return `${statusColor}${STATUS_TEXT[snapshot.status]}${ANSI_RESET}`;
-}
-
 export function renderServiceStatusToken(
   provider: ProviderKey,
   snapshots: ServiceSnapshot[],
@@ -41,4 +36,9 @@ export function renderServiceStatusToken(
 
   if (!loading) return undefined;
   return ` ${PANEL_DIM_COLOR}...${ANSI_RESET}`;
+}
+
+function renderPart(snapshot: ServiceSnapshot): string {
+  const statusColor = STATUS_ANSI_COLORS[snapshot.status];
+  return `${statusColor}${STATUS_TEXT[snapshot.status]}${ANSI_RESET}`;
 }

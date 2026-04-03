@@ -7,80 +7,7 @@ import xterm from "@xterm/headless";
 import { SerializeAddon } from "@xterm/addon-serialize";
 import { ensureSpawnHelperExec } from "./spawn-helper.js";
 
-const Terminal = xterm.Terminal;
-const MAX_RAW_OUTPUT_SIZE = 1024 * 1024;
-const DSR_PATTERN = /\x1b\[\??6n/g;
-const OSC_REGEX = /\x1b\][^\x07]*(?:\x07|\x1b\\)/g;
-const APC_REGEX = /\x1b_[^\x07\x1b]*(?:\x07|\x1b\\)/g;
-const DCS_REGEX = /\x1bP[^\x07\x1b]*(?:\x07|\x1b\\)/g;
-const CSI_REGEX = /\x1b\[[0-9;?]*[A-Za-z]/g;
-const ESC_SINGLE_REGEX = /\x1b[@-_]/g;
-const CONTROL_REGEX = /[\x00-\x08\x0B\x0C\x0E-\x1A\x1C-\x1F\x7F]/g;
-
 type DsrSegment = { text: string; dsrAfter: boolean };
-
-function splitAroundDsr(input: string): { segments: DsrSegment[]; hasDsr: boolean } {
-  const segments: DsrSegment[] = [];
-  let lastIndex = 0;
-  let hasDsr = false;
-  const regex = new RegExp(DSR_PATTERN.source, "g");
-  let match: RegExpExecArray | null;
-
-  while ((match = regex.exec(input)) !== null) {
-    hasDsr = true;
-    if (match.index > lastIndex) {
-      segments.push({ text: input.slice(lastIndex, match.index), dsrAfter: true });
-    } else {
-      segments.push({ text: "", dsrAfter: true });
-    }
-    lastIndex = match.index + match[0].length;
-  }
-
-  if (lastIndex < input.length) {
-    segments.push({ text: input.slice(lastIndex), dsrAfter: false });
-  }
-
-  return { segments, hasDsr };
-}
-
-function buildCursorPositionResponse(row = 1, col = 1): string {
-  return `\x1b[${row};${col}R`;
-}
-
-function trimRawOutput(rawOutput: string, lastStreamPosition: number): {
-  rawOutput: string;
-  lastStreamPosition: number;
-} {
-  if (rawOutput.length <= MAX_RAW_OUTPUT_SIZE) {
-    return { rawOutput, lastStreamPosition };
-  }
-
-  const keepSize = Math.floor(MAX_RAW_OUTPUT_SIZE / 2);
-  const trimAmount = rawOutput.length - keepSize;
-  return {
-    rawOutput: rawOutput.substring(trimAmount),
-    lastStreamPosition: Math.max(0, lastStreamPosition - trimAmount),
-  };
-}
-
-function sanitizeLine(line: string): string {
-  let output = line;
-  if (output.includes("\u001b")) {
-    output = output.replace(OSC_REGEX, "");
-    output = output.replace(APC_REGEX, "");
-    output = output.replace(DCS_REGEX, "");
-    output = output.replace(CSI_REGEX, (match) => (match.endsWith("m") ? match : ""));
-    output = output.replace(ESC_SINGLE_REGEX, "");
-  }
-  if (output.includes("\t")) {
-    output = output.replace(/\t/g, "   ");
-  }
-  if (output.includes("\r")) {
-    output = output.replace(/\r/g, "");
-  }
-  output = output.replace(CONTROL_REGEX, "");
-  return output;
-}
 
 type CellStyle = {
   bold: boolean;
@@ -95,61 +22,6 @@ type CellStyle = {
   bgMode: "default" | "palette" | "rgb";
   bg: number;
 };
-
-function styleKey(style: CellStyle): string {
-  return [
-    style.bold ? "b" : "-",
-    style.dim ? "d" : "-",
-    style.italic ? "i" : "-",
-    style.underline ? "u" : "-",
-    style.inverse ? "v" : "-",
-    style.invisible ? "x" : "-",
-    style.strikethrough ? "s" : "-",
-    `fg:${style.fgMode}:${style.fg}`,
-    `bg:${style.bgMode}:${style.bg}`,
-  ].join("");
-}
-
-function rgbToSgr(isFg: boolean, hex: number): string {
-  const r = (hex >> 16) & 0xff;
-  const g = (hex >> 8) & 0xff;
-  const b = hex & 0xff;
-  return isFg ? `38;2;${r};${g};${b}` : `48;2;${r};${g};${b}`;
-}
-
-function paletteToSgr(isFg: boolean, idx: number): string {
-  return isFg ? `38;5;${idx}` : `48;5;${idx}`;
-}
-
-function sgrForStyle(style: CellStyle): string {
-  const parts: string[] = ["0"];
-  if (style.bold) parts.push("1");
-  if (style.dim) parts.push("2");
-  if (style.italic) parts.push("3");
-  if (style.underline) parts.push("4");
-  if (style.inverse) parts.push("7");
-  if (style.invisible) parts.push("8");
-  if (style.strikethrough) parts.push("9");
-
-  if (style.fgMode === "rgb") parts.push(rgbToSgr(true, style.fg));
-  else if (style.fgMode === "palette") parts.push(paletteToSgr(true, style.fg));
-
-  if (style.bgMode === "rgb") parts.push(rgbToSgr(false, style.bg));
-  else if (style.bgMode === "palette") parts.push(paletteToSgr(false, style.bg));
-
-  return `\u001b[${parts.join(";")}m`;
-}
-
-function normalizePaletteColor(
-  mode: "default" | "palette" | "rgb",
-  value: number,
-): { mode: "default" | "palette" | "rgb"; value: number } {
-  if (mode !== "palette") return { mode, value };
-  if (value < 0 || value > 255) {
-    return { mode: "default", value: 0 };
-  }
-  return { mode: "palette", value };
-}
 
 export interface PtySessionOptions {
   command: string;
@@ -166,6 +38,16 @@ export interface PtySessionEvents {
   onData?: (data: string) => void;
   onExit?: (exitCode: number, signal?: number) => void;
 }
+
+const Terminal = xterm.Terminal;
+const MAX_RAW_OUTPUT_SIZE = 1024 * 1024;
+const DSR_PATTERN = /\x1b\[\??6n/g;
+const OSC_REGEX = /\x1b\][^\x07]*(?:\x07|\x1b\\)/g;
+const APC_REGEX = /\x1b_[^\x07\x1b]*(?:\x07|\x1b\\)/g;
+const DCS_REGEX = /\x1bP[^\x07\x1b]*(?:\x07|\x1b\\)/g;
+const CSI_REGEX = /\x1b\[[0-9;?]*[A-Za-z]/g;
+const ESC_SINGLE_REGEX = /\x1b[@-_]/g;
+const CONTROL_REGEX = /[\x00-\x08\x0B\x0C\x0E-\x1A\x1C-\x1F\x7F]/g;
 
 class WriteQueue {
   private queue = Promise.resolve();
@@ -499,4 +381,123 @@ export class PtyTerminalSession {
     this.kill();
     this.xterm.dispose();
   }
+}
+
+
+function splitAroundDsr(input: string): { segments: DsrSegment[]; hasDsr: boolean } {
+  const segments: DsrSegment[] = [];
+  let lastIndex = 0;
+  let hasDsr = false;
+  const regex = new RegExp(DSR_PATTERN.source, "g");
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(input)) !== null) {
+    hasDsr = true;
+    if (match.index > lastIndex) {
+      segments.push({ text: input.slice(lastIndex, match.index), dsrAfter: true });
+    } else {
+      segments.push({ text: "", dsrAfter: true });
+    }
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < input.length) {
+    segments.push({ text: input.slice(lastIndex), dsrAfter: false });
+  }
+
+  return { segments, hasDsr };
+}
+
+function buildCursorPositionResponse(row = 1, col = 1): string {
+  return `\x1b[${row};${col}R`;
+}
+
+function trimRawOutput(rawOutput: string, lastStreamPosition: number): {
+  rawOutput: string;
+  lastStreamPosition: number;
+} {
+  if (rawOutput.length <= MAX_RAW_OUTPUT_SIZE) {
+    return { rawOutput, lastStreamPosition };
+  }
+
+  const keepSize = Math.floor(MAX_RAW_OUTPUT_SIZE / 2);
+  const trimAmount = rawOutput.length - keepSize;
+  return {
+    rawOutput: rawOutput.substring(trimAmount),
+    lastStreamPosition: Math.max(0, lastStreamPosition - trimAmount),
+  };
+}
+
+function sanitizeLine(line: string): string {
+  let output = line;
+  if (output.includes("\u001b")) {
+    output = output.replace(OSC_REGEX, "");
+    output = output.replace(APC_REGEX, "");
+    output = output.replace(DCS_REGEX, "");
+    output = output.replace(CSI_REGEX, (match) => (match.endsWith("m") ? match : ""));
+    output = output.replace(ESC_SINGLE_REGEX, "");
+  }
+  if (output.includes("\t")) {
+    output = output.replace(/\t/g, "   ");
+  }
+  if (output.includes("\r")) {
+    output = output.replace(/\r/g, "");
+  }
+  output = output.replace(CONTROL_REGEX, "");
+  return output;
+}
+
+function styleKey(style: CellStyle): string {
+  return [
+    style.bold ? "b" : "-",
+    style.dim ? "d" : "-",
+    style.italic ? "i" : "-",
+    style.underline ? "u" : "-",
+    style.inverse ? "v" : "-",
+    style.invisible ? "x" : "-",
+    style.strikethrough ? "s" : "-",
+    `fg:${style.fgMode}:${style.fg}`,
+    `bg:${style.bgMode}:${style.bg}`,
+  ].join("");
+}
+
+function rgbToSgr(isFg: boolean, hex: number): string {
+  const r = (hex >> 16) & 0xff;
+  const g = (hex >> 8) & 0xff;
+  const b = hex & 0xff;
+  return isFg ? `38;2;${r};${g};${b}` : `48;2;${r};${g};${b}`;
+}
+
+function paletteToSgr(isFg: boolean, idx: number): string {
+  return isFg ? `38;5;${idx}` : `48;5;${idx}`;
+}
+
+function sgrForStyle(style: CellStyle): string {
+  const parts: string[] = ["0"];
+  if (style.bold) parts.push("1");
+  if (style.dim) parts.push("2");
+  if (style.italic) parts.push("3");
+  if (style.underline) parts.push("4");
+  if (style.inverse) parts.push("7");
+  if (style.invisible) parts.push("8");
+  if (style.strikethrough) parts.push("9");
+
+  if (style.fgMode === "rgb") parts.push(rgbToSgr(true, style.fg));
+  else if (style.fgMode === "palette") parts.push(paletteToSgr(true, style.fg));
+
+  if (style.bgMode === "rgb") parts.push(rgbToSgr(false, style.bg));
+  else if (style.bgMode === "palette") parts.push(paletteToSgr(false, style.bg));
+
+  return `\u001b[${parts.join(";")}m`;
+}
+
+function normalizePaletteColor(
+  mode: "default" | "palette" | "rgb",
+  value: number,
+): { mode: "default" | "palette" | "rgb"; value: number } {
+  if (mode !== "palette") return { mode, value };
+  if (value < 0 || value > 255) {
+    return { mode: "default", value: 0 };
+  }
+  return { mode: "palette", value };
 }

@@ -46,7 +46,8 @@ import { CARRIER_FRAMEWORK_KEY } from "./types.js";
 
 // 공개 타입 re-export — consumer가 fleet/index.ts를 통해 접근
 export type { CarrierConfig, CarrierHelpers, CarrierResult };
-// ─── globalThis 공유 상태 ────────────────────────────────
+
+// ─── 상수 ─────────────────────────────────────────────────
 
 const DEFAULT_CARRIER_RGB: [number, number, number] = [180, 160, 220];
 const CARRIER_RGBS: Record<string, [number, number, number]> = {
@@ -55,64 +56,8 @@ const CARRIER_RGBS: Record<string, [number, number, number]> = {
   gemini: [66, 133, 244],
 };
 
-/** globalThis 기반 공유 상태를 반환합니다. */
-function getState(): CarrierFrameworkState {
-  let s = (globalThis as any)[CARRIER_FRAMEWORK_KEY] as CarrierFrameworkState | undefined;
-  if (!s) {
-    s = {
-      modes: new Map(),
-      registeredOrder: [],
-      activeModeId: null,
-      inputRegistered: false,
-      cancelShortcutRegistered: false,
-      statusUpdateCallbacks: [],
-      sortieDisabledCarriers: new Set(),
-      sortieStateChangeCallbacks: [],
-      sortieRegisterTimer: null,
-    };
-    (globalThis as any)[CARRIER_FRAMEWORK_KEY] = s;
-  }
-  return s;
-}
-
-// ─── 내부 헬퍼 ───────────────────────────────────────────
-
-/** 모든 carrier를 비활성화합니다. (패널은 활성화 코드에서 관리) */
-function deactivateAll(_ctx: ExtensionContext) {
-  const gs = getState();
-  for (const [_id, state] of gs.modes) {
-    state.active = false;
-  }
-  gs.activeModeId = null;
-}
-
-/** 지정 carrier를 제외하고 아직 busy인 carrier를 하나 반환합니다. */
-function findNextBusyCarrier(excludeId: string): CarrierState | null {
-  const gs = getState();
-  for (const [id, state] of gs.modes) {
-    if (id !== excludeId && state.busy) return state;
-  }
-  return null;
-}
-
-function applyWorkingMessage(ctx: ExtensionContext, state: CarrierState): void {
-  if (!state.config.showWorkingMessage) {
-    state.ownsWorkingMessage = false;
-    return;
-  }
-
-  ctx.ui.setWorkingMessage(`${state.config.displayName} is processing...`);
-  state.ownsWorkingMessage = true;
-}
-
-function clearWorkingMessageIfOwned(ctx: ExtensionContext, state: CarrierState): void {
-  if (!state.ownsWorkingMessage) {
-    return;
-  }
-
-  ctx.ui.setWorkingMessage();
-  state.ownsWorkingMessage = false;
-}
+/** CliType 표시 우선순위: claude → codex → gemini */
+const CLI_TYPE_DISPLAY_ORDER: Record<string, number> = { claude: 0, codex: 1, gemini: 2 };
 
 // ─── 공개 API ────────────────────────────────────────────
 
@@ -334,17 +279,6 @@ export function onSortieStateChange(callback: () => void): void {
   gs.sortieStateChangeCallbacks = [callback];
 }
 
-/** sortie 상태 변경 콜백을 모두 호출합니다. */
-function notifySortieStateChange(): void {
-  const gs = getState();
-  for (const cb of gs.sortieStateChangeCallbacks) {
-    try { cb(); } catch { /* 무시 */ }
-  }
-}
-
-/** CliType 표시 우선순위: claude → codex → gemini */
-const CLI_TYPE_DISPLAY_ORDER: Record<string, number> = { claude: 0, codex: 1, gemini: 2 };
-
 /**
  * registeredOrder를 CliType 우선순위(claude→codex→gemini)로 재정렬합니다.
  * 같은 CliType 내에서는 slot 순서를 유지합니다.
@@ -401,7 +335,72 @@ export function resolveCarrierCliDisplayName(carrierId: string): string {
   return CLI_DISPLAY_NAMES[cliType] ?? cliType;
 }
 
-// ─── 입력 핸들러 (글로벌 1회만 등록) ─────────────────────
+// ─── 내부 헬퍼 ───────────────────────────────────────────
+
+/** globalThis 기반 공유 상태를 반환합니다. */
+function getState(): CarrierFrameworkState {
+  let s = (globalThis as any)[CARRIER_FRAMEWORK_KEY] as CarrierFrameworkState | undefined;
+  if (!s) {
+    s = {
+      modes: new Map(),
+      registeredOrder: [],
+      activeModeId: null,
+      inputRegistered: false,
+      cancelShortcutRegistered: false,
+      statusUpdateCallbacks: [],
+      sortieDisabledCarriers: new Set(),
+      sortieStateChangeCallbacks: [],
+      sortieRegisterTimer: null,
+    };
+    (globalThis as any)[CARRIER_FRAMEWORK_KEY] = s;
+  }
+  return s;
+}
+
+/** 모든 carrier를 비활성화합니다. (패널은 활성화 코드에서 관리) */
+function deactivateAll(_ctx: ExtensionContext) {
+  const gs = getState();
+  for (const [_id, state] of gs.modes) {
+    state.active = false;
+  }
+  gs.activeModeId = null;
+}
+
+/** 지정 carrier를 제외하고 아직 busy인 carrier를 하나 반환합니다. */
+function findNextBusyCarrier(excludeId: string): CarrierState | null {
+  const gs = getState();
+  for (const [id, state] of gs.modes) {
+    if (id !== excludeId && state.busy) return state;
+  }
+  return null;
+}
+
+function applyWorkingMessage(ctx: ExtensionContext, state: CarrierState): void {
+  if (!state.config.showWorkingMessage) {
+    state.ownsWorkingMessage = false;
+    return;
+  }
+
+  ctx.ui.setWorkingMessage(`${state.config.displayName} is processing...`);
+  state.ownsWorkingMessage = true;
+}
+
+function clearWorkingMessageIfOwned(ctx: ExtensionContext, state: CarrierState): void {
+  if (!state.ownsWorkingMessage) {
+    return;
+  }
+
+  ctx.ui.setWorkingMessage();
+  state.ownsWorkingMessage = false;
+}
+
+/** sortie 상태 변경 콜백을 모두 호출합니다. */
+function notifySortieStateChange(): void {
+  const gs = getState();
+  for (const cb of gs.sortieStateChangeCallbacks) {
+    try { cb(); } catch { /* 무시 */ }
+  }
+}
 
 /** Carrier 실행 (fire-and-forget으로 호출됨) */
 async function executeCarrier(

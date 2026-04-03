@@ -41,32 +41,6 @@ import { UNIFIED_AGENT_REQUEST_KEY } from "./types.js";
 
 interface RunAgentRequestOptions extends UnifiedAgentRequestOptions {}
 
-// ─── 내부 헬퍼 ──────────────────────────────────────────
-
-/** executeWithPool의 AgentStatus를 공개 API의 최종 상태로 변환 */
-function toFinalStatus(status: AgentStatus): UnifiedAgentRequestStatus {
-  if (status === "done" || status === "aborted") {
-    return status;
-  }
-  return "error";
-}
-
-/** store의 현재 run 데이터를 에이전트 패널 칼럼에 브릿지 */
-function syncColFromStore(cli: string, colIndex: number): void {
-  if (colIndex < 0) return;
-  const run = getVisibleRun(cli);
-  if (!run) return;
-  updateAgentCol(colIndex, {
-    status: run.status,
-    text: run.text,
-    thinking: run.thinking,
-    toolCalls: run.toolCalls,
-    blocks: run.blocks,
-    sessionId: run.sessionId,
-    error: run.error,
-  });
-}
-
 // ─── 공개 API ────────────────────────────────────────────
 
 /**
@@ -203,4 +177,30 @@ export function exposeAgentApi(): UnifiedAgentRequestBridge {
 
   (globalThis as Record<string, unknown>)[UNIFIED_AGENT_REQUEST_KEY] = bridge;
   return bridge;
+}
+
+// ─── 내부 헬퍼 ──────────────────────────────────────────
+
+/** executeWithPool의 AgentStatus를 공개 API의 최종 상태로 변환 */
+function toFinalStatus(status: AgentStatus): UnifiedAgentRequestStatus {
+  if (status === "done" || status === "aborted") {
+    return status;
+  }
+  return "error";
+}
+
+/** store의 현재 run 데이터를 에이전트 패널 칼럼에 브릿지 */
+function syncColFromStore(cli: string, colIndex: number): void {
+  if (colIndex < 0) return;
+  const run = getVisibleRun(cli);
+  if (!run) return;
+  updateAgentCol(colIndex, {
+    status: run.status,
+    text: run.text,
+    thinking: run.thinking,
+    toolCalls: run.toolCalls,
+    blocks: run.blocks,
+    sessionId: run.sessionId,
+    error: run.error,
+  });
 }

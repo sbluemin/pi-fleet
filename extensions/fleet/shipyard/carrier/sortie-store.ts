@@ -8,14 +8,14 @@
 import * as path from "node:path";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
-/** 영속화 파일명 */
-const FILENAME = "fleet-states.json";
-
 /** fleet-states.json의 스키마 */
 interface FleetStates {
   /** sortie 비활성 carrier ID 목록 */
   sortieDisabled?: string[];
 }
+
+/** 영속화 파일명 */
+const FILENAME = "fleet-states.json";
 
 /**
  * 디스크에서 sortie 비활성 carrier ID 목록을 로드합니다.

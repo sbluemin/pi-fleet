@@ -7,14 +7,6 @@ type TestableAcpConnection = AcpConnection & {
   promptKeepAlive: (() => void) | null;
 };
 
-function createConnection(): TestableAcpConnection {
-  return new AcpConnection({
-    command: 'node',
-    args: ['-e', 'process.exit(0)'],
-    cwd: process.cwd(),
-  }) as unknown as TestableAcpConnection;
-}
-
 describe('AcpConnection session updates', () => {
   it('available_commands_update를 전용 이벤트로 승격한다', () => {
     const connection = createConnection();
@@ -93,3 +85,11 @@ describe('AcpConnection session updates', () => {
     expect(keepAlive).toHaveBeenCalledTimes(1);
   });
 });
+
+function createConnection(): TestableAcpConnection {
+  return new AcpConnection({
+    command: 'node',
+    args: ['-e', 'process.exit(0)'],
+    cwd: process.cwd(),
+  }) as unknown as TestableAcpConnection;
+}

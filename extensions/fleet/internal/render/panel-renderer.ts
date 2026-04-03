@@ -29,6 +29,187 @@ import { renderBlockLines, blockLineAnsiColor } from "./block-renderer";
 
 import type { AgentCol } from "../contracts.js";
 
+/** 칼럼 콘텐츠 빌드 결과 (라인 + 라인별 색상) */
+interface ColContentResult {
+  lines: string[];
+  /** 각 라인에 대응하는 ANSI 색상 prefix (빈 문자열 = 기본 색상) */
+  colors: string[];
+}
+
+/** 대각선 스위프 애니메이션 설정 (왼쪽 위 → 오른쪽 아래) */
+interface WaveConfig {
+  rgb: [number, number, number];
+  frame: number;
+  /** 대각선 최대값 (w - 1 + panelH - 1) */
+  totalDiag: number;
+  /** 밝은 띠의 폭 (대각선 단위) */
+  bandWidth: number;
+}
+
+/**
+ * 에이전트 패널의 메인 뷰를 렌더링합니다.
+ *
+ * activeMode에 따라 동적 레이아웃:
+ * - 활성 carrier 지정 → 1칼럼 독점 뷰 (전체 폭, 상세 표시)
+ * - 비활성/null → N칼럼 동적 뷰
+ * 스트리밍 중이면 보더 와이어프레임에 파도 애니메이션 적용.
+ */
+export function renderPanelFull(
+  w: number,
+  cols: AgentCol[],
+  frame: number,
+  frameColor: string,
+  bottomHint: string,
+  activeMode: string | null,
+  bodyH: number,
+  cursorColumn = -1,
+): string[] {
+  const FC = frameColor || PANEL_COLOR;
+  const activeIndex = activeMode ? cols.findIndex((col) => col.cli === activeMode) : -1;
+
+  // 패널 높이: top(1) + header(1) + sep(1) + body(bodyH) + bottom(1)
+  const panelH = 3 + bodyH + 1;
+  const totalDiag = (w - 1) + (panelH - 1);
+
+  // 스트리밍 중이면 보더에 대각선 스위프 애니메이션 적용
+  const isStreaming = cols.some((col) => col.status === "conn" || col.status === "stream");
+  const wave: WaveConfig | undefined = isStreaming
+    ? { rgb: resolveCarrierRgb(activeMode ?? ""), frame, totalDiag, bandWidth: 12 }
+    : undefined;
+
+  if (activeIndex >= 0) {
+    return renderExclusive(w, cols, frame, FC, bottomHint, activeIndex, bodyH, wave);
+  }
+
+  return renderMultiCol(w, cols, frame, FC, bottomHint, bodyH, wave, cursorColumn);
+}
+
+/**
+ * 파도 그라데이션 애니메이션을 문자별로 적용합니다.
+ * sin 파형으로 원래 색상 → 흰색 방향으로 밝아지는 파도 효과를 만듭니다.
+ * ANSI_RESET을 포함하지 않으므로 호출부에서 관리합니다.
+ */
+export function waveText(
+  text: string,
+  rgb: [number, number, number],
+  frame: number,
+  startOffset = 0,
+  options?: { speed?: number; allowDim?: boolean },
+): string {
+  const [r, g, b] = rgb;
+  const speed = options?.speed ?? 0.35;
+  const allowDim = options?.allowDim ?? false;
+  let result = "";
+  let idx = startOffset;
+
+  for (const ch of text) {
+    const phase = idx * 0.4 - frame * speed;
+    const raw = Math.sin(phase);
+
+    if (allowDim) {
+      // 패널용: 좁은 밝은 피크 + 넓은 은은한 어둠 (스캐닝 라이트)
+      // pow로 피크를 날카롭게, 기본 상태를 살짝 어둡게
+      const bright = Math.pow(Math.max(0, raw), 3) * 0.4;   // 좁고 날카로운 하이라이트
+      const dim = Math.min(0, raw) * 0.25;                   // 은은한 어둠
+      const factor = bright + dim;
+      const cr = Math.min(255, Math.max(0, Math.round(
+        factor >= 0 ? r + (255 - r) * factor : r + r * factor,
+      )));
+      const cg = Math.min(255, Math.max(0, Math.round(
+        factor >= 0 ? g + (255 - g) * factor : g + g * factor,
+      )));
+      const cb = Math.min(255, Math.max(0, Math.round(
+        factor >= 0 ? b + (255 - b) * factor : b + b * factor,
+      )));
+      result += `\x1b[38;2;${cr};${cg};${cb}m${ch}`;
+    } else {
+      // 배너/footer용: 부드럽게 밝아지는 효과만
+      const wave = Math.max(0, raw);
+      const boost = wave * 0.5;
+      const cr = Math.min(255, Math.round(r + (255 - r) * boost));
+      const cg = Math.min(255, Math.round(g + (255 - g) * boost));
+      const cb = Math.min(255, Math.round(b + (255 - b) * boost));
+      result += `\x1b[38;2;${cr};${cg};${cb}m${ch}`;
+    }
+    idx++;
+  }
+
+  return result;
+}
+
+/**
+ * Carrier 활성 시 한 줄 배너를 렌더링합니다.
+ * 패널이 접힌 상태(expanded=false)에서 activeMode가 있을 때 aboveEditor에 표시됩니다.
+ *
+ * 레이아웃: [BG] {carrier 활성화 문구}(왼쪽) .... {단축키 힌트}(우측) [RESET]
+ * 스트리밍 중이면 왼쪽 텍스트에 파도 그라데이션 애니메이션 적용.
+ */
+export function renderModeBanner(
+  w: number,
+  activeMode: string,
+  frame: number,
+  cols: AgentCol[],
+): string[] {
+  const fg = resolveCarrierColor(activeMode) || PANEL_COLOR;
+  const bg = resolveCarrierBgColor(activeMode);
+  const carrierName = resolveCarrierDisplayName(activeMode);
+  const cliName = resolveCarrierCliDisplayName(activeMode);
+  const rgb = resolveCarrierRgb(activeMode);
+
+  // 스트리밍 중인 칼럼 감지 (등록된 carrier면 해당 칼럼만, 그 외 그룹 모드면 아무 칼럼)
+  const isSingleCliMode = getRegisteredOrder().includes(activeMode);
+  const streamingCol = cols.find((col) =>
+    (!isSingleCliMode || col.cli === activeMode) &&
+    (col.status === "conn" || col.status === "stream"),
+  );
+
+  // 중앙: 모드명 (스트리밍 시 스피너 + 진행 상태)
+  let centerPlain: string;
+  if (streamingCol) {
+    const spinner = SPINNER_FRAMES[frame % SPINNER_FRAMES.length];
+    const parts: string[] = [];
+    if (streamingCol.toolCalls.length > 0) parts.push(`${streamingCol.toolCalls.length}T`);
+    const lineCount = streamingCol.text.trim() ? streamingCol.text.split("\n").length : 0;
+    if (lineCount > 0) parts.push(`${lineCount}L`);
+    const progress = parts.length > 0 ? parts.join("·") : "running";
+    centerPlain = `${spinner} ${carrierName} ${progress}`;
+  } else {
+    centerPlain = `◈ Carrier ${carrierName} · ${cliName} on station`;
+  }
+
+  // 우측: 단축키 힌트
+  const rightText = PANEL_MODE_BANNER_HINT;
+
+  // 전체 폭 기준 가운데 정렬, 우측 힌트와 겹치면 폴백
+  const centerW = visibleWidth(centerPlain);
+  const rightW = visibleWidth(rightText);
+  let padLeft = Math.floor((w - centerW) / 2);
+  let padRight = w - padLeft - centerW - rightW;
+
+  if (padRight < 0) {
+    const availableW = Math.max(0, w - rightW);
+    const totalPad = Math.max(0, availableW - centerW);
+    padLeft = Math.floor(totalPad / 2);
+    padRight = totalPad - padLeft;
+  }
+
+  // 스트리밍 중이면 파도 그라데이션, 아니면 정적 색상
+  const coloredCenter = streamingCol
+    ? waveText(centerPlain, rgb, frame)
+    : fg + centerPlain;
+
+  const line =
+    bg +
+    " ".repeat(padLeft) +
+    coloredCenter +
+    ANSI_RESET + bg +
+    " ".repeat(padRight) +
+    PANEL_DIM_COLOR + rightText +
+    ANSI_RESET;
+
+  return [line];
+}
+
 // ─── 렌더링 헬퍼 ────────────────────────────────────────
 
 /** 상태별 아이콘 */
@@ -168,13 +349,6 @@ function placeholder(col: AgentCol, frame: number): string {
   if (col.status === "conn") return `${n} 연결 중${".".repeat((frame % 3) + 1)}`;
   if (col.status === "err") return `Error: ${col.error ?? "unknown"}`;
   return "";
-}
-
-/** 칼럼 콘텐츠 빌드 결과 (라인 + 라인별 색상) */
-interface ColContentResult {
-  lines: string[];
-  /** 각 라인에 대응하는 ANSI 색상 prefix (빈 문자열 = 기본 색상) */
-  colors: string[];
 }
 
 /**
@@ -427,111 +601,7 @@ function renderMultiCol(
   return R;
 }
 
-// ─── 메인 렌더러 ────────────────────────────────────────
-
-/**
- * 에이전트 패널의 메인 뷰를 렌더링합니다.
- *
- * activeMode에 따라 동적 레이아웃:
- * - 활성 carrier 지정 → 1칼럼 독점 뷰 (전체 폭, 상세 표시)
- * - 비활성/null → N칼럼 동적 뷰
- * 스트리밍 중이면 보더 와이어프레임에 파도 애니메이션 적용.
- */
-export function renderPanelFull(
-  w: number,
-  cols: AgentCol[],
-  frame: number,
-  frameColor: string,
-  bottomHint: string,
-  activeMode: string | null,
-  bodyH: number,
-  cursorColumn = -1,
-): string[] {
-  const FC = frameColor || PANEL_COLOR;
-  const activeIndex = activeMode ? cols.findIndex((col) => col.cli === activeMode) : -1;
-
-  // 패널 높이: top(1) + header(1) + sep(1) + body(bodyH) + bottom(1)
-  const panelH = 3 + bodyH + 1;
-  const totalDiag = (w - 1) + (panelH - 1);
-
-  // 스트리밍 중이면 보더에 대각선 스위프 애니메이션 적용
-  const isStreaming = cols.some((col) => col.status === "conn" || col.status === "stream");
-  const wave: WaveConfig | undefined = isStreaming
-    ? { rgb: resolveCarrierRgb(activeMode ?? ""), frame, totalDiag, bandWidth: 12 }
-    : undefined;
-
-  if (activeIndex >= 0) {
-    return renderExclusive(w, cols, frame, FC, bottomHint, activeIndex, bodyH, wave);
-  }
-
-  return renderMultiCol(w, cols, frame, FC, bottomHint, bodyH, wave, cursorColumn);
-}
-
-
 // ─── 모드 배너 렌더러 ───────────────────────────────────
-
-/**
- * 파도 그라데이션 애니메이션을 문자별로 적용합니다.
- * sin 파형으로 원래 색상 → 흰색 방향으로 밝아지는 파도 효과를 만듭니다.
- * ANSI_RESET을 포함하지 않으므로 호출부에서 관리합니다.
- */
-export function waveText(
-  text: string,
-  rgb: [number, number, number],
-  frame: number,
-  startOffset = 0,
-  options?: { speed?: number; allowDim?: boolean },
-): string {
-  const [r, g, b] = rgb;
-  const speed = options?.speed ?? 0.35;
-  const allowDim = options?.allowDim ?? false;
-  let result = "";
-  let idx = startOffset;
-
-  for (const ch of text) {
-    const phase = idx * 0.4 - frame * speed;
-    const raw = Math.sin(phase);
-
-    if (allowDim) {
-      // 패널용: 좁은 밝은 피크 + 넓은 은은한 어둠 (스캐닝 라이트)
-      // pow로 피크를 날카롭게, 기본 상태를 살짝 어둡게
-      const bright = Math.pow(Math.max(0, raw), 3) * 0.4;   // 좁고 날카로운 하이라이트
-      const dim = Math.min(0, raw) * 0.25;                   // 은은한 어둠
-      const factor = bright + dim;
-      const cr = Math.min(255, Math.max(0, Math.round(
-        factor >= 0 ? r + (255 - r) * factor : r + r * factor,
-      )));
-      const cg = Math.min(255, Math.max(0, Math.round(
-        factor >= 0 ? g + (255 - g) * factor : g + g * factor,
-      )));
-      const cb = Math.min(255, Math.max(0, Math.round(
-        factor >= 0 ? b + (255 - b) * factor : b + b * factor,
-      )));
-      result += `\x1b[38;2;${cr};${cg};${cb}m${ch}`;
-    } else {
-      // 배너/footer용: 부드럽게 밝아지는 효과만
-      const wave = Math.max(0, raw);
-      const boost = wave * 0.5;
-      const cr = Math.min(255, Math.round(r + (255 - r) * boost));
-      const cg = Math.min(255, Math.round(g + (255 - g) * boost));
-      const cb = Math.min(255, Math.round(b + (255 - b) * boost));
-      result += `\x1b[38;2;${cr};${cg};${cb}m${ch}`;
-    }
-    idx++;
-  }
-
-  return result;
-}
-
-/** 대각선 스위프 애니메이션 설정 (왼쪽 위 → 오른쪽 아래) */
-interface WaveConfig {
-  rgb: [number, number, number];
-  frame: number;
-  /** 대각선 최대값 (w - 1 + panelH - 1) */
-  totalDiag: number;
-  /** 밝은 띠의 폭 (대각선 단위) */
-  bandWidth: number;
-}
 
 /** 대각선 위치 기반 밝기 계수 반환 (-0.2 ~ +0.5) */
 function sweepFactor(diag: number, cfg: WaveConfig): number {
@@ -560,77 +630,4 @@ function sweepColorChar(ch: string, rgb: [number, number, number], factor: numbe
     factor >= 0 ? b + (255 - b) * factor : b + b * factor,
   )));
   return `\x1b[38;2;${cr};${cg};${cb}m${ch}`;
-}
-
-/**
- * Carrier 활성 시 한 줄 배너를 렌더링합니다.
- * 패널이 접힌 상태(expanded=false)에서 activeMode가 있을 때 aboveEditor에 표시됩니다.
- *
- * 레이아웃: [BG] {carrier 활성화 문구}(왼쪽) .... {단축키 힌트}(우측) [RESET]
- * 스트리밍 중이면 왼쪽 텍스트에 파도 그라데이션 애니메이션 적용.
- */
-export function renderModeBanner(
-  w: number,
-  activeMode: string,
-  frame: number,
-  cols: AgentCol[],
-): string[] {
-  const fg = resolveCarrierColor(activeMode) || PANEL_COLOR;
-  const bg = resolveCarrierBgColor(activeMode);
-  const carrierName = resolveCarrierDisplayName(activeMode);
-  const cliName = resolveCarrierCliDisplayName(activeMode);
-  const rgb = resolveCarrierRgb(activeMode);
-
-  // 스트리밍 중인 칼럼 감지 (등록된 carrier면 해당 칼럼만, 그 외 그룹 모드면 아무 칼럼)
-  const isSingleCliMode = getRegisteredOrder().includes(activeMode);
-  const streamingCol = cols.find((col) =>
-    (!isSingleCliMode || col.cli === activeMode) &&
-    (col.status === "conn" || col.status === "stream"),
-  );
-
-  // 중앙: 모드명 (스트리밍 시 스피너 + 진행 상태)
-  let centerPlain: string;
-  if (streamingCol) {
-    const spinner = SPINNER_FRAMES[frame % SPINNER_FRAMES.length];
-    const parts: string[] = [];
-    if (streamingCol.toolCalls.length > 0) parts.push(`${streamingCol.toolCalls.length}T`);
-    const lineCount = streamingCol.text.trim() ? streamingCol.text.split("\n").length : 0;
-    if (lineCount > 0) parts.push(`${lineCount}L`);
-    const progress = parts.length > 0 ? parts.join("·") : "running";
-    centerPlain = `${spinner} ${carrierName} ${progress}`;
-  } else {
-    centerPlain = `◈ Carrier ${carrierName} · ${cliName} on station`;
-  }
-
-  // 우측: 단축키 힌트
-  const rightText = PANEL_MODE_BANNER_HINT;
-
-  // 전체 폭 기준 가운데 정렬, 우측 힌트와 겹치면 폴백
-  const centerW = visibleWidth(centerPlain);
-  const rightW = visibleWidth(rightText);
-  let padLeft = Math.floor((w - centerW) / 2);
-  let padRight = w - padLeft - centerW - rightW;
-
-  if (padRight < 0) {
-    const availableW = Math.max(0, w - rightW);
-    const totalPad = Math.max(0, availableW - centerW);
-    padLeft = Math.floor(totalPad / 2);
-    padRight = totalPad - padLeft;
-  }
-
-  // 스트리밍 중이면 파도 그라데이션, 아니면 정적 색상
-  const coloredCenter = streamingCol
-    ? waveText(centerPlain, rgb, frame)
-    : fg + centerPlain;
-
-  const line =
-    bg +
-    " ".repeat(padLeft) +
-    coloredCenter +
-    ANSI_RESET + bg +
-    " ".repeat(padRight) +
-    PANEL_DIM_COLOR + rightText +
-    ANSI_RESET;
-
-  return [line];
 }

@@ -7,6 +7,19 @@ import { resolve } from 'path';
 import { UnifiedAgentClient } from '../../src/index.js';
 import type { CliType } from '../../src/types/config.js';
 
+/** CLI JSON 출력 결과 타입 */
+export interface CliJsonResult {
+  response: string;
+  cli: string;
+  sessionId: string;
+}
+
+/** 모델 실행 가능 여부 probe 결과 */
+export interface ModelAvailabilityProbe {
+  available: boolean;
+  reason?: string;
+}
+
 /** CLI 바이너리 경로 */
 export const CLI_PATH = resolve(import.meta.dirname, '../../dist/cli.mjs');
 
@@ -129,19 +142,6 @@ export function runCli(
       child.stdin.end();
     }
   });
-}
-
-/** CLI JSON 출력 결과 타입 */
-export interface CliJsonResult {
-  response: string;
-  cli: string;
-  sessionId: string;
-}
-
-/** 모델 실행 가능 여부 probe 결과 */
-export interface ModelAvailabilityProbe {
-  available: boolean;
-  reason?: string;
 }
 
 /**

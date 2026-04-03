@@ -18,36 +18,6 @@ import { KeybindOverlay } from "./overlay.js";
 
 let activePopup: Promise<void> | null = null;
 
-/** 키바인딩 오버레이 팝업 열기 */
-async function openKeybindPopup(ctx: ExtensionContext): Promise<void> {
-  if (!ctx.hasUI) return;
-  if (activePopup) return;
-
-  const bindings = getBindings();
-
-  activePopup = ctx.ui.custom<void>(
-    (_tui, theme, _keybindings, done) =>
-      new KeybindOverlay(theme, bindings, done),
-    {
-      overlay: true,
-      overlayOptions: {
-        width: "50%",
-        maxHeight: "70%",
-        anchor: "center",
-        margin: 1,
-      },
-    },
-  );
-
-  try {
-    await activePopup;
-  } finally {
-    activePopup = null;
-  }
-}
-
-// ── 확장 진입점 ──
-
 export default function (pi: ExtensionAPI) {
   // 실제 API 구현 생성
   const realApi: InfraKeybindAPI = {
@@ -83,3 +53,33 @@ export default function (pi: ExtensionAPI) {
     },
   });
 }
+
+/** 키바인딩 오버레이 팝업 열기 */
+async function openKeybindPopup(ctx: ExtensionContext): Promise<void> {
+  if (!ctx.hasUI) return;
+  if (activePopup) return;
+
+  const bindings = getBindings();
+
+  activePopup = ctx.ui.custom<void>(
+    (_tui, theme, _keybindings, done) =>
+      new KeybindOverlay(theme, bindings, done),
+    {
+      overlay: true,
+      overlayOptions: {
+        width: "50%",
+        maxHeight: "70%",
+        anchor: "center",
+        margin: 1,
+      },
+    },
+  );
+
+  try {
+    await activePopup;
+  } finally {
+    activePopup = null;
+  }
+}
+
+// ── 확장 진입점 ──
