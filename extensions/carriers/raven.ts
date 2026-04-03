@@ -19,7 +19,7 @@ const CARRIER_METADATA: CarrierMetadata = {
     "vulnerability hunting",
     "dependency risk analysis",
   ],
-  whenNotToUse: "general code quality (→sentinel), refactoring (→crucible), architecture decisions (→oracle)",
+  whenNotToUse: "before implementation (genesis→crucible) is done. General QA (→sentinel), new features (→genesis), refactoring (→crucible)",
 
   // ── Tier 2: Composition ──
   permissions: [

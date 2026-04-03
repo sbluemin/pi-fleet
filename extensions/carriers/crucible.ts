@@ -19,7 +19,7 @@ const CARRIER_METADATA: CarrierMetadata = {
     "decoupling and dependency cleanup",
     "post-feature structural cleanup",
   ],
-  whenNotToUse: "new feature development (→genesis), bug hunting (→sentinel), security audits (→raven)",
+  whenNotToUse: "before genesis implementation is done. New features (→genesis), bug detection (→sentinel), security (→raven)",
 
   // ── Tier 2: Composition ──
   permissions: [

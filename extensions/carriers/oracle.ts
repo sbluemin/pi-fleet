@@ -19,7 +19,7 @@ const CARRIER_METADATA: CarrierMetadata = {
     "code self-review (read-only)",
     "deep technical analysis and trade-off evaluation",
   ],
-  whenNotToUse: "code modification of any kind — Oracle is strictly read-only",
+  whenNotToUse: "any code modification — strictly read-only. If recon is needed first, sortie vanguard/echelon before oracle",
 
   // ── Tier 2: Composition ──
   permissions: [

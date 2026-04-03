@@ -19,7 +19,7 @@ const CARRIER_METADATA: CarrierMetadata = {
     "release note compilation",
     "API specification generation (OpenAPI/Swagger)",
   ],
-  whenNotToUse: "code implementation (→genesis), code review (→sentinel), architecture decisions (→oracle)",
+  whenNotToUse: "before implementation and verification are complete. Code modification (→genesis), code review (→sentinel), architecture (→oracle)",
 
   // ── Tier 2: Composition ──
   permissions: [

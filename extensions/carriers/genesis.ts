@@ -20,7 +20,7 @@ const CARRIER_METADATA: CarrierMetadata = {
     "multi-file coordinated changes",
     "default carrier for coding tasks",
   ],
-  whenNotToUse: "architecture decisions (→oracle), bug hunting (→sentinel), refactoring only (→crucible), documentation (→chronicle)",
+  whenNotToUse: "architecture decisions without prior oracle review. Post-build: QA (→sentinel), security (→raven), cleanup (→crucible), docs (→chronicle)",
 
   // ── Tier 2: Composition ──
   permissions: [

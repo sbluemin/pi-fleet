@@ -18,7 +18,7 @@ const CARRIER_METADATA: CarrierMetadata = {
     "AGENTS.md rule updates",
     "doctrinal realignment to commander intent",
   ],
-  whenNotToUse: "code implementation (→genesis), code review (→sentinel), documentation (→chronicle)",
+  whenNotToUse: "source code modification — AGENTS.md only. Design (→oracle) should be finalized before doctrine updates",
 
   // ── Tier 2: Composition ──
   permissions: [

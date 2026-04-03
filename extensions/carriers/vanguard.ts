@@ -20,7 +20,7 @@ const CARRIER_METADATA: CarrierMetadata = {
     "fast file scanning",
     "multi-file reading tasks",
   ],
-  whenNotToUse: "code modification (→genesis/crucible), security audits (→raven), GitHub deep-dives (→echelon)",
+  whenNotToUse: "code modification (→genesis/crucible), design decisions (→oracle), GitHub repo deep-dives (→echelon)",
 
   // ── Tier 2: Composition ──
   permissions: [

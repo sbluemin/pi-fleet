@@ -20,7 +20,7 @@ const CARRIER_METADATA: CarrierMetadata = {
     "test execution",
     "debugging and root-cause investigation",
   ],
-  whenNotToUse: "security penetration testing (→raven), refactoring (→crucible), new features (→genesis)",
+  whenNotToUse: "before implementation (genesis→crucible) is done. Security pentesting (→raven), new features (→genesis), refactoring (→crucible)",
 
   // ── Tier 2: Composition ──
   permissions: [
