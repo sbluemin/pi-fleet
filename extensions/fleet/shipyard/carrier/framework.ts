@@ -110,14 +110,17 @@ export function registerCarrier(
       description: "활성 Carrier 실행 취소",
       category: "Carrier",
       handler: async (ctx) => {
-        const activeCarrierId = getState().activeModeId;
-        if (!activeCarrierId) return;
-
-        const activeState = getState().modes.get(activeCarrierId);
-        if (!activeState?.busy || !activeState.abortController) return;
-
-        activeState.abortController.abort();
-        ctx.ui.notify(`${activeState.config.displayName} 요청/연결 종료 중...`, "info");
+        // 활성 탭이 아닌 carrier도 실행 중일 수 있으므로 모든 carrier를 순회
+        const aborted: string[] = [];
+        for (const [, s] of getState().modes) {
+          if (s.busy && s.abortController) {
+            s.abortController.abort();
+            aborted.push(s.config.displayName);
+          }
+        }
+        if (aborted.length > 0) {
+          ctx.ui.notify(`${aborted.join(", ")} 요청/연결 종료 중...`, "info");
+        }
       },
     });
   }
@@ -410,7 +413,9 @@ async function executeCarrier(
 ) {
   const { config } = state;
   const modePi = state.pi;
+  // race condition 방지: abort 가능 시점을 앞당기기 위해 즉시 할당
   const abortController = new AbortController();
+  state.abortController = abortController;
 
   // 세션 이름 자동 설정
   if (!modePi.getSessionName()) {
@@ -427,7 +432,6 @@ async function executeCarrier(
   });
 
   applyWorkingMessage(ctx, state);
-  state.abortController = abortController;
 
   try {
     const helpers: CarrierHelpers = {
