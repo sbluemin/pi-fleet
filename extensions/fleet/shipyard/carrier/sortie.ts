@@ -16,7 +16,6 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import type { CliType } from "@sbluemin/unified-agent";
-import { Type } from "@sinclair/typebox";
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
 import { runAgentRequest } from "../../operation-runner.js";
@@ -38,9 +37,10 @@ import {
 } from "../../constants.js";
 import {
   FLEET_SORTIE_DESCRIPTION,
-  FLEET_SORTIE_PROMPT_SNIPPET,
-  FLEET_SORTIE_PROMPT_GUIDELINES,
-  buildCarrierGuidelines,
+  buildSortieToolPromptSnippet,
+  buildSortieToolPromptGuidelines,
+  buildSortieToolSchema,
+  type CarrierAssignment,
 } from "./prompts.js";
 
 // ─── 상수 ────────────────────────────────────────────────
@@ -49,12 +49,6 @@ import {
 const MAX_CONTENT_LINES = 6;
 
 // ─── 타입 ────────────────────────────────────────────────
-
-/** Carrier 배정 항목 (도구 파라미터) */
-interface CarrierAssignment {
-  carrier: string;
-  request: string;
-}
 
 /** 개별 Carrier 실행 결과 */
 interface CarrierSortieResult {
@@ -388,38 +382,15 @@ export function registerFleetSortie(pi: ExtensionAPI): void {
   const enabledIds = getSortieEnabledIds();
 
   // 모든 carrier가 비활성이어도 도구 자체는 등록 (execute guard가 거부)
-  const carrierGuidelines = buildCarrierGuidelines(enabledIds);
-  const mergedGuidelines = [
-    ...FLEET_SORTIE_PROMPT_GUIDELINES,
-    ...carrierGuidelines,
-  ];
-
-  const availableDesc = enabledIds.length > 0
-    ? `Carrier ID to sortie. Available: ${enabledIds.join(", ")}`
-    : "Carrier ID to sortie. (No carriers currently available)";
+  const mergedGuidelines = buildSortieToolPromptGuidelines(enabledIds);
 
   pi.registerTool({
     name: "carrier_sortie",
     label: "Carrier Sortie",
     description: FLEET_SORTIE_DESCRIPTION,
-    promptSnippet: FLEET_SORTIE_PROMPT_SNIPPET,
+    promptSnippet: buildSortieToolPromptSnippet(),
     promptGuidelines: mergedGuidelines,
-    parameters: Type.Object({
-      carriers: Type.Array(
-        Type.Object({
-          carrier: Type.String({
-            description: availableDesc,
-          }),
-          request: Type.String({
-            description: "The task/prompt to send to this carrier",
-          }),
-        }),
-        {
-          minItems: 1,
-          description: "Array of carrier assignments (1 or more)",
-        },
-      ),
-    }),
+    parameters: buildSortieToolSchema(enabledIds),
 
     // ── renderCall: 스트리밍 콘텐츠 + 최종 결과까지 통합 표시 ──
     renderCall(args: { carriers?: CarrierAssignment[] }, theme: any, context?: SortieRenderContext) {

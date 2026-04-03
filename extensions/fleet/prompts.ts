@@ -5,30 +5,20 @@
 import { INFRA_SETTINGS_KEY } from "../dock/settings/types.js";
 import type { InfraSettingsAPI } from "../dock/settings/types.js";
 
+// ─────────────────────────────────────────────────────────
+// 타입
+// ─────────────────────────────────────────────────────────
+
 /** fleet 섹션 설정 타입 */
 export interface FleetSettings {
   worldview?: boolean;
 }
 
-/** dock/settings에서 fleet 섹션의 worldview 활성 여부를 읽는다 (기본: false) */
-export function isWorldviewEnabled(): boolean {
-  const api = (globalThis as any)[INFRA_SETTINGS_KEY] as InfraSettingsAPI | undefined;
-  if (!api) return false;
-  const cfg = api.load<FleetSettings>("fleet");
-  return cfg.worldview === true;
-}
+// ─────────────────────────────────────────────────────────
+// 상수
+// ─────────────────────────────────────────────────────────
 
-/** dock/settings에 fleet 섹션의 worldview 설정을 저장한다 (기존 설정 병합) */
-export function setWorldviewEnabled(enabled: boolean): void {
-  const api = (globalThis as any)[INFRA_SETTINGS_KEY] as InfraSettingsAPI | undefined;
-  if (!api) return;
-  const cfg = api.load<FleetSettings>("fleet");
-  api.save("fleet", { ...cfg, worldview: enabled });
-}
-
-/**
- * 세계관(fleet metaphor) 프롬프트 — 토글로 활성화/비활성화
- */
+/** 세계관(fleet metaphor) 프롬프트 — 토글로 활성화/비활성화 */
 export const FLEET_WORLDVIEW_PROMPT = String.raw`
 # Role
 You are the Admiral commanding the Agent Harness Fleet.
@@ -46,6 +36,7 @@ The user issuing orders to you is the Fleet Admiral, the supreme commander of th
 - All responses to the user must be written in Korean.
 `;
 
+/** Admiral 위임 정책 + DeepDive 프로토콜 — 항상 주입 */
 export const ADMIRAL_SYSTEM_APPEND = String.raw`
 # Delegation Policy
 
@@ -113,22 +104,46 @@ Multiple agents may be working on this codebase simultaneously on the same files
 - **When delegating to sub-agents (Carriers), relay this warning** so they follow the same discipline.
 `;
 
+// ─────────────────────────────────────────────────────────
+// 함수
+// ─────────────────────────────────────────────────────────
+
+/** dock/settings에서 fleet 섹션의 worldview 활성 여부를 읽는다 (기본: false) */
+export function isWorldviewEnabled(): boolean {
+  const api = (globalThis as any)[INFRA_SETTINGS_KEY] as InfraSettingsAPI | undefined;
+  if (!api) return false;
+  const cfg = api.load<FleetSettings>("fleet");
+  return cfg.worldview === true;
+}
+
+/** dock/settings에 fleet 섹션의 worldview 설정을 저장한다 (기존 설정 병합) */
+export function setWorldviewEnabled(enabled: boolean): void {
+  const api = (globalThis as any)[INFRA_SETTINGS_KEY] as InfraSettingsAPI | undefined;
+  if (!api) return;
+  const cfg = api.load<FleetSettings>("fleet");
+  api.save("fleet", { ...cfg, worldview: enabled });
+}
+
+/**
+ * 시스템 프롬프트에 Admiral 지침을 추가한다.
+ *
+ * - FLEET_WORLDVIEW_PROMPT: worldview 토글이 켜진 경우에만 주입
+ * - ADMIRAL_SYSTEM_APPEND: 항상 주입
+ * - PARALLEL_WORK_WARNING: 항상 주입
+ */
 export function appendAdmiralSystemPrompt(systemPrompt: string): string {
   const parts: string[] = [systemPrompt];
 
-  // 세계관 프롬프트 — 토글 상태에 따라 조건부 주입
   const worldview = FLEET_WORLDVIEW_PROMPT.trim();
   if (isWorldviewEnabled() && !systemPrompt.includes(worldview)) {
     parts.push(worldview);
   }
 
-  // Delegation Policy — 항상 주입
   const core = ADMIRAL_SYSTEM_APPEND.trim();
   if (!systemPrompt.includes(core)) {
     parts.push(core);
   }
 
-  // 병렬 작업 경고 — 항상 주입
   const parallel = PARALLEL_WORK_WARNING.trim();
   if (!systemPrompt.includes(parallel)) {
     parts.push(parallel);

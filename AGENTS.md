@@ -150,6 +150,21 @@ When adding a **new extension**, assign a domain that reflects the **feature cat
 - Apply this naming from the **first `registerCommand` call** in a new extension — do not rename later.
 - Commands without the `fleet:` prefix must be renamed before they are merged into active extensions.
 
+## TypeScript File Structure
+
+All `.ts` source files must follow this top-to-bottom declaration order:
+
+```
+imports → types/interfaces → constants → functions
+```
+
+- **Imports** — external packages first, then internal modules.
+- **Types / Interfaces** — `interface` and `type` declarations only; no logic.
+- **Constants** — `const` declarations. Module-private constants are `const` (unexported); public ones are `export const`.
+- **Functions** — exported functions first, then internal helpers at the bottom.
+
+Do **not** interleave constants and functions, or declare types mid-file.
+
 ## Git Guidelines
 
 - **Commit Message Format:** Strictly adhere to the [Conventional Commits](https://www.conventionalcommits.org/) specification.
