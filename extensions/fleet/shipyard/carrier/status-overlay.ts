@@ -75,6 +75,10 @@ export interface CarrierOverlayCallbacks {
   onModelUpdated: () => void;
   /** sortie 가용 상태 토글 (없으면 토글 기능 비활성) */
   toggleSortieEnabled?: (carrierId: string) => void;
+  /** Task Force 설정 오버레이 열기 (없으면 T키 비활성) */
+  openTaskForce?: (carrierId: string) => void;
+  /** 해당 캐리어에 커스텀 TF 설정이 있는지 여부 */
+  hasTaskForceConfig?: (carrierId: string) => boolean;
 }
 
 type OverlayMode = "browse" | "model" | "effort" | "saving";
@@ -177,6 +181,12 @@ export class CarrierStatusOverlay implements Component, Focusable {
 
     if (this.mode === "browse" && matchesKey(data, Key.tab)) {
       this.toggleDetails();
+      return;
+    }
+
+    // `t` 키: Task Force 설정 오버레이 열기
+    if (this.mode === "browse" && data === "t") {
+      this.handleTaskForce();
       return;
     }
 
@@ -292,13 +302,18 @@ export class CarrierStatusOverlay implements Component, Focusable {
           ? `  \x1b[38;2;255;80;80m✕ sortie off${ANSI_RESET}`
           : "";
 
+        // Task Force 커스텀 설정 태그
+        const tfTag = this.callbacks.hasTaskForceConfig?.(entry.carrierId)
+          ? `  \x1b[38;2;100;180;255m[TF]${ANSI_RESET}`
+          : "";
+
         // 역할 (있으면 모델·effort 뒤에 dim 괄호로 표시)
         const roleStr = entry.role ? dim(`  (${entry.role})`) : "";
         const selectedPrefix = isSelected
           ? `${isDisabled ? ANSI_DIM : entry.color}▸${ANSI_RESET}`
           : " ";
 
-        const content = `  ${selectedPrefix} ${dim(slotStr)}${slotPad}${coloredName}${namePad}${modelStr}${effortStr}${roleStr}${sortieTag}`;
+        const content = `  ${selectedPrefix} ${dim(slotStr)}${slotPad}${coloredName}${namePad}${modelStr}${effortStr}${roleStr}${sortieTag}${tfTag}`;
         lines.push(row(content));
 
         if (isSelected && this.mode !== "browse") {
@@ -450,6 +465,13 @@ export class CarrierStatusOverlay implements Component, Focusable {
     void this.commitSelection(entry, selection);
   }
 
+  private handleTaskForce(): void {
+    const entry = this.getSelectedEntry();
+    if (!entry) return;
+    if (!this.callbacks.openTaskForce) return;
+    this.callbacks.openTaskForce(entry.carrierId);
+  }
+
   private toggleSortieState(): void {
     const entry = this.getSelectedEntry();
     if (!entry) return;
@@ -556,7 +578,7 @@ export class CarrierStatusOverlay implements Component, Focusable {
     }
 
     if (this.mode === "browse") {
-      return "↑↓ select  Enter edit  d sortie toggle  Tab detail  Esc close";
+      return "↑↓ select  Enter edit  T task force  d sortie toggle  Tab detail  Esc close";
     }
 
     return "↑↓ select  Enter confirm  Esc cancel";

@@ -21,6 +21,8 @@ export interface ModelSelection {
   effort?: string;
   /** Claude thinking budget_tokens (effort가 none이 아닐 때 사용) */
   budgetTokens?: number;
+  /** Task Force 백엔드별 커스텀 설정 (cliType → 모델 선택) */
+  taskforce?: TaskForceConfig;
 }
 
 /** selected-models.json 전체 구조 */
@@ -34,10 +36,18 @@ export interface ProviderInfo {
   reasoningEffort: { supported: boolean; levels?: string[]; default?: string };
 }
 
+type TaskForceCliType = "claude" | "codex" | "gemini";
+type TaskForceSelection = Omit<ModelSelection, "taskforce">;
+type TaskForceConfig = Partial<Record<TaskForceCliType, TaskForceSelection>>;
+
 // ─── 상수 ──────────────────────────────────────────────
 
 /** 저장 파일명 */
 const SELECTED_MODELS_FILE = "selected-models.json";
+
+const TASKFORCE_CLI_TYPES: readonly CliType[] = ["claude", "codex", "gemini"];
+
+const CONTROL_CHAR_PATTERN = /[\u0000-\u001f\u007f]/;
 
 /** effort 레벨별 기본 budget_tokens (Claude 전용) */
 const CLAUDE_THINKING_BUDGETS: Record<string, number> = {
@@ -57,18 +67,7 @@ export function loadSelectedModels(configDir: string): SelectedModelsConfig {
     const filePath = path.join(configDir, SELECTED_MODELS_FILE);
     if (!fs.existsSync(filePath)) return {};
     const raw = JSON.parse(fs.readFileSync(filePath, "utf-8"));
-    if (typeof raw !== "object" || raw === null) return {};
-
-    const result: SelectedModelsConfig = {};
-    for (const [key, value] of Object.entries(raw)) {
-      if (typeof value === "string") {
-        // 이전 형식 마이그레이션: "codex": "gpt-5.4" → { model: "gpt-5.4" }
-        result[key] = { model: value };
-      } else if (typeof value === "object" && value !== null && "model" in value) {
-        result[key] = value as ModelSelection;
-      }
-    }
-    return result;
+    return sanitizeSelectedModelsConfig(raw);
   } catch {
     return {};
   }
@@ -79,7 +78,7 @@ export function loadSelectedModels(configDir: string): SelectedModelsConfig {
  */
 export function saveSelectedModels(configDir: string, config: SelectedModelsConfig): void {
   const filePath = path.join(configDir, SELECTED_MODELS_FILE);
-  fs.writeFileSync(filePath, JSON.stringify(config, null, 2), "utf-8");
+  fs.writeFileSync(filePath, JSON.stringify(sanitizeSelectedModelsConfig(config), null, 2), "utf-8");
 }
 
 // ─── 프로바이더 카탈로그 ────────────────────────────────
@@ -105,4 +104,227 @@ export function getEffortLevels(cli: CliType): string[] | null {
  */
 export function getDefaultBudgetTokens(effort: string): number {
   return CLAUDE_THINKING_BUDGETS[effort] ?? 10000;
+}
+
+// ─── Task Force 모델 설정 ───────────────────────────────
+
+/**
+ * Task Force 백엔드별 모델 설정을 반환합니다.
+ *
+ * 1순위: selected-models.json[carrierId].taskforce[cliType] 존재 시 반환
+ * 2순위: 없으면 원본 캐리어의 effort를 승계하여 cliType의 기본 모델 적용 (auto)
+ *        단, Gemini 등 effort 미지원 CLI는 effort 필드 제외
+ */
+export function getTaskForceModelConfig(
+  configDir: string,
+  carrierId: string,
+  cliType: string,
+): TaskForceSelection {
+  const resolvedCliType = toTaskForceCliType(cliType);
+  const config = loadSelectedModels(configDir);
+  const carrierConfig = config[carrierId];
+
+  // 1순위: 명시적 taskforce 설정이 있으면 반환
+  const explicit = sanitizeTaskForceSelection(resolvedCliType, carrierConfig?.taskforce?.[resolvedCliType]);
+  if (explicit) return explicit;
+
+  // 2순위: 폴백 — cliType 기본 모델 + 캐리어 effort 승계 (지원 시)
+  const provider = getAvailableModels(resolvedCliType);
+  const effortLevels = getEffortLevels(resolvedCliType);
+
+  const result: TaskForceSelection = { model: provider.defaultModel };
+
+  // effort 승계 (cliType이 effort를 지원하고, 캐리어에 effort 설정이 있을 때만)
+  if (effortLevels !== null && carrierConfig?.effort && effortLevels.includes(carrierConfig.effort)) {
+    result.effort = carrierConfig.effort;
+    // Claude 전용 budgetTokens 설정
+    if (resolvedCliType === "claude" && carrierConfig.effort !== "none") {
+      result.budgetTokens = CLAUDE_THINKING_BUDGETS[carrierConfig.effort] ?? undefined;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Task Force 백엔드별 모델 설정을 저장합니다.
+ */
+export function updateTaskForceModelSelection(
+  configDir: string,
+  carrierId: string,
+  cliType: string,
+  selection: TaskForceSelection,
+): void {
+  const resolvedCliType = toTaskForceCliType(cliType);
+  const sanitizedSelection = sanitizeTaskForceSelection(resolvedCliType, selection);
+  if (!sanitizedSelection) {
+    throw new Error(`Invalid Task Force model selection for ${resolvedCliType}.`);
+  }
+
+  const existing = loadSelectedModels(configDir);
+  ensureTaskForceConfig(existing, carrierId)[resolvedCliType] = sanitizedSelection;
+  saveSelectedModels(configDir, existing);
+}
+
+/**
+ * Task Force 백엔드별 모델 설정을 초기화합니다 (origin으로 되돌림).
+ */
+export function resetTaskForceModelSelection(
+  configDir: string,
+  carrierId: string,
+  cliType: string,
+): void {
+  const resolvedCliType = toTaskForceCliType(cliType);
+  const existing = loadSelectedModels(configDir);
+  const carrierConfig = existing[carrierId];
+  if (!carrierConfig?.taskforce) return;
+
+  delete carrierConfig.taskforce[resolvedCliType];
+  pruneEmptyTaskForceConfig(carrierConfig);
+  saveSelectedModels(configDir, existing);
+}
+
+function sanitizeSelectedModelsConfig(raw: unknown): SelectedModelsConfig {
+  if (!isRecord(raw)) return {};
+
+  const result: SelectedModelsConfig = {};
+
+  for (const [key, value] of Object.entries(raw)) {
+    const sanitizedKey = sanitizeConfigKey(key);
+    if (!sanitizedKey) continue;
+
+    if (typeof value === "string") {
+      const legacyModel = sanitizeFreeformText(value);
+      if (!legacyModel) continue;
+      result[sanitizedKey] = { model: legacyModel };
+      continue;
+    }
+
+    const sanitizedSelection = sanitizeModelSelection(value);
+    if (sanitizedSelection) {
+      result[sanitizedKey] = sanitizedSelection;
+    }
+  }
+
+  return result;
+}
+
+function sanitizeModelSelection(value: unknown): ModelSelection | null {
+  if (!isRecord(value)) return null;
+
+  const taskforce = sanitizeTaskforceConfig(value.taskforce);
+  const model = sanitizeFreeformText(value.model);
+  if (!model && !taskforce) return null;
+
+  const result: ModelSelection = { model: model ?? "" };
+
+  if (typeof value.direct === "boolean") {
+    result.direct = value.direct;
+  }
+
+  const effort = sanitizeFreeformText(value.effort);
+  if (effort) {
+    result.effort = effort;
+  }
+
+  const budgetTokens = sanitizeBudgetTokens(value.budgetTokens);
+  if (budgetTokens !== undefined) {
+    result.budgetTokens = budgetTokens;
+  }
+
+  if (taskforce) {
+    result.taskforce = taskforce;
+  }
+
+  return result;
+}
+
+function sanitizeTaskforceConfig(value: unknown): TaskForceConfig | undefined {
+  if (!isRecord(value)) return undefined;
+
+  const taskforce: TaskForceConfig = {};
+  for (const [cliKey, cliValue] of Object.entries(value)) {
+    if (!isTaskForceCliType(cliKey)) continue;
+    const sanitizedTaskforceSelection = sanitizeTaskForceSelection(cliKey, cliValue);
+    if (sanitizedTaskforceSelection) {
+      taskforce[cliKey] = sanitizedTaskforceSelection;
+    }
+  }
+
+  return Object.keys(taskforce).length > 0 ? taskforce : undefined;
+}
+
+function sanitizeTaskForceSelection(cliType: CliType, value: unknown): TaskForceSelection | null {
+  if (!isRecord(value)) return null;
+
+  const provider = getAvailableModels(cliType);
+  const allowedModels = new Set(provider.models.map((model) => model.modelId));
+  const model = sanitizeFreeformText(value.model);
+  if (!model || !allowedModels.has(model)) return null;
+
+  const result: TaskForceSelection = { model };
+  const effortLevels = getEffortLevels(cliType);
+  const effort = sanitizeFreeformText(value.effort);
+
+  if (effortLevels && effort && effortLevels.includes(effort)) {
+    result.effort = effort;
+    if (cliType === "claude" && effort !== "none") {
+      result.budgetTokens = sanitizeBudgetTokens(value.budgetTokens) ?? getDefaultBudgetTokens(effort);
+    }
+  }
+
+  return result;
+}
+
+function ensureTaskForceConfig(
+  config: SelectedModelsConfig,
+  carrierId: string,
+): TaskForceConfig {
+  if (!config[carrierId]) {
+    config[carrierId] = { model: "" };
+  }
+
+  if (!config[carrierId]!.taskforce) {
+    config[carrierId]!.taskforce = {};
+  }
+
+  return config[carrierId]!.taskforce!;
+}
+
+function pruneEmptyTaskForceConfig(carrierConfig: ModelSelection): void {
+  if (carrierConfig.taskforce && Object.keys(carrierConfig.taskforce).length === 0) {
+    delete carrierConfig.taskforce;
+  }
+}
+
+function toTaskForceCliType(value: string): TaskForceCliType {
+  if (isTaskForceCliType(value)) {
+    return value;
+  }
+  throw new Error(`Unsupported Task Force backend: ${value}`);
+}
+
+function isTaskForceCliType(value: string): value is TaskForceCliType {
+  return TASKFORCE_CLI_TYPES.includes(value as TaskForceCliType);
+}
+
+function sanitizeConfigKey(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed || CONTROL_CHAR_PATTERN.test(trimmed)) return null;
+  return trimmed;
+}
+
+function sanitizeFreeformText(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed || CONTROL_CHAR_PATTERN.test(trimmed)) return null;
+  return trimmed;
+}
+
+function sanitizeBudgetTokens(value: unknown): number | undefined {
+  return Number.isInteger(value) && (value as number) > 0 ? (value as number) : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

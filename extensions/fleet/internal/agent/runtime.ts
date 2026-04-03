@@ -18,7 +18,12 @@ import {
   saveSelectedModels,
   type ModelSelection,
   type SelectedModelsConfig,
+  getAvailableModels,
+  getTaskForceModelConfig as getTaskForceModelConfigLow,
+  updateTaskForceModelSelection as updateTaskForceModelSelectionLow,
+  resetTaskForceModelSelection as resetTaskForceModelSelectionLow,
 } from "./model-config.js";
+import type { CliType } from "@sbluemin/unified-agent";
 import { disconnectClient } from "./client-pool.js";
 
 /** 런타임 데이터 디렉토리 (session-maps/, selected-models.json 저장 경로) */
@@ -123,4 +128,41 @@ export async function updateAllModelSelections(
 /** 데이터 디렉토리를 반환합니다. 미초기화 시 null. */
 export function getDataDir(): string | null {
   return dataDir;
+}
+
+// ─── Task Force 모델 설정 래퍼 ──────────────────────────
+
+/**
+ * Task Force 백엔드별 모델 설정을 반환합니다.
+ * 미초기화 시 cliType 기본 모델을 반환합니다.
+ */
+export function getTaskForceModelConfig(
+  carrierId: string,
+  cliType: string,
+): Omit<ModelSelection, "taskforce"> {
+  if (!dataDir) {
+    const provider = getAvailableModels(cliType as CliType);
+    return { model: provider.defaultModel };
+  }
+  return getTaskForceModelConfigLow(dataDir, carrierId, cliType);
+}
+
+/**
+ * Task Force 백엔드별 모델 설정을 저장합니다.
+ */
+export async function updateTaskForceModelSelection(
+  carrierId: string,
+  cliType: string,
+  selection: Omit<ModelSelection, "taskforce">,
+): Promise<void> {
+  if (!dataDir) return;
+  updateTaskForceModelSelectionLow(dataDir, carrierId, cliType, selection);
+}
+
+/**
+ * Task Force 백엔드별 모델 설정을 초기화합니다 (origin으로 되돌림).
+ */
+export function resetTaskForceModelSelection(carrierId: string, cliType: string): void {
+  if (!dataDir) return;
+  resetTaskForceModelSelectionLow(dataDir, carrierId, cliType);
 }

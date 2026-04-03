@@ -12,6 +12,7 @@ import type { CliType } from "@sbluemin/unified-agent";
 import { registerCarrier, reorderRegisteredByCliType } from "./framework.js";
 import { runAgentRequest } from "../../operation-runner.js";
 import type { CarrierMetadata, CarrierResult } from "./types.js";
+import { composeTier2Request } from "./compose.js";
 import {
   CLI_DISPLAY_NAMES,
   CARRIER_COLORS,
@@ -96,37 +97,6 @@ export function registerSingleCarrier(
   reorderRegisteredByCliType();
 }
 
-// ─── Tier 2 Composition ─────────────────────────────────
-
-/**
- * Tier 2 자동 주입: permissions + principles를 앞에, outputFormat을 끝에 붙여
- * 최종 request를 조립합니다.
- */
-function composeTier2Request(metadata: CarrierMetadata, originalRequest: string): string {
-  const directives: string[] = [];
-
-  // Permissions & Constraints
-  if (metadata.permissions.length > 0) {
-    directives.push("## Permissions & Constraints");
-    for (const p of metadata.permissions) directives.push(`- ${p}`);
-  }
-
-  // Principles
-  if (metadata.principles?.length) {
-    if (directives.length > 0) directives.push("");
-    directives.push("## Principles");
-    for (const p of metadata.principles) directives.push(`- ${p}`);
-  }
-
-  const parts: string[] = [];
-  if (directives.length > 0) {
-    parts.push(directives.join("\n") + "\n\n---\n");
-  }
-  parts.push(originalRequest);
-
-  if (metadata.outputFormat) {
-    parts.push("\n" + metadata.outputFormat);
-  }
-
-  return parts.join("\n");
-}
+// composeTier2Request는 compose.ts로 분리되었습니다.
+// 하위 호환을 위해 re-export합니다.
+export { composeTier2Request } from "./compose.js";

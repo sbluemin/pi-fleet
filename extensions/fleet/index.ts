@@ -35,7 +35,15 @@ import {
   setSortieDisabledCarriers,
   onSortieStateChange,
 } from "./shipyard/carrier/framework.js";
-import { initRuntime, onHostSessionChange, getModelConfig, updateModelSelection } from "./internal/agent/runtime.js";
+import {
+  initRuntime,
+  onHostSessionChange,
+  getModelConfig,
+  updateModelSelection,
+  getTaskForceModelConfig,
+  updateTaskForceModelSelection,
+  resetTaskForceModelSelection,
+} from "./internal/agent/runtime.js";
 import { getAvailableModels, getEffortLevels, getDefaultBudgetTokens } from "./internal/agent/model-config.js";
 import { cleanIdleClients } from "./internal/agent/client-pool.js";
 import { registerModelCommands, syncModelConfig } from "./internal/agent/model-ui.js";
@@ -47,6 +55,13 @@ import { buildBridgeCommand } from "./shipyard/carrier/launch.js";
 import { attachStatusContext, refreshStatusNow, getServiceSnapshots, refreshStatusQuiet } from "./internal/service-status/store.js";
 import { CARRIER_BRIDGE_KEY } from "./constants";
 import { registerFleetSortie } from "./shipyard/carrier/sortie.js";
+import { registerFleetTaskForce } from "./shipyard/taskforce/index.js";
+import {
+  TASKFORCE_CLI_TYPES,
+  type TaskForceCliType,
+} from "./shipyard/taskforce/types.js";
+import { TaskForceConfigOverlay } from "./shipyard/carrier/taskforce-config-overlay.js";
+import type { TaskForceOverlayCallbacks } from "./shipyard/carrier/taskforce-config-overlay.js";
 import { appendAdmiralSystemPrompt, isWorldviewEnabled, setWorldviewEnabled } from "./prompts.js";
 import { CarrierStatusOverlay } from "./shipyard/carrier/status-overlay.js";
 import type { CarrierStatusGroup, CarrierStatusEntry } from "./shipyard/carrier/status-overlay.js";
@@ -71,6 +86,9 @@ export {
   getModelConfig,
   updateModelSelection,
   updateAllModelSelections,
+  getTaskForceModelConfig,
+  updateTaskForceModelSelection,
+  resetTaskForceModelSelection,
 } from "./internal/agent/runtime.js";
 
 export {
@@ -94,6 +112,7 @@ export {
   getActiveCarrierId,
   getRegisteredOrder,
   getRegisteredCarrierConfig,
+  getAllCliTypes,
   onStatusUpdate,
   notifyStatusUpdate,
   resolveCarrierColor,
@@ -145,10 +164,12 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
   }
 
   registerFleetSortie(pi);
+  registerFleetTaskForce(pi);
 
   // sortie 상태 변경 시 → 도구 재등록 + 영속화 + 상태바 갱신
   onSortieStateChange(() => {
     registerFleetSortie(pi);
+    registerFleetTaskForce(pi);
     saveSortieDisabled(dataDir, getSortieDisabledIds());
     notifyStatusUpdate();
   });
@@ -242,7 +263,7 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
         const selection = modelConfig[id];
         const provider = getAvailableModels(cliType);
 
-        const model = selection?.model ?? provider.defaultModel;
+        const model = selection?.model || provider.defaultModel;
         const isDefault = !selection?.model;
         const effort = selection?.effort ?? null;
         const budgetTokens = selection?.budgetTokens ?? null;
@@ -299,6 +320,66 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
                 } else {
                   enableSortieCarrier(carrierId);
                 }
+              },
+              hasTaskForceConfig: (carrierId: string) => {
+                const config = getModelConfig();
+                return Object.keys(config[carrierId]?.taskforce ?? {}).length > 0;
+              },
+              openTaskForce: (carrierId: string) => {
+                // 현재 status 오버레이 닫고 TF 설정 오버레이 열기
+                dismissStatusPopup?.();
+                const carrierConfig = getRegisteredCarrierConfig(carrierId);
+                if (!carrierConfig) {
+                  ctx.ui.notify(`등록되지 않은 carrier입니다: ${carrierId}`, "error");
+                  return;
+                }
+                const carrierDisplayName = carrierConfig?.displayName ?? carrierId;
+                const allowedTaskForceCliTypes = new Set<string>(TASKFORCE_CLI_TYPES);
+                const requireTaskForceCliType = (cliType: string): TaskForceCliType => {
+                  if (!allowedTaskForceCliTypes.has(cliType)) {
+                    throw new Error(`Unsupported Task Force backend: ${cliType}`);
+                  }
+                  return cliType as TaskForceCliType;
+                };
+
+                const tfCallbacks: TaskForceOverlayCallbacks = {
+                  getAvailableModels: (cliType: string) => getAvailableModels(requireTaskForceCliType(cliType)),
+                  getEffortLevels: (cliType: string) => getEffortLevels(requireTaskForceCliType(cliType)),
+                  getDefaultBudgetTokens,
+                  getBackendConfig: (cliType: string) => {
+                    const resolvedCliType = requireTaskForceCliType(cliType);
+                    const tfConfig = getTaskForceModelConfig(carrierId, resolvedCliType);
+                    const modelConfig = getModelConfig();
+                    const isCustom = !!(modelConfig[carrierId]?.taskforce?.[resolvedCliType]);
+                    return {
+                      model: tfConfig.model,
+                      effort: tfConfig.effort ?? null,
+                      isCustom,
+                    };
+                  },
+                  updateBackendConfig: (cliType: string, selection) => {
+                    return updateTaskForceModelSelection(
+                      carrierId,
+                      requireTaskForceCliType(cliType),
+                      selection,
+                    );
+                  },
+                  resetBackendConfig: (cliType: string) => {
+                    resetTaskForceModelSelection(carrierId, requireTaskForceCliType(cliType));
+                  },
+                  onConfigUpdated: () => {
+                    syncModelConfig();
+                    notifyStatusUpdate();
+                  },
+                };
+                void ctx.ui.custom(
+                  (tui2: any, theme2: any, _kb2: any, done2: () => void) =>
+                    new TaskForceConfigOverlay(tui2, theme2, carrierId, carrierDisplayName, tfCallbacks, done2),
+                  {
+                    overlay: true,
+                    overlayOptions: { width: "60%", maxHeight: "55%", anchor: "center", margin: 1 },
+                  },
+                );
               },
             },
             done,

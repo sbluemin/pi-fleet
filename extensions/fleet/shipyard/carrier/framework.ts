@@ -18,6 +18,7 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { CliType } from "@sbluemin/unified-agent";
 import {
   CLI_DISPLAY_NAMES,
   CARRIER_COLORS,
@@ -305,6 +306,20 @@ export function reorderRegisteredByCliType(): void {
  */
 export function getRegisteredCarrierConfig(carrierId: string): CarrierConfig | undefined {
   return getState().modes.get(carrierId)?.config;
+}
+
+/**
+ * 등록된 전체 carrierId를 순회하여 cliType Set으로 수집하고,
+ * 중복 제거 후 배열로 반환합니다.
+ */
+export function getAllCliTypes(): CliType[] {
+  const gs = getState();
+  const types = new Set<string>();
+  for (const id of gs.registeredOrder) {
+    const cliType = gs.modes.get(id)?.config.cliType;
+    if (cliType) types.add(cliType);
+  }
+  return [...types] as CliType[];
 }
 
 /** carrierId 기준으로 전경(프레임) 색상을 반환합니다. */
