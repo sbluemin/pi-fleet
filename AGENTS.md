@@ -43,7 +43,7 @@ PI is the **host agent** (orchestrator). Genesis, Sentinel, and Vanguard are **s
 | Speaker | Role |
 |---------|------|
 | **PI** (host) | Orchestrator — routes requests, invokes tools, synthesizes cross-reports |
-| **Genesis** (sub) | CVN-01 Chief Architect (Claude Code CLI via ACP) |
+| **Genesis** (sub) | CVN-01 Chief Engineer (Claude Code CLI via ACP) |
 | **Arbiter** (sub) | CVN-02 Chief Doctrine Officer (Claude Code CLI via ACP) |
 | **Crucible** (sub) | CVN-03 Chief Forgemaster (Codex CLI via ACP) |
 | **Sentinel** (sub) | CVN-04 The Inquisitor (Codex CLI via ACP) |
@@ -51,6 +51,7 @@ PI is the **host agent** (orchestrator). Genesis, Sentinel, and Vanguard are **s
 | **Vanguard** (sub) | CVN-06 Scout Specialist (Gemini CLI via ACP) |
 | **Echelon** (sub) | CVN-07 Chief Intelligence Officer (Gemini CLI via ACP) |
 | **Chronicle** (sub) | CVN-08 Chief Knowledge Officer (Gemini CLI via ACP) |
+| **Oracle** (sub) | CVN-09 Read-Only Strategic Technical Advisor (Claude Code CLI via ACP) |
 
 ### Execution Modes
 
