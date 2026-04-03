@@ -283,6 +283,28 @@ export function onSortieStateChange(callback: () => void): void {
   gs.sortieStateChangeCallbacks = [callback];
 }
 
+// ─── Task Force 설정 변경 관리 ──────────────────────────
+
+/**
+ * Task Force 설정 변경 시 호출될 콜백을 등록합니다.
+ * 재초기화(/reload) 시 이전 콜백이 누적되지 않도록 기존 목록을 클리어합니다.
+ */
+export function onTaskForceConfigChange(callback: () => void): void {
+  const gs = getState();
+  gs.taskforceConfigChangeCallbacks = [callback];
+}
+
+/**
+ * Task Force 설정 변경 콜백을 모두 호출합니다.
+ * taskforce-config-overlay에서 설정 저장/리셋 성공 시 호출합니다.
+ */
+export function notifyTaskForceConfigChange(): void {
+  const gs = getState();
+  for (const cb of gs.taskforceConfigChangeCallbacks) {
+    try { cb(); } catch { /* 무시 */ }
+  }
+}
+
 /**
  * registeredOrder를 CliType 우선순위(claude→codex→gemini)로 재정렬합니다.
  * 같은 CliType 내에서는 slot 순서를 유지합니다.
@@ -369,6 +391,7 @@ function getState(): CarrierFrameworkState {
       sortieDisabledCarriers: new Set(),
       sortieStateChangeCallbacks: [],
       sortieRegisterTimer: null,
+      taskforceConfigChangeCallbacks: [],
     };
     (globalThis as any)[CARRIER_FRAMEWORK_KEY] = s;
   }

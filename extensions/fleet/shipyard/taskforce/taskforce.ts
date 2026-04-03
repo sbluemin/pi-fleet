@@ -13,7 +13,11 @@ import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-age
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
 import { executeOneShot } from "../../internal/agent/executor.js";
-import { getTaskForceModelConfig } from "../../internal/agent/runtime.js";
+import {
+  getTaskForceModelConfig,
+  isTaskForceFullyConfigured,
+  getConfiguredTaskForceCarrierIds,
+} from "../../internal/agent/runtime.js";
 import {
   createRun,
   appendTextBlock,
@@ -88,7 +92,9 @@ export function registerFleetTaskForce(pi: ExtensionAPI): void {
   const allCarriers = getRegisteredOrder();
   if (allCarriers.length < 1) return;
 
-  const guidelines = buildTaskForcePromptGuidelines(allCarriers);
+  // TF 설정이 완전히 구성된 캐리어만 스키마/가이드라인에 반영
+  const configuredCarriers = getConfiguredTaskForceCarrierIds(allCarriers);
+  const guidelines = buildTaskForcePromptGuidelines(configuredCarriers);
 
   pi.registerTool({
     name: "carrier_taskforce",
@@ -96,7 +102,7 @@ export function registerFleetTaskForce(pi: ExtensionAPI): void {
     description: FLEET_TASKFORCE_DESCRIPTION,
     promptSnippet: buildTaskForcePromptSnippet(),
     promptGuidelines: guidelines,
-    parameters: buildTaskForceSchema(allCarriers),
+    parameters: buildTaskForceSchema(configuredCarriers),
 
     // ── renderCall: 실시간 스트리밍 표시 ──
     renderCall(args: { carrier?: string; request?: string }, theme: any, context?: TaskForceRenderContext) {
@@ -128,6 +134,7 @@ export function registerFleetTaskForce(pi: ExtensionAPI): void {
       const requestKey = buildTaskForceRequestKey(carrierId, request);
 
       assertRegisteredCarrier(carrierId);
+      assertTaskForceConfigured(carrierId);
       const composedRequest = buildComposedTaskForceRequest(carrierId, request);
 
       // 진행 상태 초기화
@@ -174,6 +181,19 @@ function assertRegisteredCarrier(carrierId: string): void {
   }
 }
 
+function assertTaskForceConfigured(carrierId: string): void {
+  if (isTaskForceFullyConfigured(carrierId)) return;
+
+  // 미구성 백엔드 목록 생성
+  const missing = TASKFORCE_CLI_TYPES.filter((cli) => !getTaskForceModelConfig(carrierId, cli));
+  const missingList = missing.map((cli) => CLI_DISPLAY_NAMES[cli] ?? cli).join(", ");
+  throw new Error(
+    `Carrier "${carrierId}" is not fully configured for Task Force.\n` +
+    `Missing backends: ${missingList}\n` +
+    `→ Open Carrier Status (Alt+O), select ${carrierId}, press T to configure.`,
+  );
+}
+
 function buildComposedTaskForceRequest(carrierId: string, request: string): string {
   const carrierConfig = getRegisteredCarrierConfig(carrierId);
   return carrierConfig?.carrierMetadata
@@ -194,6 +214,9 @@ async function runTaskForceBackend(
 
   const syntheticId = buildTaskForceRunId(carrierId, cliType);
   const modelConfig = getTaskForceModelConfig(carrierId, cliType);
+  if (!modelConfig) {
+    throw new Error(`Task Force config missing for ${cliType} on carrier "${carrierId}".`);
+  }
 
   // synthetic run은 동일 키로 재사용하여 반복 실행 누적을 방지합니다.
   prepareTaskForceRun(syntheticId);

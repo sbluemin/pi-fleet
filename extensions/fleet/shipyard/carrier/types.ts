@@ -138,4 +138,6 @@ export interface CarrierFrameworkState {
    * (복수 carrier 동시 등록 시 콜백이 N번 발화되는 것을 방지)
    */
   sortieRegisterTimer: ReturnType<typeof setTimeout> | null;
+  /** Task Force 설정 변경 시 호출되는 콜백 */
+  taskforceConfigChangeCallbacks: Array<() => void>;
 }

@@ -111,39 +111,39 @@ export function getDefaultBudgetTokens(effort: string): number {
 /**
  * Task Force 백엔드별 모델 설정을 반환합니다.
  *
- * 1순위: selected-models.json[carrierId].taskforce[cliType] 존재 시 반환
- * 2순위: 없으면 원본 캐리어의 effort를 승계하여 cliType의 기본 모델 적용 (auto)
- *        단, Gemini 등 effort 미지원 CLI는 effort 필드 제외
+ * selected-models.json[carrierId].taskforce[cliType] 존재 시에만 반환합니다.
+ * 명시적 설정이 없으면 undefined를 반환합니다 (auto 폴백 없음).
  */
 export function getTaskForceModelConfig(
   configDir: string,
   carrierId: string,
   cliType: string,
-): TaskForceSelection {
+): TaskForceSelection | undefined {
   const resolvedCliType = toTaskForceCliType(cliType);
   const config = loadSelectedModels(configDir);
   const carrierConfig = config[carrierId];
 
-  // 1순위: 명시적 taskforce 설정이 있으면 반환
-  const explicit = sanitizeTaskForceSelection(resolvedCliType, carrierConfig?.taskforce?.[resolvedCliType]);
-  if (explicit) return explicit;
+  return sanitizeTaskForceSelection(resolvedCliType, carrierConfig?.taskforce?.[resolvedCliType]) ?? undefined;
+}
 
-  // 2순위: 폴백 — cliType 기본 모델 + 캐리어 effort 승계 (지원 시)
-  const provider = getAvailableModels(resolvedCliType);
-  const effortLevels = getEffortLevels(resolvedCliType);
+/**
+ * 지정 캐리어가 모든 CLI 백엔드(claude/codex/gemini)에 대해
+ * Task Force 설정을 완료했는지 확인합니다.
+ */
+export function isTaskForceFullyConfigured(configDir: string, carrierId: string): boolean {
+  const config = loadSelectedModels(configDir);
+  const carrierConfig = config[carrierId];
+  if (!carrierConfig?.taskforce) return false;
+  return TASKFORCE_CLI_TYPES.every((cli) =>
+    sanitizeTaskForceSelection(cli, carrierConfig.taskforce?.[cli]) !== null,
+  );
+}
 
-  const result: TaskForceSelection = { model: provider.defaultModel };
-
-  // effort 승계 (cliType이 effort를 지원하고, 캐리어에 effort 설정이 있을 때만)
-  if (effortLevels !== null && carrierConfig?.effort && effortLevels.includes(carrierConfig.effort)) {
-    result.effort = carrierConfig.effort;
-    // Claude 전용 budgetTokens 설정
-    if (resolvedCliType === "claude" && carrierConfig.effort !== "none") {
-      result.budgetTokens = CLAUDE_THINKING_BUDGETS[carrierConfig.effort] ?? undefined;
-    }
-  }
-
-  return result;
+/**
+ * 등록된 전체 캐리어 중 Task Force 설정이 완전히 구성된 캐리어 ID 목록을 반환합니다.
+ */
+export function getConfiguredTaskForceCarrierIds(configDir: string, registeredIds: string[]): string[] {
+  return registeredIds.filter((id) => isTaskForceFullyConfigured(configDir, id));
 }
 
 /**

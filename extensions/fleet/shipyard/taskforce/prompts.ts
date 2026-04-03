@@ -58,22 +58,22 @@ export function buildTaskForcePromptSnippet(): string {
 /**
  * carrier_taskforce의 `promptGuidelines` 배열을 반환합니다.
  *
- * @param carrierIds 등록된 전체 carrier ID 목록
+ * @param configuredCarrierIds TF 설정이 완전히 구성된 carrier ID 목록
  */
-export function buildTaskForcePromptGuidelines(carrierIds: string[]): string[] {
-  return [...TASKFORCE_BASE_GUIDELINES, ...buildCarrierRoster(carrierIds)];
+export function buildTaskForcePromptGuidelines(configuredCarrierIds: string[]): string[] {
+  return [...TASKFORCE_BASE_GUIDELINES, ...buildCarrierRoster(configuredCarrierIds)];
 }
 
 /**
  * carrier_taskforce의 TypeBox `parameters` 스키마를 반환합니다.
  *
- * @param carrierIds 등록된 전체 carrier ID 목록
+ * @param configuredCarrierIds TF 설정이 완전히 구성된 carrier ID 목록
  */
-export function buildTaskForceSchema(carrierIds: string[]): TObject {
+export function buildTaskForceSchema(configuredCarrierIds: string[]): TObject {
   const availableDesc =
-    carrierIds.length > 0
-      ? `Carrier ID whose persona to apply. Available: ${carrierIds.join(", ")}`
-      : `Carrier ID whose persona to apply. (No carriers currently registered)`;
+    configuredCarrierIds.length > 0
+      ? `Carrier ID whose persona to apply. Available: ${configuredCarrierIds.join(", ")}`
+      : `Carrier ID whose persona to apply. (No carriers currently configured for Task Force — open Carrier Status (Alt+O) and press T to configure)`;
 
   return Type.Object({
     carrier: Type.String({ description: availableDesc }),
@@ -87,9 +87,14 @@ export function buildTaskForceSchema(carrierIds: string[]): TObject {
 // 내부 헬퍼
 // ─────────────────────────────────────────────────────────
 
-/** 등록된 carrier 간단 로스터 생성 */
+/** 구성 완료된 carrier 로스터 생성 */
 function buildCarrierRoster(carrierIds: string[]): string[] {
-  if (carrierIds.length === 0) return [];
+  if (carrierIds.length === 0) {
+    return [
+      `## Task Force Carriers\nNo carriers are currently fully configured for Task Force.` +
+      ` To configure, open Carrier Status (Alt+O), select a carrier, and press T to set up all three CLI backends (Claude, Codex, Gemini).`,
+    ];
+  }
 
   const lines: string[] = [];
   lines.push(`## Available Carriers for Task Force`);

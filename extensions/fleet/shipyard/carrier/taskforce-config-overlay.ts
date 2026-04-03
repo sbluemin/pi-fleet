@@ -15,6 +15,7 @@ import {
   TASKFORCE_CLI_TYPES,
   type TaskForceCliType,
 } from "../taskforce/types.js";
+import { notifyTaskForceConfigChange } from "./framework.js";
 
 // ─── 타입 ────────────────────────────────────────────────
 
@@ -372,6 +373,7 @@ export class TaskForceConfigOverlay implements Component, Focusable {
 
     this.callbacks.resetBackendConfig(entry.cliType);
     this.callbacks.onConfigUpdated();
+    notifyTaskForceConfigChange();
     this.feedbackMessage = `${entry.displayName} 설정을 origin으로 초기화했습니다.`;
     this.tui.requestRender();
   }
@@ -416,6 +418,7 @@ export class TaskForceConfigOverlay implements Component, Focusable {
     try {
       await this.callbacks.updateBackendConfig(cliType, selection);
       this.callbacks.onConfigUpdated();
+      notifyTaskForceConfigChange();
       this.feedbackMessage = `${entry.displayName} 설정을 저장했습니다.`;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

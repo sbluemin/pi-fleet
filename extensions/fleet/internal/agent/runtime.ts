@@ -18,12 +18,12 @@ import {
   saveSelectedModels,
   type ModelSelection,
   type SelectedModelsConfig,
-  getAvailableModels,
   getTaskForceModelConfig as getTaskForceModelConfigLow,
   updateTaskForceModelSelection as updateTaskForceModelSelectionLow,
   resetTaskForceModelSelection as resetTaskForceModelSelectionLow,
+  isTaskForceFullyConfigured as isTaskForceFullyConfiguredLow,
+  getConfiguredTaskForceCarrierIds as getConfiguredTaskForceCarrierIdsLow,
 } from "./model-config.js";
-import type { CliType } from "@sbluemin/unified-agent";
 import { disconnectClient } from "./client-pool.js";
 
 /** 런타임 데이터 디렉토리 (session-maps/, selected-models.json 저장 경로) */
@@ -134,16 +134,13 @@ export function getDataDir(): string | null {
 
 /**
  * Task Force 백엔드별 모델 설정을 반환합니다.
- * 미초기화 시 cliType 기본 모델을 반환합니다.
+ * 명시적 설정이 없으면 undefined를 반환합니다 (auto 폴백 없음).
  */
 export function getTaskForceModelConfig(
   carrierId: string,
   cliType: string,
-): Omit<ModelSelection, "taskforce"> {
-  if (!dataDir) {
-    const provider = getAvailableModels(cliType as CliType);
-    return { model: provider.defaultModel };
-  }
+): Omit<ModelSelection, "taskforce"> | undefined {
+  if (!dataDir) return undefined;
   return getTaskForceModelConfigLow(dataDir, carrierId, cliType);
 }
 
@@ -165,4 +162,20 @@ export async function updateTaskForceModelSelection(
 export function resetTaskForceModelSelection(carrierId: string, cliType: string): void {
   if (!dataDir) return;
   resetTaskForceModelSelectionLow(dataDir, carrierId, cliType);
+}
+
+/**
+ * 지정 캐리어가 모든 CLI 백엔드에 대해 Task Force 설정을 완료했는지 확인합니다.
+ */
+export function isTaskForceFullyConfigured(carrierId: string): boolean {
+  if (!dataDir) return false;
+  return isTaskForceFullyConfiguredLow(dataDir, carrierId);
+}
+
+/**
+ * 등록된 전체 캐리어 중 Task Force 설정이 완전히 구성된 캐리어 ID 목록을 반환합니다.
+ */
+export function getConfiguredTaskForceCarrierIds(registeredIds: string[]): string[] {
+  if (!dataDir) return [];
+  return getConfiguredTaskForceCarrierIdsLow(dataDir, registeredIds);
 }

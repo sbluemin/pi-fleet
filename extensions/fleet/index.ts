@@ -34,6 +34,7 @@ import {
   getSortieDisabledIds,
   setSortieDisabledCarriers,
   onSortieStateChange,
+  onTaskForceConfigChange,
 } from "./shipyard/carrier/framework.js";
 import {
   initRuntime,
@@ -43,6 +44,7 @@ import {
   getTaskForceModelConfig,
   updateTaskForceModelSelection,
   resetTaskForceModelSelection,
+  isTaskForceFullyConfigured,
 } from "./internal/agent/runtime.js";
 import { getAvailableModels, getEffortLevels, getDefaultBudgetTokens } from "./internal/agent/model-config.js";
 import { cleanIdleClients } from "./internal/agent/client-pool.js";
@@ -89,6 +91,8 @@ export {
   getTaskForceModelConfig,
   updateTaskForceModelSelection,
   resetTaskForceModelSelection,
+  isTaskForceFullyConfigured,
+  getConfiguredTaskForceCarrierIds,
 } from "./internal/agent/runtime.js";
 
 export {
@@ -127,6 +131,8 @@ export {
   getSortieDisabledIds,
   setSortieDisabledCarriers,
   onSortieStateChange,
+  onTaskForceConfigChange,
+  notifyTaskForceConfigChange,
 } from "./shipyard/carrier/framework.js";
 
 export type {
@@ -171,6 +177,12 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
     registerFleetSortie(pi);
     registerFleetTaskForce(pi);
     saveSortieDisabled(dataDir, getSortieDisabledIds());
+    notifyStatusUpdate();
+  });
+
+  // Task Force 설정 변경 시 → 도구 재등록 + 상태바 갱신
+  onTaskForceConfigChange(() => {
+    registerFleetTaskForce(pi);
     notifyStatusUpdate();
   });
 
@@ -322,8 +334,7 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
                 }
               },
               hasTaskForceConfig: (carrierId: string) => {
-                const config = getModelConfig();
-                return Object.keys(config[carrierId]?.taskforce ?? {}).length > 0;
+                return isTaskForceFullyConfigured(carrierId);
               },
               openTaskForce: (carrierId: string) => {
                 // 현재 status 오버레이 닫고 TF 설정 오버레이 열기
@@ -351,9 +362,10 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
                     const tfConfig = getTaskForceModelConfig(carrierId, resolvedCliType);
                     const modelConfig = getModelConfig();
                     const isCustom = !!(modelConfig[carrierId]?.taskforce?.[resolvedCliType]);
+                    const provider = getAvailableModels(resolvedCliType);
                     return {
-                      model: tfConfig.model,
-                      effort: tfConfig.effort ?? null,
+                      model: tfConfig?.model ?? provider.defaultModel,
+                      effort: tfConfig?.effort ?? null,
                       isCustom,
                     };
                   },
