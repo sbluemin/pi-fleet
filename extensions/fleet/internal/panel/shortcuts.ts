@@ -124,10 +124,8 @@ import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 function navigateSlot(ctx: ExtensionContext, delta: number): void {
   const s = getState();
 
-  // 패널이 닫혀있으면 무시
-  if (!s.expanded) return;
-
-  // 독점 모드 → carrier 비활성화 + N칼럼 복귀 + 커서 위치 설정
+  // 독점 모드 → 패널 접힘 여부와 무관하게 carrier 비활성화 + N칼럼 복귀
+  // (접힌 배너에서도 alt+h/l back 안내가 있으므로 항상 동작해야 함)
   const activeId = getActiveCarrierId();
   if (activeId) {
     // 현재 활성 carrier의 칼럼 인덱스를 찾아 커서 시작 위치로 설정
@@ -142,7 +140,8 @@ function navigateSlot(ctx: ExtensionContext, delta: number): void {
     return;
   }
 
-  // N칼럼 모드 — 커서 이동
+  // N칼럼 모드 — 패널이 닫혀있으면 무시
+  if (!s.expanded) return;
   if (s.cols.length === 0) return;
 
   if (s.cursorColumn < 0) {
