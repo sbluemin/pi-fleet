@@ -73,6 +73,12 @@ interface SortieResultDetails {
   results: CarrierSortieResult[];
 }
 
+/** renderCall에서 사용하는 최소 컨텍스트 */
+interface SortieRenderContext {
+  invalidate?: () => void;
+  lastComponent?: unknown;
+}
+
 // ─── globalThis 진행 상태 (renderCall에서 참조) ────────────
 
 const SORTIE_STATE_KEY = "__pi_carrier_sortie_state__";
@@ -133,6 +139,162 @@ function getResultCache(): CarrierSortieResult[] | null {
 }
 
 // ─── 렌더링 헬퍼 ──────────────────────────────────────────
+
+/**
+ * carrier_sortie의 renderCall 전용 컴포넌트입니다.
+ * 동일 인스턴스를 재사용해 렌더 상태를 유지하고,
+ * 완료 직후 한 프레임 동안만 이전 높이를 보존해 compact 전환을 안정화합니다.
+ */
+class SortieCallComponent {
+  private entries: CarrierAssignment[] = [];
+  private theme: any = null;
+  private context: SortieRenderContext | undefined;
+  private lastRenderedLineCount = 0;
+  private compactCleanupTimer: ReturnType<typeof setTimeout> | null = null;
+  private compactCleanupPending = false;
+
+  setState(
+    entries: CarrierAssignment[],
+    theme: any,
+    context: SortieRenderContext | undefined,
+  ): void {
+    this.entries = entries;
+    this.theme = theme;
+    this.context = context;
+  }
+
+  invalidate(): void {
+    if (this.compactCleanupTimer) {
+      clearTimeout(this.compactCleanupTimer);
+      this.compactCleanupTimer = null;
+    }
+    this.compactCleanupPending = false;
+  }
+
+  render(width: number): string[] {
+    const lines = this.buildLines(width);
+    const nextLineCount = lines.length;
+    const needsCompactCleanup =
+      !this.hasStreamingCarrier() &&
+      this.lastRenderedLineCount > nextLineCount &&
+      !this.compactCleanupPending;
+
+    if (needsCompactCleanup) {
+      const padded = [...lines];
+      for (let i = nextLineCount; i < this.lastRenderedLineCount; i++) {
+        padded.push(" ".repeat(width));
+      }
+      this.scheduleCompactCleanup(nextLineCount);
+      this.lastRenderedLineCount = padded.length;
+      return padded;
+    }
+
+    this.lastRenderedLineCount = nextLineCount;
+    return lines;
+  }
+
+  private scheduleCompactCleanup(compactLineCount: number): void {
+    if (this.compactCleanupTimer) clearTimeout(this.compactCleanupTimer);
+    this.compactCleanupPending = true;
+    this.compactCleanupTimer = setTimeout(() => {
+      this.compactCleanupTimer = null;
+      this.compactCleanupPending = false;
+      this.lastRenderedLineCount = compactLineCount;
+      this.context?.invalidate?.();
+    }, 0);
+  }
+
+  private hasStreamingCarrier(): boolean {
+    const state = getSortieState();
+    if (!state) return false;
+    return this.entries.some((entry) => {
+      const progress = entry?.carrier ? state.carriers.get(entry.carrier) : undefined;
+      return progress?.status === "connecting" || progress?.status === "streaming";
+    });
+  }
+
+  private buildLines(width: number): string[] {
+    const state = getSortieState();
+    const cachedResults = getResultCache();
+    const frame = state?.frame ?? 0;
+    const count = this.entries.length;
+    const lines: string[] = [];
+
+    // ── 헤더: 진행 상태 요약 ──
+    const headerTitle = this.theme.fg("toolTitle", this.theme.bold("◈ Carrier Sortie"));
+    let headerSuffix: string;
+    if (state) {
+      const doneCount = [...state.carriers.values()].filter((p) => p.status === "done").length;
+      const errorCount = [...state.carriers.values()].filter((p) => p.status === "error").length;
+      const runningCount = count - doneCount - errorCount;
+      const parts: string[] = [`${count} carriers`];
+      if (runningCount > 0) parts.push(`${runningCount} running`);
+      if (doneCount > 0) parts.push(`${doneCount} done`);
+      if (errorCount > 0) parts.push(`${errorCount} err`);
+      headerSuffix = parts.join(", ");
+    } else if (cachedResults) {
+      const doneCount = cachedResults.filter((r) => r.status === "done").length;
+      const errorCount = cachedResults.filter((r) => r.status !== "done").length;
+      const parts: string[] = [`${cachedResults.length} carriers`];
+      if (doneCount > 0) parts.push(`${doneCount} done`);
+      if (errorCount > 0) parts.push(`${errorCount} error`);
+      headerSuffix = parts.join(", ");
+    } else {
+      headerSuffix = `${count} carriers launched`;
+    }
+    lines.push(`${headerTitle} ${this.theme.fg("dim", `· ${headerSuffix}`)}`);
+
+    // ── 각 Carrier 트리 노드 + 하위 콘텐츠 ──
+    for (let i = 0; i < this.entries.length; i++) {
+      const entry = this.entries[i];
+      if (!entry) continue;
+      const isLast = i === this.entries.length - 1;
+      const treePrefix = isLast ? "└─" : "├─";
+      const connector = isLast ? "   " : "│  ";
+
+      const carrierId = entry.carrier ?? "";
+      const displayName = carrierId ? resolveCarrierDisplayName(carrierId) : "...";
+      const color = carrierId ? (resolveCarrierColor(carrierId) || PANEL_COLOR) : PANEL_DIM_COLOR;
+      const progress = carrierId ? state?.carriers.get(carrierId) : undefined;
+      const cachedResult = cachedResults?.find((r) => r.carrierId === carrierId);
+
+      let icon: string;
+      if (progress) {
+        icon = statusIcon(progress.status, frame, carrierId);
+      } else if (cachedResult) {
+        icon = resultIcon(cachedResult.status);
+      } else {
+        icon = `${PANEL_DIM_COLOR}○${ANSI_RESET}`;
+      }
+
+      const summary = entry.request
+        ? truncateToWidth(
+            summarizeRequest(entry.request),
+            Math.max(0, width - 20 - visibleWidth(displayName)),
+          )
+        : "";
+      const pText = progress ? progressText(progress) : "";
+      const progressSuffix = pText
+        ? ` ${PANEL_DIM_COLOR}[${pText}]${ANSI_RESET}`
+        : "";
+
+      lines.push(
+        `  ${PANEL_DIM_COLOR}${treePrefix}${ANSI_RESET} ${icon} ${color}${displayName}${ANSI_RESET}` +
+        (summary ? ` ${this.theme.fg("dim", `· ${summary}`)}` : "") + progressSuffix,
+      );
+
+      const isStreaming = progress && (progress.status === "connecting" || progress.status === "streaming");
+      if (carrierId && isStreaming) {
+        const contentLines = renderCarrierContentLines(carrierId, connector, width, this.theme);
+        for (const cl of contentLines) {
+          lines.push(cl);
+        }
+      }
+    }
+
+    return lines.map((line) => visibleWidth(line) > width ? truncateToWidth(line, width) : line);
+  }
+}
 
 /** 진행 상태에 따른 아이콘 반환 */
 function statusIcon(status: CarrierProgress["status"], frame: number, carrierId: string): string {
@@ -260,99 +422,13 @@ export function registerFleetSortie(pi: ExtensionAPI): void {
     }),
 
     // ── renderCall: 스트리밍 콘텐츠 + 최종 결과까지 통합 표시 ──
-    renderCall(args: { carriers?: CarrierAssignment[] }, theme: any) {
+    renderCall(args: { carriers?: CarrierAssignment[] }, theme: any, context?: SortieRenderContext) {
       const entries = args.carriers ?? [];
-      return {
-        render(width: number): string[] {
-          const state = getSortieState();
-          const cachedResults = getResultCache();
-          const frame = state?.frame ?? 0;
-          const count = entries.length;
-          const lines: string[] = [];
-
-          // ── 헤더: 진행 상태 요약 ──
-          const headerTitle = theme.fg("toolTitle", theme.bold("◈ Carrier Sortie"));
-          let headerSuffix: string;
-          if (state) {
-            // 실행 중: sortie state에서 상태 집계
-            const doneCount = [...state.carriers.values()].filter((p) => p.status === "done").length;
-            const errorCount = [...state.carriers.values()].filter((p) => p.status === "error").length;
-            const runningCount = count - doneCount - errorCount;
-            const parts: string[] = [`${count} carriers`];
-            if (runningCount > 0) parts.push(`${runningCount} running`);
-            if (doneCount > 0) parts.push(`${doneCount} done`);
-            if (errorCount > 0) parts.push(`${errorCount} err`);
-            headerSuffix = parts.join(", ");
-          } else if (cachedResults) {
-            // 완료 후 / 히스토리 복원: 캐시에서 상태 집계
-            const doneCount = cachedResults.filter((r) => r.status === "done").length;
-            const errorCount = cachedResults.filter((r) => r.status !== "done").length;
-            const parts: string[] = [`${cachedResults.length} carriers`];
-            if (doneCount > 0) parts.push(`${doneCount} done`);
-            if (errorCount > 0) parts.push(`${errorCount} error`);
-            headerSuffix = parts.join(", ");
-          } else {
-            headerSuffix = `${count} carriers launched`;
-          }
-          lines.push(`${headerTitle} ${theme.fg("dim", `· ${headerSuffix}`)}`);
-
-          // ── 각 Carrier 트리 노드 + 하위 콘텐츠 ──
-          for (let i = 0; i < entries.length; i++) {
-            const entry = entries[i];
-            if (!entry) continue;
-            const isLast = i === entries.length - 1;
-            const treePrefix = isLast ? "└─" : "├─";
-            const connector = isLast ? "   " : "│  ";
-
-            // partial args 방어: carrier/request가 아직 없을 수 있음
-            const carrierId = entry.carrier ?? "";
-            const displayName = carrierId ? resolveCarrierDisplayName(carrierId) : "...";
-            const color = carrierId ? (resolveCarrierColor(carrierId) || PANEL_COLOR) : PANEL_DIM_COLOR;
-            const progress = carrierId ? state?.carriers.get(carrierId) : undefined;
-            const cachedResult = cachedResults?.find((r) => r.carrierId === carrierId);
-
-            // 아이콘 결정: sortie state > 결과 캐시 > 기본
-            let icon: string;
-            if (progress) {
-              icon = statusIcon(progress.status, frame, carrierId);
-            } else if (cachedResult) {
-              icon = resultIcon(cachedResult.status);
-            } else {
-              icon = `${PANEL_DIM_COLOR}○${ANSI_RESET}`;
-            }
-
-            // 작전 요약 + 진행 텍스트
-            const summary = entry.request
-              ? truncateToWidth(
-                  summarizeRequest(entry.request),
-                  Math.max(0, width - 20 - visibleWidth(displayName)),
-                )
-              : "";
-            const pText = progress ? progressText(progress) : "";
-            const progressSuffix = pText
-              ? ` ${PANEL_DIM_COLOR}[${pText}]${ANSI_RESET}`
-              : "";
-
-            lines.push(
-              `  ${PANEL_DIM_COLOR}${treePrefix}${ANSI_RESET} ${icon} ${color}${displayName}${ANSI_RESET}` +
-              (summary ? ` ${theme.fg("dim", `· ${summary}`)}` : "") + progressSuffix,
-            );
-
-            // ── 하위 콘텐츠: 스트리밍 중에만 표시, 완료 시 접힘 ──
-            const isStreaming = progress && (progress.status === "connecting" || progress.status === "streaming");
-            if (carrierId && isStreaming) {
-              const contentLines = renderCarrierContentLines(carrierId, connector, width, theme);
-              for (const cl of contentLines) {
-                lines.push(cl);
-              }
-            }
-          }
-
-          // 모든 라인을 터미널 폭에 맞게 잘라냄 (PI TUI 필수 제약)
-          return lines.map((l) => visibleWidth(l) > width ? truncateToWidth(l, width) : l);
-        },
-        invalidate() {},
-      };
+      const component = context?.lastComponent instanceof SortieCallComponent
+        ? context.lastComponent
+        : new SortieCallComponent();
+      component.setState(entries, theme, context);
+      return component;
     },
 
     // ── renderResult: 빈 컴포넌트 (renderCall이 모든 것을 표시) ──
