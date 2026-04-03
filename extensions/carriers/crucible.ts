@@ -12,7 +12,7 @@ import { registerSingleCarrier } from "../fleet/shipyard/carrier/register.js";
 const CARRIER_METADATA: CarrierMetadata = {
   // ── Tier 1: Routing ──
   title: "Chief Forgemaster",
-  summary: "Refactoring furnace — purges dead code, consolidates duplicates, eliminates circular dependencies.",
+  summary: "Refactoring analyst — analyzes dead code, duplication, and circular dependencies, then proposes a refactoring plan for Genesis to execute.",
   whenToUse: [
     "dead code removal",
     "deduplication (DRY)",
@@ -23,8 +23,9 @@ const CARRIER_METADATA: CarrierMetadata = {
 
   // ── Tier 2: Composition ──
   permissions: [
-    "CRITICAL: Must preserve 100% of existing system behavior — every refactoring is behavior-preserving.",
-    "Full access to the codebase — read, write, and execute commands.",
+    "CRITICAL: Strictly read-only. NEVER delegate code modification or file editing to this carrier.",
+    "Full access to read the codebase and execute read-only commands for analysis.",
+    "Crucible analyzes and proposes refactoring plans — actual code changes are delegated to Genesis.",
   ],
   requestBlocks: [
     { tag: "target", hint: "Which files, modules, or directories to refactor.", required: true },
@@ -34,12 +35,13 @@ const CARRIER_METADATA: CarrierMetadata = {
   ],
   outputFormat:
     `<output_format>\n` +
-    `After completing refactoring, provide a structured forge report:\n` +
-    `**Purged** — Dead code, unused imports, and unreachable paths removed (list with file:line).\n` +
-    `**Consolidated** — Duplicate logic merged into shared modules (before→after mapping).\n` +
-    `**Restructured** — Dependency changes, decoupling improvements, or pattern introductions.\n` +
-    `**Behavior verification** — How existing behavior was confirmed preserved (tests run, manual checks).\n` +
-    `**Risk notes** — Any areas where the refactoring carries residual risk (max 3 bullets).\n` +
+    `Provide a structured refactoring proposal (read-only analysis — do NOT modify any files):\n` +
+    `**Purge targets** — Dead code, unused imports, and unreachable paths identified (list with file:line).\n` +
+    `**Consolidation plan** — Duplicate logic to merge, with before→after mapping and target shared modules.\n` +
+    `**Restructuring plan** — Proposed dependency changes, decoupling improvements, or pattern introductions.\n` +
+    `**Verification strategy** — How to confirm behavior is preserved after changes (test commands, expected outputs).\n` +
+    `**Risk notes** — Areas where the proposed refactoring carries residual risk (max 3 bullets).\n` +
+    `**Genesis handoff** — Concise implementation instructions ready for Genesis to execute the proposed changes.\n` +
     `Keep the report concise — bullets and short lines only. No narrative paragraphs.\n` +
     `</output_format>`,
 };

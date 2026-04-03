@@ -7,3 +7,4 @@ keybindings.json
 .DS_Store
 .spsec/
 .specs
+.fleet/

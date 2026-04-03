@@ -23,14 +23,14 @@ const CARRIER_METADATA: CarrierMetadata = {
 
   // ── Tier 2: Composition ──
   permissions: [
-    "Advisory mode by default — identifies vulnerabilities and proposes defensive code. May apply patches when explicitly instructed.",
-    "Full access to the codebase — read, write, and execute commands.",
+    "CRITICAL: Strictly read-only. NEVER delegate code modification or file editing to this carrier.",
+    "Full access to read the codebase and execute read-only commands for analysis.",
   ],
   requestBlocks: [
     { tag: "target", hint: "Which files, endpoints, modules, or flows to audit for security.", required: true },
     { tag: "attack_surface", hint: "Known entry points, user-controlled inputs, or external interfaces.", required: false },
     { tag: "threat_model", hint: "Assumed attacker capability — unauth user, compromised dep, insider.", required: false },
-    { tag: "fix_mode", hint: "'report' (default) for findings only, or 'patch' to apply defensive fixes.", required: false },
+    { tag: "fix_mode", hint: "'report' only — read-only carrier, no patches applied.", required: false },
   ],
   outputFormat:
     `<output_format>\n` +
