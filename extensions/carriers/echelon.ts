@@ -1,12 +1,12 @@
 /**
- * fleet/carriers/echelon — Echelon carrier (CVN-07)
+ * carriers/echelon — Echelon carrier (CVN-07)
  * @specialization 외부 통신망(GitHub API) 감청 및 원격 코드 첩보 수집 — 외부 GitHub 레포지토리 심층 탐색 · gh API 리서치 · 클론 기반 딥다이브
  *
  * Echelon carrier를 프레임워크에 등록합니다 (alt+7, direct mode, 프롬프트 메타데이터).
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { registerSingleCarrier } from "../index.js";
+import { registerSingleCarrier } from "../fleet/shipyard/carrier/register.js";
 
 const TOOL_METADATA = {
   description:

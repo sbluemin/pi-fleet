@@ -1,12 +1,12 @@
 /**
- * fleet/carriers/arbiter — Arbiter carrier (CVN-02)
+ * carriers/arbiter — Arbiter carrier (CVN-02)
  * @specialization 수석 교리참모 — AGENTS.md 교리 관리 및 에이전트 지시 충돌 해소 특화
  *
  * Arbiter carrier를 프레임워크에 등록합니다 (alt+2, direct mode, 프롬프트 메타데이터).
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { registerSingleCarrier } from "../index.js";
+import { registerSingleCarrier } from "../fleet/shipyard/carrier/register.js";
 
 const TOOL_METADATA = {
   description:

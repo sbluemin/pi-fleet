@@ -1,12 +1,12 @@
 /**
- * fleet/carriers/chronicle — Chronicle carrier (CVN-08)
+ * carriers/chronicle — Chronicle carrier (CVN-08)
  * @specialization 수석 기록참모 — API 명세서·README·PR 요약 등 기술 문서 작성 특화
  *
  * Chronicle carrier를 프레임워크에 등록합니다 (alt+8, direct mode, 프롬프트 메타데이터).
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { registerSingleCarrier } from "../index.js";
+import { registerSingleCarrier } from "../fleet/shipyard/carrier/register.js";
 
 const TOOL_METADATA = {
   description:

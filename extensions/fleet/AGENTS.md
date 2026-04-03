@@ -42,14 +42,13 @@ internal/
   ├── render/          ← panel rendering engine (panel layout, block transform, message renderers)
   └── service-status/  ← service status monitoring (polling, rendering, store)
 
-carriers/              ← N carrier registrations (depend on Fleet core — never the reverse)
+carriers/              ← (REMOVED — now at extensions/carriers/)
 ```
 
 ### Dependency Principles
 
 - **internal/contracts.ts** is the single source of truth for shared domain types (`ColBlock`, `AgentCol`, `ColStatus`, `CollectedStreamData`, `ServiceSnapshot`, etc.). Streaming, render, and panel modules all import types from here — never cross-reference each other for type definitions.
-- **Carriers → `index.ts` only**: Carriers (`carriers/`) access Fleet core exclusively via `index.ts` (the public Facade). Direct imports from `shipyard/carrier/`, `internal/`, or `operation-runner.ts` are forbidden in carrier files.
-  - **Exceptions**: `types.ts` (public types) and `tests/` (unit tests) may access internals directly.
+- **Carriers have been separated into `carriers/`** — an independent extension at `extensions/carriers/`. Carrier files reside in the standalone `carriers/` extension, not in `fleet/`. See `extensions/carriers/AGENTS.md` for carrier rules.
 - **Fleet core modules must never import from `carriers/`**.
 - **Internal modules reference siblings directly** — e.g., `internal/agent/model-ui.ts` imports from `internal/agent/runtime.ts`, `internal/panel/config.ts`, and `shipyard/carrier/framework.ts` without going through the facade.
 - **`index.ts` is the only public facade**: It owns extension wiring plus export-only public re-exports. Keep business logic in `shipyard/carrier/`, `internal/`, and `operation-runner.ts`.
@@ -97,13 +96,4 @@ Consumer (carriers, external extensions)
 | `internal/render/*` | Internal renderer modules |
 | `internal/service-status/store.ts` | Service status polling/fetching/store — `attachStatusContext`, `refreshStatusNow` (exposed via `index.ts`) |
 | `internal/service-status/renderer.ts` | Service status footer token renderer — `renderServiceStatusToken` (used by `panel/widget-sync.ts`) |
-| **carriers/** | |
-| `carriers/index.ts` | Barrel — all carrier registrations |
-| `carriers/genesis.ts` | Genesis carrier — own prompt metadata + delegates to `registerSingleCarrier(pi, "genesis", metadata, { slot: 1 })` |
-| `carriers/crucible.ts` | Crucible carrier — own prompt metadata + delegates to `registerSingleCarrier(pi, "crucible", metadata, { slot: 2 })` |
-| `carriers/arbiter.ts` | Arbiter carrier — own prompt metadata + delegates to `registerSingleCarrier(pi, "arbiter", metadata, { slot: 3 })` |
-| `carriers/sentinel.ts` | Sentinel carrier — own prompt metadata + delegates to `registerSingleCarrier(pi, "sentinel", metadata, { slot: 4 })` |
-| `carriers/raven.ts` | Raven carrier — own prompt metadata + delegates to `registerSingleCarrier(pi, "raven", metadata, { slot: 5 })` |
-| `carriers/vanguard.ts` | Vanguard carrier — own prompt metadata + delegates to `registerSingleCarrier(pi, "vanguard", metadata, { slot: 6 })` |
-| `carriers/echelon.ts` | Echelon carrier — own prompt metadata + delegates to `registerSingleCarrier(pi, "echelon", metadata, { slot: 7 })` |
-| `carriers/chronicle.ts` | Chronicle carrier — own prompt metadata + delegates to `registerSingleCarrier(pi, "chronicle", metadata, { slot: 8 })` |
+| **carriers/** | **(Separated)** — now at `extensions/carriers/`. See `extensions/carriers/AGENTS.md` |

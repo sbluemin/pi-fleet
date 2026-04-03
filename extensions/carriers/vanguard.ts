@@ -1,12 +1,12 @@
 /**
- * fleet/carriers/vanguard — Vanguard carrier (CVN-06)
+ * carriers/vanguard — Vanguard carrier (CVN-06)
  * @specialization 정찰 스페셔리스트 — 코드베이스 탐색 · 심볼 추적 · 웹 리서치 특화
  *
  * Vanguard carrier를 프레임워크에 등록합니다 (alt+6, direct mode, 프롬프트 메타데이터).
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { registerSingleCarrier } from "../index.js";
+import { registerSingleCarrier } from "../fleet/shipyard/carrier/register.js";
 
 const TOOL_METADATA = {
   description:

@@ -1,12 +1,12 @@
 /**
- * fleet/carriers/raven — Raven carrier (CVN-05)
+ * carriers/raven — Raven carrier (CVN-05)
  * @specialization 레드팀 커맨더 — 침투 테스트(Red Teaming) 및 보안 취약점 감사 특화
  *
  * Raven carrier를 프레임워크에 등록합니다 (alt+5, direct mode, 프롬프트 메타데이터).
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { registerSingleCarrier } from "../index.js";
+import { registerSingleCarrier } from "../fleet/shipyard/carrier/register.js";
 
 const TOOL_METADATA = {
   description:

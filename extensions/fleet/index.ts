@@ -45,7 +45,6 @@ import { registerAgentPanelShortcut } from "./internal/panel/shortcuts.js";
 import { buildBridgeCommand } from "./shipyard/carrier/launch.js";
 import { attachStatusContext, refreshStatusNow, getServiceSnapshots, refreshStatusQuiet } from "./internal/service-status/store.js";
 import { CARRIER_BRIDGE_KEY } from "./constants";
-import { registerCarriers } from "./carriers/index.js";
 import { registerFleetSortie } from "./shipyard/carrier/sortie.js";
 import { appendAdmiralSystemPrompt, isWorldviewEnabled, setWorldviewEnabled } from "./prompts.js";
 import { CarrierStatusOverlay } from "./shipyard/carrier/status-overlay.js";
@@ -134,8 +133,6 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
   } satisfies EditorModeProvider;
 
   exposeAgentApi();
-
-  registerCarriers(pi);
 
   // ── Sortie 비활성 상태 복원 (등록된 carrier만 필터링) ──
   const validCarrierIds = new Set(getRegisteredOrder());

@@ -1,8 +1,8 @@
 /**
- * fleet/carriers — carrier 등록 배럴
+ * carriers — 독립 캐리어 등록 확장 진입점
  *
- * 등록된 carrier 수만큼 Carrier가 동적으로 생성됩니다.
- * 새 carrier 추가: 파일 생성 → 여기에 import/export/registerXxx 추가.
+ * 8개 캐리어를 shipyard/carrier 프레임워크 SDK를 통해 등록합니다.
+ * fleet/ 확장과는 독립적으로 동작하며, settings.json에서 선택적으로 등록/해제 가능합니다.
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -15,22 +15,7 @@ import { registerVanguardCarrier } from "./vanguard.js";
 import { registerEchelonCarrier } from "./echelon.js";
 import { registerChronicleCarrier } from "./chronicle.js";
 
-export { registerGenesisCarrier } from "./genesis.js";
-export { registerArbiterCarrier } from "./arbiter.js";
-export { registerCrucibleCarrier } from "./crucible.js";
-export { registerSentinelCarrier } from "./sentinel.js";
-export { registerRavenCarrier } from "./raven.js";
-export { registerVanguardCarrier } from "./vanguard.js";
-export { registerEchelonCarrier } from "./echelon.js";
-export { registerChronicleCarrier } from "./chronicle.js";
-
-/**
- * 모든 carrier를 한 번에 등록합니다.
- *
- * 각 carrier는 Carrier 프레임워크에 등록됩니다 (단축키, direct mode, 프롬프트 메타데이터).
- * carrier 등록 순서 = slot 번호 순서 (alt+1 ~ alt+N).
- */
-export function registerCarriers(pi: ExtensionAPI): void {
+export default function fleetCarriersExtension(pi: ExtensionAPI): void {
   registerGenesisCarrier(pi);    // slot 1 — alt+1  (claude)
   registerArbiterCarrier(pi);    // slot 2 — alt+2  (claude)
   registerCrucibleCarrier(pi);   // slot 3 — alt+3  (codex)

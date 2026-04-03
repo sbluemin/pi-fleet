@@ -1,12 +1,12 @@
 /**
- * fleet/carriers/genesis — Genesis carrier (CVN-01)
+ * carriers/genesis — Genesis carrier (CVN-01)
  * @specialization 수석 아키텍트 — 시스템 설계 및 핵심 백엔드 로직 구현 특화
  *
  * Genesis carrier를 프레임워크에 등록합니다 (alt+1, direct mode, 프롬프트 메타데이터).
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { registerSingleCarrier } from "../index.js";
+import { registerSingleCarrier } from "../fleet/shipyard/carrier/register.js";
 
 const TOOL_METADATA = {
   description:

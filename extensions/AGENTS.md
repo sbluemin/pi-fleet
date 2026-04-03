@@ -12,7 +12,8 @@ Do not create intermediate layers that simply wrap official TUI APIs (e.g., `set
 
 | Extension | Role | Main Files |
 |-----------|------|------------|
-| `fleet/` | Dynamic N direct entries (alt+{slot}) + individual agent tools + unified pipeline. Carrier count determined by registered carriers. | `index.ts` (wiring), `shipyard/carrier/` (framework), `internal/` (implementation), `carriers/` |
+| `fleet/` | Agent orchestration framework — carrier SDK (`shipyard/carrier/`), unified pipeline, Agent Panel, model selection. Provides the carrier framework that `carriers/` depends on. | `index.ts` (wiring), `shipyard/carrier/` (framework), `internal/` (implementation) |
+| `carriers/` | Carrier registrations — independent extension defining individual carriers (genesis, sentinel, vanguard, etc.). Depends only on `shipyard/carrier` package, not on `fleet/` extension. Optional — users may omit from `settings.json`. | `index.ts` (wiring), individual carrier files |
 | `dock/hud/` | Editor + Status Bar + Footer (with integrated rendering engine) | `index.ts` (wiring), `editor.ts` (editor/footer/widget UI) |
 | `dock/keybind/` | Centralized keybinding management + overlay (alt+.) | `index.ts` (wiring), `types.ts` (API + globalThis), `store.ts` (JSON), `registry.ts` (bindings), `overlay.ts` (UI) |
 | `dock/settings/` | Centralized settings API + overlay popup (alt+/) | `index.ts` (wiring), `types.ts` (API + globalThis), `store.ts` (JSON), `registry.ts` (sections), `overlay.ts` (UI) |
@@ -266,20 +267,24 @@ Extensions are organized in layers. **Dependencies must only flow in one directi
 ### Dependency Direction
 
 ```
-tender/  →  fleet/ (feature)  →  dock/
-(utility)      (feature)         (infrastructure)
+tender/  →  fleet/ (feature)      →  dock/
+             carriers/ (feature)      (infrastructure)
+(utility)      (feature)
 ```
 
 - **Allowed**: A layer may import from any layer below it (direct or transitive).
 - **Forbidden**: A layer must never import from a layer above it (no reverse dependencies).
+- **`carriers/`** is a **feature-layer** extension at the same tier as `fleet/`. It depends only on `fleet/shipyard/carrier/` (the carrier framework SDK) — NOT on `fleet/index.ts`, `fleet/internal/`, or `fleet/operation-runner.ts`.
+- **`fleet/` and `carriers/` are independent** — neither may import from the other's extension entry point (`index.ts`). The only shared surface is `shipyard/carrier/` (framework SDK).
 
 ### Layer Rules
 
 | Layer | May import from | Must NOT import from |
 |-------|----------------|----------------------|
 | `dock/` | external packages only | any other layer |
-| `fleet/` (feature) | `dock/` | `tender/` |
-| `tender/` | `fleet/`, `dock/` | — |
+| `fleet/` (feature) | `dock/` | `tender/`, `carriers/` |
+| `carriers/` (feature) | `fleet/shipyard/carrier/` (framework SDK only) | `fleet/index.ts`, `fleet/internal/`, `tender/`, `dock/` |
+| `tender/` | `fleet/`, `carriers/`, `dock/` | — |
 
 > **Skipping layers is allowed** — e.g., `tender/` may import directly from `dock/` without going through `fleet/`.
 

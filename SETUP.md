@@ -42,18 +42,7 @@ Add the `extensions` field to your pi settings file, pointing to all three exten
 {
   "extensions": [
     "<path-to-pi-fleet>/extensions/fleet",
-    "<path-to-pi-fleet>/extensions/dock",
-    "<path-to-pi-fleet>/extensions/tender"
-  ]
-}
-```
-
-**Or project-local** (`.pi/settings.json` in your project root):
-
-```json
-{
-  "extensions": [
-    "<path-to-pi-fleet>/extensions/fleet",
+    "<path-to-pi-fleet>/extensions/carriers",
     "<path-to-pi-fleet>/extensions/dock",
     "<path-to-pi-fleet>/extensions/tender"
   ]
@@ -62,7 +51,8 @@ Add the `extensions` field to your pi settings file, pointing to all three exten
 
 > Replace `<path-to-pi-fleet>` with the actual path where you cloned the repository.
 >
-> - `extensions/fleet/` — agent orchestration extension
+> - `extensions/fleet/` — agent orchestration extension (carrier framework SDK, Agent Panel, unified pipeline)
+> - `extensions/carriers/` — **(optional)** default carrier registrations (genesis, arbiter, crucible, sentinel, raven, vanguard, echelon, chronicle). Omit this line if you do not want the built-in carriers — the fleet framework will still function without any registered carriers.
 > - `extensions/dock/` — infrastructure extensions (hud, keybind, settings, welcome, shell, experimental) + shared config files
 > - `extensions/tender/` — utility extensions (improve-prompt, summarize, thinking-timer)
 

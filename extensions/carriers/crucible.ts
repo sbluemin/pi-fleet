@@ -1,12 +1,12 @@
 /**
- * fleet/carriers/crucible — Crucible carrier (CVN-03)
+ * carriers/crucible — Crucible carrier (CVN-03)
  * @specialization 수석 제련장 — 데드 코드 제거·중복 로직 통합(DRY)·순환 의존성 해소 특화
  *
  * Crucible carrier를 프레임워크에 등록합니다 (alt+3, direct mode, 프롬프트 메타데이터).
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { registerSingleCarrier } from "../index.js";
+import { registerSingleCarrier } from "../fleet/shipyard/carrier/register.js";
 
 const TOOL_METADATA = {
   description:

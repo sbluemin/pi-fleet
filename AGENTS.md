@@ -12,6 +12,7 @@
 | `packages/` | Embedded first-party libraries (e.g., `unified-agent`) |
 | `extensions/` | All extensions consolidated here (refer to its own `AGENTS.md`) |
 | `extensions/fleet/` | Agent orchestration extension — direct modes, agent tools, unified pipeline (refer to its own `AGENTS.md`) |
+| `extensions/carriers/` | Carrier registrations — independent extension that defines individual carriers (refer to its own `AGENTS.md`) |
 | `extensions/dock/` | Infrastructure extensions — hud, keybind, settings, welcome, shell (refer to its own `AGENTS.md`) |
 | `extensions/tender/` | Utility extensions — improve-prompt, summarize, thinking-timer (refer to its own `AGENTS.md`) |
 | `.spsec/` | Archived experimental specs and planning materials |
@@ -129,6 +130,7 @@ Each extension maps to exactly one domain. Use the domain below for all commands
 | Extension | Domain | Rationale |
 |-----------|--------|-----------|
 | `fleet/` | `agent` | Sub-agent orchestration features |
+| `carriers/` | `carrier` | Individual carrier registration and configuration |
 When adding a **new extension**, assign a domain that reflects the **feature category**, not the directory prefix (`dock-`, `tender-`, etc.).
 
 ### Feature Naming
