@@ -87,12 +87,12 @@ export async function runAgentRequest(options: RunAgentRequestOptions): Promise<
       budgetTokens: cliConfig?.budgetTokens,
       signal,
       onMessageChunk: (text) => {
-        appendTextBlock(carrierId, text);
+        appendTextBlock(carrierId, sanitizeChunk(text));
         syncColFromStore(carrierId, colIndex);
         onMessageChunk?.(text);
       },
       onThoughtChunk: (text) => {
-        appendThoughtBlock(carrierId, text);
+        appendThoughtBlock(carrierId, sanitizeChunk(text));
         syncColFromStore(carrierId, colIndex);
         onThoughtChunk?.(text);
       },
@@ -187,6 +187,15 @@ function toFinalStatus(status: AgentStatus): UnifiedAgentRequestStatus {
     return status;
   }
   return "error";
+}
+
+/** 스트리밍 청크에서 커서 이동 제어문자를 제거 — \r, \x1b[A 등이 위젯 레이아웃을 깨뜨리는 것 방지 */
+function sanitizeChunk(text: string): string {
+  return text
+    .replace(/\r/g, "")
+    .replace(/\x1b\[\d*[ABCDEFGHJKST]/g, "")
+    .replace(/\x1b\[\d*;\d*[Hf]/g, "")
+    .replace(/\x1b\[(?:\??\d+[hl]|2J|K)/g, "");
 }
 
 /** store의 현재 run 데이터를 에이전트 패널 칼럼에 브릿지 */

@@ -338,8 +338,8 @@ class SortieCallComponent {
   render(width: number): string[] {
     const lines = this.buildLines(width);
     const nextLineCount = lines.length;
+    // 캐리어별 완료 시 즉시 빈 줄 패딩 — 스트리밍 중이라도 줄 감소 시 정리
     const needsCompactCleanup =
-      !this.hasStreamingCarrier() &&
       this.lastRenderedLineCount > nextLineCount &&
       !this.compactCleanupPending;
 
@@ -368,16 +368,10 @@ class SortieCallComponent {
     }, 0);
   }
 
-  private hasStreamingCarrier(): boolean {
-    const state = getSortieState();
-    if (!state) return false;
-    return this.entries.some((entry) => {
-      const progress = entry?.carrier ? state.carriers.get(entry.carrier) : undefined;
-      return progress?.status === "connecting" || progress?.status === "streaming";
-    });
-  }
-
   private buildLines(width: number): string[] {
+    // 터미널 실제 너비로 제한 — width가 터미널보다 크면 wrap으로 height 불일치 발생
+    const termCols = process.stdout.columns || 80;
+    const effectiveWidth = Math.min(width, termCols);
     const state = getSortieState();
     const cachedResults = getResultCache();
     const frame = state?.frame ?? 0;
@@ -434,7 +428,7 @@ class SortieCallComponent {
       const summary = entry.request
         ? truncateToWidth(
             summarizeRequest(entry.request),
-            Math.max(0, width - 20 - visibleWidth(displayName)),
+            Math.max(0, effectiveWidth - 20 - visibleWidth(displayName)),
           )
         : "";
       const pText = progress ? progressText(progress) : "";
@@ -449,14 +443,14 @@ class SortieCallComponent {
 
       const isStreaming = progress && (progress.status === "connecting" || progress.status === "streaming");
       if (carrierId && isStreaming) {
-        const contentLines = renderCarrierContentLines(carrierId, connector, width, this.theme);
+        const contentLines = renderCarrierContentLines(carrierId, connector, effectiveWidth, this.theme);
         for (const cl of contentLines) {
           lines.push(cl);
         }
       }
     }
 
-    return lines.map((line) => visibleWidth(line) > width ? truncateToWidth(line, width) : line);
+    return lines.map((line) => visibleWidth(line) > effectiveWidth ? truncateToWidth(line, effectiveWidth) : line);
   }
 }
 
