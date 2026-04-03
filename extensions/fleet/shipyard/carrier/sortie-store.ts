@@ -1,7 +1,7 @@
 /**
  * sortie-store.ts — Sortie 비활성 carrier 영속화
  *
- * .data/sortie-disabled.json 파일을 통해
+ * .data/fleet-states.json 파일을 통해
  * sortie 비활성화 상태를 디스크에 저장/복원합니다.
  */
 
@@ -9,7 +9,13 @@ import * as path from "node:path";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
 /** 영속화 파일명 */
-const FILENAME = "sortie-disabled.json";
+const FILENAME = "fleet-states.json";
+
+/** fleet-states.json의 스키마 */
+interface FleetStates {
+  /** sortie 비활성 carrier ID 목록 */
+  sortieDisabled?: string[];
+}
 
 /**
  * 디스크에서 sortie 비활성 carrier ID 목록을 로드합니다.
@@ -21,10 +27,11 @@ export function loadSortieDisabled(dataDir: string, validIds: Set<string>): stri
   const filePath = path.join(dataDir, FILENAME);
   try {
     if (!existsSync(filePath)) return [];
-    const raw = JSON.parse(readFileSync(filePath, "utf-8"));
-    if (!Array.isArray(raw)) return [];
+    const raw = JSON.parse(readFileSync(filePath, "utf-8")) as FleetStates;
+    const ids = raw?.sortieDisabled;
+    if (!Array.isArray(ids)) return [];
     // 문자열이면서 현재 등록된 carrier만 허용
-    return raw.filter((id): id is string => typeof id === "string" && validIds.has(id));
+    return ids.filter((id): id is string => typeof id === "string" && validIds.has(id));
   } catch {
     // 파일 손상·파싱 실패 시 빈 상태로 시작
     return [];
@@ -33,13 +40,24 @@ export function loadSortieDisabled(dataDir: string, validIds: Set<string>): stri
 
 /**
  * sortie 비활성 carrier ID 목록을 디스크에 저장합니다.
+ * 기존 fleet-states.json의 다른 키는 유지하며 sortieDisabled만 갱신합니다.
  * @param dataDir .data 디렉토리 경로
  * @param ids 비활성화된 carrier ID 배열
  */
 export function saveSortieDisabled(dataDir: string, ids: string[]): void {
   const filePath = path.join(dataDir, FILENAME);
   try {
-    writeFileSync(filePath, JSON.stringify(ids), "utf-8");
+    // 기존 상태를 읽어 병합 (다른 키 보존)
+    let existing: FleetStates = {};
+    if (existsSync(filePath)) {
+      try {
+        existing = JSON.parse(readFileSync(filePath, "utf-8")) as FleetStates;
+      } catch {
+        existing = {};
+      }
+    }
+    const updated: FleetStates = { ...existing, sortieDisabled: ids };
+    writeFileSync(filePath, JSON.stringify(updated, null, 2), "utf-8");
   } catch {
     // 영속화 실패 무시
   }

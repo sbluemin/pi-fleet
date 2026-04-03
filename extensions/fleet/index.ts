@@ -200,6 +200,7 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
   // ── 캐리어 함대 현황 오버레이 (Alt+O) ──
 
   let activeStatusPopup: Promise<void> | null = null;
+  let dismissStatusPopup: (() => void) | null = null;
 
   keybind.register({
     extension: "fleet",
@@ -209,7 +210,12 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
     category: "Fleet",
     handler: async (ctx) => {
       if (!ctx.hasUI) return;
-      if (activeStatusPopup) return;
+
+      // 오버레이가 열려 있으면 alt+o 재입력으로 닫기
+      if (activeStatusPopup) {
+        dismissStatusPopup?.();
+        return;
+      }
 
       // 데이터 수집
       const carrierIds = getRegisteredOrder();
@@ -273,8 +279,10 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
       }
 
       activeStatusPopup = ctx.ui.custom(
-        (tui: any, theme: any, _keybindings: any, done: () => void) =>
-          new CarrierStatusOverlay(
+        (tui: any, theme: any, _keybindings: any, done: () => void) => {
+          // done 참조 저장 — alt+o 토글 닫기에 사용
+          dismissStatusPopup = done;
+          return new CarrierStatusOverlay(
             tui,
             theme,
             groups,
@@ -297,7 +305,8 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
               },
             },
             done,
-          ),
+          )
+        },
         {
           overlay: true,
           overlayOptions: {
@@ -315,6 +324,7 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
         await activeStatusPopup;
       } finally {
         activeStatusPopup = null;
+        dismissStatusPopup = null;
       }
     },
   });
