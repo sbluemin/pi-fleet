@@ -22,6 +22,7 @@ import {
   CLI_DISPLAY_NAMES,
   CARRIER_COLORS,
   CARRIER_BG_COLORS,
+  PANEL_EXCLUSIVE_HINT,
 } from "../../constants.js";
 import {
   setAgentPanelMode,
@@ -212,7 +213,7 @@ export function activateCarrier(ctx: ExtensionContext, carrierId: string): boole
   state.active = true;
   gs.activeModeId = carrierId;
 
-  const hint = state.config.bottomHint ?? " h← l→ switch · alt+x cancel ";
+  const hint = state.config.bottomHint ?? PANEL_EXCLUSIVE_HINT;
   // clis를 함께 전달하여 그룹 carrier 전환 시 컬럼 수도 즉시 재초기화
   setAgentPanelMode(ctx, carrierId, { bottomHint: hint, clis: state.config.clis });
   notifyStatusUpdate();

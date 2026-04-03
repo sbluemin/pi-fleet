@@ -2,7 +2,7 @@
 
 Carrier **framework SDK** (`shipyard/carrier/`) + N carriers (e.g. genesis/sentinel/vanguard, dynamically registered) that each operate a carrier + integrated carrier modes and agent tools + model selection + Status Bar + Agent Panel.
 
-The number of carriers is determined at runtime by the number of registered carriers in `carriers/`. Each carrier specifies a `slot` number which determines its panel column position and `Alt+{slot}` keybinding automatically.
+The number of carriers is determined at runtime by the number of registered carriers in `carriers/`. Each carrier specifies a `slot` number which determines its panel column position and inline navigation order automatically.
 
 ## Core Rules
 
@@ -15,7 +15,7 @@ The number of carriers is determined at runtime by the number of registered carr
 - **All execution paths go through `runAgentRequest()`** — Carriers, tools, and external extensions all use `runAgentRequest()` from `operation-runner.ts`. No direct `executeWithPool` calls outside operation-runner.
 - Calling `runAgentRequest()` **automatically syncs all UIs**: Agent Panel column, Streaming Widget (when panel collapsed), and stream-store data.
 - **carrierId vs cliType**: `carrierId` (string) is the unique carrier identity used for pool keys, session keys, and panel column identity. `cliType` (CliType) is the CLI binary to execute. Multiple carriers can share the same `cliType` while maintaining fully isolated sessions and connections.
-- **Slot-based keybindings**: Each carrier registers `Alt+{slot}` automatically based on the `slot` field in `CarrierConfig`. Slots must be unique across all registered carriers.
+- **Slot-based ordering**: Each carrier's `slot` determines its panel column position and inline navigation order. Slots must be unique across all registered carriers.
 - **Same carrierId concurrent calls are not supported** — UI layer manages one visible run per carrierId.
 - Mutual exclusivity between carriers is automatically managed by the framework (`deactivateAll`).
 - The Agent Panel is the main UI for streaming — active single carriers use exclusive view, otherwise the panel falls back to the current visible CLI columns.
@@ -69,7 +69,7 @@ Consumer (carriers, external extensions)
 
 ### Agent Panel Centric Design
 
-- **Exclusive View**: alt+{slot} → Full-width panel for the corresponding agent.
+- **Exclusive View**: `Ctrl+Enter` on the selected inline slot → Full-width panel for the corresponding agent.
 - **Fallback Multi-Column View**: No active carrier + visible runs → panel renders the current visible CLI columns.
 - **Compact View**: Panel collapsed + while streaming → 1-line Streaming Widget.
 - **Frame Color**: Applies `CARRIER_COLORS` of the active carrier.

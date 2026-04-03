@@ -6,7 +6,7 @@
  */
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
-import { ANIM_INTERVAL_MS } from "../../constants";
+import { ANIM_INTERVAL_MS, formatPanelMultiColHint } from "../../constants";
 import { renderModeBanner } from "../render/panel-renderer";
 import { getState, makeCols, syncColSessionIds } from "./state.js";
 import type { AgentCol } from "../contracts.js";
@@ -36,7 +36,7 @@ export function setAgentPanelMode(
   if (options?.bottomHint) {
     s.bottomHint = options.bottomHint;
   } else if (mode === null) {
-    s.bottomHint = " alt+p toggle · h← l→ · j↑ k↓";
+    s.bottomHint = formatPanelMultiColHint();
   }
 
   // 사용자 정의 CLI 리스트가 지정되면 칼럼을 즉시 재초기화

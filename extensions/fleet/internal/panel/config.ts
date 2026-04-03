@@ -6,7 +6,7 @@
  */
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
-import { MIN_BODY_H, MAX_BODY_H } from "../../constants";
+import { MIN_BODY_H, MAX_BODY_H, formatPanelMultiColHint } from "../../constants";
 import type { ServiceSnapshot } from "../contracts.js";
 import { getState } from "./state.js";
 import { syncWidget, syncFooterStatus } from "./widget-sync.js";
@@ -62,7 +62,7 @@ export function adjustPanelHeight(ctx: ExtensionContext, delta: number): number 
   const prev = s.bodyH;
   s.bodyH = Math.max(MIN_BODY_H, Math.min(MAX_BODY_H, s.bodyH + delta));
   // 높이 변경 시 bottomHint에 현재 높이 표시 (피드백용)
-  s.bottomHint = ` alt+p toggle · h← l→ · j↑ k↓ [h=${s.bodyH}]`;
+  s.bottomHint = formatPanelMultiColHint(s.bodyH);
   if (prev !== s.bodyH) {
     // setWidget(undefined) 없이 바로 교체 — 중간 상태 렌더링을 방지
     // (undefined 먼저 호출하면 clearOnShrink=false 환경에서 잔상이 남음)

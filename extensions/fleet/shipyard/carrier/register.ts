@@ -16,6 +16,7 @@ import {
   CLI_DISPLAY_NAMES,
   CARRIER_COLORS,
   CARRIER_BG_COLORS,
+  PANEL_EXCLUSIVE_HINT,
 } from "../../constants.js";
 
 /** carrier 프롬프트 메타데이터 (각 carrier 파일에서 전달) */
@@ -64,7 +65,7 @@ export function registerSingleCarrier(
     displayName,
     color: options.color ?? CARRIER_COLORS[cli] ?? "",
     bgColor: options.bgColor ?? CARRIER_BG_COLORS[cli],
-    bottomHint: " h← l→ switch · alt+x cancel · alt+shift+m model ",
+    bottomHint: PANEL_EXCLUSIVE_HINT,
     showWorkingMessage: false,
     carrierDescription: toolMetadata.description,
     carrierPromptSnippet: toolMetadata.promptSnippet,

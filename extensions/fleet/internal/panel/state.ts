@@ -6,7 +6,7 @@
  */
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
-import { DEFAULT_BODY_H } from "../../constants";
+import { DEFAULT_BODY_H, formatPanelMultiColHint } from "../../constants";
 import { getSessionStore } from "../agent/runtime.js";
 import { ensureVisibleRun, setRunSessionId } from "../streaming/stream-store";
 import { getRegisteredOrder } from "../../shipyard/carrier/framework.js";
@@ -61,7 +61,7 @@ export function getState(): AgentPanelState {
       animTimer: null,
       lastCtx: null,
       activeMode: null,
-      bottomHint: " alt+p toggle · h← l→ · j↑ k↓",
+      bottomHint: formatPanelMultiColHint(),
       modelConfig: {},
       serviceSnapshots: [],
       serviceLastUpdatedAt: null,
@@ -73,7 +73,7 @@ export function getState(): AgentPanelState {
     (globalThis as any)[STATE_KEY] = s;
   }
   if (s.activeMode === undefined) s.activeMode = null;
-  if (s.bottomHint === undefined) s.bottomHint = " alt+p toggle · h← l→ · j↑ k↓";
+  if (s.bottomHint === undefined) s.bottomHint = formatPanelMultiColHint();
   if (!s.modelConfig) s.modelConfig = {};
   if (!s.serviceSnapshots) s.serviceSnapshots = [];
   if (s.serviceLastUpdatedAt === undefined) s.serviceLastUpdatedAt = null;

@@ -14,6 +14,7 @@ import {
   SPINNER_FRAMES,
   PANEL_COLOR,
   PANEL_DIM_COLOR,
+  PANEL_MODE_BANNER_HINT,
   SYM_INDICATOR,
 } from "../../constants";
 import {
@@ -180,7 +181,7 @@ interface ColContentResult {
  * 칼럼의 사고/도구 호출/응답을 통합 콘텐츠로 빌드합니다.
  * block-renderer의 renderBlockLines()를 사용하여 블록을 라인으로 변환합니다.
  */
-function buildColContent(col: AgentCol, frame: number, _compact: boolean): ColContentResult {
+function buildColContent(col: AgentCol, frame: number): ColContentResult {
   const lines: string[] = [];
   const colors: string[] = [];
 
@@ -311,7 +312,7 @@ function renderExclusive(
 
   // ── 본문 (compact=false → thinking/tools 상세, 영역별 색상) ──
   const contentW = iw - 2;
-  const content = buildColContent(col, frame, false);
+  const content = buildColContent(col, frame);
   const wrapped = wrapAllLinesColored(content.lines, content.colors, contentW);
 
   for (let row = 0; row < bodyH; row++) {
@@ -343,7 +344,6 @@ function renderMultiCol(
   bottomHint: string,
   bodyH: number,
   wave?: WaveConfig,
-  _activeMode?: string | null,
   cursorColumn = -1,
 ): string[] {
   const n = cols.length;
@@ -400,7 +400,7 @@ function renderMultiCol(
   // ── 본문 (auto-tail, 영역별 색상) ──
   const wrappedCols = cols.map((col, i) => {
     const contentW = cw[i] - 2;
-    const content = buildColContent(col, frame, false);
+    const content = buildColContent(col, frame);
     return wrapAllLinesColored(content.lines, content.colors, contentW);
   });
 
@@ -464,7 +464,7 @@ export function renderPanelFull(
     return renderExclusive(w, cols, frame, FC, bottomHint, activeIndex, bodyH, wave);
   }
 
-  return renderMultiCol(w, cols, frame, FC, bottomHint, bodyH, wave, activeMode, cursorColumn);
+  return renderMultiCol(w, cols, frame, FC, bottomHint, bodyH, wave, cursorColumn);
 }
 
 
@@ -603,7 +603,7 @@ export function renderModeBanner(
   }
 
   // 우측: 단축키 힌트
-  const rightText = " h← l→ switch · alt+p toggle · j↑ k↓ ";
+  const rightText = PANEL_MODE_BANNER_HINT;
 
   // 전체 폭 기준 가운데 정렬, 우측 힌트와 겹치면 폴백
   const centerW = visibleWidth(centerPlain);
@@ -634,4 +634,3 @@ export function renderModeBanner(
 
   return [line];
 }
-
