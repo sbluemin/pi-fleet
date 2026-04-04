@@ -88,7 +88,10 @@ export function registerCarrier(
   };
   gs.modes.set(config.id, state);
 
-  // registeredOrder에 slot 순으로 삽입
+  // registeredOrder에 slot 순으로 삽입 (resume 시 중복 방지: 기존 항목 먼저 제거)
+  const existingIdx = gs.registeredOrder.indexOf(config.id);
+  if (existingIdx !== -1) gs.registeredOrder.splice(existingIdx, 1);
+
   const idx = gs.registeredOrder.findIndex((existingId) => {
     const existing = gs.modes.get(existingId);
     return existing != null && existing.config.slot > config.slot;
