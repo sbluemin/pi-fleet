@@ -26,7 +26,7 @@ cd packages/unified-agent && npm install && npm link && cd ../..
 
 # Extensions 의존성 설치
 cd extensions/fleet && npm install && cd ../..
-cd extensions/dock/shell && npm install && cd ../../..
+cd extensions/core/shell && npm install && cd ../../..
 ```
 
 > `npm install`이 `prepare` 스크립트를 통해 자동 빌드하고, `npm link`가 `unified-agent` CLI를 전역으로 등록합니다.
@@ -34,7 +34,7 @@ cd extensions/dock/shell && npm install && cd ../../..
 
 ## 3. Register extensions in pi settings
 
-Add the `extensions` field to your pi settings file, pointing to all three extension directories.
+Add the `extensions` field to your pi settings file, pointing to the extension directories.
 
 **Global** (`~/.pi/agent/settings.json`):
 
@@ -43,8 +43,7 @@ Add the `extensions` field to your pi settings file, pointing to all three exten
   "extensions": [
     "<path-to-pi-fleet>/extensions/fleet",
     "<path-to-pi-fleet>/extensions/carriers",
-    "<path-to-pi-fleet>/extensions/dock",
-    "<path-to-pi-fleet>/extensions/tender"
+    "<path-to-pi-fleet>/extensions/core"
   ]
 }
 ```
@@ -53,8 +52,7 @@ Add the `extensions` field to your pi settings file, pointing to all three exten
 >
 > - `extensions/fleet/` — agent orchestration extension (carrier framework SDK, Agent Panel, unified pipeline)
 > - `extensions/carriers/` — **(optional)** default carrier registrations (genesis, arbiter, crucible, sentinel, raven, vanguard, echelon, chronicle). Omit this line if you do not want the built-in carriers — the fleet framework will still function without any registered carriers.
-> - `extensions/dock/` — infrastructure extensions (hud, keybind, settings, welcome, shell, experimental) + shared config files
-> - `extensions/tender/` — utility extensions (improve-prompt, summarize, thinking-timer)
+> - `extensions/core/` — infrastructure + utility extensions (hud, keybind, settings, welcome, shell, improve-prompt, summarize, thinking-timer)
 
 ## 4. Verify
 

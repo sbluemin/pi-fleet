@@ -5,8 +5,8 @@
  */
 
 import type { ReasoningLevel } from "./constants.js";
-import type { InfraSettingsAPI } from "../../dock/settings/types.js";
-import { INFRA_SETTINGS_KEY } from "../../dock/settings/types.js";
+import type { InfraSettingsAPI } from "../settings/types.js";
+import { INFRA_SETTINGS_KEY } from "../settings/types.js";
 
 /** 설정 파일 구조 */
 export interface MetaPromptSettings {

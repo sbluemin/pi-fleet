@@ -4,8 +4,8 @@
  * infra-settings API를 통해 extensions/settings.json의 "as" 키에서 읽고 쓴다.
  */
 
-import type { InfraSettingsAPI } from "../../dock/settings/types.js";
-import { INFRA_SETTINGS_KEY } from "../../dock/settings/types.js";
+import type { InfraSettingsAPI } from "../settings/types.js";
+import { INFRA_SETTINGS_KEY } from "../settings/types.js";
 
 export interface AutoSummarizeSettings {
   /** 모델 프로바이더 (미설정 시 세션 모델 사용) */

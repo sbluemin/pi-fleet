@@ -27,8 +27,8 @@ import {
   getRegisteredCarrierConfig,
   resolveCarrierDisplayName,
 } from "../../shipyard/carrier/framework.js";
-import { INFRA_KEYBIND_KEY } from "../../../dock/keybind/types.js";
-import type { InfraKeybindAPI } from "../../../dock/keybind/types.js";
+import { INFRA_KEYBIND_KEY } from "../../../core/keybind/types.js";
+import type { InfraKeybindAPI } from "../../../core/keybind/types.js";
 import {
   CLI_DISPLAY_NAMES,
 } from "../../constants";

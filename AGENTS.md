@@ -13,8 +13,7 @@
 | `extensions/` | All extensions consolidated here (refer to its own `AGENTS.md`) |
 | `extensions/fleet/` | Agent orchestration extension — agent tools, unified pipeline (refer to its own `AGENTS.md`) |
 | `extensions/carriers/` | Carrier registrations — independent extension that defines individual carriers (refer to its own `AGENTS.md`) |
-| `extensions/dock/` | Infrastructure extensions — hud, keybind, settings, welcome, shell (refer to its own `AGENTS.md`) |
-| `extensions/tender/` | Utility extensions — improve-prompt, summarize, thinking-timer (refer to its own `AGENTS.md`) |
+| `extensions/core/` | Infrastructure + utility extensions — hud, keybind, settings, welcome, shell, improve-prompt, summarize, thinking-timer (refer to its own `AGENTS.md`) |
 | `.spsec/` | Archived experimental specs and planning materials |
 
 > Currently, there is no `pi/` directory — symlink setup is not required.
@@ -94,9 +93,9 @@ PI renders a vertical stack of **zones**. Extensions customize these zones via o
 |------|------|-------|-------|
 | **Header** | Header | pi | Startup info, badges |
 | **Messages** | Messages | pi | Conversation, tool calls/results, custom messages |
-| **Editor** | Editor | `dock/hud` | User input (HUD replaces default) |
-| **Footer** | Footer | `dock/hud` | Bottom tokens — dir, session, cost, model (HUD replaces default) |
-| **Status Bar** | Widget:above | `dock/hud` | Segment-based status line above Editor |
+| **Editor** | Editor | `core/hud` | User input (HUD replaces default) |
+| **Footer** | Footer | `core/hud` | Bottom tokens — dir, session, cost, model (HUD replaces default) |
+| **Status Bar** | Widget:above | `core/hud` | Segment-based status line above Editor |
 | **Agent Panel** | Custom UI | `fleet` | Carrier streaming UI — exclusive / multi-column / compact view |
 | **Streaming Widget** | Widget | `fleet` | 1-line compact indicator when Agent Panel is collapsed |
 | **Overlay** | Overlay | various | Floating panel — keybind (Alt+.), settings (Alt+/), welcome |
@@ -132,7 +131,7 @@ Each extension maps to exactly one domain. Use the domain below for all commands
 |-----------|--------|-----------|
 | `fleet/` | `agent` | Sub-agent orchestration features |
 | `carriers/` | `carrier` | Individual carrier registration and configuration |
-When adding a **new extension**, assign a domain that reflects the **feature category**, not the directory prefix (`dock-`, `tender-`, etc.).
+When adding a **new extension**, assign a domain that reflects the **feature category**, not the directory prefix (`core-`, etc.).
 
 ### Feature Naming
 

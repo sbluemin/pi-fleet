@@ -69,16 +69,16 @@ import { CarrierStatusOverlay } from "./shipyard/carrier/status-overlay.js";
 import type { CarrierStatusGroup, CarrierStatusEntry } from "./shipyard/carrier/status-overlay.js";
 import type { ProviderKey } from "./internal/contracts.js";
 
-import { INFRA_SETTINGS_KEY } from "../dock/settings/types.js";
-import type { InfraSettingsAPI } from "../dock/settings/types.js";
+import { INFRA_SETTINGS_KEY } from "../core/settings/types.js";
+import type { InfraSettingsAPI } from "../core/settings/types.js";
 
-import { EDITOR_MODE_PROVIDER_KEY } from "../dock/hud/types.js";
-import type { EditorModeProvider } from "../dock/hud/types.js";
+import { EDITOR_MODE_PROVIDER_KEY } from "../core/hud/types.js";
+import type { EditorModeProvider } from "../core/hud/types.js";
 
-import { INFRA_KEYBIND_KEY } from "../dock/keybind/types.js";
-import type { InfraKeybindAPI } from "../dock/keybind/types.js";
-import { SHELL_POPUP_BRIDGE_KEY } from "../dock/shell/types.js";
-import type { ShellPopupBridge } from "../dock/shell/types.js";
+import { INFRA_KEYBIND_KEY } from "../core/keybind/types.js";
+import type { InfraKeybindAPI } from "../core/keybind/types.js";
+import { SHELL_POPUP_BRIDGE_KEY } from "../core/shell/types.js";
+import type { ShellPopupBridge } from "../core/shell/types.js";
 
 export type { CollectedStreamData } from "./internal/contracts.js";
 

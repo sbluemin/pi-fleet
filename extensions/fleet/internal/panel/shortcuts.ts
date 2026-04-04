@@ -15,8 +15,8 @@
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 
-import { INFRA_KEYBIND_KEY } from "../../../dock/keybind/types.js";
-import type { InfraKeybindAPI } from "../../../dock/keybind/types.js";
+import { INFRA_KEYBIND_KEY } from "../../../core/keybind/types.js";
+import type { InfraKeybindAPI } from "../../../core/keybind/types.js";
 import { BODY_H_STEP } from "../../constants";
 import {
   activateCarrier,

@@ -2,8 +2,8 @@
  * fleet/prompts — PI 호스트 시스템 프롬프트 확장 지침
  */
 
-import { INFRA_SETTINGS_KEY } from "../dock/settings/types.js";
-import type { InfraSettingsAPI } from "../dock/settings/types.js";
+import { INFRA_SETTINGS_KEY } from "../core/settings/types.js";
+import type { InfraSettingsAPI } from "../core/settings/types.js";
 
 // ─────────────────────────────────────────────────────────
 // 타입
@@ -106,7 +106,7 @@ Multiple agents may be working on this codebase simultaneously on the same files
 // 함수
 // ─────────────────────────────────────────────────────────
 
-/** dock/settings에서 fleet 섹션의 worldview 활성 여부를 읽는다 (기본: false) */
+/** core/settings에서 fleet 섹션의 worldview 활성 여부를 읽는다 (기본: false) */
 export function isWorldviewEnabled(): boolean {
   const api = (globalThis as any)[INFRA_SETTINGS_KEY] as InfraSettingsAPI | undefined;
   if (!api) return false;
@@ -114,7 +114,7 @@ export function isWorldviewEnabled(): boolean {
   return cfg.worldview === true;
 }
 
-/** dock/settings에 fleet 섹션의 worldview 설정을 저장한다 (기존 설정 병합) */
+/** core/settings에 fleet 섹션의 worldview 설정을 저장한다 (기존 설정 병합) */
 export function setWorldviewEnabled(enabled: boolean): void {
   const api = (globalThis as any)[INFRA_SETTINGS_KEY] as InfraSettingsAPI | undefined;
   if (!api) return;

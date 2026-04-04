@@ -33,8 +33,8 @@ import {
   createDefaultUserRenderer,
   createDefaultResponseRenderer,
 } from "../../internal/render/message-renderers.js";
-import { INFRA_KEYBIND_KEY } from "../../../dock/keybind/types.js";
-import type { InfraKeybindAPI } from "../../../dock/keybind/types.js";
+import { INFRA_KEYBIND_KEY } from "../../../core/keybind/types.js";
+import type { InfraKeybindAPI } from "../../../core/keybind/types.js";
 
 import type {
   CarrierConfig,

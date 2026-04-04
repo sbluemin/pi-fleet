@@ -43,7 +43,7 @@ carriers/
 | `carriers/*` | `fleet/index.ts` | carriers는 fleet 확장에 의존하지 않음 — framework SDK만 사용 |
 | `carriers/*` | `fleet/internal/*` | fleet 내부 구현은 carriers의 관심사가 아님 |
 | `carriers/*` | `fleet/operation-runner.ts` | 실행 파이프라인은 framework SDK를 통해 간접 접근 |
-| `carriers/*` | `dock/*`, `tender/*` | 다른 확장 레이어에 대한 직접 의존 금지 |
+| `carriers/*` | `core/*` | 다른 확장 레이어에 대한 직접 의존 금지 |
 | `fleet/*` | `carriers/*` | fleet 코어는 carriers를 알지 못함 (역방향 의존 금지) |
 
 ### Summary
@@ -52,7 +52,7 @@ carriers/
 carriers/  →  fleet/shipyard/carrier/ (framework SDK only)
                     ✗ fleet/index.ts
                     ✗ fleet/internal/
-                    ✗ dock/, tender/
+                    ✗ core/
 ```
 
 ## Core Rules

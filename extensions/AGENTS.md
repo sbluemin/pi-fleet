@@ -14,13 +14,13 @@ Do not create intermediate layers that simply wrap official TUI APIs (e.g., `set
 |-----------|------|------------|
 | `fleet/` | Agent orchestration framework — carrier SDK (`shipyard/carrier/`), unified pipeline, Agent Panel, model selection. Provides the carrier framework that `carriers/` depends on. | `index.ts` (wiring), `shipyard/carrier/` (framework), `internal/` (implementation) |
 | `carriers/` | Carrier registrations — independent extension defining individual carriers (genesis, sentinel, vanguard, etc.). Depends only on `shipyard/carrier` package, not on `fleet/` extension. Optional — users may omit from `settings.json`. | `index.ts` (wiring), individual carrier files |
-| `dock/hud/` | Editor + Status Bar + Footer (with integrated rendering engine) | `index.ts` (wiring), `editor.ts` (editor/footer/widget UI) |
-| `dock/keybind/` | Centralized keybinding management + overlay (alt+.) | `index.ts` (wiring), `types.ts` (API + globalThis), `store.ts` (JSON), `registry.ts` (bindings), `overlay.ts` (UI) |
-| `dock/settings/` | Centralized settings API + overlay popup (alt+/) | `index.ts` (wiring), `types.ts` (API + globalThis), `store.ts` (JSON), `registry.ts` (sections), `overlay.ts` (UI) |
-| `dock/welcome/` | Welcome overlay/header | `index.ts` (wiring), `welcome.ts` (UI), `types.ts` (globalThis types) |
-| `tender/improve-prompt/` | Meta-prompting (alt+m), reasoning level cycle (alt+r) | `index.ts` (wiring), `ui.ts` (Status Bar segment) |
-| `tender/thinking-timer/` | Inline elapsed-time display for Thinking blocks | `index.ts` (wiring), `timer.ts` (patch/store/ticker) |
-| `tender/summarize/` | Auto one-line session summary | `index.ts` (wiring), `ui.ts` (Status Bar segment) |
+| `core/hud/` | Editor + Status Bar + Footer (with integrated rendering engine) | `index.ts` (wiring), `editor.ts` (editor/footer/widget UI) |
+| `core/keybind/` | Centralized keybinding management + overlay (alt+.) | `index.ts` (wiring), `types.ts` (API + globalThis), `store.ts` (JSON), `registry.ts` (bindings), `overlay.ts` (UI) |
+| `core/settings/` | Centralized settings API + overlay popup (alt+/) | `index.ts` (wiring), `types.ts` (API + globalThis), `store.ts` (JSON), `registry.ts` (sections), `overlay.ts` (UI) |
+| `core/welcome/` | Welcome overlay/header | `index.ts` (wiring), `welcome.ts` (UI), `types.ts` (globalThis types) |
+| `core/improve-prompt/` | Meta-prompting (alt+m), reasoning level cycle (alt+r) | `index.ts` (wiring), `ui.ts` (Status Bar segment) |
+| `core/thinking-timer/` | Inline elapsed-time display for Thinking blocks | `index.ts` (wiring), `timer.ts` (patch/store/ticker) |
+| `core/summarize/` | Auto one-line session summary | `index.ts` (wiring), `ui.ts` (Status Bar segment) |
 
 ### Shared Libraries — Directories without `index.ts`
 
@@ -28,7 +28,7 @@ These are pure libraries not recognized as extensions by pi.
 
 | Library | Role | Main Consumers |
 |---------|------|----------------|
-| `dock/hud/` (also a library) | Status Bar rendering engine (segments, layout, colors, themes, presets) | `dock/welcome` |
+| `core/hud/` (also a library) | Status Bar rendering engine (segments, layout, colors, themes, presets) | `core/welcome` |
 
 ### Extension Separation Criteria
 
@@ -69,10 +69,10 @@ Any string that is ultimately consumed by an AI model should live in `prompts.ts
 ### globalThis Usage Rules
 
 ```
-Allowed: dock/welcome → globalThis["__pi_utils_welcome__"] = { dismiss }
+Allowed: core/welcome → globalThis["__pi_utils_welcome__"] = { dismiss }
          (Exposes actions of an independent feature)
 
-Forbidden: dock/hud-footer → globalThis["__pi_hud_footer__"] = { footerDataRef, tuiRef }
+Forbidden: core/hud-footer → globalThis["__pi_hud_footer__"] = { footerDataRef, tuiRef }
            (Wraps and relays TUI framework data)
 ```
 
@@ -267,9 +267,8 @@ Extensions are organized in layers. **Dependencies must only flow in one directi
 ### Dependency Direction
 
 ```
-tender/  →  fleet/ (feature)      →  dock/
-             carriers/ (feature)      (infrastructure)
-(utility)      (feature)
+fleet/ (feature)      →  core/
+carriers/ (feature)      (infrastructure + utility)
 ```
 
 - **Allowed**: A layer may import from any layer below it (direct or transitive).
@@ -281,12 +280,11 @@ tender/  →  fleet/ (feature)      →  dock/
 
 | Layer | May import from | Must NOT import from |
 |-------|----------------|----------------------|
-| `dock/` | external packages only | any other layer |
-| `fleet/` (feature) | `dock/` | `tender/`, `carriers/` |
-| `carriers/` (feature) | `fleet/shipyard/carrier/` (framework SDK only) | `fleet/index.ts`, `fleet/internal/`, `tender/`, `dock/` |
-| `tender/` | `fleet/`, `carriers/`, `dock/` | — |
+| `core/` | external packages only | `fleet/`, `carriers/` |
+| `fleet/` (feature) | `core/` | `carriers/` |
+| `carriers/` (feature) | `fleet/shipyard/carrier/` (framework SDK only) | `fleet/index.ts`, `fleet/internal/`, `core/` |
 
-> **Skipping layers is allowed** — e.g., `tender/` may import directly from `dock/` without going through `fleet/`.
+> **Skipping layers is allowed** — e.g., `core/` utility extensions may import from `core/` infrastructure modules directly.
 
 ### Verification (as of 2026-03-29)
 
@@ -294,9 +292,9 @@ All cross-domain imports verified — **no reverse dependency violations found**
 
 | Import | Direction | Status |
 |--------|-----------|--------|
-| `fleet/` → `dock/keybind` | fleet → dock | ✅ |
-| `tender/summarize` → `dock/settings` | tender → dock | ✅ |
-| `tender/improve-prompt` → `dock/settings`, `dock/keybind` | tender → dock | ✅ |
+| `fleet/` → `core/keybind` | fleet → core | ✅ |
+| `core/summarize` → `core/settings` | core internal | ✅ |
+| `core/improve-prompt` → `core/settings`, `core/keybind` | core internal | ✅ |
 
 ### Enforcement
 

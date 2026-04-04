@@ -12,7 +12,7 @@ This project treats individual LLM agents as **Carriers** within a **Fleet**.
 
 ## Extensions
 
-### Infrastructure (`extensions/dock/`)
+### Infrastructure (`extensions/core/`)
 
 | Extension | Domain | Description |
 |-----------|--------|-------------|
@@ -21,6 +21,9 @@ This project treats individual LLM agents as **Carriers** within a **Fleet**.
 | `settings/` | `settings` | Centralized settings API + overlay popup (`Alt+/`) |
 | `welcome/` | `welcome` | Welcome overlay displayed on session start |
 | `shell/` | `shell` | Interactive shell session (xterm.js + node-pty) inside pi |
+| `improve-prompt/` | `prompt` | Meta-prompting via `Alt+M`, reasoning level cycle via `Alt+R` |
+| `summarize/` | `summary` | Auto one-line session summary displayed in Status Bar |
+| `thinking-timer/` | `timer` | Inline elapsed-time display for Thinking blocks in Messages zone |
 
 ### Agent Framework (`extensions/fleet/`)
 
@@ -42,14 +45,6 @@ Independent carrier registrations defining unique personas for each CLI instance
 | **Vanguard**| Gemini | CVN-06 Scout Specialist (Reconnaissance & web research) | `Alt+6` |
 | **Echelon** | Gemini | CVN-07 Chief Intelligence Officer (Deep repository scanning & GitHub intelligence) | `Alt+7` |
 | **Chronicle**| Gemini | CVN-08 Chief Knowledge Officer (Documentation & technical writing) | `Alt+8` |
-
-### Utility (`extensions/tender/`)
-
-| Extension | Domain | Description |
-|-----------|--------|-------------|
-| `improve-prompt/` | `prompt` | Meta-prompting via `Alt+M`, reasoning level cycle via `Alt+R` |
-| `summarize/` | `summary` | Auto one-line session summary displayed in Status Bar |
-| `thinking-timer/` | `timer` | Inline elapsed-time display for Thinking blocks in Messages zone |
 
 ## Packages
 
