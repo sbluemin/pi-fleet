@@ -5,8 +5,10 @@
  * ANSI 컬러 토큰으로 렌더링합니다.
  */
 
-import { ANSI_RESET, PANEL_DIM_COLOR } from "../../constants.js";
-import type { HealthStatus, ProviderKey, ServiceSnapshot } from "../contracts.js";
+import type { HealthStatus, ProviderKey, ServiceSnapshot } from "../types.js";
+
+const ANSI_RESET = "\x1b[0m";
+const PANEL_DIM_COLOR = "\x1b[38;2;100;100;100m";
 
 const STATUS_TEXT: Record<HealthStatus, string> = {
   operational: "OP",

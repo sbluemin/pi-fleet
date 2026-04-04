@@ -2,9 +2,7 @@
  * service-status/store.ts — 서비스 상태 모니터링 (polling/fetching/store)
  *
  * Claude/OpenAI/Gemini 서비스 상태를 주기적으로 조회하고
- * 패널 footer에 반영합니다.
- *
- * internal 내부 모듈이므로 sibling 모듈을 직접 참조합니다.
+ * 콜백을 통해 상위 계층에 반영합니다.
  */
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
@@ -12,11 +10,19 @@ import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { promisify } from "node:util";
 
-import { setAgentPanelServiceLoading, setAgentPanelServiceStatus } from "../panel/config.js";
-import type { HealthStatus, ProviderKey, ServiceSnapshot } from "../contracts.js";
+import type { HealthStatus, ProviderKey, ServiceSnapshot } from "../types.js";
+
+// ─── 콜백 주입 인터페이스 ────────────────────────────────
+
+/** 상위 계층(fleet 등)이 주입하는 패널 동기화 콜백 */
+export interface ServiceStatusCallbacks {
+  setLoading: () => void;
+  setStatus: (snapshots: ServiceSnapshot[], lastUpdatedAt: number | null) => void;
+}
 
 interface StatusStore {
   ctx: ExtensionContext | null;
+  callbacks: ServiceStatusCallbacks | null;
   timer: ReturnType<typeof setInterval> | null;
   inFlight: Promise<void> | null;
   lastRefreshStartedAt: number;
@@ -97,6 +103,15 @@ const PROVIDER_CONFIGS: ProviderFetchConfig[] = [
 
 const PROVIDER_ORDER: ProviderKey[] = ["claude", "codex", "gemini"];
 
+/**
+ * 서비스 상태 콜백을 초기화합니다.
+ * fleet/index.ts 등 상위 계층에서 1회 호출합니다.
+ */
+export function initServiceStatus(callbacks: ServiceStatusCallbacks): void {
+  const store = getStore();
+  store.callbacks = callbacks;
+}
+
 export function attachStatusContext(ctx: ExtensionContext): void {
   const store = getStore();
   store.ctx = ctx;
@@ -114,7 +129,7 @@ export function attachStatusContext(ctx: ExtensionContext): void {
 export async function refreshStatusNow(ctx: ExtensionContext): Promise<void> {
   const store = getStore();
   store.ctx = ctx;
-  setAgentPanelServiceLoading();
+  store.callbacks?.setLoading();
   await refreshSnapshots({ force: true, notify: true });
 }
 
@@ -133,6 +148,7 @@ function getStore(): StatusStore {
   if (!store) {
     store = {
       ctx: null,
+      callbacks: null,
       timer: null,
       inFlight: null,
       lastRefreshStartedAt: 0,
@@ -152,7 +168,7 @@ function getStore(): StatusStore {
 
 function syncPanelStatus(): void {
   const store = getStore();
-  setAgentPanelServiceStatus(store.snapshots, store.lastUpdatedAt);
+  store.callbacks?.setStatus(store.snapshots, store.lastUpdatedAt);
 }
 
 function mapRawStatus(rawStatus: string | undefined): HealthStatus {

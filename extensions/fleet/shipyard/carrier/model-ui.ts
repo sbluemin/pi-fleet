@@ -1,32 +1,32 @@
 /**
- * fleet/internal/agent/model-ui.ts — 모델 선택 UI 및 커맨드
+ * fleet/shipyard/carrier/model-ui.ts — 모델 선택 UI 및 커맨드
  *
  * 캐리어별(carrierId) 모델/추론 설정 선택 UI와 관련 단축키/커맨드를 등록합니다.
- * 동일 agent/ 디렉토리의 model-config, runtime과 직접 협력합니다.
+ * core/agent의 model-config, runtime과 직접 협력합니다.
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 
 import type { CliType } from "@sbluemin/unified-agent";
-import type { ModelSelection, SelectedModelsConfig } from "./model-config.js";
+import type { ModelSelection, SelectedModelsConfig } from "../../../core/agent/model-config.js";
 import {
   getAvailableModels,
   getEffortLevels,
   getDefaultBudgetTokens,
-} from "./model-config.js";
+} from "../../../core/agent/model-config.js";
 import {
   getModelConfig,
   updateModelSelection,
   updateAllModelSelections,
-} from "./runtime.js";
-import { setAgentPanelModelConfig } from "../panel/config.js";
+} from "../../../core/agent/runtime.js";
+import { setAgentPanelModelConfig } from "../../internal/panel/config.js";
 import {
   getActiveCarrierId,
   notifyStatusUpdate,
   getRegisteredOrder,
   getRegisteredCarrierConfig,
   resolveCarrierDisplayName,
-} from "../../shipyard/carrier/framework.js";
+} from "./framework.js";
 import { INFRA_KEYBIND_KEY } from "../../../core/keybind/types.js";
 import type { InfraKeybindAPI } from "../../../core/keybind/types.js";
 import {

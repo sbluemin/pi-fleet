@@ -13,7 +13,7 @@
  * ⚠️ globalThis 기반 — pi가 확장을 별도 번들로 로드하므로 필수.
  */
 
-import type { AgentStatus } from "../agent/types.js";
+import type { AgentStatus } from "../../../core/agent/types.js";
 import { getRegisteredOrder } from "../../shipyard/carrier/framework.js";
 import type { ColBlock, ColStatus, CollectedStreamData } from "../contracts.js";
 

@@ -10,7 +10,7 @@
 import type { Component, Focusable, TUI } from "@mariozechner/pi-tui";
 import { Key, matchesKey, visibleWidth } from "@mariozechner/pi-tui";
 import type { Theme } from "@mariozechner/pi-coding-agent";
-import type { ProviderInfo } from "../../internal/agent/model-config.js";
+import type { ProviderInfo } from "../../../core/agent/model-config.js";
 import {
   TASKFORCE_CLI_TYPES,
   type TaskForceCliType,

@@ -12,11 +12,11 @@
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
-import { executeOneShot } from "../../internal/agent/executor.js";
+import { executeOneShot } from "../../../core/agent/executor.js";
 import {
   getTaskForceModelConfig,
   getConfiguredTaskForceCarrierIds,
-} from "../../internal/agent/runtime.js";
+} from "../../../core/agent/runtime.js";
 import {
   createRun,
   appendTextBlock,

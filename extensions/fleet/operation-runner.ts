@@ -10,9 +10,9 @@
  * router.ts + streaming-widget.ts의 로직을 흡수한 통합 계층입니다.
  */
 
-import { executeWithPool } from "./internal/agent/executor";
-import type { AgentStatus } from "./internal/agent/types";
-import { getModelConfig } from "./internal/agent/runtime.js";
+import { executeWithPool } from "../core/agent/executor";
+import type { AgentStatus } from "../core/agent/types";
+import { getModelConfig } from "../core/agent/runtime.js";
 import {
   createRun,
   appendTextBlock,

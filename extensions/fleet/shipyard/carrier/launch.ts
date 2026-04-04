@@ -6,7 +6,7 @@
  */
 
 import type { CliType } from "@sbluemin/unified-agent";
-import { getModelConfig, getSessionId } from "../../internal/agent/runtime.js";
+import { getModelConfig, getSessionId } from "../../../core/agent/runtime.js";
 
 interface LaunchConfig {
   command: string;

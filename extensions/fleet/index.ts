@@ -45,16 +45,17 @@ import {
   updateTaskForceModelSelection,
   resetTaskForceModelSelection,
   isTaskForceFullyConfigured,
-} from "./internal/agent/runtime.js";
-import { getAvailableModels, getEffortLevels, getDefaultBudgetTokens } from "./internal/agent/model-config.js";
-import { cleanIdleClients } from "./internal/agent/client-pool.js";
-import { registerModelCommands, syncModelConfig } from "./internal/agent/model-ui.js";
+} from "../core/agent/runtime.js";
+import { getAvailableModels, getEffortLevels, getDefaultBudgetTokens } from "../core/agent/model-config.js";
+import { cleanIdleClients } from "../core/agent/client-pool.js";
+import { registerModelCommands, syncModelConfig } from "./shipyard/carrier/model-ui.js";
 import { loadSortieDisabled, saveSortieDisabled } from "./shipyard/carrier/sortie-store.js";
 import { exposeAgentApi } from "./operation-runner.js";
 import { refreshAgentPanelFooter, getModeBannerLines } from "./internal/panel/lifecycle.js";
 import { registerAgentPanelShortcut } from "./internal/panel/shortcuts.js";
+import { setAgentPanelServiceLoading, setAgentPanelServiceStatus } from "./internal/panel/config.js";
 import { buildBridgeCommand } from "./shipyard/carrier/launch.js";
-import { attachStatusContext, refreshStatusNow, getServiceSnapshots, refreshStatusQuiet } from "./internal/service-status/store.js";
+import { initServiceStatus, attachStatusContext, refreshStatusNow, getServiceSnapshots, refreshStatusQuiet } from "../core/agent/service-status/store.js";
 import { CARRIER_BRIDGE_KEY } from "./constants";
 import { registerFleetSortie } from "./shipyard/carrier/sortie.js";
 import { registerFleetTaskForce } from "./shipyard/taskforce/index.js";
@@ -93,21 +94,21 @@ export {
   resetTaskForceModelSelection,
   isTaskForceFullyConfigured,
   getConfiguredTaskForceCarrierIds,
-} from "./internal/agent/runtime.js";
+} from "../core/agent/runtime.js";
 
 export {
   getAvailableModels,
   getEffortLevels,
   getDefaultBudgetTokens,
-} from "./internal/agent/model-config.js";
+} from "../core/agent/model-config.js";
 export type {
   ModelSelection,
   SelectedModelsConfig,
-} from "./internal/agent/model-config.js";
+} from "../core/agent/model-config.js";
 
-export type { AgentStatus } from "./internal/agent/types.js";
+export type { AgentStatus } from "../core/agent/types.js";
 
-export { syncModelConfig, registerModelCommands } from "./internal/agent/model-ui.js";
+export { syncModelConfig, registerModelCommands } from "./shipyard/carrier/model-ui.js";
 
 export {
   registerCarrier,
@@ -150,6 +151,10 @@ export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
   // os.homedir() 직접 사용으로 PI_CODING_AGENT_DIR override와 무관하게 경로를 고정한다.
   const dataDir = path.join(os.homedir(), ".pi", "fleet");
   initRuntime(dataDir);
+  initServiceStatus({
+    setLoading: setAgentPanelServiceLoading,
+    setStatus: setAgentPanelServiceStatus,
+  });
 
   (globalThis as any)[EDITOR_MODE_PROVIDER_KEY] = {
     getActiveModeId: getActiveCarrierId,

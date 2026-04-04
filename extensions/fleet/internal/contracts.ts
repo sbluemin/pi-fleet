@@ -8,7 +8,7 @@
  *    구현 로직이나 외부 모듈 import를 추가하지 마세요.
  */
 
-import type { AgentStatus } from "./agent/types.js";
+import type { AgentStatus } from "../../core/agent/types.js";
 
 // ─── 스트리밍 블록 타입 ──────────────────────────────────
 
@@ -53,26 +53,10 @@ export interface CollectedStreamData {
   lastStatus: AgentStatus;
 }
 
-// ─── 서비스 상태 타입 ────────────────────────────────────
+// ─── 서비스 상태 타입 (core/agent/types.ts에서 re-export) ───
 
-/** 서비스 상태 프로바이더 키 */
-export type ProviderKey = "claude" | "codex" | "gemini";
-
-/** 서비스 헬스 상태 */
-export type HealthStatus =
-  | "operational"
-  | "partial_outage"
-  | "major_outage"
-  | "maintenance"
-  | "unknown";
-
-/** 서비스 상태 스냅샷 */
-export interface ServiceSnapshot {
-  provider: ProviderKey;
-  label: string;
-  status: HealthStatus;
-  matchedTarget: string;
-  sourceUrl: string;
-  checkedAt: number;
-  note?: string;
-}
+export type {
+  ProviderKey,
+  HealthStatus,
+  ServiceSnapshot,
+} from "../../core/agent/types.js";

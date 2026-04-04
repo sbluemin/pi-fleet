@@ -22,8 +22,8 @@ import {
   getDataDir,
   updateModelSelection,
   updateAllModelSelections,
-} from "../internal/agent/runtime.js";
-import { saveSelectedModels } from "../internal/agent/model-config.js";
+} from "../../core/agent/runtime.js";
+import { saveSelectedModels } from "../../core/agent/model-config.js";
 
 let tmpDir: string;
 
