@@ -16,6 +16,7 @@ This project treats individual LLM agents as **Carriers** within a **Fleet**.
 
 | Extension | Domain | Description |
 |-----------|--------|-------------|
+| `agent/` | `agent` | Core agent infrastructure — executor, client-pool, runtime, session-map, model-config, service-status |
 | `hud/` | `hud` | **Heads-Up Display** — Integrated Editor + Status Bar + Footer rendering engine |
 | `keybind/` | `keybind` | Centralized keybinding management + overlay (`Alt+.`) |
 | `settings/` | `settings` | Centralized settings API + overlay popup (`Alt+/`) |
@@ -37,22 +38,47 @@ Independent carrier registrations defining unique personas for each CLI instance
 
 | Carrier | CLI | Role | Slot |
 |---------|-----|------|------|
-| **Genesis** | Claude | CVN-01 Chief Engineer (System design & core backend) | `Alt+1` |
-| **Arbiter** | Claude | CVN-02 Chief Doctrine Officer (Standards & instruction conflict resolution) | `Alt+2` |
-| **Crucible**| Codex  | CVN-03 Chief Forgemaster (Dead code removal & DRY refactoring) | `Alt+3` |
-| **Sentinel**| Codex  | CVN-04 The Inquisitor (QA lead & hidden bug hunting) | `Alt+4` |
-| **Raven**   | Codex  | CVN-05 Red Team Commander (Security auditing & penetration testing) | `Alt+5` |
-| **Vanguard**| Gemini | CVN-06 Scout Specialist (Reconnaissance & web research) | `Alt+6` |
-| **Echelon** | Gemini | CVN-07 Chief Intelligence Officer (Deep repository scanning & GitHub intelligence) | `Alt+7` |
-| **Chronicle**| Gemini | CVN-08 Chief Knowledge Officer (Documentation & technical writing) | `Alt+8` |
-| **Oracle**   | Claude | CVN-09 Strategic Technical Advisor (Read-only architectural guidance) | `Alt+9` |
+| **Genesis** | Claude | CVN-01 Chief Engineer (System design & core backend) | #1 |
+| **Arbiter** | Claude | CVN-02 Chief Doctrine Officer (Standards & instruction conflict resolution) | #2 |
+| **Oracle**  | Claude | CVN-09 Strategic Technical Advisor (Read-only architectural guidance) | #3 |
+| **Crucible**| Codex  | CVN-03 Chief Forgemaster (Dead code removal & DRY refactoring) | #4 |
+| **Sentinel**| Codex  | CVN-04 The Inquisitor (QA lead & hidden bug hunting) | #5 |
+| **Raven**   | Codex  | CVN-05 Red Team Commander (Security auditing & penetration testing) | #6 |
+| **Vanguard**| Gemini | CVN-06 Scout Specialist (Reconnaissance & web research) | #7 |
+| **Echelon** | Gemini | CVN-07 Chief Intelligence Officer (Deep repository scanning & GitHub intelligence) | #8 |
+| **Chronicle**| Gemini | CVN-08 Chief Knowledge Officer (Documentation & technical writing) | #9 |
+
+## Task Force
+
+**Task Force** runs a single carrier's persona simultaneously across all three CLI backends (Claude, Codex, Gemini) and returns a consolidated cross-validation comparison.
+
+Use it when you need to compare approaches, detect model-specific blind spots, or build consensus across backends. Results are returned as `[Claude] (status)`, `[Codex] (status)`, `[Gemini] (status)` — each backend runs independently, so a failure in one does not abort the others.
+
+### When to use
+- Comparing solution approaches across models
+- Catching blind spots a single backend might miss
+- Building multi-model consensus on architecture or analysis decisions
+
+### When NOT to use
+- Routine single-backend tasks (use `carrier_sortie` instead)
+- When execution speed is critical
+- As a substitute for launching multiple different carriers in parallel
+
+### Configuration
+
+Task Force requires per-carrier model configuration for each CLI backend before use.
+
+1. Open the Fleet Status Overlay: `Alt+O`
+2. Select a carrier and press `T` to open Task Force model config
+3. Configure the model/reasoning for each of the three backends (Claude, Codex, Gemini)
+
+Once all three backends are configured for a carrier, it becomes available as a `carrier_taskforce` parameter.
 
 ## Keybindings
 
 ### Carrier Slots & Navigation
 | Key | Action |
 |-----|--------|
-| `Alt+1` ~ `9` | Select specific Carrier slot |
 | `Alt+H` / `L` | Navigate to Previous / Next Carrier slot |
 | `Ctrl+Enter` | Enable **Exclusive Mode** for the selected carrier (direct communication) |
 
@@ -60,6 +86,9 @@ Independent carrier registrations defining unique personas for each CLI instance
 | Key | Action |
 |-----|--------|
 | `Alt+P` | Toggle Agent Panel (Show/Hide) |
+| `Alt+J` | Grow Agent Panel height |
+| `Alt+K` | Shrink Agent Panel height |
+| `Alt+S` | Stash / restore the current editor content |
 | `Alt+O` | Fleet Status & Model Config Overlay |
 | `Alt+T` | Open Carrier Native Terminal Bridge (PTY) |
 | `Alt+X` | Cancel execution of the active Carrier |
@@ -77,26 +106,18 @@ Independent carrier registrations defining unique personas for each CLI instance
 
 | Command | Description |
 |---------|-------------|
+| `/fleet:agent:models` | Configure model selection for each registered carrier (slot order) |
 | `/fleet:agent:status` | Instantly refresh the connection status of all CLI services |
 | `/fleet:agent:worldview` | Toggle Naval Fleet "Persona" prompts on/off |
-| `/fleet:prompt:improve` | Meta-prompting to improve the current input (`Alt+M`) |
-| `/fleet:prompt:reasoning` | Cycle reasoning levels (`Alt+R`) |
-| `/fleet:summary:run` | Manually re-summarize the current session |
+| `/fleet:hud:editor` | Configure HUD editor display status (toggle, preset) |
+| `/fleet:prompt:settings` | Meta-prompt model and reasoning level settings |
+| `/fleet:summary:settings` | Auto-summary model and max-length settings |
 
 ## Packages
 
 | Package | Description |
 |---------|-------------|
 | `packages/unified-agent/` | **Unified SDK** — TypeScript SDK that unifies Codex CLI, Claude Code, and Gemini CLI over the ACP protocol. Provides both a CLI binary and a programmatic SDK with event-based streaming. |
-
-## Archived specs (`.spsec/`)
-
-| Directory | Description |
-|-----------|-------------|
-| `fleet-orchestration/` | Planning/spec materials for multi-agent orchestration |
-| `fleet-task/` | Task system specification |
-| `fleet-unit-explore/` | Exploration extension notes |
-| `fleet-unit-librarian/` | Librarian extension notes |
 
 ## Setup
 

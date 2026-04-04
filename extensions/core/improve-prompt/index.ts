@@ -149,26 +149,6 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-  pi.registerCommand("fleet:prompt:improve", {
-    description: "메타 프롬프팅 기법으로 프롬프트를 개선하여 입력창에 삽입",
-    handler: async (args, ctx) => {
-      const trimmed = args.trim();
-      if (!trimmed) {
-        ctx.ui.notify("사용법: /fleet:prompt:improve <개선할 요청사항>", "warning");
-        return;
-      }
-
-      const settings = loadSettings();
-      const model = resolveModel(ctx, settings);
-      if (!model) return;
-
-      const result = await metaPromptWithLoader(ctx, model, trimmed, currentReasoning);
-      if (result === null) return;
-
-      ctx.ui.setEditorText(result);
-    },
-  });
-
   // ── 단축키 등록 ──
 
   const keybind = (globalThis as any)[INFRA_KEYBIND_KEY] as InfraKeybindAPI;
@@ -195,42 +175,6 @@ export default function (pi: ExtensionAPI) {
       if (result === null) return;
 
       ctx.ui.setEditorText(result);
-    },
-  });
-
-  pi.registerCommand("fleet:prompt:reasoning", {
-    description: "메타 프롬프트 reasoning 레벨 변경 (off/low/medium/high)",
-    handler: async (args, ctx) => {
-      const arg = args.trim().toLowerCase();
-      if (arg && isValidReasoning(arg)) {
-        currentReasoning = arg;
-        const settings = loadSettings();
-        settings.reasoning = currentReasoning;
-        saveSettings(settings);
-        ctx.ui.notify(
-          `Meta-prompt reasoning → ${REASONING_LABELS[currentReasoning]}`,
-          "info",
-        );
-        return;
-      }
-
-      const options = REASONING_LEVELS.map((level) => {
-        const marker = level === currentReasoning ? " ✓" : "";
-        return `${REASONING_LABELS[level]}${marker}`;
-      });
-
-      const choice = await ctx.ui.select("Meta-prompt Reasoning Level", options);
-      if (choice === undefined) return;
-
-      const choiceIdx = options.indexOf(choice);
-      currentReasoning = REASONING_LEVELS[choiceIdx]!;
-      const settings = loadSettings();
-      settings.reasoning = currentReasoning;
-      saveSettings(settings);
-      ctx.ui.notify(
-        `Meta-prompt reasoning → ${REASONING_LABELS[currentReasoning]}`,
-        "info",
-      );
     },
   });
 

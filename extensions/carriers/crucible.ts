@@ -47,5 +47,5 @@ const CARRIER_METADATA: CarrierMetadata = {
 };
 
 export function registerCrucibleCarrier(pi: ExtensionAPI): void {
-  registerSingleCarrier(pi, "codex", CARRIER_METADATA, { slot: 3, id: "crucible", displayName: "Crucible" });
+  registerSingleCarrier(pi, "codex", CARRIER_METADATA, { slot: 4, id: "crucible", displayName: "Crucible" });
 }

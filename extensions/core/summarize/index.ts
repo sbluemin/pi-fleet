@@ -94,51 +94,6 @@ export default function (pi: ExtensionAPI) {
 
   // ── 커맨드 등록 ──
 
-  pi.registerCommand("fleet:summary:run", {
-    description: "현재 세션을 수동으로 한 줄 재요약",
-    handler: async (_args, ctx) => {
-      const settings = loadSettings();
-      const model = resolveModel(ctx, settings);
-      if (!model) {
-        ctx.ui.notify(
-          "모델을 찾을 수 없습니다. /fleet:summary:settings로 설정하세요.",
-          "error",
-        );
-        return;
-      }
-
-      const maxLength = settings.maxLength ?? 80;
-
-      const entries = ctx.sessionManager.getBranch();
-      const messageEntries = entries.filter(
-        (e: any) => e.type === "message" && e.message,
-      );
-      const messages = messageEntries.map((e: any) => e.message);
-
-      if (messages.length === 0) {
-        ctx.ui.notify("요약할 메시지가 없습니다.", "warning");
-        return;
-      }
-
-      const conversationText = serializeConversation(convertToLlm(messages));
-      if (!conversationText.trim()) {
-        ctx.ui.notify("대화 내용이 비어있습니다.", "warning");
-        return;
-      }
-
-      ctx.ui.notify("요약 생성 중...", "info");
-
-      const summary = await generateOneLiner(ctx, model, conversationText, maxLength);
-      if (summary) {
-        pi.setSessionName(summary);
-        firstTurnDone = true;
-        ctx.ui.notify(`세션 이름 설정: ${summary}`, "info");
-      } else {
-        ctx.ui.notify("요약 생성에 실패했습니다.", "error");
-      }
-    },
-  });
-
   pi.registerCommand("fleet:summary:settings", {
     description: "자동 요약 설정 (모델 선택 + 최대 길이)",
     handler: async (_args, ctx) => {

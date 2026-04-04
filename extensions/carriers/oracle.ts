@@ -61,5 +61,5 @@ const CARRIER_METADATA: CarrierMetadata = {
 };
 
 export function registerOracleCarrier(pi: ExtensionAPI): void {
-  registerSingleCarrier(pi, "claude", CARRIER_METADATA, { slot: 9, id: "oracle", displayName: "Oracle" });
+  registerSingleCarrier(pi, "claude", CARRIER_METADATA, { slot: 3, id: "oracle", displayName: "Oracle" });
 }

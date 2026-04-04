@@ -17,13 +17,13 @@ import { registerChronicleCarrier } from "./chronicle.js";
 import { registerOracleCarrier } from "./oracle.js";
 
 export default function fleetCarriersExtension(pi: ExtensionAPI): void {
-  registerGenesisCarrier(pi);    // slot 1 — alt+1  (claude)
-  registerArbiterCarrier(pi);    // slot 2 — alt+2  (claude)
-  registerCrucibleCarrier(pi);   // slot 3 — alt+3  (codex)
-  registerSentinelCarrier(pi);   // slot 4 — alt+4  (codex)
-  registerRavenCarrier(pi);      // slot 5 — alt+5  (codex)
-  registerVanguardCarrier(pi);   // slot 6 — alt+6  (gemini)
-  registerEchelonCarrier(pi);    // slot 7 — alt+7  (gemini)
-  registerChronicleCarrier(pi);  // slot 8 — alt+8  (gemini)
-  registerOracleCarrier(pi);     // slot 9 — alt+9  (claude)
+  registerGenesisCarrier(pi);    // slot 1 (claude)
+  registerArbiterCarrier(pi);    // slot 2 (claude)
+  registerOracleCarrier(pi);     // slot 3 (claude)
+  registerCrucibleCarrier(pi);   // slot 4 (codex)
+  registerSentinelCarrier(pi);   // slot 5 (codex)
+  registerRavenCarrier(pi);      // slot 6 (codex)
+  registerVanguardCarrier(pi);   // slot 7 (gemini)
+  registerEchelonCarrier(pi);    // slot 8 (gemini)
+  registerChronicleCarrier(pi);  // slot 9 (gemini)
 }

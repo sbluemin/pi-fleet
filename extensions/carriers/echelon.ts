@@ -48,5 +48,5 @@ const CARRIER_METADATA: CarrierMetadata = {
 };
 
 export function registerEchelonCarrier(pi: ExtensionAPI): void {
-  registerSingleCarrier(pi, "gemini", CARRIER_METADATA, { slot: 7, id: "echelon", displayName: "Echelon" });
+  registerSingleCarrier(pi, "gemini", CARRIER_METADATA, { slot: 8, id: "echelon", displayName: "Echelon" });
 }

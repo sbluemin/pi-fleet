@@ -49,5 +49,5 @@ const CARRIER_METADATA: CarrierMetadata = {
 };
 
 export function registerRavenCarrier(pi: ExtensionAPI): void {
-  registerSingleCarrier(pi, "codex", CARRIER_METADATA, { slot: 5, id: "raven", displayName: "Raven" });
+  registerSingleCarrier(pi, "codex", CARRIER_METADATA, { slot: 6, id: "raven", displayName: "Raven" });
 }

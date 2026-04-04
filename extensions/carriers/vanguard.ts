@@ -51,5 +51,5 @@ const CARRIER_METADATA: CarrierMetadata = {
 };
 
 export function registerVanguardCarrier(pi: ExtensionAPI): void {
-  registerSingleCarrier(pi, "gemini", CARRIER_METADATA, { slot: 6, id: "vanguard", displayName: "Vanguard" });
+  registerSingleCarrier(pi, "gemini", CARRIER_METADATA, { slot: 7, id: "vanguard", displayName: "Vanguard" });
 }

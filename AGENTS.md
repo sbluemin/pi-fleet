@@ -3,7 +3,7 @@
 > **A Multi-LLM Orchestration Kit**
 >
 > A custom extension fleet based on [pi-coding-agent](https://github.com/badlogic/pi-mono).
-> The core purpose is to operate Genesis (Claude Code), Sentinel (Codex CLI), and Vanguard (Gemini CLI) integrated within a single interface.
+> The core purpose is to operate 9 carriers — Claude Code, Codex CLI, and Gemini CLI — through a single unified interface.
 
 ## Structure
 
@@ -14,7 +14,6 @@
 | `extensions/fleet/` | Agent orchestration extension — carrier framework, unified pipeline, Agent Panel (refer to its own `AGENTS.md`) |
 | `extensions/carriers/` | Carrier registrations — independent extension that defines individual carriers (refer to its own `AGENTS.md`) |
 | `extensions/core/` | Infrastructure + utility extensions — agent infra, hud, keybind, settings, welcome, shell, improve-prompt, summarize, thinking-timer (refer to its own `AGENTS.md`) |
-| `.spsec/` | Archived experimental specs and planning materials |
 
 > Currently, there is no `pi/` directory — symlink setup is not required.
 
@@ -31,7 +30,7 @@ Beyond simple parallel API calls, the system adopts a **naval fleet metaphor** t
 | **Fleet** | The fleet | The logical unit encompassing the entire agent harness system. |
 | **Fleet Admiral** | Supreme commander | The **user** who wields the tool. Sets the ultimate strategy and final objectives for the fleet. |
 | **Admiral** | Fleet commander | The **main orchestrator (PI's LLM router)** that plans operations and issues commands to the entire fleet on behalf of the Fleet Admiral. |
-| **Carrier** | Aircraft carrier | An **execution instance (process)** of an individual CLI tool such as Genesis (Claude Code), Sentinel (Codex), or Vanguard (Gemini). A large, independent asset with its own internal sub-agent ecosystem. Each carrier has its own persona and configuration, managed in the `carriers/` package. |
+| **Carrier** | Aircraft carrier | An **execution instance (process)** of an individual CLI tool such as Genesis (Claude Code), Sentinel (Codex), or Vanguard (Gemini). A large, independent asset with its own internal sub-agent ecosystem. Each carrier has its own persona and configuration, managed in the `carriers/` extension. |
 
 ## Architecture — Agent Workflow
 
@@ -44,20 +43,20 @@ PI is the **host agent** (orchestrator). Genesis, Sentinel, and Vanguard are **s
 | **PI** (host) | Orchestrator — routes requests, invokes tools, synthesizes cross-reports |
 | **Genesis** (sub) | CVN-01 Chief Engineer (Claude Code CLI via ACP) |
 | **Arbiter** (sub) | CVN-02 Chief Doctrine Officer (Claude Code CLI via ACP) |
+| **Oracle** (sub) | CVN-09 Strategic Technical Advisor — read-only (Claude Code CLI via ACP) |
 | **Crucible** (sub) | CVN-03 Chief Forgemaster (Codex CLI via ACP) |
 | **Sentinel** (sub) | CVN-04 The Inquisitor (Codex CLI via ACP) |
 | **Raven** (sub) | CVN-05 Red Team Commander (Codex CLI via ACP) |
 | **Vanguard** (sub) | CVN-06 Scout Specialist (Gemini CLI via ACP) |
 | **Echelon** (sub) | CVN-07 Chief Intelligence Officer (Gemini CLI via ACP) |
 | **Chronicle** (sub) | CVN-08 Chief Knowledge Officer (Gemini CLI via ACP) |
-| **Oracle** (sub) | CVN-09 Read-Only Strategic Technical Advisor (Claude Code CLI via ACP) |
 
 ### Execution Modes
 
 | Mode | Trigger | Flow |
 |------|---------|------|
 | **Default** | Normal chat | PI handles directly (no sub-agents) |
-| **Tool delegation** | PI's own judgment | PI → tool_call(genesis/sentinel/vanguard) → sub-agent result → PI synthesizes |
+| **Tool delegation** | PI's own judgment | PI → tool_call(any carrier) → sub-agent result → PI synthesizes |
 | **Bridge (single)** | Alt+H/L → Ctrl+Enter | User → single sub-agent (PI acts as router only, no synthesis) |
 
 ### Key Principles
@@ -131,11 +130,14 @@ Each extension maps to exactly one domain. Use the domain below for all commands
 |-----------|--------|-----------|
 | `fleet/` | `agent` | Sub-agent orchestration features |
 | `carriers/` | `carrier` | Individual carrier registration and configuration |
+| `core/hud/` | `hud` | HUD / editor display features |
+| `core/improve-prompt/` | `prompt` | Meta-prompt model and reasoning settings |
+| `core/summarize/` | `summary` | Session summarization settings |
 When adding a **new extension**, assign a domain that reflects the **feature category**, not the directory prefix (`core-`, etc.).
 
 ### Feature Naming
 
-- Use a **verb or noun** that describes the action or target — e.g., `run`, `status`, `editor`, `improve`, `reasoning`.
+- Use a **verb or noun** that describes the action or target — e.g., `status`, `editor`, `models`, `settings`, `worldview`.
 - Prefer short, unambiguous words. Avoid abbreviations (`settings` not `cfg`, `status` not `stat`).
 - `settings` — reserved for commands that open a configuration UI for that domain.
 - `run` — reserved for manual re-trigger of an automated behavior (e.g., re-summarize on demand).

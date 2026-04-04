@@ -56,5 +56,5 @@ const CARRIER_METADATA: CarrierMetadata = {
 };
 
 export function registerChronicleCarrier(pi: ExtensionAPI): void {
-  registerSingleCarrier(pi, "gemini", CARRIER_METADATA, { slot: 8, id: "chronicle", displayName: "Chronicle" });
+  registerSingleCarrier(pi, "gemini", CARRIER_METADATA, { slot: 9, id: "chronicle", displayName: "Chronicle" });
 }

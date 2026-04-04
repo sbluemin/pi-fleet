@@ -21,16 +21,16 @@ cd pi-fleet
 ## 2. Install dependencies
 
 ```bash
-# 코어 SDK 빌드 + CLI 전역 등록
+# Build core SDK and register CLI globally
 cd packages/unified-agent && npm install && npm link && cd ../..
 
-# Extensions 의존성 설치
+# Install extension dependencies
 cd extensions/fleet && npm install && cd ../..
 cd extensions/core/shell && npm install && cd ../../..
 ```
 
-> `npm install`이 `prepare` 스크립트를 통해 자동 빌드하고, `npm link`가 `unified-agent` CLI를 전역으로 등록합니다.
-> 해제하려면: `npm unlink -g @sbluemin/unified-agent`
+> `npm install` automatically builds via the `prepare` script, and `npm link` registers the `unified-agent` CLI globally.
+> To unregister: `npm unlink -g @sbluemin/unified-agent`
 
 ## 3. Register extensions in pi settings
 
@@ -51,7 +51,7 @@ Add the `extensions` field to your pi settings file, pointing to the extension d
 > Replace `<path-to-pi-fleet>` with the actual path where you cloned the repository.
 >
 > - `extensions/fleet/` — agent orchestration extension (carrier framework SDK, Agent Panel, unified pipeline)
-> - `extensions/carriers/` — **(optional)** default carrier registrations (genesis, arbiter, crucible, sentinel, raven, vanguard, echelon, chronicle). Omit this line if you do not want the built-in carriers — the fleet framework will still function without any registered carriers.
+> - `extensions/carriers/` — **(optional)** default carrier registrations (genesis, arbiter, oracle, crucible, sentinel, raven, vanguard, echelon, chronicle). Omit this line if you do not want the built-in carriers — the fleet framework will still function without any registered carriers.
 > - `extensions/core/` — infrastructure + utility extensions (hud, keybind, settings, welcome, shell, improve-prompt, summarize, thinking-timer)
 
 ## 4. Verify
@@ -59,8 +59,8 @@ Add the `extensions` field to your pi settings file, pointing to the extension d
 Launch `pi` and run `/reload`, then check:
 
 - No extension load errors in the output
-- `unified-agent --help` 가 정상 출력되는지 확인
-- `unified-agent --list-models` 로 모델 목록 확인
+- `unified-agent --help` displays help output correctly
+- `unified-agent --list-models` shows the available model list
 - `Alt+H` / `Alt+L` to move cursor between carrier slots
 - `Ctrl+Enter` to activate the carrier at cursor (exclusive mode)
 - `Alt+P` to toggle the Agent Panel
