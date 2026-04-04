@@ -40,6 +40,21 @@ export default function (pi: ExtensionAPI) {
   // stub API에 실제 구현 주입 + 큐 flush
   _bootstrapKeybind(realApi);
 
+  // ── session_start 시 단축키 재등록 ──
+  // v0.65.0에서 세션 전환 시 새 ExtensionRunner가 생성되어 shortcuts Map이 초기화됨.
+  // globalThis의 _impl이 이전 세션의 extension API를 참조하므로,
+  // 기존 바인딩을 현재 세션의 pi.registerShortcut()으로 재등록해야 함.
+  pi.on("session_start", (event) => {
+    if (event.reason === "startup") return; // 최초 부팅 시에는 factory에서 이미 등록됨
+    const bindings = getBindings();
+    for (const binding of bindings) {
+      pi.registerShortcut(binding.resolvedKey as any, {
+        description: binding.description,
+        handler: binding.handler,
+      });
+    }
+  });
+
   // 자체 오버레이 단축키 등록 (storedPi가 설정된 후이므로 즉시 등록됨)
   const keybindApi = (globalThis as any)[INFRA_KEYBIND_KEY] as InfraKeybindAPI;
   keybindApi.register({

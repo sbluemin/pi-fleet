@@ -19,11 +19,6 @@ export default function interactiveShellExtension(pi: ExtensionAPI) {
     registerBridge();
   });
 
-  pi.on("session_switch", (_event, ctx) => {
-    controller.setContext(ctx);
-    registerBridge();
-  });
-
   pi.on("session_shutdown", () => {
     const current = (globalThis as Record<string, unknown>)[SHELL_POPUP_BRIDGE_KEY];
     if (current === bridge) {

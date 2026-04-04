@@ -61,7 +61,7 @@ export default function hudEditor(pi: ExtensionAPI) {
 
   // ── 이벤트 핸들러 ──
 
-  pi.on("session_start", async (_event, ctx) => {
+  pi.on("session_start", async (event, ctx) => {
     state.sessionStartTime = Date.now();
     state.currentCtx = ctx;
     state.isStreaming = false;
@@ -75,6 +75,15 @@ export default function hudEditor(pi: ExtensionAPI) {
 
     if (state.enabled && ctx.hasUI) {
       setupCustomEditor(ctx, state);
+    }
+
+    if (event.reason === "resume" || event.reason === "new") {
+      if (state.stashedEditorText !== null) {
+        state.stashedEditorText = null;
+        if (ctx.hasUI) {
+          ctx.ui.setStatus("stash", undefined);
+        }
+      }
     }
   });
 
@@ -121,19 +130,6 @@ export default function hudEditor(pi: ExtensionAPI) {
         }
       }
     }
-  });
-
-  pi.on("session_switch", async (_event, ctx) => {
-    state.sessionStartTime = Date.now();
-    state.currentCtx = ctx;
-    state.isStreaming = false;
-    if (state.stashedEditorText !== null) {
-      state.stashedEditorText = null;
-      if (ctx.hasUI) {
-        ctx.ui.setStatus("stash", undefined);
-      }
-    }
-    setupFooter(ctx, state);
   });
 
   // ── 커맨드 등록 ──
@@ -219,4 +215,3 @@ export default function hudEditor(pi: ExtensionAPI) {
     },
   });
 }
-

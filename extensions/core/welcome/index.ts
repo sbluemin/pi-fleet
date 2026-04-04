@@ -45,11 +45,16 @@ export default function welcome(pi: ExtensionAPI) {
 
   // ── 이벤트 핸들러 ──
 
-  pi.on("session_start", async (_event, ctx) => {
+  pi.on("session_start", async (event, ctx) => {
     // globalThis 브릿지 업데이트 (ctx 바인딩)
     (globalThis as any)[WELCOME_GLOBAL_KEY] = {
       dismiss: () => dismissWelcome(ctx, state),
     } satisfies WelcomeBridge;
+
+    if (event.reason === "resume" || event.reason === "new") {
+      dismissWelcome(ctx, state);
+      return;
+    }
 
     state.dismissFn = null;
     state.headerActive = false;
@@ -71,14 +76,6 @@ export default function welcome(pi: ExtensionAPI) {
 
   pi.on("tool_call", async (_event, ctx) => {
     dismissWelcome(ctx, state);
-  });
-
-  pi.on("session_switch", async (_event, ctx) => {
-    dismissWelcome(ctx, state);
-    // ctx 바인딩 갱신
-    (globalThis as any)[WELCOME_GLOBAL_KEY] = {
-      dismiss: () => dismissWelcome(ctx, state),
-    } satisfies WelcomeBridge;
   });
 }
 

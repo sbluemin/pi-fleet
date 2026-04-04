@@ -66,6 +66,7 @@ import {
 import { TaskForceConfigOverlay } from "./shipyard/carrier/taskforce-config-overlay.js";
 import type { TaskForceOverlayCallbacks } from "./shipyard/carrier/taskforce-config-overlay.js";
 import { appendAdmiralSystemPrompt, isWorldviewEnabled, setWorldviewEnabled } from "./prompts.js";
+import { getState as getPanelState } from "./panel/state.js";
 import { CarrierStatusOverlay } from "./shipyard/carrier/status-overlay.js";
 import type { CarrierStatusGroup, CarrierStatusEntry } from "./shipyard/carrier/status-overlay.js";
 import type { ProviderKey } from "../core/agent/types.js";
@@ -211,9 +212,19 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
       }
       if (bridge.isOpen()) return;
 
-      const modeId = getActiveCarrierId();
-      const carrierConfig = modeId ? getRegisteredCarrierConfig(modeId) : undefined;
-      if (!carrierConfig) {
+      // 1차: 독점 모드 활성 캐리어
+      let targetId = getActiveCarrierId();
+
+      // 2차: 멀티칼럼 커서 포커싱 캐리어
+      if (!targetId) {
+        const ps = getPanelState();
+        if (ps.expanded && ps.cursorColumn >= 0 && ps.cursorColumn < ps.cols.length) {
+          targetId = ps.cols[ps.cursorColumn]?.cli ?? null;
+        }
+      }
+
+      const carrierConfig = targetId ? getRegisteredCarrierConfig(targetId) : undefined;
+      if (!carrierConfig || !targetId) {
         const shell = process.env.SHELL || "/bin/zsh";
         try {
           await bridge.open({ command: shell, title: "Terminal", cwd: ctx.cwd });
@@ -224,7 +235,7 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
         return;
       }
 
-      const command = buildBridgeCommand(modeId!, carrierConfig.cliType);
+      const command = buildBridgeCommand(targetId, carrierConfig.cliType);
       const title = carrierConfig.displayName;
 
       try {
@@ -250,17 +261,13 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
     handler: async (ctx) => {
       if (!ctx.hasUI) return;
 
-      // 오버레이가 열려 있으면 alt+o 재입력으로 닫기
       if (activeStatusPopup) {
         dismissStatusPopup?.();
         return;
       }
 
-      // 데이터 수집
       const carrierIds = getRegisteredOrder();
       const modelConfig = getModelConfig();
-
-      // CLI 타입별 그룹핑
       const groupMap = new Map<string, { header: string; color: string; providerKey: ProviderKey; entries: CarrierStatusEntry[] }>();
       const cliOrder = ["claude", "codex", "gemini"] as const;
 
@@ -280,13 +287,10 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
 
         const selection = modelConfig[id];
         const provider = getAvailableModels(cliType);
-
         const model = selection?.model || provider.defaultModel;
         const isDefault = !selection?.model;
         const effort = selection?.effort ?? null;
         const budgetTokens = selection?.budgetTokens ?? null;
-
-        // carrierMetadata에서 직함 추출
         const meta = config.carrierMetadata;
         const role = meta?.title ?? null;
 
@@ -307,7 +311,6 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
         });
       }
 
-      // CLI 순서대로 그룹 배열 생성
       const groups: CarrierStatusGroup[] = [];
       for (const cli of cliOrder) {
         const group = groupMap.get(cli);
@@ -316,7 +319,6 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
 
       activeStatusPopup = ctx.ui.custom(
         (tui: any, theme: any, _keybindings: any, done: () => void) => {
-          // done 참조 저장 — alt+o 토글 닫기에 사용
           dismissStatusPopup = done;
           return new CarrierStatusOverlay(
             tui,
@@ -343,7 +345,6 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
                 return isTaskForceFullyConfigured(carrierId);
               },
               openTaskForce: (carrierId: string) => {
-                // 현재 status 오버레이 닫고 TF 설정 오버레이 열기
                 dismissStatusPopup?.();
                 const carrierConfig = getRegisteredCarrierConfig(carrierId);
                 if (!carrierConfig) {
@@ -366,8 +367,8 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
                   getBackendConfig: (cliType: string) => {
                     const resolvedCliType = requireTaskForceCliType(cliType);
                     const tfConfig = getTaskForceModelConfig(carrierId, resolvedCliType);
-                    const modelConfig = getModelConfig();
-                    const isCustom = !!(modelConfig[carrierId]?.taskforce?.[resolvedCliType]);
+                    const modelConfigNow = getModelConfig();
+                    const isCustom = !!(modelConfigNow[carrierId]?.taskforce?.[resolvedCliType]);
                     const provider = getAvailableModels(resolvedCliType);
                     return {
                       model: tfConfig?.model ?? provider.defaultModel,
@@ -397,7 +398,7 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
               },
             },
             done,
-          )
+          );
         },
         {
           overlay: true,
@@ -411,7 +412,6 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
       );
 
       try {
-        // 오버레이가 열린 후 백그라운드로 서비스 상태 갱신
         refreshStatusQuiet();
         await activeStatusPopup;
       } finally {
@@ -435,8 +435,6 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
   });
 
   pi.on("session_start", (_event, ctx) => { onSessionChange(ctx); syncModelConfig(); });
-  pi.on("session_switch", (_event, ctx) => { onSessionChange(ctx); syncModelConfig(); });
-  pi.on("session_fork", (_event, ctx) => { onSessionChange(ctx); syncModelConfig(); });
   pi.on("session_tree", (_event, ctx) => { onSessionChange(ctx); syncModelConfig(); });
 
   pi.on("session_shutdown", async (_event, ctx) => {

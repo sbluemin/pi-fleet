@@ -39,7 +39,11 @@ export default function thinkingTimer(pi: ExtensionAPI) {
 		ctx.ui.setWorkingMessage();
 	}
 
-	pi.on("session_start", async (_event, ctx) => {
+	pi.on("session_start", async (event, ctx) => {
+		if (event.reason === "resume" || event.reason === "new") {
+			resetAll(ctx);
+			return;
+		}
 		store.theme = ctx.ui.theme;
 		ctx.ui.setWorkingMessage();
 	});
@@ -83,10 +87,6 @@ export default function thinkingTimer(pi: ExtensionAPI) {
 			}
 		}
 		if (store.starts.size === 0) stopTicker();
-	});
-
-	pi.on("session_switch", async (_event, ctx) => {
-		resetAll(ctx);
 	});
 
 	pi.on("session_shutdown", async (_event, ctx) => {

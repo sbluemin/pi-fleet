@@ -70,8 +70,10 @@ export function createSessionMapStore(sessionDir: string): SessionMapStore {
 
       mapFilePath = path.join(sessionDir, `${piSessionId}.json`);
       try {
-        if (fs.existsSync(mapFilePath)) {
-          currentMap = JSON.parse(fs.readFileSync(mapFilePath, "utf-8"));
+        const fileExists = fs.existsSync(mapFilePath);
+        if (fileExists) {
+          const raw = fs.readFileSync(mapFilePath, "utf-8");
+          currentMap = JSON.parse(raw);
           // legacy cliType 키("claude" 등)가 잔존하면 제거 후 즉시 persist
           if (migrateLegacyKeys(currentMap)) {
             persist();

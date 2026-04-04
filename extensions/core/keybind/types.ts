@@ -53,6 +53,7 @@ if (!(globalThis as any)[INFRA_KEYBIND_KEY]) {
   (globalThis as any)[INFRA_KEYBIND_KEY] = {
     _impl: null as InfraKeybindAPI | null,
     _queue: [] as KeybindRegistration[],
+    _bindings: [] as ResolvedBinding[],
     _warnTimer: setTimeout(() => {
       const self = (globalThis as any)[INFRA_KEYBIND_KEY];
       if (!self._impl && self._queue.length > 0) {
@@ -89,7 +90,10 @@ export function _bootstrapKeybind(impl: InfraKeybindAPI): void {
     clearTimeout(bridge._warnTimer);
     bridge._warnTimer = null;
   }
+
   bridge._impl = impl;
+
+  // 큐에 대기 중인 바인딩 flush
   for (const binding of bridge._queue) {
     impl.register(binding);
   }

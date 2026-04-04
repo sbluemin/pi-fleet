@@ -37,3 +37,15 @@ export interface InfraSettingsAPI {
 
 /** globalThis 브릿지 키 */
 export const INFRA_SETTINGS_KEY = "__infra_settings__";
+
+// ── globalThis에 섹션 레지스트리 보관 (모듈 재로드 시 유실 방지) ──
+// 가드: 이미 등록되어 있으면 덮어쓰지 않는다.
+const _SECTIONS_KEY = "__infra_settings_sections__";
+if (!(globalThis as any)[_SECTIONS_KEY]) {
+  (globalThis as any)[_SECTIONS_KEY] = new Map<string, SectionDisplayConfig>();
+}
+
+/** @internal registry.ts에서 사용 — globalThis에 보관된 섹션 Map 접근 */
+export function _getSectionsMap(): Map<string, SectionDisplayConfig> {
+  return (globalThis as any)[_SECTIONS_KEY];
+}

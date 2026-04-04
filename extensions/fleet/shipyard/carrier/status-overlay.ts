@@ -12,6 +12,7 @@ import type { Component, Focusable, TUI } from "@mariozechner/pi-tui";
 import { Key, matchesKey, visibleWidth } from "@mariozechner/pi-tui";
 import type { Theme } from "@mariozechner/pi-coding-agent";
 import type { HealthStatus, ProviderKey, ServiceSnapshot } from "../../../core/agent/types.js";
+import { CARRIER_BG_COLORS } from "../../constants.js";
 
 type CarrierCliType = ProviderKey;
 
@@ -219,8 +220,14 @@ export class CarrierStatusOverlay implements Component, Focusable {
     // ── 헬퍼 ──
 
     /** 좌우 border 안에 콘텐츠를 넣은 한 줄 (폭 초과 시 잘라냄) */
-    const row = (content: string) => {
+    /** 한 행 렌더링. bgColor가 주어지면 border 안쪽 전체에 배경색을 적용합니다. */
+    const row = (content: string, bgColor?: string) => {
       const contentWidth = visibleWidth(content);
+      // 배경색 래핑: content 내 ANSI 리셋마다 배경색을 재삽입하여 전체 행에 색상 유지
+      const wrapBg = (inner: string) =>
+        bgColor
+          ? bgColor + " " + inner.replaceAll(ANSI_RESET, ANSI_RESET + bgColor) + " " + ANSI_RESET
+          : undefined;
       if (contentWidth > innerWidth) {
         // ANSI 시퀀스를 보존하며 표시 폭 기준으로 잘라냄
         let visible = 0;
@@ -235,9 +242,13 @@ export class CarrierStatusOverlay implements Component, Focusable {
         }
         const truncated = content.slice(0, cutIdx) + ANSI_RESET + dim("\u2026");
         const truncPad = Math.max(0, innerWidth - visibleWidth(truncated));
+        const bg = wrapBg(truncated + " ".repeat(truncPad));
+        if (bg) return border("\u2502") + bg + border("\u2502");
         return border("\u2502 ") + truncated + " ".repeat(truncPad) + border(" \u2502");
       }
       const pad = Math.max(0, innerWidth - contentWidth);
+      const bg = wrapBg(content + " ".repeat(pad));
+      if (bg) return border("\u2502") + bg + border("\u2502");
       return border("\u2502 ") + content + " ".repeat(pad) + border(" \u2502");
     };
 
@@ -314,7 +325,7 @@ export class CarrierStatusOverlay implements Component, Focusable {
           : " ";
 
         const content = `  ${selectedPrefix} ${dim(slotStr)}${slotPad}${coloredName}${namePad}${modelStr}${effortStr}${roleStr}${sortieTag}${tfTag}`;
-        lines.push(row(content));
+        lines.push(row(content, isSelected ? CARRIER_BG_COLORS[entry.cliType] : undefined));
 
         if (isSelected && this.mode !== "browse") {
           const currentValue = this.mode === "model"

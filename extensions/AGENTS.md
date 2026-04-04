@@ -79,6 +79,46 @@ Forbidden: core/hud-footer → globalThis["__pi_hud_footer__"] = { footerDataRef
 
 The globalThis key and bridge interface should be **defined in the `types.ts` of the extension that owns the feature** (not in shared libraries, but in the owner extension).
 
+#### State Persistence Across Module Reloads
+
+pi-coding-agent v0.65.0+ reloads extension modules on every session switch (resume, new, fork). When modules are reloaded, **module-level variables are reset** (new module instance), but **globalThis persists**.
+
+**Rule: Any state that must survive session switches MUST be stored on globalThis. Module-level variables are only safe for single-session caches.**
+
+Examples of correctly placed state:
+| Extension | State | Location | Reload-safe |
+|-----------|-------|----------|-------------|
+| `fleet/panel/state.ts` | Panel UI state | `globalThis["__pi_agent_panel_state__"]` | ✅ |
+| `fleet/stream-store.ts` | Stream data | `globalThis["__pi_stream_store__"]` | ✅ |
+| `carrier/framework.ts` | Framework state | `globalThis["__pi_bridge_framework__"]` | ✅ |
+| `core/keybind/registry.ts` | Keybinding list | module-level `const bindings[]` | ❌ BUG — must migrate to globalThis |
+
+Pattern for globalThis-backed state:
+```typescript
+// types.ts — define the shape
+const GLOBAL_KEY = "__my_extension_state__";
+interface MyState { items: Item[]; }
+
+// Lazy-init guard: only create if not already present
+if (!(globalThis as any)[GLOBAL_KEY]) {
+  (globalThis as any)[GLOBAL_KEY] = { items: [] };
+}
+
+// Access functions (in registry.ts or similar)
+export function getItems(): Item[] {
+  return ((globalThis as any)[GLOBAL_KEY] as MyState).items;
+}
+```
+
+Anti-pattern:
+```typescript
+// ❌ Module-level state — reset on reload, causes silent data loss
+const items: Item[] = [];
+export function getItems() { return items; }
+```
+
+> **Defense-in-Depth:** For services that must survive reloads (like keybindings), use the `_bootstrapKeybind` migration pattern to move existing state to `globalThis` if found, and always re-register essential hooks/shortcuts during `session_start` to ensure the new module instance is correctly wired to the persistent state. The `core/keybind` extension serves as the canonical example for this pattern.
+
 ## Extension Authoring Guide
 
 ### Basic Structure

@@ -39,10 +39,10 @@ export function registerAgentPanelShortcut(): void {
     description: "Fleet Bridge 표시/숨김 토글",
     category: "Fleet Bridge",
     handler: async (ctx) => {
-      const s = getState();
+      const state = getState();
       // 패널 숨길 때 커서 초기화
-      if (s.expanded) {
-        s.cursorColumn = -1;
+      if (state.expanded) {
+        state.cursorColumn = -1;
       }
       toggleAgentPanel(ctx);
     },

@@ -537,6 +537,14 @@ function renderMultiCol(
     vx.push(i + 1 + acc);
   }
 
+  // 포커스 칼럼의 배경색 (cursorColumn이 유효하면 해당 캐리어 시그니처 BG)
+  const cursorBg = cursorColumn >= 0
+    ? resolveCarrierBgColor(cols[cursorColumn]?.cli ?? "")
+    : "";
+  /** 셀 문자열 전체에 배경색을 적용합니다. content 내 ANSI 리셋마다 배경색을 재삽입합니다. */
+  const applyBg = (text: string, bg: string) =>
+    bg + text.replaceAll(ANSI_RESET, ANSI_RESET + bg) + ANSI_RESET;
+
   const R: string[] = [];
   let ri = 0;
 
@@ -547,11 +555,12 @@ function renderMultiCol(
   const hdrCells = cols.map((col, i) => {
     const isSelected = i === cursorColumn;
     if (isSelected) {
-      // 선택된 칼럼: ▸ 접두사 + carrier 색상 강조
+      // 선택된 칼럼: ▸ 접두사 + carrier 색상 강조 + 배경색
       const color = resolveCarrierColor(col.cli) || PANEL_COLOR;
       const name = resolveCarrierDisplayName(col.cli);
       const selectedLabel = `${color}▸ ${name}${ANSI_RESET}`;
-      return centerText(selectedLabel, cw[i]);
+      const cell = centerText(selectedLabel, cw[i]);
+      return cursorBg ? applyBg(cell, cursorBg) : cell;
     }
     const label = pickHeaderLabel(col, frame, cw[i]);
     return centerText(label, cw[i]);
@@ -586,7 +595,8 @@ function renderMultiCol(
       const line = lines[lineIdx] ?? "";
       const lineColor = colors[lineIdx] ?? "";
       const coloredLine = lineColor ? lineColor + line + ANSI_RESET : line;
-      return " " + pad(coloredLine, cw[i] - 1);
+      const cell = " " + pad(coloredLine, cw[i] - 1);
+      return (i === cursorColumn && cursorBg) ? applyBg(cell, cursorBg) : cell;
     });
     let line = vBorder(FC, wave, vx[0] + ri) + ANSI_RESET;
     for (let i = 0; i < cells.length; i++) {
