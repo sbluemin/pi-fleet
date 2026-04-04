@@ -37,7 +37,7 @@ Independent carrier registrations defining unique personas for each CLI instance
 
 | Carrier | CLI | Role | Slot |
 |---------|-----|------|------|
-| **Genesis** | Claude | CVN-01 Chief Architect (System design & core backend) | `Alt+1` |
+| **Genesis** | Claude | CVN-01 Chief Engineer (System design & core backend) | `Alt+1` |
 | **Arbiter** | Claude | CVN-02 Chief Doctrine Officer (Standards & instruction conflict resolution) | `Alt+2` |
 | **Crucible**| Codex  | CVN-03 Chief Forgemaster (Dead code removal & DRY refactoring) | `Alt+3` |
 | **Sentinel**| Codex  | CVN-04 The Inquisitor (QA lead & hidden bug hunting) | `Alt+4` |
@@ -45,6 +45,43 @@ Independent carrier registrations defining unique personas for each CLI instance
 | **Vanguard**| Gemini | CVN-06 Scout Specialist (Reconnaissance & web research) | `Alt+6` |
 | **Echelon** | Gemini | CVN-07 Chief Intelligence Officer (Deep repository scanning & GitHub intelligence) | `Alt+7` |
 | **Chronicle**| Gemini | CVN-08 Chief Knowledge Officer (Documentation & technical writing) | `Alt+8` |
+| **Oracle**   | Claude | CVN-09 Strategic Technical Advisor (Read-only architectural guidance) | `Alt+9` |
+
+## Keybindings
+
+### Carrier Slots & Navigation
+| Key | Action |
+|-----|--------|
+| `Alt+1` ~ `9` | Select specific Carrier slot |
+| `Alt+H` / `L` | Navigate to Previous / Next Carrier slot |
+| `Ctrl+Enter` | Enable **Exclusive Mode** for the selected carrier (direct communication) |
+
+### Panel & Fleet Control
+| Key | Action |
+|-----|--------|
+| `Alt+P` | Toggle Agent Panel (Show/Hide) |
+| `Alt+O` | Fleet Status & Model Config Overlay |
+| `Alt+T` | Open Carrier Native Terminal Bridge (PTY) |
+| `Alt+X` | Cancel execution of the active Carrier |
+| `Alt+Shift+M` | Change Model and Reasoning settings for the active Carrier |
+
+### Prompting Tools
+| Key | Action |
+|-----|--------|
+| `Alt+M` | Improve current input via Meta-prompting |
+| `Alt+R` | Cycle Reasoning Level (None → Normal → Deep) |
+| `Alt+.` | Keybinding help overlay |
+| `Alt+/` | Settings overlay |
+
+## Slash Commands
+
+| Command | Description |
+|---------|-------------|
+| `/fleet:agent:status` | Instantly refresh the connection status of all CLI services |
+| `/fleet:agent:worldview` | Toggle Naval Fleet "Persona" prompts on/off |
+| `/fleet:prompt:improve` | Meta-prompting to improve the current input (`Alt+M`) |
+| `/fleet:prompt:reasoning` | Cycle reasoning levels (`Alt+R`) |
+| `/fleet:summary:run` | Manually re-summarize the current session |
 
 ## Packages
 
