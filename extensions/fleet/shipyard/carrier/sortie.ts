@@ -3,15 +3,19 @@
  *
  * carrier 위임의 유일한 PI 도구입니다.
  * 1개 이상 Carrier에 작업을 위임(출격)할 때 사용합니다.
- * PI가 `carrier_sortie` 도구를 호출하면 내부에서
- * N개 `runAgentRequest()`를 병렬 실행하고,
- * renderCall에서 스트리밍 콘텐츠 + 최종 결과까지 트리 형태로 통합 표시합니다.
  *
+ * [호출 인스턴스 격리 설계]
+ * 1. 상태 격리: PI가 부여한 `id`(toolCallId)를 `sortieKey`로 사용하여 `globalThis`의 Map 기반 저장소에서
+ *    각 호출별 상태(SortieState)를 독립적으로 관리합니다. 이를 통해 동시/연속 호출 시 UI 간섭을 방지합니다.
+ * 2. 컴포넌트 바인딩: `SortieCallComponent`는 최초 렌더링 시 args 매칭을 통해 활성 state의 `sortieKey`를
+ *    고정(bind)하며, 이후에는 해당 key를 통해서만 상태와 결과 캐시를 참조합니다.
+ * 3. 스트리밍 격리: 각 Carrier가 실행될 때 첫 청크 시점의 `runId`를 캡처하여 `SortieState.runIds`에 저장합니다.
+ *    렌더러는 이 고정된 `runId`를 통해 해당 호출에 속한 스트리밍 콘텐츠만 필터링하여 표시합니다.
+ * 4. 결과 캐시: 최종 결과는 `sortieKey`별로 LRU 캐시에 저장되어, 세션 리로드나 히스토리 복원 시에도
+ *    정확한 과거 실행 결과를 재현합니다.
+ *
+ * renderCall에서 스트리밍 콘텐츠 + 진행 상태 + 최종 결과까지 트리 형태로 통합 표시하며,
  * renderResult는 빈 컴포넌트를 반환하여 중복 표시를 방지합니다.
- * 히스토리 복원(세션 리로드)은 globalThis 결과 캐시로 대응합니다.
- *
- * 등록 시 각 carrier의 프롬프트 메타데이터를 framework에서 읽어
- * promptGuidelines에 동적으로 합성합니다.
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
@@ -19,7 +23,7 @@ import type { CliType } from "@sbluemin/unified-agent";
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
 import { runAgentRequest } from "../../operation-runner.js";
-import { getVisibleRun } from "../../streaming/stream-store.js";
+import { getVisibleRun, getRunById } from "../../streaming/stream-store.js";
 import { renderBlockLines, blockLineAnsiColor } from "../../render/block-renderer.js";
 import {
   getRegisteredOrder,
@@ -59,6 +63,7 @@ interface CarrierSortieResult {
 
 /** carrier_sortie 도구 결과 details */
 interface SortieResultDetails {
+  sortieKey: string;
   results: CarrierSortieResult[];
 }
 
@@ -79,8 +84,14 @@ interface CarrierProgress {
 
 /** Sortie 진행 상태 (실행 중에만 존재) */
 interface SortieState {
+  /** PI가 부여한 고유 tool call ID (호출 인스턴스 격리 키) */
+  sortieKey: string;
+  /** args 기반 키 (renderCall → state 초기 매칭용) */
+  argsKey: string;
   /** carrierId → 진행 상태 */
   carriers: Map<string, CarrierProgress>;
+  /** carrierId → stream-store runId (스트리밍 콘텐츠 격리용) */
+  runIds: Map<string, string>;
   /** 애니메이션 프레임 카운터 */
   frame: number;
   /** 프레임 타이머 */
@@ -91,6 +102,9 @@ interface SortieState {
 
 /** Carrier당 최대 콘텐츠 라인 수 (tail 방식으로 최근 N줄만 표시) */
 const MAX_CONTENT_LINES = 6;
+
+/** 히스토리 복원용 결과 캐시 최대 보관 수 */
+const MAX_RESULT_CACHE_ENTRIES = 50;
 
 /** globalThis 진행 상태 키 (renderCall에서 참조) */
 const SORTIE_STATE_KEY = "__pi_carrier_sortie_state__";
@@ -136,8 +150,8 @@ export function registerFleetSortie(pi: ExtensionAPI): void {
     // 히스토리 복원용으로 결과를 globalThis 캐시에 저장
     renderResult(result: any, _options: { expanded: boolean; isPartial: boolean }, _theme: any) {
       const details = result.details as SortieResultDetails | undefined;
-      if (details?.results) {
-        setResultCache(details.results);
+      if (details?.results && details.sortieKey) {
+        setResultCache(details.sortieKey, details.results);
       }
       // 빈 컴포넌트 — renderCall이 모든 상태를 통합 표시
       return { render() { return []; }, invalidate() {} };
@@ -145,7 +159,7 @@ export function registerFleetSortie(pi: ExtensionAPI): void {
 
     // ── execute: N개 Carrier 병렬 실행 ──
     async execute(
-      _id: string,
+      id: string,
       params: { carriers: CarrierAssignment[] },
       signal: AbortSignal | undefined,
       onUpdate: any,
@@ -170,7 +184,7 @@ export function registerFleetSortie(pi: ExtensionAPI): void {
           const available = [...enabledIds].join(", ") || "(none)";
           return {
             content: [{ type: "text" as const, text: `Carrier "${a.carrier}" is currently disabled for sortie. Available carriers: ${available}` }],
-            details: { results: [] },
+            details: { sortieKey: id, results: [] as CarrierSortieResult[] },
           };
         }
       }
@@ -184,8 +198,10 @@ export function registerFleetSortie(pi: ExtensionAPI): void {
         seen.add(a.carrier);
       }
 
-      // 진행 상태 초기화
-      const state = initSortieState(assignments.map((a) => a.carrier));
+      // 진행 상태 초기화 (id = PI tool call ID로 호출 인스턴스를 고유 식별)
+      const sortieKey = id;
+      const argsKey = buildArgsKey(assignments);
+      const state = initSortieState(sortieKey, argsKey, assignments.map((a) => a.carrier));
 
       // 진행률 업데이트 타이머 (200ms 간격으로 onUpdate 호출)
       const updateTimer = setInterval(() => {
@@ -211,10 +227,19 @@ export function registerFleetSortie(pi: ExtensionAPI): void {
               onMessageChunk: () => {
                 progress.status = "streaming";
                 progress.lineCount++;
+                // 첫 청크 수신 시 해당 carrier의 runId를 캡처 (스트리밍 콘텐츠 격리용)
+                if (!state.runIds.has(a.carrier)) {
+                  const run = getVisibleRun(a.carrier);
+                  if (run) state.runIds.set(a.carrier, run.runId);
+                }
               },
               onToolCall: () => {
                 progress.status = "streaming";
                 progress.toolCallCount++;
+                if (!state.runIds.has(a.carrier)) {
+                  const run = getVisibleRun(a.carrier);
+                  if (run) state.runIds.set(a.carrier, run.runId);
+                }
               },
             });
 
@@ -249,7 +274,7 @@ export function registerFleetSortie(pi: ExtensionAPI): void {
         });
 
         // 결과 캐시에 저장 (renderCall이 완료 후에도 참조 가능하도록)
-        setResultCache(results);
+        setResultCache(sortieKey, results);
 
         // LLM에 전달할 텍스트 요약 (연속 빈 줄 압축으로 토큰 절약)
         const contentText = results
@@ -261,11 +286,11 @@ export function registerFleetSortie(pi: ExtensionAPI): void {
 
         return {
           content: [{ type: "text" as const, text: contentText }],
-          details: { results } satisfies SortieResultDetails,
+          details: { sortieKey, results } satisfies SortieResultDetails,
         };
       } finally {
         clearInterval(updateTimer);
-        clearSortieState();
+        clearSortieState(sortieKey);
       }
     },
   });
@@ -273,38 +298,94 @@ export function registerFleetSortie(pi: ExtensionAPI): void {
 
 // ─── 내부 헬퍼 ──────────────────────────────────────────
 
-function getSortieState(): SortieState | null {
-  return (globalThis as any)[SORTIE_STATE_KEY] ?? null;
+// ─── State Store (Map<sortieKey, SortieState>) ─────────
+
+function getStateStore(): Map<string, SortieState> {
+  let store = (globalThis as any)[SORTIE_STATE_KEY] as Map<string, SortieState> | undefined;
+  if (!store) {
+    store = new Map();
+    (globalThis as any)[SORTIE_STATE_KEY] = store;
+  }
+  return store;
 }
 
-function initSortieState(carrierIds: string[]): SortieState {
+/** sortieKey(toolCallId)로 state를 직접 조회 */
+function getSortieState(sortieKey: string): SortieState | null {
+  return getStateStore().get(sortieKey) ?? null;
+}
+
+/** argsKey로 활성 state를 검색 (renderCall → state 초기 매칭용) */
+function findActiveSortieStateByArgsKey(argsKey: string): SortieState | null {
+  for (const state of getStateStore().values()) {
+    if (state.argsKey === argsKey) return state;
+  }
+  return null;
+}
+
+function initSortieState(sortieKey: string, argsKey: string, carrierIds: string[]): SortieState {
+  const store = getStateStore();
+  // 동일 key state가 이미 있으면 타이머 정리 후 교체
+  const existing = store.get(sortieKey);
+  if (existing?.timer) clearInterval(existing.timer);
+
   const state: SortieState = {
+    sortieKey,
+    argsKey,
     carriers: new Map(
       carrierIds.map((id) => [id, { status: "queued", toolCallCount: 0, lineCount: 0 }]),
     ),
+    runIds: new Map(),
     frame: 0,
     timer: null,
   };
   // 애니메이션 프레임 카운터 (100ms)
   state.timer = setInterval(() => { state.frame++; }, 100);
-  (globalThis as any)[SORTIE_STATE_KEY] = state;
+  store.set(sortieKey, state);
   return state;
 }
 
-function clearSortieState(): void {
-  const state = getSortieState();
-  if (state?.timer) clearInterval(state.timer);
-  (globalThis as any)[SORTIE_STATE_KEY] = null;
+function clearSortieState(sortieKey: string): void {
+  const store = getStateStore();
+  const state = store.get(sortieKey);
+  if (!state) return;
+  if (state.timer) clearInterval(state.timer);
+  store.delete(sortieKey);
+}
+
+// ─── Result Cache Store (Map<sortieKey, results> + LRU) ──
+
+/** 결과 캐시 스토어 (sortieKey → results) */
+function getResultCacheStore(): Map<string, CarrierSortieResult[]> {
+  let store = (globalThis as any)[SORTIE_RESULT_CACHE_KEY] as Map<string, CarrierSortieResult[]> | undefined;
+  if (!store) {
+    store = new Map();
+    (globalThis as any)[SORTIE_RESULT_CACHE_KEY] = store;
+  }
+  return store;
 }
 
 /** 결과 캐시 저장 (renderResult → renderCall 히스토리 복원용) */
-function setResultCache(results: CarrierSortieResult[]): void {
-  (globalThis as any)[SORTIE_RESULT_CACHE_KEY] = results;
+function setResultCache(sortieKey: string, results: CarrierSortieResult[]): void {
+  const store = getResultCacheStore();
+  store.delete(sortieKey);
+  store.set(sortieKey, results);
+  // LRU: 최대 엔트리 초과 시 가장 오래된 항목 제거
+  while (store.size > MAX_RESULT_CACHE_ENTRIES) {
+    const oldestKey = store.keys().next().value;
+    if (!oldestKey) break;
+    store.delete(oldestKey);
+  }
 }
 
 /** 결과 캐시 읽기 */
-function getResultCache(): CarrierSortieResult[] | null {
-  return (globalThis as any)[SORTIE_RESULT_CACHE_KEY] ?? null;
+function getResultCache(sortieKey: string): CarrierSortieResult[] | null {
+  return getResultCacheStore().get(sortieKey) ?? null;
+}
+
+/** args 기반 키 생성 (renderCall에서 state 초기 매칭용) */
+function buildArgsKey(assignments: CarrierAssignment[]): string {
+  const parts = assignments.map((a) => [a.carrier, (a.request || "").replace(/\r\n?/g, "\n").trim()]);
+  return JSON.stringify(parts);
 }
 
 /**
@@ -314,6 +395,10 @@ function getResultCache(): CarrierSortieResult[] | null {
  */
 class SortieCallComponent {
   private entries: CarrierAssignment[] = [];
+  /** args 기반 키 (활성 state 초기 매칭용) */
+  private argsKey = "";
+  /** PI tool call ID (바인딩 후 state·캐시 직접 참조용) */
+  private sortieKey = "";
   private theme: any = null;
   private context: SortieRenderContext | undefined;
   private lastRenderedLineCount = 0;
@@ -326,6 +411,7 @@ class SortieCallComponent {
     context: SortieRenderContext | undefined,
   ): void {
     this.entries = entries;
+    this.argsKey = buildArgsKey(entries);
     this.theme = theme;
     this.context = context;
   }
@@ -375,8 +461,18 @@ class SortieCallComponent {
     // 터미널 실제 너비로 제한 — width가 터미널보다 크면 wrap으로 height 불일치 발생
     const termCols = process.stdout.columns || 80;
     const effectiveWidth = Math.min(width, termCols);
-    const state = getSortieState();
-    const cachedResults = getResultCache();
+    // sortieKey가 이미 바인딩된 컴포넌트는 재바인딩하지 않습니다.
+    let state: SortieState | null = null;
+    if (this.sortieKey) {
+      state = getSortieState(this.sortieKey);
+    } else {
+      const found = findActiveSortieStateByArgsKey(this.argsKey);
+      if (found) {
+        this.sortieKey = found.sortieKey; // toolCallId 바인딩
+        state = found;
+      }
+    }
+    const cachedResults = this.sortieKey ? getResultCache(this.sortieKey) : null;
     const frame = state?.frame ?? 0;
     const count = this.entries.length;
     const lines: string[] = [];
@@ -446,7 +542,8 @@ class SortieCallComponent {
 
       const isStreaming = progress && (progress.status === "connecting" || progress.status === "streaming");
       if (carrierId && isStreaming) {
-        const contentLines = renderCarrierContentLines(carrierId, connector, effectiveWidth, this.theme);
+        const runId = state?.runIds.get(carrierId);
+        const contentLines = renderCarrierContentLines(carrierId, runId, connector, effectiveWidth, this.theme);
         for (const cl of contentLines) {
           lines.push(cl);
         }
@@ -513,11 +610,13 @@ function summarizeRequest(request: string | undefined): string {
  */
 function renderCarrierContentLines(
   carrierId: string,
+  runId: string | undefined,
   connector: string,
   contentWidth: number,
   _theme: any,
 ): string[] {
-  const run = getVisibleRun(carrierId);
+  // runId가 있으면 해당 run만 참조 (다른 sortie의 run 누출 방지)
+  const run = runId ? getRunById(runId) : getVisibleRun(carrierId);
   if (!run || run.blocks.length === 0) return [];
 
   const blockLines = renderBlockLines(run.blocks);
@@ -557,6 +656,6 @@ function buildPartialUpdate(
 
   return {
     content: [{ type: "text", text: `Carrier Sortie: ${doneCount}/${total} carriers completed` }],
-    details: { results },
+    details: { sortieKey: state.sortieKey, results },
   };
 }

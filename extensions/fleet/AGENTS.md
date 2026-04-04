@@ -16,6 +16,7 @@ The number of carriers is determined at runtime by the number of registered carr
 - Calling `runAgentRequest()` **automatically syncs all UIs**: Agent Panel column, Streaming Widget (when panel collapsed), and stream-store data.
 - **carrierId vs cliType**: `carrierId` (string) is the unique carrier identity used for pool keys, session keys, and panel column identity. `cliType` (CliType) is the CLI binary to execute. Multiple carriers can share the same `cliType` while maintaining fully isolated sessions and connections.
 - **Slot-based ordering**: Each carrier's `slot` determines its panel column position and inline navigation order. Slots must be unique across all registered carriers.
+- **carrier_sortie 호출 인스턴스 격리**: `carrier_sortie` 도구는 `toolCallId`를 `sortieKey`로 사용하여 호출 단위로 상태(진행률, 스트리밍 콘텐츠, 결과 캐시)를 격리합니다. 이를 통해 동시/연속 호출 시 UI 간섭과 콘텐츠 중복 출력을 방지합니다.
 - **Same carrierId concurrent calls are not supported** — UI layer manages one visible run per carrierId.
 - Mutual exclusivity between carriers is automatically managed by the framework (`deactivateAll`).
 - The Agent Panel is the main UI for streaming — active single carriers use exclusive view, otherwise the panel falls back to the current visible CLI columns.
@@ -85,7 +86,7 @@ Consumer (carriers, external extensions)
 | `shipyard/carrier/framework.ts` | Carrier framework SDK — `registerCarrier`, `activateCarrier`, `deactivateCarrier`, `getActiveCarrierId`, `onStatusUpdate`, `notifyStatusUpdate`. Manages globalThis shared state, input interception, shortcut registration, message renderer registration |
 | `shipyard/carrier/register.ts` | Single-carrier registration — `registerSingleCarrier` (carrier framework + prompt metadata, no PI tool) |
 | `shipyard/carrier/prompts.ts` | carrier_sortie 도구 기본 프롬프트 관리 |
-| `shipyard/carrier/sortie.ts` | Carrier Sortie 도구 — 유일한 carrier 위임 PI 도구, 동적 프롬프트 합성, 통합 진행/결과 표시 |
+| `shipyard/carrier/sortie.ts` | Carrier Sortie 도구 — 유일한 carrier 위임 PI 도구. **호출 인스턴스 격리(sortieKey)** 및 **runId 기반 스트리밍 필터링**을 통해 여러 호출이 동시에 실행되어도 UI 간섭 없이 통합 진행/결과를 표시합니다. |
 | `shipyard/carrier/model-ui.ts` | Model selection UI — model selection TUI component + keybind/command registration |
 | `shipyard/carrier/footer-renderer.ts` | Carrier footer segment renderer — carrier 아이콘 + 이름 + 상태별 색상을 footer 세그먼트로 렌더링 |
 | `shipyard/carrier/launch.ts` | Carrier 네이티브 브리지 커맨드 중앙 조립 |
