@@ -13,12 +13,12 @@
  * ⚠️ globalThis 기반 — pi가 확장을 별도 번들로 로드하므로 필수.
  */
 
-import type { AgentStatus } from "../../../core/agent/types.js";
-import { getRegisteredOrder } from "../../shipyard/carrier/framework.js";
-import type { ColBlock, ColStatus, CollectedStreamData } from "../contracts.js";
+import type { AgentStatus } from "../../core/agent/types.js";
+import { getRegisteredOrder } from "../shipyard/carrier/framework.js";
+import type { ColBlock, ColStatus, CollectedStreamData } from "./types.js";
 
-// 계약 타입 — internal/contracts.ts에서 정의, 하위 호환을 위해 re-export
-export type { ColStatus, CollectedStreamData } from "../contracts.js";
+// 스트리밍 타입 re-export
+export type { ColStatus, CollectedStreamData } from "./types.js";
 
 interface StreamStoreState {
   /** runId → StreamRun */

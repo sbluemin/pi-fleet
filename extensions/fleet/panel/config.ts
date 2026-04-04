@@ -6,8 +6,8 @@
  */
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
-import { MIN_BODY_H, MAX_BODY_H, formatPanelMultiColHint } from "../../constants";
-import type { ServiceSnapshot } from "../contracts.js";
+import { MIN_BODY_H, MAX_BODY_H, formatPanelMultiColHint } from "../constants";
+import type { ServiceSnapshot } from "../../core/agent/types.js";
 import { getState } from "./state.js";
 import { syncWidget, syncFooterStatus } from "./widget-sync.js";
 

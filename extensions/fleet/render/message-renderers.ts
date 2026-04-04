@@ -15,8 +15,8 @@ import {
   PANEL_DIM_COLOR,
   SYM_INDICATOR,
   TOOLS_COLOR,
-} from "../../constants";
-import type { ColBlock } from "../contracts.js";
+} from "../constants";
+import type { ColBlock } from "../streaming/types.js";
 import { renderBlockLines, renderBlocksToContainer, renderLegacyToContainer } from "./block-renderer";
 import { clampCompletedCompactLines } from "./compact.js";
 /** 렌더러에 필요한 최소 설정 (framework.CarrierConfig에서 추출) */

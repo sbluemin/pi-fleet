@@ -6,13 +6,14 @@
  */
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
-import { DEFAULT_BODY_H, formatPanelMultiColHint } from "../../constants";
-import { getSessionStore } from "../../../core/agent/runtime.js";
+import { DEFAULT_BODY_H, formatPanelMultiColHint } from "../constants";
+import { getSessionStore } from "../../core/agent/runtime.js";
 import { ensureVisibleRun, setRunSessionId } from "../streaming/stream-store";
-import { getRegisteredOrder } from "../../shipyard/carrier/framework.js";
-import type { AgentCol, ServiceSnapshot } from "../contracts.js";
+import { getRegisteredOrder } from "../shipyard/carrier/framework.js";
+import type { AgentCol } from "./types.js";
+import type { ServiceSnapshot } from "../../core/agent/types.js";
 
-export type { AgentCol } from "../contracts.js";
+export type { AgentCol } from "./types.js";
 
 export interface FooterModelInfo {
   model: string;

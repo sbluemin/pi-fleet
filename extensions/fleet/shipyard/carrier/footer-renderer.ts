@@ -19,8 +19,8 @@ import {
   isSortieCarrierEnabled,
 } from "./framework.js";
 import { isTaskForceFullyConfigured } from "../../../core/agent/runtime.js";
-import { waveText } from "../../internal/render/panel-renderer";
-import type { AgentCol } from "../../internal/contracts.js";
+import { waveText } from "../../render/panel-renderer";
+import type { AgentCol } from "../../panel/types.js";
 
 /** renderFooterStatus에 필요한 최소 상태 */
 interface FooterRenderInput {

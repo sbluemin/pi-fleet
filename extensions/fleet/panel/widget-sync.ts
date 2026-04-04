@@ -1,5 +1,5 @@
 /**
- * fleet/internal/panel/widget-sync.ts — PI TUI 위젯 브릿지
+ * fleet/panel/widget-sync.ts — PI TUI 위젯 브릿지
  *
  * 현재 상태에 맞게 aboveEditor 위젯을 등록/제거하고
  * footer 상태를 동기화합니다.
@@ -11,14 +11,14 @@ import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import {
   PANEL_COLOR,
   MIN_BODY_H,
-} from "../../constants";
+} from "../constants";
 import {
   resolveCarrierColor,
-} from "../../shipyard/carrier/framework.js";
+} from "../shipyard/carrier/framework.js";
 import {
   renderPanelFull,
 } from "../render/panel-renderer";
-import { renderFooterStatus } from "../../shipyard/carrier/footer-renderer.js";
+import { renderFooterStatus } from "../shipyard/carrier/footer-renderer.js";
 import { getState, makeFooterCols, WIDGET_KEY } from "./state.js";
 
 /** footer 상태 전용 status key */

@@ -28,11 +28,11 @@ import {
 import {
   setAgentPanelMode,
   hideAgentPanel,
-} from "../../internal/panel/lifecycle.js";
+} from "../../panel/lifecycle.js";
 import {
   createDefaultUserRenderer,
   createDefaultResponseRenderer,
-} from "../../internal/render/message-renderers.js";
+} from "../../render/message-renderers.js";
 import { INFRA_KEYBIND_KEY } from "../../../core/keybind/types.js";
 import type { InfraKeybindAPI } from "../../../core/keybind/types.js";
 

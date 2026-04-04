@@ -16,7 +16,7 @@ import {
   PANEL_DIM_COLOR,
   PANEL_MODE_BANNER_HINT,
   SYM_INDICATOR,
-} from "../../constants";
+} from "../constants";
 import {
   getRegisteredOrder,
   resolveCarrierColor,
@@ -24,10 +24,10 @@ import {
   resolveCarrierRgb,
   resolveCarrierDisplayName,
   resolveCarrierCliDisplayName,
-} from "../../shipyard/carrier/framework.js";
+} from "../shipyard/carrier/framework.js";
 import { renderBlockLines, blockLineAnsiColor } from "./block-renderer";
 
-import type { AgentCol } from "../contracts.js";
+import type { AgentCol } from "../panel/types.js";
 
 /** 칼럼 콘텐츠 빌드 결과 (라인 + 라인별 색상) */
 interface ColContentResult {

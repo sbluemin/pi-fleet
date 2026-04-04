@@ -22,12 +22,12 @@ import {
   finalizeRun,
   getRunById,
   getVisibleRun,
-} from "./internal/streaming/stream-store.js";
+} from "./streaming/stream-store.js";
 import {
   beginColStreaming,
   endColStreaming,
   updateAgentCol,
-} from "./internal/panel/lifecycle.js";
+} from "./panel/lifecycle.js";
 import { getRegisteredOrder } from "./shipyard/carrier/framework.js";
 import type {
   UnifiedAgentRequestBridge,

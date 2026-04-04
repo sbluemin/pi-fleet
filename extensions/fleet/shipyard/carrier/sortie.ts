@@ -19,8 +19,8 @@ import type { CliType } from "@sbluemin/unified-agent";
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
 import { runAgentRequest } from "../../operation-runner.js";
-import { getVisibleRun } from "../../internal/streaming/stream-store.js";
-import { renderBlockLines, blockLineAnsiColor } from "../../internal/render/block-renderer.js";
+import { getVisibleRun } from "../../streaming/stream-store.js";
+import { renderBlockLines, blockLineAnsiColor } from "../../render/block-renderer.js";
 import {
   getRegisteredOrder,
   getSortieEnabledIds,

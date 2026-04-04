@@ -12,7 +12,7 @@
 
 import { getMarkdownTheme } from "@mariozechner/pi-coding-agent";
 import { Container, Markdown, Spacer, Text } from "@mariozechner/pi-tui";
-import type { ColBlock } from "../contracts.js";
+import type { ColBlock } from "../streaming/types.js";
 import {
   ANSI_RESET,
   PANEL_DIM_COLOR,
@@ -21,7 +21,7 @@ import {
   SYM_INDICATOR,
   SYM_RESULT,
   SYM_THINKING,
-} from "../../constants.js";
+} from "../constants.js";
 
 /** 렌더링된 블록 라인의 의미적 타입 */
 type BlockLineType =

@@ -1,19 +1,19 @@
 /**
- * fleet/internal/panel/lifecycle.ts — 에이전트 패널 라이프사이클 API
+ * fleet/panel/lifecycle.ts — 에이전트 패널 라이프사이클 API
  *
  * 스트리밍 시작/종료, 패널 토글, 모드 설정, 칼럼 업데이트 등
  * 외부에서 호출하는 모든 패널 조작 API를 제공합니다.
  */
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
-import { ANIM_INTERVAL_MS, formatPanelMultiColHint } from "../../constants";
+import { ANIM_INTERVAL_MS, formatPanelMultiColHint } from "../constants";
 import { renderModeBanner } from "../render/panel-renderer";
 import { getState, makeCols, syncColSessionIds } from "./state.js";
-import type { AgentCol } from "../contracts.js";
+import type { AgentCol } from "./types.js";
 import { scheduleSyncFooter, syncWidget } from "./widget-sync.js";
 
 // 편의를 위한 re-export
-export type { AgentCol } from "../contracts.js";
+export type { AgentCol } from "./types.js";
 
 // ─── 패널 모드 관리 ──────────────────────────────────────
 

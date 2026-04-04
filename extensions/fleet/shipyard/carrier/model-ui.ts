@@ -19,7 +19,7 @@ import {
   updateModelSelection,
   updateAllModelSelections,
 } from "../../../core/agent/runtime.js";
-import { setAgentPanelModelConfig } from "../../internal/panel/config.js";
+import { setAgentPanelModelConfig } from "../../panel/config.js";
 import {
   getActiveCarrierId,
   notifyStatusUpdate,

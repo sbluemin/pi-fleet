@@ -25,8 +25,8 @@ import {
   finalizeRun,
   updateRunStatus,
   getVisibleRun,
-} from "../../internal/streaming/stream-store.js";
-import { renderBlockLines, blockLineAnsiColor } from "../../internal/render/block-renderer.js";
+} from "../../streaming/stream-store.js";
+import { renderBlockLines, blockLineAnsiColor } from "../../render/block-renderer.js";
 import {
   getRegisteredOrder,
   getRegisteredCarrierConfig,

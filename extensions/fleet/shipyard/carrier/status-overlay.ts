@@ -11,7 +11,7 @@
 import type { Component, Focusable, TUI } from "@mariozechner/pi-tui";
 import { Key, matchesKey, visibleWidth } from "@mariozechner/pi-tui";
 import type { Theme } from "@mariozechner/pi-coding-agent";
-import type { HealthStatus, ProviderKey, ServiceSnapshot } from "../../internal/contracts.js";
+import type { HealthStatus, ProviderKey, ServiceSnapshot } from "../../../core/agent/types.js";
 
 type CarrierCliType = ProviderKey;
 

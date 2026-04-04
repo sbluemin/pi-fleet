@@ -15,14 +15,14 @@
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 
-import { INFRA_KEYBIND_KEY } from "../../../core/keybind/types.js";
-import type { InfraKeybindAPI } from "../../../core/keybind/types.js";
-import { BODY_H_STEP } from "../../constants";
+import { INFRA_KEYBIND_KEY } from "../../core/keybind/types.js";
+import type { InfraKeybindAPI } from "../../core/keybind/types.js";
+import { BODY_H_STEP } from "../constants";
 import {
   activateCarrier,
   deactivateCarrier,
   getActiveCarrierId,
-} from "../../shipyard/carrier/framework.js";
+} from "../shipyard/carrier/framework.js";
 import { toggleAgentPanel, showAgentPanel } from "./lifecycle.js";
 import { adjustPanelHeight } from "./config.js";
 import { getState } from "./state.js";

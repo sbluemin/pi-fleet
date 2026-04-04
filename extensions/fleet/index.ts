@@ -51,9 +51,9 @@ import { cleanIdleClients } from "../core/agent/client-pool.js";
 import { registerModelCommands, syncModelConfig } from "./shipyard/carrier/model-ui.js";
 import { loadSortieDisabled, saveSortieDisabled } from "./shipyard/carrier/sortie-store.js";
 import { exposeAgentApi } from "./operation-runner.js";
-import { refreshAgentPanelFooter, getModeBannerLines } from "./internal/panel/lifecycle.js";
-import { registerAgentPanelShortcut } from "./internal/panel/shortcuts.js";
-import { setAgentPanelServiceLoading, setAgentPanelServiceStatus } from "./internal/panel/config.js";
+import { refreshAgentPanelFooter, getModeBannerLines } from "./panel/lifecycle.js";
+import { registerAgentPanelShortcut } from "./panel/shortcuts.js";
+import { setAgentPanelServiceLoading, setAgentPanelServiceStatus } from "./panel/config.js";
 import { buildBridgeCommand } from "./shipyard/carrier/launch.js";
 import { initServiceStatus, attachStatusContext, refreshStatusNow, getServiceSnapshots, refreshStatusQuiet } from "../core/agent/service-status/store.js";
 import { CARRIER_BRIDGE_KEY } from "./constants";
@@ -68,7 +68,7 @@ import type { TaskForceOverlayCallbacks } from "./shipyard/carrier/taskforce-con
 import { appendAdmiralSystemPrompt, isWorldviewEnabled, setWorldviewEnabled } from "./prompts.js";
 import { CarrierStatusOverlay } from "./shipyard/carrier/status-overlay.js";
 import type { CarrierStatusGroup, CarrierStatusEntry } from "./shipyard/carrier/status-overlay.js";
-import type { ProviderKey } from "./internal/contracts.js";
+import type { ProviderKey } from "../core/agent/types.js";
 
 import { INFRA_SETTINGS_KEY } from "../core/settings/types.js";
 import type { InfraSettingsAPI } from "../core/settings/types.js";
@@ -81,7 +81,7 @@ import type { InfraKeybindAPI } from "../core/keybind/types.js";
 import { SHELL_POPUP_BRIDGE_KEY } from "../core/shell/types.js";
 import type { ShellPopupBridge } from "../core/shell/types.js";
 
-export type { CollectedStreamData } from "./internal/contracts.js";
+export type { CollectedStreamData } from "./streaming/types.js";
 
 export { runAgentRequest } from "./operation-runner.js";
 

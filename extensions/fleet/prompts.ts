@@ -71,6 +71,8 @@ All task execution follows the **Default Workflow Protocol** below. Additional p
 
 Every task progresses through the following phases **in order**. Phases marked *conditional* may be skipped when the task is trivially small or the condition is not met.
 
+**Completion rule:** All 8 phases must be evaluated for every task — do not stop after execution. Conditional phases may be skipped, but the decision to skip must be conscious, not accidental. If you end a task before reaching Phase 8, you **must** report which phases were skipped and why in your final response. Omitting phases without explanation is an anti-pattern.
+
 ### Phase 1 — Preliminary Analysis
 - Assess the task scope: direct handling vs. delegation.
 - If delegating, select appropriate Carrier(s), provide background, objective, constraints, and acceptance criteria.
@@ -93,8 +95,9 @@ Triggered when the task involves structural changes, new modules, cross-layer de
 - Resolve architectural concerns **before** proceeding to the work plan.
 
 ### Phase 4 — Work Plan
-- Synthesize findings from Phases 1–3 into a concrete, step-by-step execution plan.
-- Identify which Carrier(s) will handle each step and in what order (sequential vs. parallel).
+- **Small tasks** (scope is already clear, single Carrier, no phased execution needed): Admiral drafts the plan directly — a brief outline of what to do and which Carrier handles it. No Fleet Admiral approval needed.
+- **Medium-to-large tasks** (multi-step, multi-Carrier, or ambiguous scope): Sortie a planning-specialized Carrier to conduct requirements analysis, gap analysis, and produce a structured execution plan with maximum parallelism.
+- In either case, identify which Carrier(s) will handle each step and in what order (sequential vs. parallel).
 - Present the plan to the Fleet Admiral for approval before execution, unless the task is clearly straightforward.
 
 ### Phase 5 — Execution
@@ -123,6 +126,13 @@ Execute the following reviews **in parallel**:
 - Identify project documentation affected by the completed work (e.g., AGENTS.md, README, inline doc comments, type docs).
 - Sortie an appropriate Carrier to update only the documentation that is **directly impacted** — do not perform broad documentation sweeps.
 - Ensure new modules, APIs, or architectural decisions are reflected in the relevant AGENTS.md files.
+
+### Completion Report
+After finishing (or terminating early), include a brief phase summary in your final response:
+- **Executed**: list phases that ran (e.g., "1 → 4 → 5 → 7 → 8")
+- **Skipped (conditional)**: list phases skipped with one-line reason each (e.g., "Phase 2 — no speculation detected", "Phase 6 — code already clean")
+- **Skipped (early termination)**: if the workflow did not reach Phase 8, explain the blocker or reason for stopping
+This report ensures the Fleet Admiral can verify that no phase was silently dropped.
 `;
 
 /**
