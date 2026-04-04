@@ -51,7 +51,7 @@ export interface CarrierMetadata {
 // ─── 공개 타입 ───────────────────────────────────────────
 
 /** Carrier 프레임워크 globalThis 공유 키 */
-export const CARRIER_FRAMEWORK_KEY = "__pi_direct_mode_framework__";
+export const CARRIER_FRAMEWORK_KEY = "__pi_bridge_framework__";
 
 export interface CarrierConfig {
   /** 고유 식별자 (carrierId) → 메시지 `{id}-user/{id}-response`, 풀/세션 키 */

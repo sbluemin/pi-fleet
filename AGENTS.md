@@ -58,7 +58,7 @@ PI is the **host agent** (orchestrator). Genesis, Sentinel, and Vanguard are **s
 |------|---------|------|
 | **Default** | Normal chat | PI handles directly (no sub-agents) |
 | **Tool delegation** | PI's own judgment | PI → tool_call(genesis/sentinel/vanguard) → sub-agent result → PI synthesizes |
-| **Direct (single)** | Alt+H/L → Ctrl+Enter | User → single sub-agent (PI acts as router only, no synthesis) |
+| **Bridge (single)** | Alt+H/L → Ctrl+Enter | User → single sub-agent (PI acts as router only, no synthesis) |
 
 ### Key Principles
 

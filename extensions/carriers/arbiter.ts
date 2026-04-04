@@ -2,7 +2,7 @@
  * carriers/arbiter — Arbiter carrier (CVN-02)
  * @specialization 전략 기획 자문관 — 요구사항 인터뷰 · 사전 갭 분석 · 최대 병렬 작업 계획 생성 특화
  *
- * Arbiter carrier를 프레임워크에 등록합니다 (alt+2, direct mode, 프롬프트 메타데이터).
+ * Arbiter carrier를 프레임워크에 등록합니다 (alt+2, bridge mode, 프롬프트 메타데이터).
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";

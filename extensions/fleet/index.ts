@@ -146,7 +146,7 @@ export { registerSingleCarrier } from "./shipyard/carrier/register.js";
 export type { SingleCarrierOptions } from "./shipyard/carrier/register.js";
 export type { CarrierMetadata, RequestBlock } from "./shipyard/carrier/types.js";
 
-export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
+export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
   // ── Fleet 런타임 초기화 (영속 파일은 ~/.pi/fleet/ 하위에 저장) ──
   // os.homedir() 직접 사용으로 PI_CODING_AGENT_DIR override와 무관하게 경로를 고정한다.
   const dataDir = path.join(os.homedir(), ".pi", "fleet");

@@ -2,7 +2,7 @@
  * carriers/oracle — Oracle carrier (CVN-09)
  * @specialization 고지능 읽기 전용 기술 자문 전문가 — 아키텍처 결정 · 심층 기술 분석 · 트레이드오프 평가 특화
  *
- * Oracle carrier를 프레임워크에 등록합니다 (alt+9, direct mode, 프롬프트 메타데이터).
+ * Oracle carrier를 프레임워크에 등록합니다 (alt+9, bridge mode, 프롬프트 메타데이터).
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";

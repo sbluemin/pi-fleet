@@ -92,7 +92,7 @@ export class KeybindOverlay implements Component, Focusable {
     }
 
     for (const [category, items] of categories) {
-      // 카테고리 헤더: ◇ Direct Mode
+      // 카테고리 헤더: ◇ Bridge
       lines.push(row(
         `  ${PANEL_COLOR}◇${ANSI_RESET} ${PANEL_COLOR}${category}${ANSI_RESET}`,
       ));

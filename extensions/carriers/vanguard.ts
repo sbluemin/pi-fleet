@@ -2,7 +2,7 @@
  * carriers/vanguard — Vanguard carrier (CVN-06)
  * @specialization 정찰 스페셜리스트 — 코드베이스 탐색 · 심볼 추적 · 웹 리서치 특화
  *
- * Vanguard carrier를 프레임워크에 등록합니다 (alt+6, direct mode, 프롬프트 메타데이터).
+ * Vanguard carrier를 프레임워크에 등록합니다 (alt+6, bridge mode, 프롬프트 메타데이터).
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
