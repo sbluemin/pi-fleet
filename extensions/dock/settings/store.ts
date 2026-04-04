@@ -6,10 +6,12 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { fileURLToPath } from "node:url";
+import * as os from "node:os";
 
-const EXT_DIR = path.dirname(fileURLToPath(import.meta.url));
-const GLOBAL_SETTINGS_PATH = path.resolve(EXT_DIR, "..", "settings.json");
+// Fleet 전역 데이터 디렉토리: ~/.pi/fleet/
+// os.homedir() 직접 사용으로 PI_CODING_AGENT_DIR 환경변수 override와 무관하게 경로를 고정한다.
+const FLEET_DATA_DIR = path.join(os.homedir(), ".pi", "fleet");
+const GLOBAL_SETTINGS_PATH = path.join(FLEET_DATA_DIR, "settings.json");
 
 /** 특정 섹션 로드 */
 export function loadSection<T = Record<string, unknown>>(key: string): T {
@@ -40,5 +42,9 @@ function readGlobalJson(): Record<string, unknown> {
 
 /** 전체 JSON 객체 쓰기 */
 function writeGlobalJson(data: Record<string, unknown>): void {
+  // 디렉토리가 없으면 생성 (~/.pi/fleet/ 첫 실행 시)
+  if (!fs.existsSync(FLEET_DATA_DIR)) {
+    fs.mkdirSync(FLEET_DATA_DIR, { recursive: true });
+  }
   fs.writeFileSync(GLOBAL_SETTINGS_PATH, JSON.stringify(data, null, 2), "utf-8");
 }

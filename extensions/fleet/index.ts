@@ -16,8 +16,8 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import * as path from "node:path";
+import * as os from "node:os";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 
 import {
   onStatusUpdate,
@@ -146,10 +146,9 @@ export type { SingleCarrierOptions } from "./shipyard/carrier/register.js";
 export type { CarrierMetadata, RequestBlock } from "./shipyard/carrier/types.js";
 
 export default function unifiedAgentDirectExtension(pi: ExtensionAPI) {
-  const extensionDir = path.dirname(fileURLToPath(import.meta.url));
-
-  // ── Fleet 런타임 초기화 (영속 파일은 .data/ 하위에 저장) ──
-  const dataDir = path.join(extensionDir, ".data");
+  // ── Fleet 런타임 초기화 (영속 파일은 ~/.pi/fleet/ 하위에 저장) ──
+  // os.homedir() 직접 사용으로 PI_CODING_AGENT_DIR override와 무관하게 경로를 고정한다.
+  const dataDir = path.join(os.homedir(), ".pi", "fleet");
   initRuntime(dataDir);
 
   (globalThis as any)[EDITOR_MODE_PROVIDER_KEY] = {
