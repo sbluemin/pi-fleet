@@ -11,9 +11,9 @@
 |------|-------------|
 | `packages/` | Embedded first-party libraries (e.g., `unified-agent`) |
 | `extensions/` | All extensions consolidated here (refer to its own `AGENTS.md`) |
-| `extensions/fleet/` | Agent orchestration extension — agent tools, unified pipeline (refer to its own `AGENTS.md`) |
+| `extensions/fleet/` | Agent orchestration extension — carrier framework, unified pipeline, Agent Panel (refer to its own `AGENTS.md`) |
 | `extensions/carriers/` | Carrier registrations — independent extension that defines individual carriers (refer to its own `AGENTS.md`) |
-| `extensions/core/` | Infrastructure + utility extensions — hud, keybind, settings, welcome, shell, improve-prompt, summarize, thinking-timer (refer to its own `AGENTS.md`) |
+| `extensions/core/` | Infrastructure + utility extensions — agent infra, hud, keybind, settings, welcome, shell, improve-prompt, summarize, thinking-timer (refer to its own `AGENTS.md`) |
 | `.spsec/` | Archived experimental specs and planning materials |
 
 > Currently, there is no `pi/` directory — symlink setup is not required.

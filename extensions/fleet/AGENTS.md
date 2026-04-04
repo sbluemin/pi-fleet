@@ -35,25 +35,24 @@ shipyard/carrier/      ← Carrier framework SDK + carrier visual representation
   ├── sortie.ts      ← carrier_sortie (유일한 carrier 위임 PI 도구) 등록 + 동적 프롬프트 합성
   └── launch.ts        ← native bridge command builder
 internal/
-  ├── contracts.ts     ← shared domain types (ColBlock, AgentCol, ServiceSnapshot, etc.)
-  ├── agent/           ← executor, client-pool, runtime, session-map, model-config, model-ui, types
+  ├── contracts.ts     ← shared domain types (ColBlock, AgentCol, etc. re-exports core/agent/types.ts)
   ├── panel/           ← panel state + lifecycle + widget bridge
   ├── streaming/       ← stream store + widget manager
-  ├── render/          ← panel rendering engine (panel layout, block transform, message renderers)
-  └── service-status/  ← service status monitoring (polling, rendering, store)
+  └── render/          ← panel rendering engine (panel layout, block transform, message renderers)
 
 carriers/              ← (REMOVED — now at extensions/carriers/)
 ```
 
 ### Dependency Principles
 
-- **internal/contracts.ts** is the single source of truth for shared domain types (`ColBlock`, `AgentCol`, `ColStatus`, `CollectedStreamData`, `ServiceSnapshot`, etc.). Streaming, render, and panel modules all import types from here — never cross-reference each other for type definitions.
+- **internal/contracts.ts** is the single source of truth for shared domain types (`ColBlock`, `AgentCol`, `ColStatus`, `CollectedStreamData`). It re-exports common types (ProviderKey, HealthStatus, ServiceSnapshot) from **`core/agent/types.ts`**. Streaming, render, and panel modules all import types from here — never cross-reference each other for type definitions.
+- **One-way dependency**: The **`core`** layer (including `core/agent`) must never reference the **`fleet`** layer. `fleet` → `core` is the only allowed direction.
 - **Carriers have been separated into `carriers/`** — an independent extension at `extensions/carriers/`. Carrier files reside in the standalone `carriers/` extension, not in `fleet/`. See `extensions/carriers/AGENTS.md` for carrier rules.
 - **Fleet core modules must never import from `carriers/`**.
-- **Internal modules reference siblings directly** — e.g., `internal/agent/model-ui.ts` imports from `internal/agent/runtime.ts`, `internal/panel/config.ts`, and `shipyard/carrier/framework.ts` without going through the facade.
+- **Internal modules reference siblings directly** — e.g., `internal/panel/config.ts` imports from `shipyard/carrier/framework.ts` without going through the facade.
 - **`index.ts` is the only public facade**: It owns extension wiring plus export-only public re-exports. Keep business logic in `shipyard/carrier/`, `internal/`, and `operation-runner.ts`.
-- **Service status is internal**: Service status monitoring (polling, rendering) lives in `internal/service-status/` and is directly referenced by sibling internal modules (e.g., `panel/widget-sync.ts` imports the renderer). No injection pattern is needed.
-- **Persistence is core-owned**: Session map and model config persistence are managed entirely by `internal/agent/runtime.ts`. Carriers never access `sessionStore`, `configDir`, or persistence paths directly — they use facade APIs (`getModelConfig`, `updateModelSelection`, `getSessionId`, etc.). `index.ts` calls `initRuntime(dataDir)` once and `onHostSessionChange(piSessionId)` on PI session events. Runtime files live under `.data/`.
+- **Service status lives in core**: Service status monitoring (polling, rendering) lives in **`core/agent/service-status/`**. `fleet/index.ts` injects a callback into `core/agent/service-status/store.ts` to trigger fleet UI updates without core needing to know about fleet.
+- **Persistence is core-owned**: Session map and model config persistence are managed entirely by **`core/agent/runtime.ts`**. Runtime files live under `.data/`.
 
 ### Unified Execution Pipeline
 
@@ -81,19 +80,18 @@ Consumer (carriers, external extensions)
 | `index.ts` | Entry point + public Facade — wiring, initialization, session events, dependency injection, export-only public re-exports |
 | `types.ts` | Public types + globalThis bridge key/interface for `requestUnifiedAgent` |
 | `constants.ts` | Shared constants (colors, spinners, border characters, panel colors) |
-| `internal/contracts.ts` | Central domain type definitions (internal) — ColBlock, AgentCol, ColStatus, CollectedStreamData, ServiceSnapshot. **All shared types live here** |
+| `internal/contracts.ts` | Central domain type definitions (internal) — ColBlock, AgentCol, ColStatus, CollectedStreamData. (Re-exports types from `core/agent/types.ts`) |
 | `operation-runner.ts` | Unified execution layer (internal) — `runAgentRequest`, `exposeAgentApi`. Single `executeWithPool` call site. Auto panel/widget sync |
 | `shipyard/carrier/types.ts` | Carrier framework types — CarrierConfig, CarrierHelpers, CarrierResult, internal state types |
 | `shipyard/carrier/framework.ts` | Carrier framework SDK — `registerCarrier`, `activateCarrier`, `deactivateCarrier`, `getActiveCarrierId`, `onStatusUpdate`, `notifyStatusUpdate`. Manages globalThis shared state, input interception, shortcut registration, message renderer registration |
 | `shipyard/carrier/register.ts` | Single-carrier registration — `registerSingleCarrier` (carrier framework + prompt metadata, no PI tool) |
 | `shipyard/carrier/prompts.ts` | carrier_sortie 도구 기본 프롬프트 관리 |
 | `shipyard/carrier/sortie.ts` | Carrier Sortie 도구 — 유일한 carrier 위임 PI 도구, 동적 프롬프트 합성, 통합 진행/결과 표시 |
+| `shipyard/carrier/model-ui.ts` | Model selection UI — model selection TUI component + keybind/command registration |
 | `shipyard/carrier/footer-renderer.ts` | Carrier footer segment renderer — carrier 아이콘 + 이름 + 상태별 색상을 footer 세그먼트로 렌더링 |
 | `shipyard/carrier/launch.ts` | Carrier 네이티브 브리지 커맨드 중앙 조립 |
-| `internal/agent/*` | Internal execution/runtime/session/model modules. Includes `model-ui.ts` (model selection UI + keybind/command registration) |
 | `internal/panel/*` | Internal panel state/lifecycle/widget modules |
 | `internal/streaming/*` | Internal stream store/widget modules |
 | `internal/render/*` | Internal renderer modules |
-| `internal/service-status/store.ts` | Service status polling/fetching/store — `attachStatusContext`, `refreshStatusNow` (exposed via `index.ts`) |
-| `internal/service-status/renderer.ts` | Service status footer token renderer — `renderServiceStatusToken` (used by `panel/widget-sync.ts`) |
+| **core/agent/** | **(Core Infrastructure)** — See `extensions/core/agent/AGENTS.md` for details |
 | **carriers/** | **(Separated)** — now at `extensions/carriers/`. See `extensions/carriers/AGENTS.md` |

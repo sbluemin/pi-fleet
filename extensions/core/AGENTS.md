@@ -13,6 +13,7 @@ Infrastructure extensions for pi-fleet. Each provides a core UI or system featur
 
 | Extension | Role |
 |-----------|------|
+| `agent/` | Core agent infrastructure — executor, client-pool, runtime, session-map, model-config, service-status |
 | `hud/` | Editor + Status Bar + Footer (integrated rendering engine) |
 | `shell/` | Interactive shell session inside pi |
 | `keybind/` | Centralized keybinding management + overlay (Alt+.) |

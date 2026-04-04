@@ -28,6 +28,7 @@ These are pure libraries not recognized as extensions by pi.
 
 | Library | Role | Main Consumers |
 |---------|------|----------------|
+| `core/agent/` | Core agent infrastructure — executor, client-pool, runtime, session-map, model-config, service-status | `fleet/`, `carriers/` |
 | `core/hud/` (also a library) | Status Bar rendering engine (segments, layout, colors, themes, presets) | `core/welcome` |
 
 ### Extension Separation Criteria
