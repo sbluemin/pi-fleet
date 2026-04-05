@@ -23,6 +23,7 @@ import type { CliType } from "@sbluemin/unified-agent";
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
 import { runAgentRequest } from "../../operation-runner.js";
+import { composeTier2Request } from "./compose.js";
 import { getVisibleRun, getRunById } from "../../streaming/stream-store.js";
 import { renderBlockLines, blockLineAnsiColor } from "../../render/block-renderer.js";
 import {
@@ -217,11 +218,16 @@ export function registerFleetSortie(pi: ExtensionAPI): void {
             const progress = state.carriers.get(a.carrier)!;
             progress.status = "connecting";
 
-            const cliType = getRegisteredCarrierConfig(a.carrier)?.cliType ?? a.carrier;
+            const carrierConfig = getRegisteredCarrierConfig(a.carrier);
+            const cliType = carrierConfig?.cliType ?? a.carrier;
+            // ── Tier 2: permissions + principles를 request 앞에, outputFormat을 끝에 자동 주입 ──
+            const composedRequest = carrierConfig?.carrierMetadata
+              ? composeTier2Request(carrierConfig.carrierMetadata, a.request)
+              : a.request;
             const result = await runAgentRequest({
               cli: cliType as CliType,
               carrierId: a.carrier,
-              request: a.request,
+              request: composedRequest,
               ctx,
               signal,
               onMessageChunk: () => {
