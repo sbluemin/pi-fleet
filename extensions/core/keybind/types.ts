@@ -7,7 +7,7 @@
 
 /** 단축키 등록 요청 */
 export interface KeybindRegistration {
-  /** 확장 디렉토리명 (e.g. "utils-improve-prompt") */
+  /** 확장 디렉토리명 (e.g. "core-improve-prompt") */
   extension: string;
   /** 액션 식별자 (e.g. "meta-prompt") */
   action: string;

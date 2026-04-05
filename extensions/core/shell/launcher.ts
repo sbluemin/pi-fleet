@@ -1,5 +1,5 @@
 /**
- * utils-shell — 팝업 실행기
+ * core-shell — 팝업 실행기
  */
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";

@@ -71,7 +71,7 @@ export function setupCustomEditor(ctx: any, state: HudEditorState): void {
           state.currentEditor?.handleInput(data);
           return;
         }
-        // 타이핑 시작 → welcome 디스미스 (utils-welcome globalThis 경유)
+        // 타이핑 시작 → welcome 디스미스 (core-welcome globalThis 경유)
         setTimeout(() => dismissWelcomeViaGlobal(), 0);
         originalHandleInput(data);
       };

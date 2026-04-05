@@ -1,5 +1,5 @@
 /**
- * utils-shell — 확장 진입점
+ * core-shell — 확장 진입점
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";

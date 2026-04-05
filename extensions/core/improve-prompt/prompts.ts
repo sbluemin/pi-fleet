@@ -1,5 +1,5 @@
 /**
- * utils-improve-prompt/prompts.ts — AI 시스템 프롬프트
+ * core-improve-prompt/prompts.ts — AI 시스템 프롬프트
  */
 
 export const SYSTEM_INSTRUCTION = `You are an expert prompt engineer. Your job is to sharpen the user's prompt — not expand it.

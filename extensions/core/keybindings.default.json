@@ -20,7 +20,7 @@
     "agent-popup": "alt+t",
     "carrier-status": "alt+o"
   },
-  "utils-improve-prompt": {
+  "core-improve-prompt": {
     "meta-prompt": "alt+m",
     "reasoning-cycle": "alt+r"
   }

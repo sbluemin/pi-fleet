@@ -1,4 +1,4 @@
-// utils-shell — 순수 쉘 팝업 오버레이
+// core-shell — 순수 쉘 팝업 오버레이
 // PTY 세션을 오버레이 TUI로 렌더링하고 입력을 중계합니다.
 
 import type { Component, Focusable, TUI } from "@mariozechner/pi-tui";

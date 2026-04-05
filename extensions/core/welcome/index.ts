@@ -1,10 +1,10 @@
 /**
- * utils-welcome — 웰컴 화면 확장
+ * core-welcome — 웰컴 화면 확장
  *
  * 세션 시작 시 웰컴 오버레이(또는 헤더)를 표시하고,
  * 에이전트 활동 시작 시 자동으로 해제한다.
  *
- * globalThis["__pi_utils_welcome__"]에 dismiss 함수를 노출하여
+ * globalThis["__pi_core_welcome__"]에 dismiss 함수를 노출하여
  * 다른 확장(infra-hud 등)에서도 디스미스를 트리거할 수 있다.
  */
 

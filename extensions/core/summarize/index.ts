@@ -1,12 +1,11 @@
 /**
- * utils-summarize — 세션 한 줄 자동 요약 확장 진입점
+ * core-summarize — 세션 한 줄 자동 요약 확장 진입점
  *
  * 배선(wiring)만 담당: 이벤트 핸들러, 커맨드 등록.
  *
  * ┌──────────────────────────────────────────────────────┐
  * │  이벤트 흐름                                          │
- * │   session_start → 상태바 초기화, 기존 이름 확인        │
- * │   agent_end (첫 턴) → LLM 한 줄 요약 → setSessionName │
+ * │   agent_end (매 턴) → LLM 한 줄 요약 → setSessionName │
  * │   session_compact  → compaction 요약 기반 재요약       │
  * │   /fleet:summary:run       → 수동 재요약               │
  * │   /fleet:summary:settings  → 모델/길이 설정           │
@@ -24,14 +23,11 @@ import { resolveModel, generateOneLiner } from "./summarizer.js";
 import { getSettingsAPI } from "../settings/bridge.js";
 
 export default function (pi: ExtensionAPI) {
-  /** 이번 세션에서 첫 턴 자동 요약이 완료되었는지 추적 */
-  let firstTurnDone = false;
-
   // ── 팝업 섹션 등록 ──
 
   const infraApi = getSettingsAPI();
   infraApi?.registerSection({
-    key: "utils-summarize",
+    key: "core-summarize",
     displayName: "Auto Summarize",
     getDisplayFields() {
       const s = loadSettings();
@@ -47,16 +43,7 @@ export default function (pi: ExtensionAPI) {
 
   // ── 이벤트 핸들러 ──
 
-  pi.on("session_start", async () => {
-    if (pi.getSessionName()) {
-      firstTurnDone = true;
-    }
-  });
-
   pi.on("agent_end", async (event, ctx) => {
-    if (firstTurnDone) return;
-    firstTurnDone = true;
-
     const settings = loadSettings();
     const model = resolveModel(ctx, settings);
     if (!model) return;

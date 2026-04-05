@@ -162,7 +162,7 @@ const thinkingSegment: StatusLineSegment = {
     const level = ctx.thinkingLevel || "off";
     if (level === "off") return { content: "", visible: false };
 
-    // 셰브론 스타일 라벨 (utils-improve-prompt / unified-agent-ext 일관)
+    // 셰브론 스타일 라벨 (core-improve-prompt / unified-agent-ext 일관)
     const CHEVRON_LABELS: Record<string, string> = {
       minimal: "›  Minimal",
       low: "›  Low",

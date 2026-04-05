@@ -1,5 +1,5 @@
 /**
- * utils-improve-prompt/constants.ts — 타입, 상수, 검증
+ * core-improve-prompt/constants.ts — 타입, 상수, 검증
  */
 
 // ── Reasoning 레벨 ──

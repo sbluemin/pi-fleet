@@ -1,8 +1,10 @@
 /**
- * utils-summarize/summarizer.ts — 핵심 비즈니스 로직
+ * core-summarize/summarizer.ts — 핵심 비즈니스 로직
  *
  * LLM을 호출하여 대화를 한 줄로 요약하는 기능.
  */
+
+import { execSync } from "node:child_process";
 
 import { completeSimple } from "@mariozechner/pi-ai";
 import type { Api, Model } from "@mariozechner/pi-ai";
@@ -25,6 +27,31 @@ export function resolveModel(
   return resolved ?? null;
 }
 
+const EXEC_OPTS = { timeout: 1500, encoding: "utf-8" as const, stdio: ["ignore", "pipe", "ignore"] as const };
+
+/** git 커밋 수 + 미커밋 여부를 구조화된 블록으로 수집 (각 항목 독립 실패 허용) */
+function collectGitContext(): string {
+  let commitCount = -1;
+  let hasUncommitted = false;
+  let anySuccess = false;
+
+  try {
+    const raw = execSync("git rev-list HEAD --count", EXEC_OPTS).trim();
+    commitCount = parseInt(raw, 10) || 0;
+    anySuccess = true;
+  } catch { /* 신규 리포 등 HEAD 없는 경우 */ }
+
+  try {
+    const status = execSync("git status --short", EXEC_OPTS).trim();
+    hasUncommitted = status.length > 0;
+    anySuccess = true;
+  } catch { /* git 미설치 또는 non-repo */ }
+
+  if (!anySuccess) return "";
+
+  return `[Commit Info]\ncommit_count: ${commitCount < 0 ? 0 : commitCount}\nhas_uncommitted: ${hasUncommitted}\n\n`;
+}
+
 /** LLM 한 줄 요약 생성 */
 export async function generateOneLiner(
   ctx: ExtensionContext,
@@ -40,12 +67,14 @@ export async function generateOneLiner(
       return null;
     }
 
-    // 입력 텍스트가 너무 길면 잘라서 토큰 절약
+    // git 컨텍스트 수집 (실패 시 graceful degradation)
+    const gitContext = collectGitContext();
+
+    // 마지막 200줄만 전달 — Phase는 최근 대화에 언급되므로 후미 집중이 유리
+    const lines = conversationText.split("\n");
     const truncated =
-      conversationText.length > 12000
-        ? conversationText.slice(0, 6000) +
-          "\n\n[...중간 생략...]\n\n" +
-          conversationText.slice(-6000)
+      lines.length > 200
+        ? "[...이전 내용 생략...]\n\n" + lines.slice(-200).join("\n")
         : conversationText;
 
     const response = await completeSimple(
@@ -55,7 +84,7 @@ export async function generateOneLiner(
         messages: [
           {
             role: "user",
-            content: `Summarize this conversation in one line (max ${maxLength} chars):\n\n${truncated}`,
+            content: `${gitContext}Summarize this conversation in one line (max ${maxLength + 40} chars):\n\n${truncated}`,
             timestamp: Date.now(),
           },
         ],

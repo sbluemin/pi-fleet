@@ -1,5 +1,5 @@
 /**
- * utils-improve-prompt — 메타 프롬프팅 확장 진입점
+ * core-improve-prompt — 메타 프롬프팅 확장 진입점
  *
  * 배선(wiring)만 담당: 이벤트 핸들러, 커맨드, 단축키 등록.
  */
@@ -28,7 +28,7 @@ export default function (pi: ExtensionAPI) {
 
   const infraApi = getSettingsAPI();
   infraApi?.registerSection({
-    key: "utils-improve-prompt",
+    key: "core-improve-prompt",
     displayName: "Meta Prompt",
     getDisplayFields() {
       const s = loadSettings();
@@ -151,7 +151,7 @@ export default function (pi: ExtensionAPI) {
 
   const keybind = getKeybindAPI();
   keybind.register({
-    extension: "utils-improve-prompt",
+    extension: "core-improve-prompt",
     action: "meta-prompt",
     defaultKey: "alt+m",
     description: "메타 프롬프팅으로 현재 입력을 개선 (스피너 + ESC 취소)",
@@ -177,7 +177,7 @@ export default function (pi: ExtensionAPI) {
   });
 
   keybind.register({
-    extension: "utils-improve-prompt",
+    extension: "core-improve-prompt",
     action: "reasoning-cycle",
     defaultKey: "alt+r",
     description: "메타 프롬프트 reasoning 레벨 사이클 (off→low→medium→high)",

@@ -1,5 +1,5 @@
 /**
- * utils-improve-prompt/engine.ts — LLM 엔진
+ * core-improve-prompt/engine.ts — LLM 엔진
  *
  * 메타 프롬프팅 LLM 호출 + BorderedLoader UI 로직.
  */

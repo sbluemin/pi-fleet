@@ -15,7 +15,7 @@ export interface DisplayField {
 
 /** 섹션 표시 설정 — 각 확장이 등록 */
 export interface SectionDisplayConfig {
-  /** settings.json 키 — 확장 디렉토리 이름 (e.g. "utils-improve-prompt") */
+  /** settings.json 키 — 확장 디렉토리 이름 (e.g. "core-improve-prompt") */
   key: string;
   /** 팝업에 표시할 이름 (e.g. "Meta Prompt", "Auto Summarize") */
   displayName: string;

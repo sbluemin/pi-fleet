@@ -224,7 +224,7 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
     handler: async (ctx) => {
       const bridge = (globalThis as Record<string, unknown>)[SHELL_POPUP_BRIDGE_KEY] as ShellPopupBridge | undefined;
       if (!bridge) {
-        ctx.ui.notify("utils-shell 확장이 로드되지 않았습니다.", "warning");
+        ctx.ui.notify("core-shell 확장이 로드되지 않았습니다.", "warning");
         return;
       }
       if (bridge.isOpen()) return;

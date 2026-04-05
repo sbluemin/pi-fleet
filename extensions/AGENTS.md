@@ -70,7 +70,7 @@ Any string that is ultimately consumed by an AI model should live in `prompts.ts
 ### globalThis Usage Rules
 
 ```
-Allowed: core/welcome → globalThis["__pi_utils_welcome__"] = { dismiss }
+Allowed: core/welcome → globalThis["__pi_core_welcome__"] = { dismiss }
          (Exposes actions of an independent feature)
 
 Forbidden: core/hud-footer → globalThis["__pi_hud_footer__"] = { footerDataRef, tuiRef }

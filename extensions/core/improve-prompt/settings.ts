@@ -1,7 +1,7 @@
 /**
- * utils-improve-prompt/settings.ts — 설정 파일 관리
+ * core-improve-prompt/settings.ts — 설정 파일 관리
  *
- * infra-settings API를 통해 extensions/settings.json의 "mp" 키에서 읽고 쓴다.
+ * infra-settings API를 통해 ~/.pi/fleet/settings.json의 "core-improve-prompt" 섹션에서 읽고 쓴다.
  */
 
 import type { ReasoningLevel } from "./constants.js";
@@ -18,7 +18,7 @@ export interface MetaPromptSettings {
   reasoning?: ReasoningLevel;
 }
 
-const SECTION_KEY = "utils-improve-prompt";
+const SECTION_KEY = "core-improve-prompt";
 
 /** 설정 로드 (extensions/settings.json → "mp") */
 export function loadSettings(): MetaPromptSettings {

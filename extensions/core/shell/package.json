@@ -1,5 +1,5 @@
 {
-  "name": "utils-shell",
+  "name": "core-shell",
   "type": "module",
   "private": true,
   "dependencies": {

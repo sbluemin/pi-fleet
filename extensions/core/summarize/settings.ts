@@ -1,7 +1,7 @@
 /**
- * utils-summarize/settings.ts — 설정 파일 관리
+ * core-summarize/settings.ts — 설정 파일 관리
  *
- * infra-settings API를 통해 extensions/settings.json의 "as" 키에서 읽고 쓴다.
+ * infra-settings API를 통해 ~/.pi/fleet/settings.json의 "core-summarize" 섹션에서 읽고 쓴다.
  */
 
 import { getSettingsAPI } from "../settings/bridge.js";
@@ -16,7 +16,7 @@ export interface AutoSummarizeSettings {
   maxLength?: number;
 }
 
-const SECTION_KEY = "utils-summarize";
+const SECTION_KEY = "core-summarize";
 
 /** 설정 로드 (extensions/settings.json → "as") */
 export function loadSettings(): AutoSummarizeSettings {

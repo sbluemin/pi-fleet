@@ -1,5 +1,5 @@
 /**
- * utils-shell — 공용 타입
+ * core-shell — 공용 타입
  *
  * 순수 쉘 팝업 유틸리티. 에이전트 개념 없음.
  */
@@ -39,7 +39,7 @@ export interface ShellPopupController {
 }
 
 /** globalThis 브릿지 키 */
-export const SHELL_POPUP_BRIDGE_KEY = "__utils_interactive_shell__";
+export const SHELL_POPUP_BRIDGE_KEY = "__core_interactive_shell__";
 
 export const HEADER_LINES = 4;
 export const FOOTER_LINES = 2;
