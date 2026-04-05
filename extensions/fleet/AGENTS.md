@@ -43,6 +43,7 @@ streaming/         ← stream store + streaming domain types (ColBlock, ColStatu
 render/            ← panel rendering engine (panel layout, block transform, message renderers)
 
 carriers/              ← (REMOVED — now at extensions/carriers/)
+admiral/               ← (REMOVED — now at extensions/admiral/)
 ```
 
 ### Dependency Principles

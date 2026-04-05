@@ -26,6 +26,12 @@ This project treats individual LLM agents as **Carriers** within a **Fleet**.
 | `summarize/` | `summary` | Auto one-line session summary displayed in Status Bar |
 | `thinking-timer/` | `timer` | Inline elapsed-time display for Thinking blocks in Messages zone |
 
+### Admiral Policy (`extensions/admiral/`)
+
+| Extension | Domain | Description |
+|-----------|--------|-------------|
+| `admiral/` | `admiral` | **Host-Agent Prompt Policy** — Admiral system prompt injection, worldview toggle, and settings section ownership |
+
 ### Agent Framework (`extensions/fleet/`)
 
 | Extension | Domain | Description |
@@ -108,7 +114,7 @@ Once all three backends are configured for a carrier, it becomes available as a 
 |---------|-------------|
 | `/fleet:agent:models` | Configure model selection for each registered carrier (slot order) |
 | `/fleet:agent:status` | Instantly refresh the connection status of all CLI services |
-| `/fleet:agent:worldview` | Toggle Naval Fleet "Persona" prompts on/off |
+| `/fleet:admiral:worldview` | Toggle Naval Fleet "Persona" prompts on/off |
 | `/fleet:hud:editor` | Configure HUD editor display status (toggle, preset) |
 | `/fleet:prompt:settings` | Meta-prompt model and reasoning level settings |
 | `/fleet:summary:settings` | Auto-summary model and max-length settings |

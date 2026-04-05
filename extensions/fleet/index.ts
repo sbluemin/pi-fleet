@@ -78,13 +78,10 @@ import {
 } from "./shipyard/taskforce/types.js";
 import { TaskForceConfigOverlay } from "./shipyard/carrier/taskforce-config-overlay.js";
 import type { TaskForceOverlayCallbacks } from "./shipyard/carrier/taskforce-config-overlay.js";
-import { appendAdmiralSystemPrompt, isWorldviewEnabled, setWorldviewEnabled } from "./prompts.js";
 import { getState as getPanelState } from "./panel/state.js";
 import { CarrierStatusOverlay } from "./shipyard/carrier/status-overlay.js";
 import type { CarrierStatusGroup, CarrierStatusEntry } from "./shipyard/carrier/status-overlay.js";
 import type { ProviderKey } from "../core/agent/types.js";
-
-import { getSettingsAPI } from "../core/settings/bridge.js";
 
 import { getKeybindAPI } from "../core/keybind/bridge.js";
 import { SHELL_POPUP_BRIDGE_KEY } from "../core/shell/types.js";
@@ -486,18 +483,22 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
     cleanIdleClients();
     refreshAgentPanel(ctx);
     attachStatusContext(ctx);
-  };
 
-  pi.on("before_agent_start", (event, _ctx) => {
-    return {
-      systemPrompt: appendAdmiralSystemPrompt(event.systemPrompt),
-    };
-  });
+    if (!(globalThis as any).__pi_admiral_extension_loaded__ && !(globalThis as any).__pi_admiral_missing_warned__) {
+      (globalThis as any).__pi_admiral_missing_warned__ = true;
+      ctx.ui.notify(
+        "Admiral extension is not loaded. Add extensions/admiral to restore Admiral prompts and worldview controls.",
+        "warning",
+      );
+    }
+  };
 
   pi.on("session_start", (_event, ctx) => { onSessionChange(ctx); syncModelConfig(); });
   pi.on("session_tree", (_event, ctx) => { onSessionChange(ctx); syncModelConfig(); });
 
   pi.on("session_shutdown", async (_event, ctx) => {
+    delete (globalThis as any).__pi_admiral_missing_warned__;
+
     const sessionFile = ctx.sessionManager.getSessionFile();
     if (!sessionFile) return;
 
@@ -532,32 +533,4 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
     },
   });
 
-  // ── 세계관 프롬프트 토글 커맨드 ──
-
-  pi.registerCommand("fleet:agent:worldview", {
-    description: "세계관(fleet metaphor) 프롬프트 토글 (on/off)",
-    handler: async (_args, ctx) => {
-      const current = isWorldviewEnabled();
-      const next = !current;
-      setWorldviewEnabled(next);
-      ctx.ui.notify(
-        `Fleet Worldview → ${next ? "ON" : "OFF"} (다음 턴부터 적용)`,
-        "info",
-      );
-    },
-  });
-
-  // ── 설정 팝업(Alt+/) 섹션 등록 ──
-
-  const settingsApi = getSettingsAPI();
-  settingsApi?.registerSection({
-    key: "fleet",
-    displayName: "Fleet",
-    getDisplayFields() {
-      const enabled = isWorldviewEnabled();
-      return [
-        { label: "Worldview", value: enabled ? "ON" : "OFF", color: enabled ? "accent" : "dim" },
-      ];
-    },
-  });
 }

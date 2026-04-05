@@ -1,5 +1,8 @@
 /**
- * fleet/prompts — PI 호스트 시스템 프롬프트 확장 지침
+ * admiral/prompts — Admiral 시스템 프롬프트 및 세계관 관리
+ *
+ * - FLEET_WORLDVIEW_PROMPT: 세계관 토글이 켜진 경우에만 주입
+ * - ADMIRAL_SYSTEM_APPEND: 항상 주입 (Delegation Policy + Protocols)
  */
 
 import { getSettingsAPI } from "../core/settings/bridge.js";
@@ -8,8 +11,8 @@ import { getSettingsAPI } from "../core/settings/bridge.js";
 // 타입
 // ─────────────────────────────────────────────────────────
 
-/** fleet 섹션 설정 타입 */
-export interface FleetSettings {
+/** admiral 섹션 설정 타입 */
+export interface AdmiralSettings {
   worldview?: boolean;
 }
 
@@ -67,7 +70,7 @@ Default to delegation. Handle tasks directly only when they are clearly small, l
 
 All task execution follows the **Default Workflow Protocol**. Additional protocols listed here are cross-cutting — they can be invoked from any workflow phase.
 
-**Parallel execution default:** When multiple Carriers can be dispatched for the same phase or step, bundle them into a single \`carriers_sortie\` call with all Carriers in the array. Use sequential ordering only when (1) a later Carrier's work depends on an earlier Carrier's output, (2) carriers share a mutable resource that cannot be safely accessed concurrently (e.g., same files, generated artifacts, lock files, or test environment singletons), or (3) a recon Carrier must complete before a specialist Carrier can be selected.
+**Parallel execution default:** When multiple Carriers can be dispatched for the same phase or step, bundle them into a single ${"``"}carriers_sortie${"``"} call with all Carriers in the array. Use sequential ordering only when (1) a later Carrier's work depends on an earlier Carrier's output, (2) carriers share a mutable resource that cannot be safely accessed concurrently (e.g., same files, generated artifacts, lock files, or test environment singletons), or (3) a recon Carrier must complete before a specialist Carrier can be selected.
 
 ## Deep Dive Protocol
 
@@ -158,20 +161,21 @@ This report ensures the Fleet Admiral can verify that no phase was silently drop
 // 함수
 // ─────────────────────────────────────────────────────────
 
-/** core/settings에서 fleet 섹션의 worldview 활성 여부를 읽는다 (기본: false) */
+/** admiral 섹션에서 worldview 활성 여부를 읽는다 (기본: false). */
 export function isWorldviewEnabled(): boolean {
   const api = getSettingsAPI();
   if (!api) return false;
-  const cfg = api.load<FleetSettings>("fleet");
+
+  const cfg = api.load<AdmiralSettings>("admiral");
   return cfg.worldview === true;
 }
 
-/** core/settings에 fleet 섹션의 worldview 설정을 저장한다 (기존 설정 병합) */
+/** admiral 섹션의 worldview 설정을 저장한다 (기존 설정 병합) */
 export function setWorldviewEnabled(enabled: boolean): void {
   const api = getSettingsAPI();
   if (!api) return;
-  const cfg = api.load<FleetSettings>("fleet");
-  api.save("fleet", { ...cfg, worldview: enabled });
+  const cfg = api.load<AdmiralSettings>("admiral");
+  api.save("admiral", { ...cfg, worldview: enabled });
 }
 
 /**

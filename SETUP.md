@@ -41,18 +41,22 @@ Add the `extensions` field to your pi settings file, pointing to the extension d
 ```json
 {
   "extensions": [
+    "<path-to-pi-fleet>/extensions/core",
+    "<path-to-pi-fleet>/extensions/admiral",
     "<path-to-pi-fleet>/extensions/fleet",
-    "<path-to-pi-fleet>/extensions/carriers",
-    "<path-to-pi-fleet>/extensions/core"
+    "<path-to-pi-fleet>/extensions/carriers"
   ]
 }
 ```
 
 > Replace `<path-to-pi-fleet>` with the actual path where you cloned the repository.
 >
+> - `extensions/core/` — infrastructure + utility extensions (hud, keybind, settings, welcome, shell, improve-prompt, summarize, thinking-timer)
+> - `extensions/admiral/` — Admiral prompt policy (system prompt injection, worldview toggle, settings section)
 > - `extensions/fleet/` — agent orchestration extension (carrier framework SDK, Agent Panel, unified pipeline)
 > - `extensions/carriers/` — **(optional)** default carrier registrations (genesis, arbiter, oracle, crucible, sentinel, raven, vanguard, echelon, chronicle). Omit this line if you do not want the built-in carriers — the fleet framework will still function without any registered carriers.
-> - `extensions/core/` — infrastructure + utility extensions (hud, keybind, settings, welcome, shell, improve-prompt, summarize, thinking-timer)
+>
+> `extensions/core/` should be loaded before `extensions/admiral/` so the settings bridge is available immediately during extension startup.
 
 ## 4. Verify
 

@@ -129,6 +129,7 @@ Each extension maps to exactly one domain. Use the domain below for all commands
 | Extension | Domain | Rationale |
 |-----------|--------|-----------|
 | `fleet/` | `agent` | Sub-agent orchestration features |
+| `admiral/` | `admiral` | Host-agent prompt policy, worldview, and operational doctrine |
 | `carriers/` | `carrier` | Individual carrier registration and configuration |
 | `core/hud/` | `hud` | HUD / editor display features |
 | `core/improve-prompt/` | `prompt` | Meta-prompt model and reasoning settings |

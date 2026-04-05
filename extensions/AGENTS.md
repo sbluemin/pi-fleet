@@ -13,6 +13,7 @@ Do not create intermediate layers that simply wrap official TUI APIs (e.g., `set
 | Extension | Role | Main Files |
 |-----------|------|------------|
 | `fleet/` | Agent orchestration framework — carrier SDK (`shipyard/carrier/`), unified pipeline, Agent Panel, model selection. Provides the carrier framework that `carriers/` depends on. | `index.ts` (wiring), `shipyard/carrier/` (framework), `internal/` (implementation) |
+| `admiral/` | Admiral prompt policy — system prompt injection (`before_agent_start`), worldview toggle, settings section. Independent of `fleet/` and `carriers/`. | `index.ts` (wiring), `prompts.ts` (prompt constants + settings) |
 | `carriers/` | Carrier registrations — independent extension defining individual carriers (genesis, sentinel, vanguard, etc.). Depends only on `shipyard/carrier` package, not on `fleet/` extension. Optional — users may omit from `settings.json`. | `index.ts` (wiring), individual carrier files |
 | `core/hud/` | Editor + Status Bar (Private rendering engine) | `index.ts` (wiring), `editor.ts` (editor/status bar/widget UI) |
 | `core/keybind/` | Centralized keybinding management + overlay (alt+.) | `index.ts` (wiring), `types.ts` (API types + globalThis key), `bridge.ts` (globalThis bridge runtime), `store.ts` (JSON), `registry.ts` (bindings), `overlay.ts` (UI) |
@@ -309,21 +310,24 @@ Extensions are organized in layers. **Dependencies must only flow in one directi
 
 ```
 fleet/ (feature)      →  core/
-carriers/ (feature)      (infrastructure + utility)
+admiral/ (feature)       (infrastructure + utility)
+carriers/ (feature)
 ```
 
 - **Allowed**: A layer may import from any layer below it (direct or transitive).
 - **Forbidden**: A layer must never import from a layer above it (no reverse dependencies).
 - **`carriers/`** is a **feature-layer** extension at the same tier as `fleet/`. It depends only on `fleet/shipyard/carrier/` (the carrier framework SDK) — NOT on `fleet/index.ts`, `fleet/internal/`, or `fleet/operation-runner.ts`.
-- **`fleet/` and `carriers/` are independent** — neither may import from the other's extension entry point (`index.ts`). The only shared surface is `shipyard/carrier/` (framework SDK).
+- **`admiral/`** is a **feature-layer** extension at the same tier as `fleet/`. It depends only on `core/settings` — NOT on `fleet/` or `carriers/`.
+- **`fleet/`, `admiral/`, and `carriers/` are independent** — none may import from another's extension entry point (`index.ts`). The only shared surface between `fleet/` and `carriers/` is `shipyard/carrier/` (framework SDK).
 
 ### Layer Rules
 
 | Layer | May import from | Must NOT import from |
 |-------|----------------|----------------------|
-| `core/` | external packages only | `fleet/`, `carriers/` |
-| `fleet/` (feature) | `core/` | `carriers/` |
-| `carriers/` (feature) | `fleet/shipyard/carrier/` (framework SDK only) | `fleet/index.ts`, `fleet/internal/`, `core/` |
+| `core/` | external packages only | `fleet/`, `admiral/`, `carriers/` |
+| `fleet/` (feature) | `core/` | `admiral/`, `carriers/` |
+| `admiral/` (feature) | `core/` | `fleet/`, `carriers/` |
+| `carriers/` (feature) | `fleet/shipyard/carrier/` (framework SDK only) | `fleet/index.ts`, `fleet/internal/`, `admiral/`, `core/` |
 
 > **Skipping layers is allowed** — e.g., `core/` utility extensions may import from `core/` infrastructure modules directly.
 
