@@ -33,8 +33,7 @@ import {
   createDefaultUserRenderer,
   createDefaultResponseRenderer,
 } from "../../render/message-renderers.js";
-import { INFRA_KEYBIND_KEY } from "../../../core/keybind/types.js";
-import type { InfraKeybindAPI } from "../../../core/keybind/types.js";
+import { getKeybindAPI } from "../../../core/keybind/bridge.js";
 
 import type {
   CarrierConfig,
@@ -103,7 +102,7 @@ export function registerCarrier(
   }
 
   // ── 단축키 등록 (alt+x 취소만 — 개별 carrier 단축키는 인라인 내비게이션으로 대체) ──
-  const keybind = (globalThis as any)[INFRA_KEYBIND_KEY] as InfraKeybindAPI;
+  const keybind = getKeybindAPI();
 
   if (!gs.cancelShortcutRegistered) {
     gs.cancelShortcutRegistered = true;

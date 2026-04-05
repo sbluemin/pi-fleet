@@ -27,8 +27,7 @@ import {
   getRegisteredCarrierConfig,
   resolveCarrierDisplayName,
 } from "./framework.js";
-import { INFRA_KEYBIND_KEY } from "../../../core/keybind/types.js";
-import type { InfraKeybindAPI } from "../../../core/keybind/types.js";
+import { getKeybindAPI } from "../../../core/keybind/bridge.js";
 import {
   CLI_DISPLAY_NAMES,
 } from "../../constants";
@@ -39,7 +38,7 @@ export function syncModelConfig(): void {
 }
 
 export function registerModelCommands(pi: ExtensionAPI): void {
-  const keybind = (globalThis as any)[INFRA_KEYBIND_KEY] as InfraKeybindAPI;
+  const keybind = getKeybindAPI();
 
   keybind.register({
     extension: "fleet",

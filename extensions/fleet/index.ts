@@ -71,14 +71,12 @@ import { CarrierStatusOverlay } from "./shipyard/carrier/status-overlay.js";
 import type { CarrierStatusGroup, CarrierStatusEntry } from "./shipyard/carrier/status-overlay.js";
 import type { ProviderKey } from "../core/agent/types.js";
 
-import { INFRA_SETTINGS_KEY } from "../core/settings/types.js";
-import type { InfraSettingsAPI } from "../core/settings/types.js";
+import { getSettingsAPI } from "../core/settings/bridge.js";
 
 import { EDITOR_MODE_PROVIDER_KEY } from "../core/hud/types.js";
 import type { EditorModeProvider } from "../core/hud/types.js";
 
-import { INFRA_KEYBIND_KEY } from "../core/keybind/types.js";
-import type { InfraKeybindAPI } from "../core/keybind/types.js";
+import { getKeybindAPI } from "../core/keybind/bridge.js";
 import { SHELL_POPUP_BRIDGE_KEY } from "../core/shell/types.js";
 import type { ShellPopupBridge } from "../core/shell/types.js";
 
@@ -197,7 +195,7 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
   registerAgentPanelShortcut();
   registerModelCommands(pi);
 
-  const keybind = (globalThis as any)[INFRA_KEYBIND_KEY] as InfraKeybindAPI;
+  const keybind = getKeybindAPI();
   keybind.register({
     extension: "fleet",
     action: "carrier-bridge",
@@ -489,7 +487,7 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
 
   // ── 설정 팝업(Alt+/) 섹션 등록 ──
 
-  const infraApi = (globalThis as any)[INFRA_SETTINGS_KEY] as InfraSettingsAPI | undefined;
+  const infraApi = getSettingsAPI();
   infraApi?.registerSection({
     key: "fleet",
     displayName: "Fleet",

@@ -8,7 +8,7 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 
-import { INFRA_KEYBIND_KEY, _bootstrapKeybind } from "./types.js";
+import { _bootstrapKeybind, getKeybindAPI } from "./bridge.js";
 import type { InfraKeybindAPI, KeybindRegistration, ResolvedBinding } from "./types.js";
 import { getOverrideKey } from "./store.js";
 import { addBinding, getBindings, getKey } from "./registry.js";
@@ -56,7 +56,7 @@ export default function (pi: ExtensionAPI) {
   });
 
   // 자체 오버레이 단축키 등록 (storedPi가 설정된 후이므로 즉시 등록됨)
-  const keybindApi = (globalThis as any)[INFRA_KEYBIND_KEY] as InfraKeybindAPI;
+  const keybindApi = getKeybindAPI();
   keybindApi.register({
     extension: "infra-keybind",
     action: "popup",

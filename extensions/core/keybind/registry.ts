@@ -5,7 +5,7 @@
  * 바인딩 배열은 globalThis에 보관하여 모듈 재로드 시 유실을 방지한다.
  */
 
-import { INFRA_KEYBIND_KEY } from "./types.js";
+import { INFRA_KEYBIND_KEY } from "./bridge.js";
 import type { ResolvedBinding } from "./types.js";
 
 /** globalThis에 보관된 바인딩 배열 접근 */

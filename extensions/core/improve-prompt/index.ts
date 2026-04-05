@@ -13,10 +13,8 @@ import { REASONING_LEVELS, REASONING_LABELS, REASONING_COLORS, isValidReasoning 
 import { loadSettings, saveSettings } from "./settings.js";
 import type { MetaPromptSettings } from "./settings.js";
 import { resolveModel, metaPromptWithLoader } from "./engine.js";
-import type { InfraSettingsAPI } from "../settings/types.js";
-import { INFRA_SETTINGS_KEY } from "../settings/types.js";
-import { INFRA_KEYBIND_KEY } from "../keybind/types.js";
-import type { InfraKeybindAPI } from "../keybind/types.js";
+import { getSettingsAPI } from "../settings/bridge.js";
+import { getKeybindAPI } from "../keybind/bridge.js";
 
 export default function (pi: ExtensionAPI) {
   // 설정 파일에서 초기 reasoning 레벨 로드 (기본: off)
@@ -28,7 +26,7 @@ export default function (pi: ExtensionAPI) {
 
   // ── 팝업 섹션 등록 ──
 
-  const infraApi = (globalThis as any)[INFRA_SETTINGS_KEY] as InfraSettingsAPI | undefined;
+  const infraApi = getSettingsAPI();
   infraApi?.registerSection({
     key: "utils-improve-prompt",
     displayName: "Meta Prompt",
@@ -151,7 +149,7 @@ export default function (pi: ExtensionAPI) {
 
   // ── 단축키 등록 ──
 
-  const keybind = (globalThis as any)[INFRA_KEYBIND_KEY] as InfraKeybindAPI;
+  const keybind = getKeybindAPI();
   keybind.register({
     extension: "utils-improve-prompt",
     action: "meta-prompt",

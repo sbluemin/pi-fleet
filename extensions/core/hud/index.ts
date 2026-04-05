@@ -8,8 +8,7 @@
 import type { ExtensionAPI, ReadonlyFooterDataProvider } from "@mariozechner/pi-coding-agent";
 
 
-import { INFRA_KEYBIND_KEY } from "../keybind/types.js";
-import type { InfraKeybindAPI } from "../keybind/types.js";
+import { getKeybindAPI } from "../keybind/bridge.js";
 import type { HudCoreConfig, StatusLinePreset } from "./types.js";
 import { PRESETS } from "./presets.js";
 import { invalidateGitStatus, invalidateGitBranch } from "./git-status.js";
@@ -174,7 +173,7 @@ export default function hudEditor(pi: ExtensionAPI) {
 
   // ── 단축키 등록 ──
 
-  const keybind = (globalThis as any)[INFRA_KEYBIND_KEY] as InfraKeybindAPI;
+  const keybind = getKeybindAPI();
   keybind.register({
     extension: "infra-hud",
     action: "stash",

@@ -1,9 +1,8 @@
 /**
- * infra-keybind/types.ts — API 인터페이스 및 타입 정의
+ * infra-keybind/types.ts — 순수 타입/인터페이스 정의
  *
- * globalThis 키와 bridge interface를 이 파일에서 정의한다.
- * 다른 확장이 types.ts를 import하는 것만으로 globalThis API 접근이 보장된다.
- * (AGENTS.md: "globalThis key와 bridge interface는 소유 확장의 types.ts에 정의")
+ * 부수효과 없음: import만으로 globalThis를 조작하지 않는다.
+ * 런타임 브릿지 로직은 bridge.ts에 분리되어 있다.
  */
 
 /** 단축키 등록 요청 */
@@ -40,62 +39,7 @@ export interface InfraKeybindAPI {
   getKey(extension: string, action: string): string | undefined;
 }
 
-/** globalThis 브릿지 키 */
+// ── 상수 ──
+
+/** globalThis 브릿지 키 (AGENTS.md: globalThis key는 types.ts에 정의) */
 export const INFRA_KEYBIND_KEY = "__infra_keybind__";
-
-// ── 큐 기반 stub API (globalThis 객체에 상태 보관) ──
-// ⚠️ pi는 각 확장을 별도 번들로 로드하므로 모듈 레벨 변수는
-//    확장 간에 공유되지 않는다. 따라서 _queue와 _impl을
-//    globalThis 객체의 프로퍼티로 저장하여 번들 간 공유를 보장한다.
-// 가드: 이미 등록되어 있으면(다른 번들에서 먼저 실행됨) 덮어쓰지 않는다.
-
-if (!(globalThis as any)[INFRA_KEYBIND_KEY]) {
-  (globalThis as any)[INFRA_KEYBIND_KEY] = {
-    _impl: null as InfraKeybindAPI | null,
-    _queue: [] as KeybindRegistration[],
-    _bindings: [] as ResolvedBinding[],
-    _warnTimer: setTimeout(() => {
-      const self = (globalThis as any)[INFRA_KEYBIND_KEY];
-      if (!self._impl && self._queue.length > 0) {
-        console.warn(
-          "[infra-keybind] infra-keybind 확장이 로드되지 않았습니다. " +
-          `큐에 ${self._queue.length}개의 단축키가 등록 대기 중이지만 실제 등록되지 않습니다.`,
-        );
-      }
-    }, 500),
-    register(binding: KeybindRegistration) {
-      const self = (globalThis as any)[INFRA_KEYBIND_KEY];
-      if (self._impl) {
-        self._impl.register(binding);
-      } else {
-        self._queue.push(binding);
-      }
-    },
-    getBindings() {
-      const self = (globalThis as any)[INFRA_KEYBIND_KEY];
-      return self._impl?.getBindings() ?? [];
-    },
-    getKey(ext: string, action: string) {
-      const self = (globalThis as any)[INFRA_KEYBIND_KEY];
-      return self._impl?.getKey(ext, action);
-    },
-  };
-}
-
-/** @internal index.ts에서 호출 — 실제 구현 주입 + 큐 flush */
-export function _bootstrapKeybind(impl: InfraKeybindAPI): void {
-  const bridge = (globalThis as any)[INFRA_KEYBIND_KEY];
-  // 단독 실행 경고 타이머 해제
-  if (bridge._warnTimer) {
-    clearTimeout(bridge._warnTimer);
-    bridge._warnTimer = null;
-  }
-
-  bridge._impl = impl;
-
-  // 큐에 대기 중인 바인딩 flush
-  for (const binding of bridge._queue) {
-    impl.register(binding);
-  }
-  bridge._queue.length = 0;
-}

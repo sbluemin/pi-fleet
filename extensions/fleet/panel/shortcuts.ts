@@ -15,8 +15,7 @@
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 
-import { INFRA_KEYBIND_KEY } from "../../core/keybind/types.js";
-import type { InfraKeybindAPI } from "../../core/keybind/types.js";
+import { getKeybindAPI } from "../../core/keybind/bridge.js";
 import { BODY_H_STEP } from "../constants";
 import {
   activateCarrier,
@@ -29,7 +28,7 @@ import { getState } from "./state.js";
 import { syncWidget } from "./widget-sync.js";
 
 export function registerAgentPanelShortcut(): void {
-  const keybind = (globalThis as any)[INFRA_KEYBIND_KEY] as InfraKeybindAPI;
+  const keybind = getKeybindAPI();
 
   // ── Alt+P: 패널 토글 (기존 동작 유지 + 커서 초기화) ──
   keybind.register({
