@@ -27,7 +27,8 @@ export interface AgentPanelState {
   frame: number;
   animTimer: ReturnType<typeof setInterval> | null;
   lastCtx: ExtensionContext | null;
-  activeMode: string | null;
+  /** 패널 로컬 상세 뷰 대상 carrier ID (null = N칼럼 뷰) */
+  detailCarrierId: string | null;
   bottomHint: string;
   /** 캐리어별(carrierId) 모델 설정 */
   modelConfig: Record<string, FooterModelInfo>;
@@ -62,7 +63,7 @@ export function getState(): AgentPanelState {
       frame: 0,
       animTimer: null,
       lastCtx: null,
-      activeMode: null,
+      detailCarrierId: null,
       bottomHint: formatPanelMultiColHint(),
       modelConfig: {},
       serviceSnapshots: [],
@@ -74,7 +75,7 @@ export function getState(): AgentPanelState {
     };
     (globalThis as any)[STATE_KEY] = s;
   }
-  if (s.activeMode === undefined) s.activeMode = null;
+  if (s.detailCarrierId === undefined) s.detailCarrierId = null;
   if (s.bottomHint === undefined) s.bottomHint = formatPanelMultiColHint();
   if (!s.modelConfig) s.modelConfig = {};
   if (!s.serviceSnapshots) s.serviceSnapshots = [];
@@ -118,14 +119,61 @@ export function findColIndex(carrierId: string): number {
   return getState().cols.findIndex((col) => col.cli === carrierId);
 }
 
-export function syncColSessionIds(): void {
+export function syncColsWithRegisteredOrder(): void {
   const s = getState();
   const sessionMap = getSessionStore().getAll() as Readonly<Record<string, string | undefined>>;
+  const existing = new Map(s.cols.map((col) => [col.cli, col] as const));
+  const orderedIds = getDefaultClis();
+  const selectedCarrierId = s.cursorColumn >= 0 && s.cursorColumn < s.cols.length
+    ? s.cols[s.cursorColumn]?.cli ?? null
+    : null;
 
-  for (const col of s.cols) {
-    col.sessionId = sessionMap[col.cli];
-    setRunSessionId(col.cli, sessionMap[col.cli]);
+  s.cols = orderedIds.map((cli) => {
+    const col = existing.get(cli);
+    const sessionId = sessionMap[cli];
+    setRunSessionId(cli, sessionId);
+    if (col) {
+      col.sessionId = sessionId;
+      return col;
+    }
+
+    const run = ensureVisibleRun(cli);
+    return {
+      cli,
+      sessionId: sessionId ?? run.sessionId,
+      text: "",
+      blocks: [],
+      thinking: "",
+      toolCalls: [],
+      status: "wait" as const,
+      error: undefined,
+      scroll: 0,
+    };
+  });
+
+  if (s.detailCarrierId && !s.cols.some((col) => col.cli === s.detailCarrierId)) {
+    s.detailCarrierId = null;
   }
+  if (selectedCarrierId) {
+    s.cursorColumn = s.cols.findIndex((col) => col.cli === selectedCarrierId);
+  }
+  if (s.cursorColumn >= s.cols.length) {
+    s.cursorColumn = s.cols.length > 0 ? s.cols.length - 1 : -1;
+  }
+}
+
+/**
+ * 현재 포커싱된 carrier ID를 반환합니다.
+ * 상세 뷰 대상 → 멀티칼럼 커서 포커싱 순으로 우선순위를 적용합니다.
+ * 아무 것도 선택되지 않으면 null.
+ */
+export function getFocusedCarrierId(): string | null {
+  const s = getState();
+  if (s.detailCarrierId) return s.detailCarrierId;
+  if (s.expanded && s.cursorColumn >= 0 && s.cursorColumn < s.cols.length) {
+    return s.cols[s.cursorColumn]?.cli ?? null;
+  }
+  return null;
 }
 
 export function makeFooterCols(): AgentCol[] {

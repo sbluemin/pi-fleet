@@ -1,10 +1,10 @@
 /**
  * fleet — 에이전트 패널 렌더러
  *
- * activeMode에 따라 동적 레이아웃을 제공합니다:
- * - 활성 carrier 지정 → 1칼럼 독점 뷰 (전체 폭, thinking/tools 상세)
- * - 비활성/null → N칼럼 동적 뷰
- * 프레임 색상은 activeMode에 맞게 동적 변경됩니다.
+ * detailCarrierId에 따라 동적 레이아웃을 제공합니다:
+ * - carrier 지정 → 1칼럼 상세 뷰 (전체 폭, thinking/tools 상세)
+ * - null → N칼럼 동적 뷰
+ * 프레임 색상은 detailCarrierId에 맞게 동적 변경됩니다.
  */
 
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
@@ -14,16 +14,13 @@ import {
   SPINNER_FRAMES,
   PANEL_COLOR,
   PANEL_DIM_COLOR,
-  PANEL_MODE_BANNER_HINT,
   SYM_INDICATOR,
 } from "../constants";
 import {
-  getRegisteredOrder,
   resolveCarrierColor,
   resolveCarrierBgColor,
   resolveCarrierRgb,
   resolveCarrierDisplayName,
-  resolveCarrierCliDisplayName,
 } from "../shipyard/carrier/framework.js";
 import { renderBlockLines, blockLineAnsiColor } from "./block-renderer";
 
@@ -49,9 +46,9 @@ interface WaveConfig {
 /**
  * 에이전트 패널의 메인 뷰를 렌더링합니다.
  *
- * activeMode에 따라 동적 레이아웃:
- * - 활성 carrier 지정 → 1칼럼 독점 뷰 (전체 폭, 상세 표시)
- * - 비활성/null → N칼럼 동적 뷰
+ * detailCarrierId에 따라 동적 레이아웃:
+ * - carrier 지정 → 1칼럼 상세 뷰 (전체 폭, 상세 표시)
+ * - null → N칼럼 동적 뷰
  * 스트리밍 중이면 보더 와이어프레임에 파도 애니메이션 적용.
  */
 export function renderPanelFull(
@@ -60,12 +57,12 @@ export function renderPanelFull(
   frame: number,
   frameColor: string,
   bottomHint: string,
-  activeMode: string | null,
+  detailCarrierId: string | null,
   bodyH: number,
   cursorColumn = -1,
 ): string[] {
   const FC = frameColor || PANEL_COLOR;
-  const activeIndex = activeMode ? cols.findIndex((col) => col.cli === activeMode) : -1;
+  const detailIndex = detailCarrierId ? cols.findIndex((col) => col.cli === detailCarrierId) : -1;
 
   // 패널 높이: top(1) + header(1) + sep(1) + body(bodyH) + bottom(1)
   const panelH = 3 + bodyH + 1;
@@ -74,11 +71,11 @@ export function renderPanelFull(
   // 스트리밍 중이면 보더에 대각선 스위프 애니메이션 적용
   const isStreaming = cols.some((col) => col.status === "conn" || col.status === "stream");
   const wave: WaveConfig | undefined = isStreaming
-    ? { rgb: resolveCarrierRgb(activeMode ?? ""), frame, totalDiag, bandWidth: 12 }
+    ? { rgb: resolveCarrierRgb(detailCarrierId ?? ""), frame, totalDiag, bandWidth: 12 }
     : undefined;
 
-  if (activeIndex >= 0) {
-    return renderExclusive(w, cols, frame, FC, bottomHint, activeIndex, bodyH, wave);
+  if (detailIndex >= 0) {
+    return renderDetailView(w, cols, frame, FC, bottomHint, detailIndex, bodyH, wave);
   }
 
   return renderMultiCol(w, cols, frame, FC, bottomHint, bodyH, wave, cursorColumn);
@@ -135,79 +132,6 @@ export function waveText(
   }
 
   return result;
-}
-
-/**
- * Carrier 활성 시 한 줄 배너를 렌더링합니다.
- * 패널이 접힌 상태(expanded=false)에서 activeMode가 있을 때 aboveEditor에 표시됩니다.
- *
- * 레이아웃: [BG] {carrier 활성화 문구}(왼쪽) .... {단축키 힌트}(우측) [RESET]
- * 스트리밍 중이면 왼쪽 텍스트에 파도 그라데이션 애니메이션 적용.
- */
-export function renderModeBanner(
-  w: number,
-  activeMode: string,
-  frame: number,
-  cols: AgentCol[],
-): string[] {
-  const fg = resolveCarrierColor(activeMode) || PANEL_COLOR;
-  const bg = resolveCarrierBgColor(activeMode);
-  const carrierName = resolveCarrierDisplayName(activeMode);
-  const cliName = resolveCarrierCliDisplayName(activeMode);
-  const rgb = resolveCarrierRgb(activeMode);
-
-  // 스트리밍 중인 칼럼 감지 (등록된 carrier면 해당 칼럼만, 그 외 그룹 모드면 아무 칼럼)
-  const isSingleCliMode = getRegisteredOrder().includes(activeMode);
-  const streamingCol = cols.find((col) =>
-    (!isSingleCliMode || col.cli === activeMode) &&
-    (col.status === "conn" || col.status === "stream"),
-  );
-
-  // 중앙: 모드명 (스트리밍 시 스피너 + 진행 상태)
-  let centerPlain: string;
-  if (streamingCol) {
-    const spinner = SPINNER_FRAMES[frame % SPINNER_FRAMES.length];
-    const parts: string[] = [];
-    if (streamingCol.toolCalls.length > 0) parts.push(`${streamingCol.toolCalls.length}T`);
-    const lineCount = streamingCol.text.trim() ? streamingCol.text.split("\n").length : 0;
-    if (lineCount > 0) parts.push(`${lineCount}L`);
-    const progress = parts.length > 0 ? parts.join("·") : "running";
-    centerPlain = `${spinner} ${carrierName} ${progress}`;
-  } else {
-    centerPlain = `◈ Carrier ${carrierName} · ${cliName} on station`;
-  }
-
-  // 우측: 단축키 힌트
-  const rightText = PANEL_MODE_BANNER_HINT;
-
-  // 전체 폭 기준 가운데 정렬, 우측 힌트와 겹치면 폴백
-  const centerW = visibleWidth(centerPlain);
-  const rightW = visibleWidth(rightText);
-  let padLeft = Math.floor((w - centerW) / 2);
-  let padRight = w - padLeft - centerW - rightW;
-
-  if (padRight < 0) {
-    const availableW = Math.max(0, w - rightW);
-    const totalPad = Math.max(0, availableW - centerW);
-    padLeft = Math.floor(totalPad / 2);
-    padRight = totalPad - padLeft;
-  }
-
-  // 스트리밍 중이면 파도 그라데이션, 아니면 정적 색상
-  const coloredCenter = streamingCol
-    ? waveText(centerPlain, rgb, frame)
-    : fg + centerPlain;
-
-  const line =
-    bg +
-    " ".repeat(padLeft) +
-    coloredCenter +
-    ANSI_RESET + bg +
-    " ".repeat(padRight) +
-    PANEL_DIM_COLOR + rightText +
-    ANSI_RESET;
-
-  return [line];
 }
 
 // ─── 렌더링 헬퍼 ────────────────────────────────────────
@@ -309,14 +233,14 @@ function pickHeaderLabel(
   return candidates.find((candidate) => visibleWidth(candidate) <= maxWidth) ?? candidates.at(-1)!;
 }
 
-function pickExclusiveHeader(
+function pickDetailHeader(
   cols: AgentCol[],
-  activeIndex: number,
+  detailIndex: number,
   frame: number,
   width: number,
 ): string {
-  const active = cols[activeIndex];
-  const others = cols.filter((_, index) => index !== activeIndex);
+  const active = cols[detailIndex];
+  const others = cols.filter((_, index) => index !== detailIndex);
   const separator = `${PANEL_DIM_COLOR}   ${ANSI_RESET}`;
   const separatorCompact = `${PANEL_DIM_COLOR} │ ${ANSI_RESET}`;
   const activeFull = pickHeaderLabel(active, frame, width);
@@ -446,24 +370,24 @@ function renderBottomBorder(w: number, FC: string, bottomHint: string, wave: Wav
   );
 }
 
-// ─── 1칼럼 독점 뷰 ─────────────────────────────────────
+// ─── 1칼럼 상세 뷰 ─────────────────────────────────────
 
 /**
- * 특정 CLI의 독점 뷰를 렌더링합니다.
+ * 특정 CLI의 상세 뷰를 렌더링합니다.
  * 전체 폭을 사용하고, thinking/tools를 상세 표시합니다.
  * 헤더 우측에 나머지 에이전트의 상태를 요약합니다.
  */
-function renderExclusive(
+function renderDetailView(
   w: number,
   cols: AgentCol[],
   frame: number,
   FC: string,
   bottomHint: string,
-  activeIndex: number,
+  detailIndex: number,
   bodyH: number,
   wave?: WaveConfig,
 ): string[] {
-  const col = cols[activeIndex];
+  const col = cols[detailIndex];
   const iw = Math.max(15, w - 2);
   const R: string[] = [];
   let ri = 0;
@@ -471,8 +395,8 @@ function renderExclusive(
   R.push(renderTopBorder(w, FC, wave));
   ri++;
 
-  // ── 헤더: 독점 CLI + 나머지 상태 요약 (가운데 정렬) ──
-  const headerLine = pickExclusiveHeader(cols, activeIndex, frame, iw);
+  // ── 헤더: 상세 뷰 CLI + 나머지 상태 요약 (가운데 정렬) ──
+  const headerLine = pickDetailHeader(cols, detailIndex, frame, iw);
   R.push(
     vBorder(FC, wave, ri) + ANSI_RESET +
     centerText(headerLine, iw) +
@@ -509,7 +433,7 @@ function renderExclusive(
 
 // ─── N칼럼 동적 뷰 ──────────────────────────────────────
 
-/** N칼럼 동시 뷰를 렌더링합니다 (비독점 또는 커스텀 carrier용). */
+/** N칼럼 동시 뷰를 렌더링합니다. */
 function renderMultiCol(
   w: number,
   cols: AgentCol[],
@@ -611,7 +535,7 @@ function renderMultiCol(
   return R;
 }
 
-// ─── 모드 배너 렌더러 ───────────────────────────────────
+// ─── 스위프 애니메이션 헬퍼 ───────────────────────────────
 
 /** 대각선 위치 기반 밝기 계수 반환 (-0.2 ~ +0.5) */
 function sweepFactor(diag: number, cfg: WaveConfig): number {

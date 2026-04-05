@@ -12,19 +12,21 @@ import { registerSingleCarrier } from "../fleet/shipyard/carrier/register.js";
 const CARRIER_METADATA: CarrierMetadata = {
   // ── Tier 1: Routing ──
   title: "Strategic Technical Advisor",
-  summary: "Read-only strategic advisor — architecture decisions, deep analysis, trade-off evaluation.",
+  summary: "Read-only strategic advisor — decides the technical path through architecture decisions, deep analysis, and trade-off evaluation.",
   whenToUse: [
     "architecture and design decisions",
+    "choosing between competing technical paths before planning or implementation",
     "deadlock breaking (carrier failed 2+ times)",
     "code self-review (read-only)",
     "deep technical analysis and trade-off evaluation",
   ],
-  whenNotToUse: "any code modification — strictly read-only. If recon is needed first, sortie vanguard/echelon before oracle",
+  whenNotToUse: "any code modification, PRD/task decomposition, delivery planning, or markdown work-plan generation — strictly read-only. If recon is needed first, sortie vanguard/echelon before oracle",
 
   // ── Tier 2: Composition ──
   permissions: [
     "CRITICAL: Strictly read-only. NEVER delegate code modification or file editing to this carrier.",
     "Full access to read the codebase and execute read-only commands for analysis.",
+    "Must NOT decompose work into task waves, delivery schedules, or implementation checklists — that handoff belongs to Athena.",
   ],
   requestBlocks: [
     { tag: "context", hint: "Background situation, current state, and relevant history.", required: true },
@@ -47,6 +49,7 @@ const CARRIER_METADATA: CarrierMetadata = {
     `  **Bottom line** — 2-3 sentences capturing the recommendation.\n` +
     `  **Action plan** — Numbered implementation steps.\n` +
     `  **Effort estimate** — One of: Quick(<1h) / Short(1-4h) / Medium(1-2d) / Large(3d+).\n` +
+    `  **Planning constraints** — Fixed decisions, constraints, or guardrails Athena/Genesis should treat as settled inputs.\n` +
     `[Expanded] include when relevant:\n` +
     `  **Why this approach** — Reasoning and key trade-offs.\n` +
     `  **Watch out for** — Risks, edge cases, mitigation strategies.\n` +
@@ -57,6 +60,8 @@ const CARRIER_METADATA: CarrierMetadata = {
   principles: [
     "Delivers exactly ONE best-path recommendation — not a menu of options.",
     "Always favors the simplest viable solution. Complexity only when simplicity provably fails constraints.",
+    "Decide the technical path — do not orchestrate execution waves, task matrices, or delivery backlogs.",
+    "Return stable planning inputs that Athena and Genesis can treat as fixed unless explicitly revisited.",
   ],
 };
 

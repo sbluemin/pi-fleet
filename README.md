@@ -44,9 +44,9 @@ Independent carrier registrations defining unique personas for each CLI instance
 
 | Carrier | CLI | Role | Slot |
 |---------|-----|------|------|
-| **Genesis** | Claude | CVN-01 Chief Engineer (System design & core backend) | #1 |
-| **Arbiter** | Claude | CVN-02 Strategic Planning Consultant (Requirements analysis & structured work planning) | #2 |
-| **Oracle**  | Claude | CVN-09 Strategic Technical Advisor (Read-only architectural guidance) | #3 |
+| **Genesis** | Claude | CVN-01 Chief Engineer (Implementation, integration & code delivery) | #1 |
+| **Athena** | Claude | CVN-02 Strategic Planning Officer (Requirements clarification, PRD realization & structured work planning) | #2 |
+| **Oracle**  | Claude | CVN-09 Strategic Technical Advisor (Read-only technical path decisions & architectural guidance) | #3 |
 | **Crucible**| Codex  | CVN-03 Chief Forgemaster (Dead code removal & DRY refactoring) | #4 |
 | **Sentinel**| Codex  | CVN-04 The Inquisitor / QA Lead (Code review, defect detection & quality audits) | #5 |
 | **Raven**   | Codex  | CVN-05 Red Team Commander (Security auditing & penetration testing) | #6 |

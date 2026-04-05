@@ -6,10 +6,10 @@
  * ┌──────────────────────────────────────────────────────┐
  * │ alt+p → 에이전트 패널 토글                            │
  * │ alt+h/l → 인라인 슬롯 내비게이션 (←/→)               │
- * │ ctrl+enter → 선택 Carrier 독점 모드 활성화             │
+ * │ ctrl+enter → 선택 Carrier 상세 뷰 토글               │
  * │ alt+t → Carrier Bridge (PTY 네이티브 브리지)         │
- * │ alt+x → 활성 Carrier 실행 취소                       │
- * │ alt+shift+m → 활성 Carrier 모델/추론 설정 변경         │
+ * │ alt+x → 선택 Carrier 실행 취소                       │
+ * │ alt+shift+m → Carrier 모델/추론 설정 변경             │
  * │ alt+o → 캐리어 함대 현황 오버레이                      │
  * └──────────────────────────────────────────────────────┘
  */
@@ -22,7 +22,6 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 
 import {
   onStatusUpdate,
-  getActiveCarrierId,
   getRegisteredOrder,
   getRegisteredCarrierConfig,
   notifyStatusUpdate,
@@ -78,7 +77,7 @@ import {
 } from "./shipyard/taskforce/types.js";
 import { TaskForceConfigOverlay } from "./shipyard/carrier/taskforce-config-overlay.js";
 import type { TaskForceOverlayCallbacks } from "./shipyard/carrier/taskforce-config-overlay.js";
-import { getState as getPanelState } from "./panel/state.js";
+import { getFocusedCarrierId } from "./panel/state.js";
 import { CarrierStatusOverlay } from "./shipyard/carrier/status-overlay.js";
 import type { CarrierStatusGroup, CarrierStatusEntry } from "./shipyard/carrier/status-overlay.js";
 import type { ProviderKey } from "../core/agent/types.js";
@@ -89,7 +88,7 @@ import type { ShellPopupBridge } from "../core/shell/types.js";
 
 export type { CollectedStreamData } from "./streaming/types.js";
 
-export { runAgentRequest } from "./operation-runner.js";
+export { runAgentRequest, abortCarrierRun } from "./operation-runner.js";
 
 export {
   loadModels as getModelConfig,
@@ -115,9 +114,6 @@ export { syncModelConfig, registerModelCommands } from "./shipyard/carrier/model
 
 export {
   registerCarrier,
-  activateCarrier,
-  deactivateCarrier,
-  getActiveCarrierId,
   getRegisteredOrder,
   getRegisteredCarrierConfig,
   getAllCliTypes,
@@ -141,8 +137,6 @@ export {
 
 export type {
   CarrierConfig,
-  CarrierHelpers,
-  CarrierResult,
 } from "./shipyard/carrier/framework.js";
 
 export { registerSingleCarrier } from "./shipyard/carrier/register.js";
@@ -216,16 +210,7 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
       }
       if (bridge.isOpen()) return;
 
-      // 1차: 독점 모드 활성 캐리어
-      let targetId = getActiveCarrierId();
-
-      // 2차: 멀티칼럼 커서 포커싱 캐리어
-      if (!targetId) {
-        const ps = getPanelState();
-        if (ps.expanded && ps.cursorColumn >= 0 && ps.cursorColumn < ps.cols.length) {
-          targetId = ps.cols[ps.cursorColumn]?.cli ?? null;
-        }
-      }
+      const targetId = getFocusedCarrierId();
 
       const carrierConfig = targetId ? getRegisteredCarrierConfig(targetId) : undefined;
       if (!carrierConfig || !targetId) {
@@ -365,6 +350,7 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
 
                 // 2. CLI 타입 변경
                 updateCarrierCliType(carrierId, newCliType as CliType);
+                refreshAgentPanel(ctx);
 
                 // 3. 새 CLI의 저장된 설정 복원 (없으면 기본 모델)
                 const saved = getPerCliSettings(carrierId, newCliType);

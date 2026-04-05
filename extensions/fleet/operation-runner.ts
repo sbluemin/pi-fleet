@@ -41,6 +41,12 @@ import { UNIFIED_AGENT_REQUEST_KEY } from "./types.js";
 
 interface RunAgentRequestOptions extends UnifiedAgentRequestOptions {}
 
+interface RunnerState {
+  abortControllers: Map<string, AbortController>;
+}
+
+const RUNNER_STATE_KEY = "__pi_fleet_operation_runner__";
+
 // ─── 공개 API ────────────────────────────────────────────
 
 /**
@@ -64,6 +70,10 @@ export async function runAgentRequest(options: RunAgentRequestOptions): Promise<
 
   const carrierId = options.carrierId;
   const colIndex = findColIndex(carrierId);
+  const runnerState = getRunnerState();
+  const localAbortController = new AbortController();
+  runnerState.abortControllers.set(carrierId, localAbortController);
+  const effectiveSignal = signal ? AbortSignal.any([signal, localAbortController.signal]) : localAbortController.signal;
 
   // 1. store에 새 run 생성 (첫 줄만 추출하여 헤더 미리보기로 저장)
   const requestPreview = request?.trim().split(/\r?\n/, 1)[0];
@@ -85,7 +95,7 @@ export async function runAgentRequest(options: RunAgentRequestOptions): Promise<
       model: cliConfig?.model,
       effort: cliConfig?.effort,
       budgetTokens: cliConfig?.budgetTokens,
-      signal,
+      signal: effectiveSignal,
       onMessageChunk: (text) => {
         appendTextBlock(carrierId, sanitizeChunk(text));
         syncColFromStore(carrierId, colIndex);
@@ -157,11 +167,19 @@ export async function runAgentRequest(options: RunAgentRequestOptions): Promise<
     syncColFromStore(carrierId, colIndex);
     throw error;
   } finally {
+    runnerState.abortControllers.delete(carrierId);
     // 6. 패널 칼럼 스트리밍 종료
     if (colIndex >= 0) {
       endColStreaming(ctx, colIndex);
     }
   }
+}
+
+export function abortCarrierRun(carrierId: string): boolean {
+  const controller = getRunnerState().abortControllers.get(carrierId);
+  if (!controller) return false;
+  controller.abort();
+  return true;
 }
 
 /**
@@ -182,6 +200,16 @@ export function exposeAgentApi(): UnifiedAgentRequestBridge {
 // ─── 내부 헬퍼 ──────────────────────────────────────────
 
 /** executeWithPool의 AgentStatus를 공개 API의 최종 상태로 변환 */
+function getRunnerState(): RunnerState {
+  const root = globalThis as Record<string, unknown>;
+  const existing = root[RUNNER_STATE_KEY] as RunnerState | undefined;
+  if (existing) return existing;
+
+  const state: RunnerState = { abortControllers: new Map() };
+  root[RUNNER_STATE_KEY] = state;
+  return state;
+}
+
 function toFinalStatus(status: AgentStatus): UnifiedAgentRequestStatus {
   if (status === "done" || status === "aborted") {
     return status;

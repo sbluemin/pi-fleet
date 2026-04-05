@@ -1,61 +1,45 @@
 /**
  * fleet/panel/lifecycle.ts — 에이전트 패널 라이프사이클 API
  *
- * 스트리밍 시작/종료, 패널 토글, 모드 설정, 칼럼 업데이트 등
+ * 스트리밍 시작/종료, 패널 토글, 상세 뷰, 칼럼 업데이트 등
  * 외부에서 호출하는 모든 패널 조작 API를 제공합니다.
  */
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
-import { ANIM_INTERVAL_MS, formatPanelMultiColHint } from "../constants";
-import { getState, makeCols, syncColSessionIds } from "./state.js";
+import { ANIM_INTERVAL_MS, formatPanelMultiColHint, PANEL_DETAIL_HINT } from "../constants";
+import { getState, makeCols, syncColsWithRegisteredOrder } from "./state.js";
 import type { AgentCol } from "./types.js";
 import { syncWidget } from "./widget-sync.js";
 
 // 편의를 위한 re-export
 export type { AgentCol } from "./types.js";
 
-// ─── 패널 모드 관리 ──────────────────────────────────────
+// ─── 패널 상세 뷰 관리 ──────────────────────────────────
 
 /**
- * 에이전트 패널의 활성 모드를 설정합니다.
- * 프레임워크의 모드 전환 시 호출되어 독점/N분할 레이아웃을 결정합니다.
- *
- * @param mode - Carrier ID 또는 null (비활성)
- * @param options.bottomHint - 하단 보더 힌트 텍스트
- * @param options.clis - 사용자 정의 CLI 리스트 (지정 시 칼럼을 해당 리스트로 재초기화)
+ * 패널 로컬 상세 뷰를 설정합니다.
+ * carrierId를 지정하면 해당 carrier의 1칼럼 상세 뷰로 전환합니다.
+ * null이면 N칼럼 멀티 뷰로 복귀합니다.
  */
-export function setAgentPanelMode(
+export function setDetailView(
   ctx: ExtensionContext,
-  mode: string | null,
-  options?: { bottomHint?: string; clis?: readonly string[] },
+  carrierId: string | null,
 ): void {
   const s = getState();
-  s.activeMode = mode;
+  s.detailCarrierId = carrierId;
 
-  if (options?.bottomHint) {
-    s.bottomHint = options.bottomHint;
-  } else if (mode === null) {
+  if (carrierId === null) {
     s.bottomHint = formatPanelMultiColHint();
-  }
-
-  // 사용자 정의 CLI 리스트가 지정되면 칼럼을 즉시 재초기화
-  // 비활성화(mode=null) 시에도 기본 칼럼으로 복원
-  if (options?.clis) {
-    s.cols = makeCols(options.clis);
-  } else if (mode === null) {
-    s.cols = makeCols();
-  } else if (mode !== null && !s.cols.some((c) => c.cli === mode)) {
-    // 활성 carrier가 cols에 없으면 기본 칼럼으로 재생성
-    // (carrier 등록 타이밍 경합으로 stale cols가 남은 경우 복구)
-    s.cols = makeCols();
+  } else {
+    s.bottomHint = PANEL_DETAIL_HINT;
   }
 
   syncWidget(ctx);
 }
 
-/** 현재 활성 모드를 반환합니다. */
-export function getAgentPanelMode(): string | null {
-  return getState().activeMode;
+/** 현재 상세 뷰 대상 carrier ID를 반환합니다. (null = N칼럼) */
+export function getDetailCarrierId(): string | null {
+  return getState().detailCarrierId;
 }
 
 // ─── 스트리밍 라이프사이클 ───────────────────────────────
@@ -162,7 +146,7 @@ export function resetAgentPanel(ctx: ExtensionContext): void {
 export function refreshAgentPanel(ctx: ExtensionContext): void {
   const s = getState();
   s.lastCtx = ctx;
-  syncColSessionIds();
+  syncColsWithRegisteredOrder();
   syncWidget(ctx);
 }
 

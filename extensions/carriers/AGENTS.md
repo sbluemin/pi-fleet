@@ -1,6 +1,6 @@
 # carriers
 
-**Independent carrier registration extension** — defines individual carriers (genesis, arbiter, crucible, sentinel, raven, vanguard, echelon, chronicle, oracle) as a standalone, optional extension. Chronicle additionally owns change-impact documentation and release communication within the documentation domain.
+**Independent carrier registration extension** — defines individual carriers (genesis, athena, crucible, sentinel, raven, vanguard, echelon, chronicle, oracle) as a standalone, optional extension. Chronicle additionally owns change-impact documentation and release communication within the documentation domain.
 
 ## Role
 
@@ -16,8 +16,8 @@ carriers/
 ├── AGENTS.md          ← This file
 ├── index.ts           ← Extension entry point (wiring only — imports and registers all carriers)
 ├── genesis.ts         ← CVN-01 Chief Engineer (Claude Code)
-├── arbiter.ts         ← CVN-02 Chief Doctrine Officer (Claude Code) ← slot 3
-├── crucible.ts        ← CVN-03 Chief Forgemaster (Codex CLI) ← slot 2
+├── athena.ts          ← CVN-02 Strategic Planning Officer (Claude Code) ← slot 2
+├── crucible.ts        ← CVN-03 Chief Forgemaster (Codex CLI) ← slot 4
 ├── sentinel.ts        ← CVN-04 The Inquisitor (Codex CLI)
 ├── raven.ts           ← CVN-05 Red Team Commander (Codex CLI)
 ├── vanguard.ts        ← CVN-06 Scout Specialist (Gemini CLI)

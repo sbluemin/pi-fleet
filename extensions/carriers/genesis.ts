@@ -20,18 +20,24 @@ const CARRIER_METADATA: CarrierMetadata = {
     "multi-file coordinated changes",
     "default carrier for coding tasks",
   ],
-  whenNotToUse: "architecture decisions without prior oracle review. Post-build: QA (→sentinel), security (→raven), cleanup (→crucible), docs (→chronicle)",
+  whenNotToUse: "architecture decisions without prior oracle review, or non-trivial implementation lacking an execution plan from Athena when planning is clearly needed. Post-build: QA (→sentinel), security (→raven), cleanup (→crucible), docs (→chronicle)",
 
   // ── Tier 2: Composition ──
   permissions: [
     "Full access to the codebase — read, write, and execute commands.",
     "Genesis owns the implementation — it decides file structure, naming, and internal patterns autonomously.",
+    "Must not silently absorb Athena's planning role or Oracle's architecture arbitration role when those inputs are clearly missing.",
   ],
   requestBlocks: [
     { tag: "objective", hint: "What needs to be built or achieved. Be specific about the desired end state.", required: true },
     { tag: "scope", hint: "Which modules, directories, or subsystems are in play.", required: true },
     { tag: "constraints", hint: "Hard technical constraints, compatibility requirements, or non-negotiables.", required: false },
-    { tag: "references", hint: "Prior Oracle recommendations, existing patterns to follow, or design decisions already made.", required: false },
+    { tag: "references", hint: "Prior Oracle recommendations, Athena plans, existing patterns to follow, or design decisions already made.", required: false },
+  ],
+  principles: [
+    "Follow planning artifacts when provided — do not re-plan work that Athena has already structured unless the input is clearly invalid.",
+    "Escalate unresolved architecture or trade-off questions to Oracle instead of inventing a silent decision.",
+    "Escalate missing execution structure for non-trivial work to Athena instead of silently creating a large implicit plan.",
   ],
   outputFormat:
     `<output_format>\n` +

@@ -7,7 +7,7 @@
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { registerGenesisCarrier } from "./genesis.js";
-import { registerArbiterCarrier } from "./arbiter.js";
+import { registerAthenaCarrier } from "./athena.js";
 import { registerCrucibleCarrier } from "./crucible.js";
 import { registerSentinelCarrier } from "./sentinel.js";
 import { registerRavenCarrier } from "./raven.js";
@@ -18,7 +18,7 @@ import { registerOracleCarrier } from "./oracle.js";
 
 export default function fleetCarriersExtension(pi: ExtensionAPI): void {
   registerGenesisCarrier(pi);    // slot 1 (claude)
-  registerArbiterCarrier(pi);    // slot 2 (claude)
+  registerAthenaCarrier(pi);     // slot 2 (claude)
   registerOracleCarrier(pi);     // slot 3 (claude)
   registerCrucibleCarrier(pi);   // slot 4 (codex)
   registerSentinelCarrier(pi);   // slot 5 (codex)

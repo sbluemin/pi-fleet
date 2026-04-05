@@ -24,9 +24,6 @@ beforeEach(() => {
   (globalThis as any)[CARRIER_FRAMEWORK_KEY] = {
     modes: new Map(),
     registeredOrder: ["genesis", "sentinel", "vanguard"],
-    activeModeId: null,
-    inputRegistered: false,
-    cancelShortcutRegistered: false,
     statusUpdateCallbacks: [],
   };
 });

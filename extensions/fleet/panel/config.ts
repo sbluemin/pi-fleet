@@ -62,8 +62,8 @@ export function adjustPanelHeight(ctx: ExtensionContext, delta: number): number 
   const prev = s.bodyH;
   s.bodyH = Math.max(MIN_BODY_H, Math.min(MAX_BODY_H, s.bodyH + delta));
   // 높이 변경 시 bottomHint에 현재 높이 표시 (피드백용)
-  // 독점 모드일 때는 독점 힌트를 유지
-  if (!s.activeMode) {
+  // 상세 뷰일 때는 상세 힌트를 유지
+  if (!s.detailCarrierId) {
     s.bottomHint = formatPanelMultiColHint(s.bodyH);
   }
   if (prev !== s.bodyH) {

@@ -25,7 +25,7 @@ const CARRIER_METADATA: CarrierMetadata = {
     "breaking-change and compatibility note detection",
     "release communication drafting (announcements, migration guides, operator notes)",
   ],
-  whenNotToUse: "before implementation and verification are complete. Code modification (→genesis), code review (→sentinel), architecture (→oracle). Change-impact work that requires architectural judgment, go/no-go decisions, or release strategy decisions (→oracle/arbiter)",
+  whenNotToUse: "before implementation and verification are complete. Code modification (→genesis), code review (→sentinel), architecture (→oracle). Change-impact work that requires architectural judgment (→oracle) or execution/release-scope planning decisions (→athena)",
 
   // ── Tier 2: Composition ──
   permissions: [
@@ -33,7 +33,7 @@ const CARRIER_METADATA: CarrierMetadata = {
     "Full access to the codebase — read, write, and execute commands.",
     "Owns all .md files including AGENTS.md across every directory — authoritative source for doctrine text and documentation consistency.",
     "On every sortie, must scan for .md files affected by the change scope and update them to maintain consistency.",
-    "Detects and documents breaking changes and compatibility impacts — but must NOT make go/no-go, release timing, or release-scope decisions (escalate to Arbiter/Oracle).",
+    "Detects and documents breaking changes and compatibility impacts — but must NOT make go/no-go, release timing, or release-scope decisions (escalate to Athena/Oracle).",
   ],
   requestBlocks: [
     { tag: "target", hint: "Which code, module, PR, feature, or release artifact to document.", required: true },

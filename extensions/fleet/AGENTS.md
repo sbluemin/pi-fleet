@@ -19,8 +19,7 @@ The number of carriers is determined at runtime by the number of registered carr
 - **carriers_sortie call instance isolation**: The `carriers_sortie` tool uses `toolCallId` as the `sortieKey` to isolate state (progress, streaming content, result cache) per call. This prevents UI interference and redundant content output during concurrent/sequential calls.
 - **Dynamic CliType Overrides**: You can change the CLI type of a specific carrier at runtime via `updateCarrierCliType`. The changed state is saved in `states.json` and maintained after restart. **When switching CLI types, the current model, reasoning effort, and budget tokens are cached (`perCliSettings`) and automatically restored when returning to that CLI type (with validation against the new provider's capabilities).**
 - **Same carrierId concurrent calls are not supported** — UI layer manages one visible run per carrierId.
-- Mutual exclusivity between carriers is automatically managed by the framework (`deactivateAll`).
-- The Agent Panel is the main UI for streaming — active single carriers use exclusive view, otherwise the panel falls back to the current visible CLI columns.
+- The Agent Panel is the main UI for streaming — multi-column is the default, and `Ctrl+Enter` opens a panel-local 1-column detail view for the selected carrier.
 
 ## Architecture
 
@@ -29,9 +28,9 @@ The number of carriers is determined at runtime by the number of registered carr
 ```
 index.ts               ← extension entry point + public Facade re-exports
 operation-runner.ts    ← unified execution entry point (internal — exposed via index.ts)
-shipyard/carrier/      ← Carrier framework SDK + carrier visual representation (registration, activation, input routing, status rendering)
-  ├── types.ts         ← CarrierConfig(defaultCliType), CarrierHelpers, CarrierResult, internal state types(pendingCliTypeOverrides)
-  ├── framework.ts     ← registerCarrier, activateCarrier, updateCarrierCliType, setPendingCliTypeOverrides
+shipyard/carrier/      ← Carrier framework SDK + carrier visual representation (registration, status rendering, metadata)
+  ├── types.ts         ← CarrierConfig(defaultCliType), internal state types(pendingCliTypeOverrides)
+  ├── framework.ts     ← registerCarrier, updateCarrierCliType, setPendingCliTypeOverrides
   ├── register.ts      ← registerSingleCarrier (dynamic cliType reference and defaultCliType auto-configuration)
   ├── prompts.ts       ← carriers_sortie tool base prompt management
   ├── sortie.ts        ← carriers_sortie (sole carrier delegation PI tool) registration + dynamic prompt synthesis
@@ -74,10 +73,10 @@ Consumer (carriers, external extensions)
 
 ### Agent Panel Centric Design
 
-- **Exclusive View**: `Ctrl+Enter` on the selected inline slot → Full-width panel for the corresponding agent.
-- **Fallback Multi-Column View**: No active carrier + visible runs → panel renders the current visible CLI columns.
+- **Detail View**: `Ctrl+Enter` on the selected inline slot → Full-width 1-column panel for the corresponding carrier.
+- **Multi-Column View**: Default panel mode — renders the current visible CLI columns.
 - **Compact View**: Panel collapsed + while streaming → 1-line Streaming Widget.
-- **Frame Color**: Applies `CARRIER_COLORS` of the active carrier. **If `cliType` has changed, the color of the changed type is followed.**
+- **Frame Color**: Applies `CARRIER_COLORS` of the detail-view carrier. **If `cliType` has changed, the color of the changed type is followed.**
 
 ## Module Structure
 
@@ -89,9 +88,9 @@ Consumer (carriers, external extensions)
 | `streaming/types.ts` | Streaming domain types — ColBlock, ColStatus, CollectedStreamData |
 | `panel/types.ts` | Panel domain types — AgentCol |
 | `operation-runner.ts` | Unified execution layer (internal) — `runAgentRequest`, `exposeAgentApi`. Single `executeWithPool` call site. Auto panel/widget sync |
-| `shipyard/carrier/types.ts` | Carrier framework types — CarrierConfig (added defaultCliType), CarrierHelpers, CarrierResult, internal state types (added pendingCliTypeOverrides) |
-| `shipyard/carrier/framework.ts` | Carrier framework SDK — `registerCarrier`, `activateCarrier`, `deactivateCarrier`, `getActiveCarrierId`, `updateCarrierCliType` (runtime CLI change), `setPendingCliTypeOverrides` (initial override configuration), `onStatusUpdate`, `notifyStatusUpdate`. Manages globalThis shared state, input interception, shortcut registration, message renderer registration |
-| `shipyard/carrier/register.ts` | Single-carrier registration — `registerSingleCarrier` (carrier framework + prompt metadata, no PI tool). Performs dynamic cliType reference and `defaultCliType` auto-configuration in `onExecute`. |
+| `shipyard/carrier/types.ts` | Carrier framework types — CarrierConfig (added defaultCliType), internal state types (added pendingCliTypeOverrides) |
+| `shipyard/carrier/framework.ts` | Carrier framework SDK — `registerCarrier`, `updateCarrierCliType` (runtime CLI change), `setPendingCliTypeOverrides` (initial override configuration), `onStatusUpdate`, `notifyStatusUpdate`. Manages globalThis shared state, registration order, and message renderer registration |
+| `shipyard/carrier/register.ts` | Single-carrier registration — `registerSingleCarrier` (carrier framework + prompt metadata, no PI tool). Performs dynamic cliType reference and `defaultCliType` auto-configuration during registration. |
 | `shipyard/carrier/prompts.ts` | carriers_sortie prompt / schema management (Tier 1 · Tier 2 request assembly) |
 | `shipyard/carrier/sortie.ts` | Carrier Sortie tool — sole carrier delegation PI tool. Through **call instance isolation (sortieKey)** and **runId-based streaming filtering**, it displays unified progress/results without UI interference even when multiple calls run simultaneously. |
 | `shipyard/store.ts` | Unified fleet persistence store — `initStore`, `loadModels`, `saveModels`, `updateModelSelection` (with Task Force/CLI settings preservation), `getPerCliSettings`/`savePerCliSettings` (CLI preference caching), `loadSortieDisabled`, `saveSortieDisabled`, `loadCliTypeOverrides`, `saveCliTypeOverrides`. Single source of truth for all fleet persistent state in `states.json`. |

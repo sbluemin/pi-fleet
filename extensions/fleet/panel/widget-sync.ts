@@ -3,8 +3,7 @@
  *
  * 현재 상태에 맞게 위젯을 등록/제거합니다.
  * - fleet-carrier-status: carrier 상태 표시 (aboveEditor)
- * - fleet-carrier-banner: 독점 모드 배너 (aboveEditor, 패널 접힘 시만)
- * - ua-panel: 멀티칼럼 패널 (aboveEditor, 패널 펼침 시)
+ * - ua-panel: 멀티칼럼/상세 뷰 패널 (aboveEditor, 패널 펼침 시)
  *
  * lifecycle.ts에서 호출됩니다.
  */
@@ -20,13 +19,11 @@ import {
 } from "../shipyard/carrier/framework.js";
 import {
   renderPanelFull,
-  renderModeBanner,
 } from "../render/panel-renderer";
 import { renderCarrierStatus } from "../shipyard/carrier/status-renderer.js";
 import { getState, makeFooterCols, WIDGET_KEY } from "./state.js";
 
 const FLEET_CARRIER_STATUS_WIDGET_KEY = "fleet-carrier-status";
-const FLEET_CARRIER_BANNER_WIDGET_KEY = "fleet-carrier-banner";
 
 let pendingWidgetCtx: ExtensionContext | null = null;
 let isWidgetSyncScheduled = false;
@@ -38,8 +35,7 @@ let isWidgetSyncScheduled = false;
  *
  * 렌더링 분기:
  * - expanded → aboveEditor 위젯으로 renderPanelFull 표시 (터미널 높이 기반 클램핑)
- * - !expanded + activeMode → carrier 배너 위젯 표시
- * - !expanded + !activeMode → 패널/배너 위젯 제거
+ * - !expanded → 패널 위젯 제거
  *
  * carrier 상태 위젯(aboveEditor)은 항상 등록됩니다.
  */
@@ -76,21 +72,7 @@ function applyWidgetSync(ctx: ExtensionContext): void {
     invalidate() {},
   }), { placement: "aboveEditor" });
 
-  // carrier 배너 위젯 (aboveEditor) — activeMode가 있고 패널 접힘 시만
-  if (s.activeMode && !s.expanded) {
-    ctx.ui.setWidget(FLEET_CARRIER_BANNER_WIDGET_KEY, (_tui, _theme) => ({
-      render(width: number): string[] {
-        const state = getState();
-        if (!state.activeMode || state.expanded) return [];
-        return renderModeBanner(width, state.activeMode, state.frame, state.cols);
-      },
-      invalidate() {},
-    }), { placement: "aboveEditor" });
-  } else {
-    ctx.ui.setWidget(FLEET_CARRIER_BANNER_WIDGET_KEY, undefined);
-  }
-
-  // 멀티칼럼 패널 (aboveEditor) — expanded 시만
+  // 멀티칼럼/상세 뷰 패널 (aboveEditor) — expanded 시만
   if (!s.expanded) {
     ctx.ui.setWidget(WIDGET_KEY, undefined);
     return;
@@ -99,8 +81,8 @@ function applyWidgetSync(ctx: ExtensionContext): void {
   ctx.ui.setWidget(WIDGET_KEY, (_tui, _theme) => ({
     render(width: number): string[] {
       const state = getState();
-      const frameColor = state.activeMode
-        ? (resolveCarrierColor(state.activeMode) || PANEL_COLOR)
+      const frameColor = state.detailCarrierId
+        ? (resolveCarrierColor(state.detailCarrierId) || PANEL_COLOR)
         : PANEL_COLOR;
 
       // 터미널 높이 기반 bodyH 클램핑
@@ -112,7 +94,7 @@ function applyWidgetSync(ctx: ExtensionContext): void {
 
       return renderPanelFull(
         width, state.cols, state.frame, frameColor,
-        state.bottomHint, state.activeMode, effectiveBodyH,
+        state.bottomHint, state.detailCarrierId, effectiveBodyH,
         state.cursorColumn,
       );
     },

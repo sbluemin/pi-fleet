@@ -19,12 +19,12 @@ import {
 } from "../store.js";
 import { setAgentPanelModelConfig } from "../../panel/config.js";
 import {
-  getActiveCarrierId,
   notifyStatusUpdate,
   getRegisteredOrder,
   getRegisteredCarrierConfig,
   resolveCarrierDisplayName,
 } from "./framework.js";
+import { getFocusedCarrierId } from "../../panel/state.js";
 import { getKeybindAPI } from "../../../core/keybind/bridge.js";
 import {
   CLI_DISPLAY_NAMES,
@@ -42,23 +42,24 @@ export function registerModelCommands(pi: ExtensionAPI): void {
     extension: "fleet",
     action: "model-change",
     defaultKey: "alt+shift+m",
-    description: "활성 캐리어 모델/추론 설정 변경",
+    description: "선택된 캐리어 모델/추론 설정 변경",
     category: "Core",
     handler: async (ctx) => {
-      const activeCarrierId = getActiveCarrierId();
+      // 상세 뷰 또는 커서 포커싱된 carrier를 우선 대상으로 선택
+      const focusedCarrierId = getFocusedCarrierId();
       let targetCarrierId: string;
       let targetCli: CliType;
       let targetDisplayName: string;
 
-      if (activeCarrierId) {
-        targetCarrierId = activeCarrierId;
-        const resolvedCli = resolveCarrierCliType(activeCarrierId);
+      if (focusedCarrierId) {
+        targetCarrierId = focusedCarrierId;
+        const resolvedCli = resolveCarrierCliType(focusedCarrierId);
         if (!resolvedCli) {
-          ctx.ui.notify(`등록되지 않은 carrier입니다: ${activeCarrierId}`, "error");
+          ctx.ui.notify(`등록되지 않은 carrier입니다: ${focusedCarrierId}`, "error");
           return;
         }
         targetCli = resolvedCli;
-        targetDisplayName = resolveCarrierDisplayName(activeCarrierId);
+        targetDisplayName = resolveCarrierDisplayName(focusedCarrierId);
       } else {
         const registeredIds = getRegisteredOrder();
         const cliOptions = registeredIds.map((id) => {
