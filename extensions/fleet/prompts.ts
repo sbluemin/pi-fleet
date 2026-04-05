@@ -59,7 +59,7 @@ Default to delegation. Handle tasks directly only when they are clearly small, l
 - Splitting a delegatable task into small direct steps to avoid delegation.
 - Continuing direct work after the task has clearly grown beyond a quick lookup — stop and delegate the remainder.
 - Using read, bash, or edit as the primary execution path when a single sub-agent call could handle the workflow.
-- Splitting a parallel carrier launch into multiple sequential carrier_sortie calls instead of bundling all carriers into one call.
+- Splitting a parallel carrier launch into multiple sequential carriers_sortie calls instead of bundling all carriers into one call.
 
 ---
 
@@ -67,7 +67,7 @@ Default to delegation. Handle tasks directly only when they are clearly small, l
 
 All task execution follows the **Default Workflow Protocol**. Additional protocols listed here are cross-cutting — they can be invoked from any workflow phase.
 
-**Parallel execution default:** When multiple Carriers can be dispatched for the same phase or step, bundle them into a single \`carrier_sortie\` call with all Carriers in the array. Use sequential ordering only when (1) a later Carrier's work depends on an earlier Carrier's output, (2) carriers share a mutable resource that cannot be safely accessed concurrently (e.g., same files, generated artifacts, lock files, or test environment singletons), or (3) a recon Carrier must complete before a specialist Carrier can be selected.
+**Parallel execution default:** When multiple Carriers can be dispatched for the same phase or step, bundle them into a single \`carriers_sortie\` call with all Carriers in the array. Use sequential ordering only when (1) a later Carrier's work depends on an earlier Carrier's output, (2) carriers share a mutable resource that cannot be safely accessed concurrently (e.g., same files, generated artifacts, lock files, or test environment singletons), or (3) a recon Carrier must complete before a specialist Carrier can be selected.
 
 ## Deep Dive Protocol
 
@@ -80,11 +80,11 @@ Any phase produces output (from a Carrier, from the Admiral's own analysis, or f
 1. **Surface scan** — Look for obvious speculation markers (e.g., "likely", "probably", "I think", "may be", "not sure but…").
 2. **Speculation audit** — If the result is lengthy, complex, or touches unfamiliar territory, skip your own scan and delegate the audit:
    - **Task Force available**: If a Carrier whose role fits the audit task is configured for Task Force, use ${"``"}carrier_taskforce${"``"} to cross-validate across all backends. Consensus among backends strengthens confidence; divergence pinpoints what needs further investigation.
-   - **Fallback**: Otherwise, sortie an appropriate Carrier via ${"``"}carrier_sortie${"``"}.
+   - **Fallback**: Otherwise, sortie an appropriate Carrier via ${"``"}carriers_sortie${"``"}.
    - In either case, provide explicit instructions: *"Review the following analysis for speculative, assumed, or unverified claims. Flag each with evidence of why it is speculative and what verification is needed."*
 3. **Follow-up verification** — For each identified speculative element:
    - **Task Force available**: Use ${"``"}carrier_taskforce${"``"} to seek independent confirmation or refutation from all backends.
-   - **Fallback**: Sortie an appropriate Carrier via ${"``"}carrier_sortie${"``"}.
+   - **Fallback**: Sortie an appropriate Carrier via ${"``"}carriers_sortie${"``"}.
 4. **Repeat** until all speculative elements are either **confirmed with evidence** or explicitly flagged as **unresolvable unknowns**.
 
 ### Admiral's role
@@ -154,23 +154,6 @@ After finishing (or terminating early), include a brief phase summary in your fi
 This report ensures the Fleet Admiral can verify that no phase was silently dropped.
 `;
 
-/**
- * 병렬 작업 환경 경고 — 항상 주입
- *
- * 단일 파일시스템·브랜치에서 여러 에이전트가 동시 작업하는 환경을 전제로,
- * 자신이 만든 변경 이외의 것을 롤백하지 않도록 경고한다.
- */
-export const PARALLEL_WORK_WARNING = String.raw`
-# Parallel Work Environment
-
-Multiple agents may be working on this codebase simultaneously on the same filesystem and branch.
-
-- **Only touch your own changes.** Never revert, overwrite, or undo modifications you did not make — another agent may have introduced them intentionally.
-- **Prefer precise edits over full-file writes.** Use targeted replacements (edit) instead of rewriting entire files (write) to minimize collision with concurrent changes.
-- **Re-read before modifying.** Always check the current on-disk state of a file right before editing; it may have changed since you last read it.
-- **When delegating to sub-agents (Carriers), relay this warning** so they follow the same discipline.
-`;
-
 // ─────────────────────────────────────────────────────────
 // 함수
 // ─────────────────────────────────────────────────────────
@@ -196,7 +179,6 @@ export function setWorldviewEnabled(enabled: boolean): void {
  *
  * - FLEET_WORLDVIEW_PROMPT: worldview 토글이 켜진 경우에만 주입
  * - ADMIRAL_SYSTEM_APPEND: 항상 주입 (Delegation Policy + Protocols)
- * - PARALLEL_WORK_WARNING: 항상 주입
  */
 export function appendAdmiralSystemPrompt(systemPrompt: string): string {
   const parts: string[] = [systemPrompt];
@@ -209,11 +191,6 @@ export function appendAdmiralSystemPrompt(systemPrompt: string): string {
   const core = ADMIRAL_SYSTEM_APPEND.trim();
   if (!systemPrompt.includes(core)) {
     parts.push(core);
-  }
-
-  const parallel = PARALLEL_WORK_WARNING.trim();
-  if (!systemPrompt.includes(parallel)) {
-    parts.push(parallel);
   }
 
   return parts.join("\n\n");

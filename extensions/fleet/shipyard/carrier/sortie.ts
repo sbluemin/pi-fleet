@@ -62,7 +62,7 @@ interface CarrierSortieResult {
   toolCalls?: { title: string; status: string }[];
 }
 
-/** carrier_sortie 도구 결과 details */
+/** carriers_sortie 도구 결과 details */
 interface SortieResultDetails {
   sortieKey: string;
   results: CarrierSortieResult[];
@@ -116,7 +116,7 @@ const SORTIE_RESULT_CACHE_KEY = "__pi_carrier_sortie_result_cache__";
 // ─── 공개 API ────────────────────────────────────────────
 
 /**
- * carrier_sortie 도구를 PI에 등록합니다.
+ * carriers_sortie 도구를 PI에 등록합니다.
  * index.ts에서 호출됩니다.
  */
 export function registerFleetSortie(pi: ExtensionAPI): void {
@@ -130,8 +130,8 @@ export function registerFleetSortie(pi: ExtensionAPI): void {
   const mergedGuidelines = buildSortieToolPromptGuidelines(enabledIds);
 
   pi.registerTool({
-    name: "carrier_sortie",
-    label: "Carrier Sortie",
+    name: "carriers_sortie",
+    label: "Carriers Sortie",
     description: FLEET_SORTIE_DESCRIPTION,
     promptSnippet: buildSortieToolPromptSnippet(),
     promptGuidelines: mergedGuidelines,
@@ -161,14 +161,23 @@ export function registerFleetSortie(pi: ExtensionAPI): void {
     // ── execute: N개 Carrier 병렬 실행 ──
     async execute(
       id: string,
-      params: { carriers: CarrierAssignment[] },
+      params: { expected_carrier_count: number; carriers: CarrierAssignment[] },
       signal: AbortSignal | undefined,
       onUpdate: any,
       ctx: ExtensionContext,
     ) {
       const assignments = params.carriers;
       if (!assignments || assignments.length < 1) {
-        throw new Error("carrier_sortie requires at least 1 carrier assignment.");
+        throw new Error("carriers_sortie requires at least 1 carrier assignment.");
+      }
+
+      // expected_carrier_count 일치 검증 — 선언한 수와 실제 배열 길이 불일치 시 hard error
+      const expectedCount = params.expected_carrier_count;
+      if (expectedCount !== assignments.length) {
+        throw new Error(
+          `Carrier count mismatch: expected_carrier_count is ${expectedCount} but carriers array has ${assignments.length} entr${assignments.length === 1 ? "y" : "ies"}.` +
+          ` Add all ${expectedCount} carrier${expectedCount === 1 ? "" : "s"} to the carriers array and resubmit as a single call.`,
+        );
       }
 
       // Carrier ID 유효성 검증
@@ -395,7 +404,7 @@ function buildArgsKey(assignments: CarrierAssignment[]): string {
 }
 
 /**
- * carrier_sortie의 renderCall 전용 컴포넌트입니다.
+ * carriers_sortie의 renderCall 전용 컴포넌트입니다.
  * 동일 인스턴스를 재사용해 렌더 상태를 유지하고,
  * 완료 직후 한 프레임 동안만 이전 높이를 보존해 compact 전환을 안정화합니다.
  */
@@ -484,7 +493,7 @@ class SortieCallComponent {
     const lines: string[] = [];
 
     // ── 헤더: 진행 상태 요약 ──
-    const headerTitle = this.theme.fg("toolTitle", this.theme.bold("◈ Carrier Sortie"));
+    const headerTitle = this.theme.fg("toolTitle", this.theme.bold("◈ Carriers Sortie"));
     let headerSuffix: string;
     if (state) {
       const doneCount = [...state.carriers.values()].filter((p) => p.status === "done").length;
@@ -661,7 +670,7 @@ function buildPartialUpdate(
   const total = assignments.length;
 
   return {
-    content: [{ type: "text", text: `Carrier Sortie: ${doneCount}/${total} carriers completed` }],
+    content: [{ type: "text", text: `Carriers Sortie: ${doneCount}/${total} carriers completed` }],
     details: { sortieKey: state.sortieKey, results },
   };
 }

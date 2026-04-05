@@ -3,10 +3,6 @@ import { basename } from "node:path";
 import type { RenderedSegment, SegmentContext, SemanticColor, StatusLineSegment, StatusLineSegmentId } from "./types.js";
 import { fg, rainbow, applyColor } from "./theme.js";
 import { getIcons, SEP_DOT, getThinkingText } from "./icons.js";
-// footer 전용 status key (패키지 경계 독립 — 문자열 계약)
-const UA_DIRECT_FOOTER_STATUS_KEY = "ua-direct-footer";
-const MP_FOOTER_STATUS_KEY = "mp-footer";
-const AS_FOOTER_STATUS_KEY = "as-footer";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Segment Implementations
@@ -393,11 +389,9 @@ const extensionStatusesSegment: StatusLineSegment = {
     const statuses = ctx.extensionStatuses;
     if (!statuses || statuses.size === 0) return { content: "", visible: false };
 
-    // Join compact statuses with a separator
-    // Notification-style statuses (starting with "[") are shown above the editor instead
+    // Map 전체를 순회하여 [ 로 시작하지 않는 항목을 표시
     const parts: string[] = [];
-    for (const [key, value] of statuses.entries()) {
-      if (key === UA_DIRECT_FOOTER_STATUS_KEY || key === MP_FOOTER_STATUS_KEY || key === AS_FOOTER_STATUS_KEY) continue;
+    for (const value of statuses.values()) {
       if (value && !value.trimStart().startsWith('[')) {
         parts.push(value);
       }

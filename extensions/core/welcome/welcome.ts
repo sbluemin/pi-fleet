@@ -2,7 +2,33 @@ import { readdirSync, existsSync, statSync } from "node:fs";
 import { join, basename } from "node:path";
 import type { Component } from "@mariozechner/pi-tui";
 import { visibleWidth } from "@mariozechner/pi-tui";
-import { ansi, fgOnly, getFgAnsiCode } from "../hud/colors.js";
+// ── welcome 전용 ANSI 색상 헬퍼 (HUD colors.ts 비의존) ──
+
+const ANSI_RESET = "\x1b[0m";
+
+/** 색상 이름 → ANSI 코드 매핑 (welcome에서 사용하는 색상만) */
+const WELCOME_COLORS: Record<string, string> = {
+  sep: "\x1b[38;5;244m",
+  model: "\x1b[38;2;215;135;175m",
+  path: "\x1b[38;2;0;175;175m",
+  gitClean: "\x1b[38;2;95;175;95m",
+  accent: "\x1b[38;2;254;188;56m",
+};
+
+const ansi = {
+  reset: ANSI_RESET,
+};
+
+/** 전경색만 적용 (reset 없이) */
+function fgOnly(color: string, text: string): string {
+  const code = WELCOME_COLORS[color];
+  return code ? `${code}${text}` : text;
+}
+
+/** 전경색 ANSI 코드 반환 */
+function getFgAnsiCode(color: string): string {
+  return WELCOME_COLORS[color] ?? "";
+}
 
 export interface RecentSession {
   name: string;

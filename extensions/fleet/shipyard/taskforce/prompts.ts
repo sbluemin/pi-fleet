@@ -32,9 +32,9 @@ const TASKFORCE_WHEN_TO_USE =
 
 /** whenNotToUse 가이드라인 */
 const TASKFORCE_WHEN_NOT_TO_USE =
-  `Do NOT use carrier_taskforce for routine single-backend tasks — use carrier_sortie instead.` +
+  `Do NOT use carrier_taskforce for routine single-backend tasks — use carriers_sortie instead.` +
   ` Avoid it when only one backend is needed or when execution speed is critical.` +
-  ` Do not use as a substitute for carrier_sortie with multiple carriers.`;
+  ` Do not use as a substitute for carriers_sortie with multiple carriers.`;
 
 const TASKFORCE_CONFIGURE_HINT =
   `open Carrier Status (Alt+O) and press T to configure all three CLI backends (Claude, Codex, Gemini)`;

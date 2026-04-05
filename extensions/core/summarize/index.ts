@@ -5,25 +5,25 @@
  *
  * ┌──────────────────────────────────────────────────────┐
  * │  이벤트 흐름                                          │
- * │   agent_end (매 턴) → LLM 한 줄 요약 → setSessionName │
- * │   session_compact  → compaction 요약 기반 재요약       │
- * │   /fleet:summary:run       → 수동 재요약               │
- * │   /fleet:summary:settings  → 모델/길이 설정           │
+ * │   input (매 턴) → 사용자 프롬프트 → 비차단 작업 제목 생성 │
+ * │   /fleet:summary:settings  → 모델 설정                │
  * └──────────────────────────────────────────────────────┘
  */
 
 import type { Api, Model } from "@mariozechner/pi-ai";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { convertToLlm, serializeConversation } from "@mariozechner/pi-coding-agent";
 
 
 import { loadSettings, saveSettings } from "./settings.js";
 import type { AutoSummarizeSettings } from "./settings.js";
-import { resolveModel, generateOneLiner } from "./summarizer.js";
+import { resolveModel, generateTaskTitle } from "./summarizer.js";
 import { getSettingsAPI } from "../settings/bridge.js";
-import { SUMMARY_FOOTER_STATUS_KEY } from "../hud/editor.js";
+
+const SUMMARIZE_STATUS_KEY = "core-summarize-status";
 
 export default function (pi: ExtensionAPI) {
+  let pendingInitialSummary = false;
+
   // ── 팝업 섹션 등록 ──
 
   const settingsApi = getSettingsAPI();
@@ -36,7 +36,6 @@ export default function (pi: ExtensionAPI) {
       return [
         { label: "Model", value: s.model || "session model", color: s.model ? "accent" : "dim" },
         { label: "Provider", value: s.provider || "session model", color: s.provider ? "accent" : "dim" },
-        { label: "Max Length", value: String(s.maxLength ?? 80) },
         { label: "Session", value: sessionName || "요약 대기", color: sessionName ? "accent" : "dim" },
       ];
     },
@@ -44,47 +43,43 @@ export default function (pi: ExtensionAPI) {
 
   // ── 이벤트 핸들러 ──
 
-  pi.on("agent_end", async (event, ctx) => {
-    const settings = loadSettings();
-    const model = resolveModel(ctx, settings);
-    if (!model) return;
+  pi.on("input", async (event, ctx) => {
+    const source = (event as any).source;
+    if (source === "extension") return;
 
-    const maxLength = settings.maxLength ?? 80;
+    const userText = (event as any).text?.trim();
+    if (!userText) return;
 
-    const messages = event.messages;
-    if (!messages || messages.length === 0) return;
+    // 슬래시 명령은 요약 대상 제외
+    if (userText.startsWith("/")) return;
 
-    const conversationText = serializeConversation(convertToLlm(messages));
-    if (!conversationText.trim()) return;
-
-    const summary = await generateOneLiner(ctx, model, conversationText, maxLength);
-    if (summary) {
-      pi.setSessionName(summary);
-      ctx.ui.setStatus(SUMMARY_FOOTER_STATUS_KEY, summary);
-    }
-  });
-
-  pi.on("session_compact", async (event, ctx) => {
-    const compactionSummary = event.compactionEntry?.summary;
-    if (!compactionSummary) return;
+    if (pendingInitialSummary) return;
+    if (pi.getSessionName()?.trim()) return;
 
     const settings = loadSettings();
     const model = resolveModel(ctx, settings);
     if (!model) return;
 
-    const maxLength = settings.maxLength ?? 80;
+    pendingInitialSummary = true;
 
-    const summary = await generateOneLiner(ctx, model, compactionSummary, maxLength);
-    if (summary) {
-      pi.setSessionName(summary);
-      ctx.ui.setStatus(SUMMARY_FOOTER_STATUS_KEY, summary);
-    }
+    void generateTaskTitle(ctx, model, userText)
+      .then((summary) => {
+        if (!summary) return;
+        if (pi.getSessionName()?.trim()) return;
+        pi.setSessionName(summary);
+        setSummaryWidget(ctx, summary);
+      })
+      .finally(() => {
+        if (!pi.getSessionName()?.trim()) {
+          pendingInitialSummary = false;
+        }
+      });
   });
 
   // ── 커맨드 등록 ──
 
   pi.registerCommand("fleet:summary:settings", {
-    description: "자동 요약 설정 (모델 선택 + 최대 길이)",
+    description: "자동 요약 설정 (모델 선택)",
     handler: async (_args, ctx) => {
       const currentSettings = loadSettings();
 
@@ -166,25 +161,6 @@ export default function (pi: ExtensionAPI) {
         newSettings.model = selectedModelId;
       }
 
-      // 2단계: 최대 길이 설정
-      const currentMax = currentSettings.maxLength ?? 80;
-      const maxInput = await ctx.ui.input(
-        "요약 최대 길이 (문자 수):",
-        String(currentMax),
-      );
-
-      if (maxInput !== undefined && maxInput.trim()) {
-        const parsed = parseInt(maxInput.trim(), 10);
-        if (!isNaN(parsed) && parsed > 0 && parsed <= 200) {
-          newSettings.maxLength = parsed;
-        } else {
-          newSettings.maxLength = 80;
-          ctx.ui.notify("유효하지 않은 입력. 기본값 80 사용.", "warning");
-        }
-      } else {
-        newSettings.maxLength = currentMax;
-      }
-
       // 저장
       saveSettings(newSettings);
 
@@ -193,9 +169,21 @@ export default function (pi: ExtensionAPI) {
           ? `${newSettings.provider}/${newSettings.model}`
           : "세션 모델";
       ctx.ui.notify(
-        `설정 저장 완료: 모델=${modelSummary}, 최대 길이=${newSettings.maxLength ?? 80}자`,
+        `설정 저장 완료: 모델=${modelSummary}`,
         "info",
       );
     },
   });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 내부 헬퍼
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** 요약 위젯을 belowEditor에 등록합니다. */
+function setSummaryWidget(ctx: any, summary: string): void {
+  ctx.ui.setWidget(SUMMARIZE_STATUS_KEY, (_tui: any, _theme: any) => ({
+    render: (_w: number) => [summary],
+    invalidate() {},
+  }), { placement: "belowEditor" });
 }

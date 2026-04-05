@@ -1,13 +1,16 @@
 /**
- * fleet/panel/widget-sync.ts — PI TUI 위젯 브릿지
+ * fleet/panel/widget-sync.ts — PI TUI 위젯 동기화
  *
- * 현재 상태에 맞게 aboveEditor 위젯을 등록/제거하고
- * footer 상태를 동기화합니다.
+ * 현재 상태에 맞게 위젯을 등록/제거합니다.
+ * - fleet-carrier-status: carrier 상태 표시 (aboveEditor)
+ * - fleet-carrier-banner: 독점 모드 배너 (aboveEditor, 패널 접힘 시만)
+ * - ua-panel: 멀티칼럼 패널 (aboveEditor, 패널 펼침 시)
  *
  * lifecycle.ts에서 호출됩니다.
  */
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
+import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 import {
   PANEL_COLOR,
   MIN_BODY_H,
@@ -17,63 +20,77 @@ import {
 } from "../shipyard/carrier/framework.js";
 import {
   renderPanelFull,
+  renderModeBanner,
 } from "../render/panel-renderer";
-import { renderFooterStatus } from "../shipyard/carrier/footer-renderer.js";
+import { renderCarrierStatus } from "../shipyard/carrier/status-renderer.js";
 import { getState, makeFooterCols, WIDGET_KEY } from "./state.js";
 
-/** footer 상태 전용 status key */
-const UA_DIRECT_FOOTER_STATUS_KEY = "ua-direct-footer";
+const FLEET_CARRIER_STATUS_WIDGET_KEY = "fleet-carrier-status";
+const FLEET_CARRIER_BANNER_WIDGET_KEY = "fleet-carrier-banner";
 
-// ─── footer 동기화 ───────────────────────────────────────
-
-/** 같은 이벤트 루프 턴의 footer 갱신 요청을 마지막 ctx 기준으로 합칩니다. */
-let pendingFooterCtx: ExtensionContext | null = null;
-let footerScheduled = false;
-
-/**
- * footer 상태 동기화를 microtask로 예약합니다.
- * 스트리밍 청크처럼 고빈도 경로에서 여러 호출이 들어와도 1회만 flush합니다.
- */
-export function scheduleSyncFooter(ctx: ExtensionContext | null): void {
-  if (!ctx) return;
-  pendingFooterCtx = ctx;
-  if (footerScheduled) return;
-
-  footerScheduled = true;
-  queueMicrotask(() => {
-    footerScheduled = false;
-    const nextCtx = pendingFooterCtx;
-    pendingFooterCtx = null;
-    syncFooterStatus(nextCtx);
-  });
-}
-
-/** footer 상태를 현재 패널 상태 기준으로 PI TUI에 반영합니다. */
-export function syncFooterStatus(ctx: ExtensionContext | null): void {
-  if (!ctx) return;
-  const s = getState();
-  const content = renderFooterStatus({
-    cols: makeFooterCols(),
-    streaming: s.streaming,
-    frame: s.frame,
-  });
-  ctx.ui.setStatus(UA_DIRECT_FOOTER_STATUS_KEY, content);
-}
+let pendingWidgetCtx: ExtensionContext | null = null;
+let isWidgetSyncScheduled = false;
 
 // ─── 위젯 동기화 ────────────────────────────────────────
 
 /**
- * 현재 상태에 맞게 aboveEditor 위젯을 등록/제거합니다.
+ * 현재 상태에 맞게 위젯을 등록/제거합니다.
  *
  * 렌더링 분기:
  * - expanded → aboveEditor 위젯으로 renderPanelFull 표시 (터미널 높이 기반 클램핑)
- * - !expanded → 위젯 제거 (배너는 core-hud/editor.ts에서 직접 렌더링)
+ * - !expanded + activeMode → carrier 배너 위젯 표시
+ * - !expanded + !activeMode → 패널/배너 위젯 제거
+ *
+ * carrier 상태 위젯(aboveEditor)은 항상 등록됩니다.
  */
 export function syncWidget(ctx: ExtensionContext): void {
-  const s = getState();
-  syncFooterStatus(ctx);
+  pendingWidgetCtx = ctx;
+  if (isWidgetSyncScheduled) return;
 
-  // 패널 접힘 → 위젯 불필요 (배너는 에디터가 직접 렌더링)
+  isWidgetSyncScheduled = true;
+  queueMicrotask(() => {
+    isWidgetSyncScheduled = false;
+    const nextCtx = pendingWidgetCtx;
+    pendingWidgetCtx = null;
+    if (!nextCtx) return;
+    applyWidgetSync(nextCtx);
+  });
+}
+
+function applyWidgetSync(ctx: ExtensionContext): void {
+  const s = getState();
+
+  // carrier 상태 위젯 (aboveEditor) — 항상 등록
+  ctx.ui.setWidget(FLEET_CARRIER_STATUS_WIDGET_KEY, (_tui, _theme) => ({
+    render(width: number): string[] {
+      const state = getState();
+      const content = renderCarrierStatus({
+        cols: makeFooterCols(),
+        streaming: state.streaming,
+        frame: state.frame,
+      });
+      if (!content) return [];
+      const pad = Math.max(0, Math.floor((width - visibleWidth(content)) / 2));
+      return [truncateToWidth(" ".repeat(pad) + content, width)];
+    },
+    invalidate() {},
+  }), { placement: "aboveEditor" });
+
+  // carrier 배너 위젯 (aboveEditor) — activeMode가 있고 패널 접힘 시만
+  if (s.activeMode && !s.expanded) {
+    ctx.ui.setWidget(FLEET_CARRIER_BANNER_WIDGET_KEY, (_tui, _theme) => ({
+      render(width: number): string[] {
+        const state = getState();
+        if (!state.activeMode || state.expanded) return [];
+        return renderModeBanner(width, state.activeMode, state.frame, state.cols);
+      },
+      invalidate() {},
+    }), { placement: "aboveEditor" });
+  } else {
+    ctx.ui.setWidget(FLEET_CARRIER_BANNER_WIDGET_KEY, undefined);
+  }
+
+  // 멀티칼럼 패널 (aboveEditor) — expanded 시만
   if (!s.expanded) {
     ctx.ui.setWidget(WIDGET_KEY, undefined);
     return;

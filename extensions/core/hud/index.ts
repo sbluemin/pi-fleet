@@ -13,7 +13,7 @@ import type { HudCoreConfig, StatusLinePreset } from "./types.js";
 import { PRESETS } from "./presets.js";
 import { invalidateGitStatus, invalidateGitBranch } from "./git-status.js";
 import { mightChangeGitBranch } from "./utils.js";
-import { setupCustomEditor, setupFooter } from "./editor.js";
+import { setupCustomEditor, setupStatusBar } from "./editor.js";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 에디터 상태 타입 (이 확장 내부에서만 사용)
@@ -24,7 +24,6 @@ export interface HudEditorState {
   sessionStartTime: number;
   currentCtx: any;
   getThinkingLevelFn: (() => string) | null;
-  isStreaming: boolean;
   stashedEditorText: string | null;
   currentEditor: any;
   config: HudCoreConfig;
@@ -49,7 +48,6 @@ export default function hudEditor(pi: ExtensionAPI) {
     sessionStartTime: Date.now(),
     currentCtx: null,
     getThinkingLevelFn: null,
-    isStreaming: false,
     stashedEditorText: null,
     currentEditor: null,
     config: { preset: "sbluemin" },
@@ -63,14 +61,13 @@ export default function hudEditor(pi: ExtensionAPI) {
   pi.on("session_start", async (event, ctx) => {
     state.sessionStartTime = Date.now();
     state.currentCtx = ctx;
-    state.isStreaming = false;
 
     if (typeof ctx.getThinkingLevel === "function") {
       state.getThinkingLevelFn = () => ctx.getThinkingLevel();
     }
 
-    // Footer는 항상 등록 (state.enabled와 무관)
-    setupFooter(ctx, state);
+    // 상태바는 항상 등록 (state.enabled와 무관, footerDataRef 획득 목적)
+    setupStatusBar(ctx, state);
 
     if (state.enabled && ctx.hasUI) {
       setupCustomEditor(ctx, state);
@@ -110,12 +107,7 @@ export default function hudEditor(pi: ExtensionAPI) {
     }
   });
 
-  pi.on("agent_start", async () => {
-    state.isStreaming = true;
-  });
-
   pi.on("agent_end", async (_event, ctx) => {
-    state.isStreaming = false;
     if (ctx.hasUI) {
       // stash 자동 복원
       if (state.stashedEditorText !== null) {
@@ -141,13 +133,16 @@ export default function hudEditor(pi: ExtensionAPI) {
       if (!args) {
         state.enabled = !state.enabled;
         if (state.enabled) {
+          setupStatusBar(ctx, state);   // footer hook + footerDataRef/tuiRef 복구
           setupCustomEditor(ctx, state);
           ctx.ui.notify("hud-editor enabled", "info");
         } else {
           ctx.ui.setEditorComponent(undefined);
-          ctx.ui.setHeader(undefined);
-          ctx.ui.setWidget("hud-editor-secondary", undefined);
-          ctx.ui.setWidget("hud-editor-status", undefined);
+          ctx.ui.setFooter(undefined);   // 기본 footer 복원
+          ctx.ui.setWidget("hud-status-bar", undefined);
+          ctx.ui.setWidget("hud-notification", undefined);
+          state.footerDataRef = null;
+          state.tuiRef = null;
           state.currentEditor = null;
           state.layoutCache.result = null;
           ctx.ui.notify("Defaults restored", "info");

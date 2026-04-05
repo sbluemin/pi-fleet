@@ -10,9 +10,23 @@
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
+import { readFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
+
 import { WELCOME_GLOBAL_KEY, type WelcomeBridge } from "./types.js";
-import { readSettings } from "../hud/utils.js";
 import { WelcomeComponent, WelcomeHeader, discoverLoadedCounts, getRecentSessions } from "./welcome.js";
+
+/** pi settings.json 읽기 */
+function readSettings(): Record<string, unknown> {
+  const homeDir = process.env.HOME || process.env.USERPROFILE || "";
+  const settingsPath = join(homeDir, ".pi", "agent", "settings.json");
+  try {
+    if (existsSync(settingsPath)) {
+      return JSON.parse(readFileSync(settingsPath, "utf-8"));
+    }
+  } catch {}
+  return {};
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 내부 상태

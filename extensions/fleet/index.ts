@@ -64,7 +64,7 @@ import {
 import { cleanIdleClients } from "../core/agent/client-pool.js";
 import { registerModelCommands, syncModelConfig } from "./shipyard/carrier/model-ui.js";
 import { exposeAgentApi } from "./operation-runner.js";
-import { refreshAgentPanelFooter, getModeBannerLines } from "./panel/lifecycle.js";
+import { refreshAgentPanel } from "./panel/lifecycle.js";
 import { registerAgentPanelShortcut } from "./panel/shortcuts.js";
 import { setAgentPanelServiceLoading, setAgentPanelServiceStatus } from "./panel/config.js";
 import { buildBridgeCommand } from "./shipyard/carrier/launch.js";
@@ -85,9 +85,6 @@ import type { CarrierStatusGroup, CarrierStatusEntry } from "./shipyard/carrier/
 import type { ProviderKey } from "../core/agent/types.js";
 
 import { getSettingsAPI } from "../core/settings/bridge.js";
-
-import { EDITOR_MODE_PROVIDER_KEY } from "../core/hud/types.js";
-import type { EditorModeProvider } from "../core/hud/types.js";
 
 import { getKeybindAPI } from "../core/keybind/bridge.js";
 import { SHELL_POPUP_BRIDGE_KEY } from "../core/shell/types.js";
@@ -165,13 +162,6 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
     setLoading: setAgentPanelServiceLoading,
     setStatus: setAgentPanelServiceStatus,
   });
-
-  (globalThis as any)[EDITOR_MODE_PROVIDER_KEY] = {
-    getActiveModeId: getActiveCarrierId,
-    getModeColor: (modeId: string) => resolveCarrierColor(modeId) || null,
-    getBannerLines: (width: number) => getModeBannerLines(width),
-    onStatusUpdate,
-  } satisfies EditorModeProvider;
 
   exposeAgentApi();
 
@@ -494,7 +484,7 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
   const onSessionChange = (ctx: ExtensionContext) => {
     onHostSessionChange(ctx.sessionManager.getSessionId());
     cleanIdleClients();
-    refreshAgentPanelFooter(ctx);
+    refreshAgentPanel(ctx);
     attachStatusContext(ctx);
   };
 

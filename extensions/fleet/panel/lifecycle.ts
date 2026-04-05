@@ -7,10 +7,9 @@
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { ANIM_INTERVAL_MS, formatPanelMultiColHint } from "../constants";
-import { renderModeBanner } from "../render/panel-renderer";
 import { getState, makeCols, syncColSessionIds } from "./state.js";
 import type { AgentCol } from "./types.js";
-import { scheduleSyncFooter, syncWidget } from "./widget-sync.js";
+import { syncWidget } from "./widget-sync.js";
 
 // 편의를 위한 re-export
 export type { AgentCol } from "./types.js";
@@ -119,16 +118,6 @@ export function onPanelToggle(callback: (expanded: boolean) => void): () => void
   };
 }
 
-/**
- * 현재 모드 배너 라인을 반환합니다 (에디터 render에서 사용).
- * 패널이 접힌 상태에서 활성 모드가 있을 때만 배너를 반환합니다.
- */
-export function getModeBannerLines(width: number): string[] {
-  const s = getState();
-  if (!s.activeMode || s.expanded) return [];
-  return renderModeBanner(width, s.activeMode, s.frame, s.cols);
-}
-
 /** 패널이 펼쳐져 있는지 반환합니다. */
 export function isAgentPanelExpanded(): boolean {
   return getState().expanded;
@@ -144,7 +133,7 @@ export function updateAgentCol(index: number, update: Partial<AgentCol>): void {
   const s = getState();
   if (index >= 0 && index < s.cols.length) {
     Object.assign(s.cols[index], update);
-    scheduleSyncFooter(s.lastCtx);
+    if (s.lastCtx) syncWidget(s.lastCtx);
   }
 }
 
@@ -167,10 +156,10 @@ export function resetAgentPanel(ctx: ExtensionContext): void {
   syncWidget(ctx);
 }
 
-// ─── Footer 갱신 ─────────────────────────────────────────
+// ─── 패널 갱신 ──────────────────────────────────────────
 
-/** footer 상태를 현재 패널 상태 기준으로 즉시 동기화합니다. */
-export function refreshAgentPanelFooter(ctx: ExtensionContext): void {
+/** 패널 상태를 현재 기준으로 즉시 동기화합니다. */
+export function refreshAgentPanel(ctx: ExtensionContext): void {
   const s = getState();
   s.lastCtx = ctx;
   syncColSessionIds();

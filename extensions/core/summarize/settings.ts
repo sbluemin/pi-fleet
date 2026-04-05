@@ -12,8 +12,6 @@ export interface AutoSummarizeSettings {
   provider?: string;
   /** 모델 ID */
   model?: string;
-  /** 요약 최대 길이 (기본: 80) */
-  maxLength?: number;
 }
 
 const SECTION_KEY = "core-summarize";

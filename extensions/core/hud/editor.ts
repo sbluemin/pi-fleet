@@ -9,8 +9,7 @@ import type { ReadonlyFooterDataProvider, Theme } from "@mariozechner/pi-coding-
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
 import type { HudEditorState } from "./index.js";
-import type { EditorModeProvider, SegmentStateProvider } from "./types.js";
-import { EDITOR_MODE_PROVIDER_KEY } from "./types.js";
+import type { SegmentStateProvider } from "./types.js";
 import { ansi, getFgAnsiCode } from "./colors.js";
 import { getPreset } from "./presets.js";
 import { buildSegmentContext } from "./context.js";
@@ -18,17 +17,11 @@ import { computeResponsiveLayout } from "./layout.js";
 import { WELCOME_GLOBAL_KEY } from "../welcome/types.js";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Footer 설정
+// 상태바 설정 (footerDataRef 획득 목적)
 // ═══════════════════════════════════════════════════════════════════════════
 
-/** footer 상태 전용 status key (문자열 계약) */
-const UA_DIRECT_FOOTER_STATUS_KEY = "ua-direct-footer";
-
-/** 세션 요약 footer status key — summarize 확장에서 사용 */
-export const SUMMARY_FOOTER_STATUS_KEY = "summary-footer";
-
-/** Footer 등록 — ua-direct 상태 표시 + footerData/tui 참조를 state에 저장 */
-export function setupFooter(ctx: any, state: HudEditorState): void {
+/** 상태바 등록 — footerData/tui 참조를 state에 저장 (렌더링은 빈 배열) */
+export function setupStatusBar(ctx: any, state: HudEditorState): void {
   if (!ctx.hasUI) return;
 
   ctx.ui.setFooter((tui: any, _theme: Theme, footerData: ReadonlyFooterDataProvider) => {
@@ -40,24 +33,8 @@ export function setupFooter(ctx: any, state: HudEditorState): void {
     return {
       dispose: unsub,
       invalidate() {},
-      render(width: number): string[] {
-        const statuses = footerData.getExtensionStatuses();
-        const result: string[] = [];
-
-        // ua-direct-footer 행 (기존 동작 유지)
-        const uaStatus = statuses.get(UA_DIRECT_FOOTER_STATUS_KEY)?.trimEnd();
-        if (uaStatus) {
-          const lines = uaStatus.split("\n");
-          result.push(...lines.map(line => centerLine(line, width)));
-        }
-
-        // 세션 요약 — 무조건 맨 마지막 행
-        const summaryStatus = statuses.get(SUMMARY_FOOTER_STATUS_KEY)?.trimEnd();
-        if (summaryStatus) {
-          result.push(centerLine(summaryStatus, width));
-        }
-
-        return result;
+      render(_width: number): string[] {
+        return [];
       },
     };
   });
@@ -97,15 +74,10 @@ export function setupCustomEditor(ctx: any, state: HudEditorState): void {
           return originalRender(width);
         }
 
-        // 활성 UA 모드 색상 (없으면 null → 기본 색상 유지)
-        const modeProvider = getModeProvider();
-        const modeId = modeProvider?.getActiveModeId() ?? null;
-        const modeFg = modeId ? (modeProvider?.getModeColor(modeId) ?? null) : null;
-
-        // 테두리: 모드 FG 색상 우선, 없으면 기본 sep 색상
-        const bc = (s: string) => `${modeFg ?? getFgAnsiCode("sep")}${s}${ansi.reset}`;
-        // 프롬프트 `>`: 모드 FG 색상 우선, 없으면 기본 회색
-        const prompt = `${modeFg ?? ansi.getFgAnsi(200, 200, 200)}>${ansi.reset}`;
+        // 테두리: sep 색상 고정
+        const bc = (s: string) => `${getFgAnsiCode("sep")}${s}${ansi.reset}`;
+        // 프롬프트 `>`: 회색 고정
+        const prompt = `${ansi.getFgAnsi(200, 200, 200)}>${ansi.reset}`;
 
         const promptPrefix = ` ${prompt} `;
         const contPrefix = "   ";
@@ -125,12 +97,6 @@ export function setupCustomEditor(ctx: any, state: HudEditorState): void {
         }
 
         const result: string[] = [];
-
-        // UA 모드 배너 (활성 모드가 있을 때 — 테두리 위)
-        const bannerLines = modeProvider?.getBannerLines(width) ?? [];
-        if (bannerLines.length > 0) {
-          result.push(...bannerLines);
-        }
 
         // 상단 테두리
         result.push(" " + bc("─".repeat(width - 2)));
@@ -162,13 +128,8 @@ export function setupCustomEditor(ctx: any, state: HudEditorState): void {
 
     ctx.ui.setEditorComponent(editorFactory);
 
-    // 모드 전환 시 에디터 리렌더 요청 (배경색 즉시 반영)
-    getModeProvider()?.onStatusUpdate(() => {
-      state.tuiRef?.requestRender();
-    });
-
-    // 상태바 + Secondary row 위젯 (belowEditor, footer 위)
-    ctx.ui.setWidget("hud-editor-secondary", (_tui: any, theme: Theme) => {
+    // 상태바 위젯 (belowEditor)
+    ctx.ui.setWidget("hud-status-bar", (_tui: any, theme: Theme) => {
       return {
         dispose() {},
         invalidate() {},
@@ -177,14 +138,14 @@ export function setupCustomEditor(ctx: any, state: HudEditorState): void {
           const layout = getResponsiveLayout(width, theme, state);
           const lines: string[] = [];
 
-          // 상태바 (중앙 정렬)
+          // 상태바 (좌측 정렬)
           if (layout.topContent) {
-            lines.push(centerLine(layout.topContent, width));
+            lines.push(truncateToWidth(` ${layout.topContent}`, width));
           }
 
           // 오버플로우 세그먼트
           if (layout.secondaryContent) {
-            lines.push(centerLine(layout.secondaryContent, width));
+            lines.push(truncateToWidth(` ${layout.secondaryContent}`, width));
           }
 
           return lines;
@@ -192,8 +153,8 @@ export function setupCustomEditor(ctx: any, state: HudEditorState): void {
       };
     }, { placement: "belowEditor" });
 
-    // 확장 상태 알림 위젯 (에디터 위)
-    ctx.ui.setWidget("hud-editor-status", () => {
+    // 확장 상태 알림 위젯 (에디터 아래)
+    ctx.ui.setWidget("hud-notification", () => {
       return {
         dispose() {},
         invalidate() {},
@@ -217,7 +178,7 @@ export function setupCustomEditor(ctx: any, state: HudEditorState): void {
           return notifications;
         },
       };
-    }, { placement: "aboveEditor" });
+    }, { placement: "belowEditor" });
 
   });
 }
@@ -230,16 +191,6 @@ function dismissWelcomeViaGlobal(): void {
   (globalThis as any)[WELCOME_GLOBAL_KEY]?.dismiss?.();
 }
 
-/** globalThis에서 EditorModeProvider를 가져온다 (주입 전이면 undefined). */
-function getModeProvider(): EditorModeProvider | undefined {
-  return (globalThis as any)[EDITOR_MODE_PROVIDER_KEY] as EditorModeProvider | undefined;
-}
-
-function centerLine(line: string, width: number): string {
-  const visLen = visibleWidth(line);
-  const pad = Math.max(0, Math.floor((width - visLen) / 2));
-  return truncateToWidth(" ".repeat(pad) + line, width);
-}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 레이아웃 캐시

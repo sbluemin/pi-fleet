@@ -14,7 +14,7 @@ Do not create intermediate layers that simply wrap official TUI APIs (e.g., `set
 |-----------|------|------------|
 | `fleet/` | Agent orchestration framework — carrier SDK (`shipyard/carrier/`), unified pipeline, Agent Panel, model selection. Provides the carrier framework that `carriers/` depends on. | `index.ts` (wiring), `shipyard/carrier/` (framework), `internal/` (implementation) |
 | `carriers/` | Carrier registrations — independent extension defining individual carriers (genesis, sentinel, vanguard, etc.). Depends only on `shipyard/carrier` package, not on `fleet/` extension. Optional — users may omit from `settings.json`. | `index.ts` (wiring), individual carrier files |
-| `core/hud/` | Editor + Status Bar + Footer (with integrated rendering engine) | `index.ts` (wiring), `editor.ts` (editor/footer/widget UI) |
+| `core/hud/` | Editor + Status Bar (Private rendering engine) | `index.ts` (wiring), `editor.ts` (editor/status bar/widget UI) |
 | `core/keybind/` | Centralized keybinding management + overlay (alt+.) | `index.ts` (wiring), `types.ts` (API types + globalThis key), `bridge.ts` (globalThis bridge runtime), `store.ts` (JSON), `registry.ts` (bindings), `overlay.ts` (UI) |
 | `core/settings/` | Centralized settings API + overlay popup (alt+/) | `index.ts` (wiring), `types.ts` (API types + globalThis key), `bridge.ts` (globalThis bridge runtime), `store.ts` (JSON), `registry.ts` (sections), `overlay.ts` (UI) |
 | `core/welcome/` | Welcome overlay/header | `index.ts` (wiring), `welcome.ts` (UI), `types.ts` (globalThis types) |
@@ -36,7 +36,7 @@ These are pure libraries not recognized as extensions by pi.
 Apply these criteria when creating a new extension or separating an existing one:
 
 1. **Does it provide its own UI feature?** — If it has independent rendering logic, its own components, or standalone functionality, **separate it into an extension**.
-2. **Is it just wrapping TUI APIs?** — If it acts as a router/relay for `setWidget`/`setFooter`, **inline it in the consumer extension instead of separating it**.
+2. **Is it just wrapping TUI APIs?** — If it acts as a router/relay for `setWidget`, inline it in the consumer extension instead of separating it. Note that `setFooter` is discouraged for external extensions; use `setWidget` with appropriate placement instead.
 3. **Is it pure logic shared by multiple extensions?** — Separate it into a **shared library directory** without an `index.ts`.
 
 ## Modularization Principles

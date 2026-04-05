@@ -14,7 +14,7 @@ Core logic for carrier management and fleet persistence. This subpackage contain
 | File | Role |
 |------|------|
 | `store.ts` | Unified fleet persistence store. Consolidates model selection, Task Force configs, `sortieDisabled` status, and `cliTypeOverrides`. |
-| **carrier/** | **Carrier Framework SDK** — registration, activation, tool delegation (`carrier_sortie`), and status bar UI. |
+| **carrier/** | **Carrier Framework SDK** — registration, activation, tool delegation (`carriers_sortie`), and status bar UI (via direct `setWidget` for carrier status and banners). |
 | **taskforce/** | **Task Force Logic** — cross-validation between multiple CLI backends. |
 
 ## Persistence Store (`store.ts`)
