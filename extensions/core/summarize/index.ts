@@ -11,8 +11,8 @@
  */
 
 import type { Api, Model } from "@mariozechner/pi-ai";
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-
+import type { ExtensionAPI, Theme } from "@mariozechner/pi-coding-agent";
+import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
 import { loadSettings, saveSettings } from "./settings.js";
 import type { AutoSummarizeSettings } from "./settings.js";
@@ -20,6 +20,8 @@ import { resolveModel, generateTaskTitle } from "./summarizer.js";
 import { getSettingsAPI } from "../settings/bridge.js";
 
 const SUMMARIZE_STATUS_KEY = "core-summarize-status";
+const SESSION_ID_LENGTH = 8;
+const SUMMARY_SEPARATOR = "›";
 
 export default function (pi: ExtensionAPI) {
   let pendingInitialSummary = false;
@@ -42,6 +44,18 @@ export default function (pi: ExtensionAPI) {
   });
 
   // ── 이벤트 핸들러 ──
+
+  pi.on("session_start", async (_event, ctx) => {
+    pendingInitialSummary = false;
+
+    const summary = pi.getSessionName()?.trim();
+    if (!summary) {
+      ctx.ui.setWidget(SUMMARIZE_STATUS_KEY, undefined);
+      return;
+    }
+
+    setSummaryWidget(ctx, getCurrentSessionId(ctx), summary);
+  });
 
   pi.on("input", async (event, ctx) => {
     const source = (event as any).source;
@@ -67,7 +81,7 @@ export default function (pi: ExtensionAPI) {
         if (!summary) return;
         if (pi.getSessionName()?.trim()) return;
         pi.setSessionName(summary);
-        setSummaryWidget(ctx, summary);
+        setSummaryWidget(ctx, getCurrentSessionId(ctx), summary);
       })
       .finally(() => {
         if (!pi.getSessionName()?.trim()) {
@@ -181,9 +195,45 @@ export default function (pi: ExtensionAPI) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /** 요약 위젯을 belowEditor에 등록합니다. */
-function setSummaryWidget(ctx: any, summary: string): void {
-  ctx.ui.setWidget(SUMMARIZE_STATUS_KEY, (_tui: any, _theme: any) => ({
-    render: (_w: number) => [summary],
+function setSummaryWidget(ctx: any, sessionId: string | undefined, summary: string): void {
+  ctx.ui.setWidget(SUMMARIZE_STATUS_KEY, (_tui: any, theme: Theme) => ({
+    render: (width: number) => [centerLine(buildSummaryLine(theme, sessionId, summary, width), width)],
     invalidate() {},
   }), { placement: "belowEditor" });
+}
+
+function buildSummaryLine(
+  theme: Theme,
+  sessionId: string | undefined,
+  summary: string,
+  width: number,
+): string {
+  const trimmedSummary = summary.trim();
+  if (!trimmedSummary) return "";
+
+  const summaryText = theme.fg("muted", trimmedSummary);
+  const shortSessionId = sessionId?.slice(0, SESSION_ID_LENGTH);
+  if (!shortSessionId) {
+    return truncateToWidth(summaryText, width);
+  }
+
+  const sessionText = theme.fg("dim", shortSessionId);
+  const separatorText = theme.fg("dim", ` ${SUMMARY_SEPARATOR} `);
+  const combined = `${sessionText}${separatorText}${summaryText}`;
+
+  if (visibleWidth(combined) > width) {
+    return truncateToWidth(summaryText, width);
+  }
+
+  return combined;
+}
+
+function getCurrentSessionId(ctx: any): string | undefined {
+  return ctx.sessionManager?.getSessionId?.();
+}
+
+function centerLine(line: string, width: number): string {
+  const visLen = visibleWidth(line);
+  const pad = Math.max(0, Math.floor((width - visLen) / 2));
+  return truncateToWidth(" ".repeat(pad) + line, width);
 }
