@@ -12,7 +12,7 @@ import type { CliType } from "@sbluemin/unified-agent";
 import { registerCarrier, reorderRegisteredByCliType } from "./framework.js";
 import { runAgentRequest } from "../../operation-runner.js";
 import type { CarrierMetadata, CarrierResult } from "./types.js";
-import { composeTier2Request } from "./compose.js";
+import { composeTier2Request } from "./prompts.js";
 import {
   CLI_DISPLAY_NAMES,
   CARRIER_COLORS,
@@ -97,6 +97,5 @@ export function registerSingleCarrier(
   reorderRegisteredByCliType();
 }
 
-// composeTier2Request는 compose.ts로 분리되었습니다.
-// 하위 호환을 위해 re-export합니다.
-export { composeTier2Request } from "./compose.js";
+// composeTier2Request는 prompts.ts의 Tier 2 섹션에 위치합니다.
+export { composeTier2Request } from "./prompts.js";

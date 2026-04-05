@@ -23,7 +23,7 @@ import type { CliType } from "@sbluemin/unified-agent";
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
 import { runAgentRequest } from "../../operation-runner.js";
-import { composeTier2Request } from "./compose.js";
+import { composeTier2Request } from "./prompts.js";
 import { getVisibleRun, getRunById } from "../../streaming/stream-store.js";
 import { renderBlockLines, blockLineAnsiColor } from "../../render/block-renderer.js";
 import {

@@ -1,18 +1,22 @@
 /**
- * fleet/carrier/prompts.ts — carrier_sortie 도구 프롬프트 / 스키마 관리
+ * fleet/carrier/prompts.ts — carrier_sortie 프롬프트 / 스키마 관리 (Tier 1 · Tier 2)
  *
- * carrier_sortie 도구 등록에 필요한 모든 프롬프트 메타데이터와
- * TypeBox 파라미터 스키마를 한 곳에서 조립합니다.
+ * Tier 1: carrier_sortie 도구 등록에 필요한 프롬프트 메타데이터와 TypeBox 파라미터 스키마.
+ * Tier 2: carrier 메타데이터(permissions, principles, outputFormat)를 원본 request에
+ *         주입하여 최종 request를 조립하는 유틸리티.
  *
  * 구조:
- *  1. 상수 프롬프트          — LLM에 노출되는 고정 텍스트
- *  2. buildSortieToolPromptSnippet    — Available tools 섹션 한 줄
- *  2. buildSortieToolPromptGuidelines — Guidelines 섹션 bullets (동적 carrier 목록 포함)
- *  2. buildSortieToolSchema           — TypeBox parameters 스키마
+ *  Tier 1 — 상수 프롬프트 / build 함수 / 내부 헬퍼
+ *  Tier 2 — composeTier2Request / buildDirectiveSection
  */
 
 import { Type, type TObject } from "@sinclair/typebox";
 import { getRegisteredCarrierConfig } from "./framework.js";
+import type { CarrierMetadata } from "./types.js";
+
+// ═════════════════════════════════════════════════════════
+// Tier 1 — carrier_sortie 도구 프롬프트 / 스키마
+// ═════════════════════════════════════════════════════════
 
 // ─────────────────────────────────────────────────────────
 // 공유 타입
@@ -192,4 +196,40 @@ function buildCarrierGuidelines(carrierIds: string[]): string[] {
 
   // 전체를 하나의 문자열로 합침 (PI가 guidelines를 배열로 렌더링)
   return [lines.join("\n")];
+}
+
+// ═════════════════════════════════════════════════════════
+// Tier 2 — request 조립 (permissions · principles · outputFormat 주입)
+// ═════════════════════════════════════════════════════════
+
+/**
+ * Tier 2 자동 주입: permissions + principles를 앞에, outputFormat을 끝에 붙여
+ * 최종 request를 조립합니다.
+ */
+export function composeTier2Request(metadata: CarrierMetadata, originalRequest: string): string {
+  const directives = [
+    buildDirectiveSection("## Permissions & Constraints", metadata.permissions),
+    buildDirectiveSection("## Principles", metadata.principles ?? []),
+  ].filter((section) => section.length > 0);
+
+  const parts: string[] = [];
+  if (directives.length > 0) {
+    parts.push(directives.map((section) => section.join("\n")).join("\n\n") + "\n\n---\n");
+  }
+  parts.push(originalRequest);
+
+  if (metadata.outputFormat) {
+    parts.push("\n" + metadata.outputFormat);
+  }
+
+  return parts.join("\n");
+}
+
+function buildDirectiveSection(title: string, items: string[]): string[] {
+  if (items.length === 0) return [];
+
+  return [
+    title,
+    ...items.map((item) => `- ${item}`),
+  ];
 }

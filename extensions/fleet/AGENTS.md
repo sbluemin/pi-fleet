@@ -85,7 +85,7 @@ Consumer (carriers, external extensions)
 | `shipyard/carrier/types.ts` | Carrier framework types — CarrierConfig, CarrierHelpers, CarrierResult, internal state types |
 | `shipyard/carrier/framework.ts` | Carrier framework SDK — `registerCarrier`, `activateCarrier`, `deactivateCarrier`, `getActiveCarrierId`, `onStatusUpdate`, `notifyStatusUpdate`. Manages globalThis shared state, input interception, shortcut registration, message renderer registration |
 | `shipyard/carrier/register.ts` | Single-carrier registration — `registerSingleCarrier` (carrier framework + prompt metadata, no PI tool) |
-| `shipyard/carrier/prompts.ts` | carrier_sortie 도구 기본 프롬프트 관리 |
+| `shipyard/carrier/prompts.ts` | carrier_sortie 프롬프트 / 스키마 관리 (Tier 1 · Tier 2 request 조립) |
 | `shipyard/carrier/sortie.ts` | Carrier Sortie 도구 — 유일한 carrier 위임 PI 도구. **호출 인스턴스 격리(sortieKey)** 및 **runId 기반 스트리밍 필터링**을 통해 여러 호출이 동시에 실행되어도 UI 간섭 없이 통합 진행/결과를 표시합니다. |
 | `shipyard/carrier/model-ui.ts` | Model selection UI — model selection TUI component + keybind/command registration |
 | `shipyard/carrier/footer-renderer.ts` | Carrier footer segment renderer — carrier 아이콘 + 이름 + 상태별 색상을 footer 세그먼트로 렌더링 |

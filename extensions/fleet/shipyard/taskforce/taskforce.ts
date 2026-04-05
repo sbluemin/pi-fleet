@@ -32,7 +32,7 @@ import {
   getRegisteredCarrierConfig,
   resolveCarrierDisplayName,
 } from "../carrier/framework.js";
-import { composeTier2Request } from "../carrier/compose.js";
+import { composeTier2Request } from "../carrier/prompts.js";
 import {
   ANSI_RESET,
   PANEL_COLOR,
