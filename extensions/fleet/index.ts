@@ -15,6 +15,7 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { CliType } from "@sbluemin/unified-agent";
 import * as path from "node:path";
 import * as os from "node:os";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
@@ -35,21 +36,31 @@ import {
   setSortieDisabledCarriers,
   onSortieStateChange,
   onTaskForceConfigChange,
+  updateCarrierCliType,
+  setPendingCliTypeOverrides,
 } from "./shipyard/carrier/framework.js";
 import {
   initRuntime,
   onHostSessionChange,
-  getModelConfig,
+} from "../core/agent/runtime.js";
+import {
+  initStore,
+  loadModels as getModelConfig,
   updateModelSelection,
   getTaskForceModelConfig,
   updateTaskForceModelSelection,
   resetTaskForceModelSelection,
   isTaskForceFullyConfigured,
-} from "../core/agent/runtime.js";
-import { getAvailableModels, getEffortLevels, getDefaultBudgetTokens } from "../core/agent/model-config.js";
+  getAvailableModels,
+  getEffortLevels,
+  getDefaultBudgetTokens,
+  loadSortieDisabled,
+  saveSortieDisabled,
+  loadCliTypeOverrides,
+  saveCliTypeOverrides,
+} from "./shipyard/store.js";
 import { cleanIdleClients } from "../core/agent/client-pool.js";
 import { registerModelCommands, syncModelConfig } from "./shipyard/carrier/model-ui.js";
-import { loadSortieDisabled, saveSortieDisabled } from "./shipyard/carrier/sortie-store.js";
 import { exposeAgentApi } from "./operation-runner.js";
 import { refreshAgentPanelFooter, getModeBannerLines } from "./panel/lifecycle.js";
 import { registerAgentPanelShortcut } from "./panel/shortcuts.js";
@@ -85,7 +96,7 @@ export type { CollectedStreamData } from "./streaming/types.js";
 export { runAgentRequest } from "./operation-runner.js";
 
 export {
-  getModelConfig,
+  loadModels as getModelConfig,
   updateModelSelection,
   updateAllModelSelections,
   getTaskForceModelConfig,
@@ -93,17 +104,14 @@ export {
   resetTaskForceModelSelection,
   isTaskForceFullyConfigured,
   getConfiguredTaskForceCarrierIds,
-} from "../core/agent/runtime.js";
-
-export {
   getAvailableModels,
   getEffortLevels,
   getDefaultBudgetTokens,
-} from "../core/agent/model-config.js";
+} from "./shipyard/store.js";
 export type {
   ModelSelection,
   SelectedModelsConfig,
-} from "../core/agent/model-config.js";
+} from "./shipyard/store.js";
 
 export type { AgentStatus } from "../core/agent/types.js";
 
@@ -150,6 +158,7 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
   // os.homedir() 직접 사용으로 PI_CODING_AGENT_DIR override와 무관하게 경로를 고정한다.
   const dataDir = path.join(os.homedir(), ".pi", "fleet");
   initRuntime(dataDir);
+  initStore(dataDir);
   initServiceStatus({
     setLoading: setAgentPanelServiceLoading,
     setStatus: setAgentPanelServiceStatus,
@@ -167,9 +176,17 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
   // ── Sortie 비활성 상태 복원 ──
   // 부팅 시에는 carrier 등록 전이므로 validIds 필터 없이 전체 로드.
   // 아직 미등록 carrier ID도 보존하여 debounced 콜백의 덮어쓰기를 방지한다.
-  const restoredDisabled = loadSortieDisabled(dataDir);
+  const restoredDisabled = loadSortieDisabled();
   if (restoredDisabled.length > 0) {
     setSortieDisabledCarriers(restoredDisabled, true);
+  }
+
+  // ── cliType 오버라이드 복원 ──
+  // 부팅 시 carrier 미등록 상태이므로 validIds 없이 전체 로드 후 pending으로 저장.
+  // registerCarrier() 호출 시 자동 적용됨.
+  const restoredCliTypeOverrides = loadCliTypeOverrides();
+  if (Object.keys(restoredCliTypeOverrides).length > 0) {
+    setPendingCliTypeOverrides(restoredCliTypeOverrides as Record<string, CliType>);
   }
 
   registerFleetSortie(pi);
@@ -183,7 +200,7 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
   onSortieStateChange(() => {
     registerFleetSortie(pi);
     refreshTaskForceState();
-    saveSortieDisabled(dataDir, getSortieDisabledIds());
+    saveSortieDisabled(getSortieDisabledIds());
   });
 
   // Task Force 설정 변경 시 → 도구 재등록 + 상태바 갱신
@@ -342,6 +359,27 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
               hasTaskForceConfig: (carrierId: string) => {
                 return isTaskForceFullyConfigured(carrierId);
               },
+              updateCliType: (carrierId: string, newCliType: string) => {
+                updateCarrierCliType(carrierId, newCliType as CliType);
+                // 모델 호환성: 새 cliType 기본 모델로 리셋
+                const provider = getAvailableModels(newCliType as CliType);
+                void updateModelSelection(carrierId, { model: provider.defaultModel });
+                syncModelConfig();
+                // 영속화: defaultCliType과 다를 때만 override 저장
+                const overrides: Record<string, string> = {};
+                for (const cid of getRegisteredOrder()) {
+                  const cfg = getRegisteredCarrierConfig(cid);
+                  if (cfg && cfg.cliType !== cfg.defaultCliType) {
+                    overrides[cid] = cfg.cliType;
+                  }
+                }
+                saveCliTypeOverrides(overrides);
+                // 오버레이 닫기 (그룹 재구성을 위해)
+                dismissStatusPopup?.();
+              },
+              getDefaultCliType: (carrierId: string) => {
+                return getRegisteredCarrierConfig(carrierId)?.defaultCliType ?? "claude";
+              },
               openTaskForce: (carrierId: string) => {
                 dismissStatusPopup?.();
                 const carrierConfig = getRegisteredCarrierConfig(carrierId);
@@ -374,8 +412,8 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
                       isCustom,
                     };
                   },
-                  updateBackendConfig: (cliType: string, selection) => {
-                    return updateTaskForceModelSelection(
+                  updateBackendConfig: async (cliType: string, selection) => {
+                    updateTaskForceModelSelection(
                       carrierId,
                       requireTaskForceCliType(cliType),
                       selection,

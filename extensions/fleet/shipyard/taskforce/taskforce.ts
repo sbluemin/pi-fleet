@@ -16,7 +16,7 @@ import { executeOneShot } from "../../../core/agent/executor.js";
 import {
   getTaskForceModelConfig,
   getConfiguredTaskForceCarrierIds,
-} from "../../../core/agent/runtime.js";
+} from "../store.js";
 import {
   createRun,
   appendTextBlock,

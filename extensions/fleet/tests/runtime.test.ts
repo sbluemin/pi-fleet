@@ -18,12 +18,15 @@ import {
   onHostSessionChange,
   getSessionStore,
   getSessionId,
-  getModelConfig,
   getDataDir,
+} from "../../core/agent/runtime.js";
+import {
+  initStore,
+  loadModels as getModelConfig,
+  saveModels as saveSelectedModels,
   updateModelSelection,
   updateAllModelSelections,
-} from "../../core/agent/runtime.js";
-import { saveSelectedModels } from "../../core/agent/model-config.js";
+} from "../shipyard/store.js";
 
 let tmpDir: string;
 
@@ -66,13 +69,15 @@ describe("initRuntime", () => {
 describe("getModelConfig / saveSelectedModels", () => {
   it("초기 상태에서 빈 객체를 반환한다", () => {
     initRuntime(tmpDir);
+    initStore(tmpDir);
     expect(getModelConfig()).toEqual({});
   });
 
   it("저장된 모델 설정을 올바르게 로드한다", () => {
     initRuntime(tmpDir);
+    initStore(tmpDir);
     const config = { genesis: { model: "opus" }, sentinel: { model: "gpt-5" } };
-    saveSelectedModels(tmpDir, config);
+    saveSelectedModels(config);
 
     const loaded = getModelConfig();
     expect(loaded.genesis?.model).toBe("opus");
@@ -82,23 +87,26 @@ describe("getModelConfig / saveSelectedModels", () => {
   it("initRuntime 없이 호출하면 빈 객체를 반환한다 (graceful)", () => {
     const nonExistentDir = path.join(tmpDir, "nonexistent", "deep");
     initRuntime(nonExistentDir);
+    initStore(nonExistentDir);
     expect(getModelConfig()).toEqual({});
   });
 
   it("새로 생성된 dataDir에서 첫 모델 저장이 ENOENT 없이 성공한다", () => {
     const deepDir = path.join(tmpDir, "brand", "new", "path");
     initRuntime(deepDir);
+    initStore(deepDir);
 
     expect(() => {
-      saveSelectedModels(deepDir, { vanguard: { model: "gemini-3" } });
+      saveSelectedModels({ vanguard: { model: "gemini-3" } });
     }).not.toThrow();
 
-    const filePath = path.join(deepDir, "selected-models.json");
+    const filePath = path.join(deepDir, "states.json");
     expect(fs.existsSync(filePath)).toBe(true);
   });
 
   it("updateModelSelection은 cliType이 아닌 carrierId 키로 저장한다", async () => {
     initRuntime(tmpDir);
+    initStore(tmpDir);
     onHostSessionChange("model-by-carrier");
     const store = getSessionStore();
     store.set("vanguard", "vanguard-session");
@@ -112,6 +120,7 @@ describe("getModelConfig / saveSelectedModels", () => {
 
   it("updateAllModelSelections은 carrierId 키들을 그대로 저장하고 세션을 정리한다", async () => {
     initRuntime(tmpDir);
+    initStore(tmpDir);
     onHostSessionChange("bulk-models");
     const store = getSessionStore();
     store.set("vanguard", "vanguard-session");

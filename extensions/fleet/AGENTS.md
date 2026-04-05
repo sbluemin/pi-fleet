@@ -14,9 +14,10 @@ The number of carriers is determined at runtime by the number of registered carr
 - `requestUnifiedAgent` is the public agent execution API exposed via `globalThis["__pi_ua_request__"]`.
 - **All execution paths go through `runAgentRequest()`** — Carriers, tools, and external extensions all use `runAgentRequest()` from `operation-runner.ts`. No direct `executeWithPool` calls outside operation-runner.
 - Calling `runAgentRequest()` **automatically syncs all UIs**: Agent Panel column, Streaming Widget (when panel collapsed), and stream-store data.
-- **carrierId vs cliType**: `carrierId` (string) is the unique carrier identity used for pool keys, session keys, and panel column identity. `cliType` (CliType) is the CLI binary to execute. Multiple carriers can share the same `cliType` while maintaining fully isolated sessions and connections.
-- **Slot-based ordering**: Each carrier's `slot` determines its panel column position and inline navigation order. Slots must be unique across all registered carriers.
-- **carrier_sortie 호출 인스턴스 격리**: `carrier_sortie` 도구는 `toolCallId`를 `sortieKey`로 사용하여 호출 단위로 상태(진행률, 스트리밍 콘텐츠, 결과 캐시)를 격리합니다. 이를 통해 동시/연속 호출 시 UI 간섭과 콘텐츠 중복 출력을 방지합니다.
+- **carrierId vs cliType**: `carrierId` (string) is the unique carrier identity used for pool keys, session keys, and panel column identity. `cliType` (CliType) is the CLI binary to execute. Multiple carriers can share the same `cliType` while maintaining fully isolated sessions and connections. **`cliType` can be dynamically changed and persisted at runtime, and `defaultCliType` preserves the original CLI type.**
+- **Slot-based ordering**: Each carrier's `slot` determines its panel column position and inline navigation order. Slots must be unique across all registered carriers. **When `cliType` changes, the sorting order and theme color of the corresponding CLI type are immediately reflected.**
+- **carrier_sortie call instance isolation**: The `carrier_sortie` tool uses `toolCallId` as the `sortieKey` to isolate state (progress, streaming content, result cache) per call. This prevents UI interference and redundant content output during concurrent/sequential calls.
+- **Dynamic CliType Overrides**: You can change the CLI type of a specific carrier at runtime via `updateCarrierCliType`. The changed state is saved in `states.json` and maintained after restart, and can be pre-applied at boot time via `setPendingCliTypeOverrides`.
 - **Same carrierId concurrent calls are not supported** — UI layer manages one visible run per carrierId.
 - Mutual exclusivity between carriers is automatically managed by the framework (`deactivateAll`).
 - The Agent Panel is the main UI for streaming — active single carriers use exclusive view, otherwise the panel falls back to the current visible CLI columns.
@@ -29,13 +30,15 @@ The number of carriers is determined at runtime by the number of registered carr
 index.ts               ← extension entry point + public Facade re-exports
 operation-runner.ts    ← unified execution entry point (internal — exposed via index.ts)
 shipyard/carrier/      ← Carrier framework SDK + carrier visual representation (registration, activation, input routing, footer rendering)
-  ├── types.ts         ← CarrierConfig, CarrierHelpers, CarrierResult, internal state types
-  ├── framework.ts     ← registerCarrier, activateCarrier, deactivateCarrier, getActiveCarrierId
-  ├── register.ts      ← registerSingleCarrier (carrier framework registration + prompt metadata)
-  ├── prompts.ts       ← carrier_sortie 도구 기본 프롬프트 관리
-  ├── sortie.ts      ← carrier_sortie (유일한 carrier 위임 PI 도구) 등록 + 동적 프롬프트 합성
+  ├── types.ts         ← CarrierConfig(defaultCliType), CarrierHelpers, CarrierResult, internal state types(pendingCliTypeOverrides)
+  ├── framework.ts     ← registerCarrier, activateCarrier, updateCarrierCliType, setPendingCliTypeOverrides
+  ├── register.ts      ← registerSingleCarrier (dynamic cliType reference and defaultCliType auto-configuration)
+  ├── prompts.ts       ← carrier_sortie tool base prompt management
+  ├── sortie.ts        ← carrier_sortie (sole carrier delegation PI tool) registration + dynamic prompt synthesis
+  ├── status-overlay.ts ← Carrier status bar overlay (supports cliType change mode, 'c' key binding)
   └── launch.ts        ← native bridge command builder
-panel/             ← panel state + lifecycle + widget bridge + panel domain types
+shipyard/store.ts    ← Unified fleet persistence store (states.json)
+panel/             ← panel state(findColIndex) + lifecycle + widget bridge + panel domain types
 streaming/         ← stream store + streaming domain types (ColBlock, ColStatus, CollectedStreamData)
 render/            ← panel rendering engine (panel layout, block transform, message renderers)
 
@@ -51,7 +54,10 @@ carriers/              ← (REMOVED — now at extensions/carriers/)
 - **Subpackage modules reference siblings directly** — e.g., `panel/config.ts` imports from `shipyard/carrier/framework.ts` without going through the facade.
 - **`index.ts` is the only public facade**: It owns extension wiring plus export-only public re-exports. Keep business logic in `shipyard/carrier/`, `panel/`, `render/`, `streaming/`, and `operation-runner.ts`.
 - **Service status lives in core**: Service status monitoring (polling, rendering) lives in **`core/agent/service-status/`**. `fleet/index.ts` injects a callback into `core/agent/service-status/store.ts` to trigger fleet UI updates without core needing to know about fleet.
-- **Persistence is core-owned**: Session map and model config persistence are managed entirely by **`core/agent/runtime.ts`**. Runtime files live under `.data/`.
+- **Persistence is dual-layered**:
+  - **Core persistence** (`core/agent/runtime.ts`) manages the data directory and **session-only** maps (mapping host PI session IDs to individual carrier session IDs).
+  - **Fleet persistence** (`shipyard/store.ts`) manages the **fleet-wide state** in a single `states.json` file. This includes model selection, `sortieDisabled` status, and `cliTypeOverrides`.
+- `shipyard/store.ts` is the single source of truth for persistent fleet configuration. `initStore(dataDir)` must be called in `fleet/index.ts` immediately after `initRuntime(dataDir)`. All writes to `states.json` use an atomic tmp+rename pattern to prevent corruption.
 
 ### Unified Execution Pipeline
 
@@ -70,7 +76,7 @@ Consumer (carriers, external extensions)
 - **Exclusive View**: `Ctrl+Enter` on the selected inline slot → Full-width panel for the corresponding agent.
 - **Fallback Multi-Column View**: No active carrier + visible runs → panel renders the current visible CLI columns.
 - **Compact View**: Panel collapsed + while streaming → 1-line Streaming Widget.
-- **Frame Color**: Applies `CARRIER_COLORS` of the active carrier.
+- **Frame Color**: Applies `CARRIER_COLORS` of the active carrier. **If `cliType` has changed, the color of the changed type is followed.**
 
 ## Module Structure
 
@@ -82,14 +88,18 @@ Consumer (carriers, external extensions)
 | `streaming/types.ts` | Streaming domain types — ColBlock, ColStatus, CollectedStreamData |
 | `panel/types.ts` | Panel domain types — AgentCol |
 | `operation-runner.ts` | Unified execution layer (internal) — `runAgentRequest`, `exposeAgentApi`. Single `executeWithPool` call site. Auto panel/widget sync |
-| `shipyard/carrier/types.ts` | Carrier framework types — CarrierConfig, CarrierHelpers, CarrierResult, internal state types |
-| `shipyard/carrier/framework.ts` | Carrier framework SDK — `registerCarrier`, `activateCarrier`, `deactivateCarrier`, `getActiveCarrierId`, `onStatusUpdate`, `notifyStatusUpdate`. Manages globalThis shared state, input interception, shortcut registration, message renderer registration |
-| `shipyard/carrier/register.ts` | Single-carrier registration — `registerSingleCarrier` (carrier framework + prompt metadata, no PI tool) |
-| `shipyard/carrier/prompts.ts` | carrier_sortie 프롬프트 / 스키마 관리 (Tier 1 · Tier 2 request 조립) |
-| `shipyard/carrier/sortie.ts` | Carrier Sortie 도구 — 유일한 carrier 위임 PI 도구. **호출 인스턴스 격리(sortieKey)** 및 **runId 기반 스트리밍 필터링**을 통해 여러 호출이 동시에 실행되어도 UI 간섭 없이 통합 진행/결과를 표시합니다. |
+| `shipyard/carrier/types.ts` | Carrier framework types — CarrierConfig (added defaultCliType), CarrierHelpers, CarrierResult, internal state types (added pendingCliTypeOverrides) |
+| `shipyard/carrier/framework.ts` | Carrier framework SDK — `registerCarrier`, `activateCarrier`, `deactivateCarrier`, `getActiveCarrierId`, `updateCarrierCliType` (runtime CLI change), `setPendingCliTypeOverrides` (initial override configuration), `onStatusUpdate`, `notifyStatusUpdate`. Manages globalThis shared state, input interception, shortcut registration, message renderer registration |
+| `shipyard/carrier/register.ts` | Single-carrier registration — `registerSingleCarrier` (carrier framework + prompt metadata, no PI tool). Performs dynamic cliType reference and `defaultCliType` auto-configuration in `onExecute`. |
+| `shipyard/carrier/prompts.ts` | carrier_sortie prompt / schema management (Tier 1 · Tier 2 request assembly) |
+| `shipyard/carrier/sortie.ts` | Carrier Sortie tool — sole carrier delegation PI tool. Through **call instance isolation (sortieKey)** and **runId-based streaming filtering**, it displays unified progress/results without UI interference even when multiple calls run simultaneously. |
+| `shipyard/store.ts` | Unified persistence store — `initStore`, `loadModels`, `saveModels`, `loadSortieDisabled`, `saveSortieDisabled`, `loadCliTypeOverrides`, `saveCliTypeOverrides`. Single source of truth for all fleet persistent state in `states.json`. |
+| `shipyard/carrier/status-overlay.ts` | Status Overlay UI — Added `"cliType"` to `OverlayMode` and provides CLI type change functionality via the `c` key. Supports `updateCliType`, `getDefaultCliType` callbacks. |
+
 | `shipyard/carrier/model-ui.ts` | Model selection UI — model selection TUI component + keybind/command registration |
-| `shipyard/carrier/footer-renderer.ts` | Carrier footer segment renderer — carrier 아이콘 + 이름 + 상태별 색상을 footer 세그먼트로 렌더링 |
-| `shipyard/carrier/launch.ts` | Carrier 네이티브 브리지 커맨드 중앙 조립 |
+| `shipyard/carrier/footer-renderer.ts` | Carrier footer segment renderer — renders carrier icon + name + status-based color as a footer segment |
+| `shipyard/carrier/launch.ts` | Central assembly of carrier native bridge commands |
+| `panel/state.ts` | Panel global state management — provides functionality to directly look up the column index of a specific carrier via `findColIndex(carrierId)`. |
 | `panel/*` | Panel state/lifecycle/widget modules |
 | `streaming/*` | Stream store/widget modules |
 | `render/*` | Renderer modules |

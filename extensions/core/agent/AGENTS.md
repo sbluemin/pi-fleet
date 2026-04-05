@@ -16,15 +16,17 @@ Core agent infrastructure for pi-fleet. This module provides execution, process 
 | `types.ts` | Core agent types — AgentStatus, ProviderKey, HealthStatus, ServiceSnapshot. Shared across all layers. |
 | `executor.ts` | CLI execution logic — spawning processes, managing stdio, handling ACP protocol. |
 | `client-pool.ts` | Connection pooling — managing multiple active CLI sessions by `carrierId`. |
-| `runtime.ts` | Agent runtime manager — initialization, data directory management, host session sync. |
-| `session-map.ts` | Session persistence — mapping PI session IDs to individual carrier session IDs. |
-| `model-config.ts` | Model configuration — persisting model selection per carrier. |
+| `runtime.ts` | Agent runtime manager — initialization, data directory management, host session mapping (session-only). |
+| `session-map.ts` | Session mapping — mapping PI session IDs to individual carrier session IDs. |
 | `service-status/store.ts` | Service status store — polling provider health, managing status snapshots, injection-based callbacks. |
 | `service-status/renderer.ts` | Service status TUI renderer — rendering health tokens for footers or widgets. |
 
 ## Persistence
 
-All agent-related data (session maps, model configs) are stored under the `.data/` directory in the project root, managed by `runtime.ts`.
+`runtime.ts` manages the base `.data/` directory. Core agent persistence is focused on **session-only** lifecycle state:
+- **Session Maps**: Mapping host PI session IDs to child carrier session IDs (persisted under `.data/session-maps/`).
+
+Fleet-wide persistent configuration (e.g., model selection) has been moved to the `fleet` layer (`shipyard/store.ts`).
 
 ## Service Status Monitoring
 

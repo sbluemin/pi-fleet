@@ -18,7 +18,7 @@ import {
   resolveCarrierRgb,
   isSortieCarrierEnabled,
 } from "./framework.js";
-import { isTaskForceFullyConfigured } from "../../../core/agent/runtime.js";
+import { isTaskForceFullyConfigured } from "../store.js";
 import { waveText } from "../../render/panel-renderer";
 import type { AgentCol } from "../../panel/types.js";
 

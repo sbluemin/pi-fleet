@@ -2,23 +2,21 @@
  * fleet/shipyard/carrier/model-ui.ts — 모델 선택 UI 및 커맨드
  *
  * 캐리어별(carrierId) 모델/추론 설정 선택 UI와 관련 단축키/커맨드를 등록합니다.
- * core/agent의 model-config, runtime과 직접 협력합니다.
+ * shipyard/store.ts와 직접 협력합니다.
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 
 import type { CliType } from "@sbluemin/unified-agent";
-import type { ModelSelection, SelectedModelsConfig } from "../../../core/agent/model-config.js";
+import type { ModelSelection, SelectedModelsConfig } from "../store.js";
 import {
   getAvailableModels,
   getEffortLevels,
   getDefaultBudgetTokens,
-} from "../../../core/agent/model-config.js";
-import {
-  getModelConfig,
+  loadModels as getModelConfig,
   updateModelSelection,
   updateAllModelSelections,
-} from "../../../core/agent/runtime.js";
+} from "../store.js";
 import { setAgentPanelModelConfig } from "../../panel/config.js";
 import {
   getActiveCarrierId,

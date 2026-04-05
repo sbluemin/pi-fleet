@@ -12,7 +12,7 @@
 
 import { executeWithPool } from "../core/agent/executor";
 import type { AgentStatus } from "../core/agent/types";
-import { getModelConfig } from "../core/agent/runtime.js";
+import { loadModels as getModelConfig } from "./shipyard/store.js";
 import {
   createRun,
   appendTextBlock,
@@ -28,7 +28,7 @@ import {
   endColStreaming,
   updateAgentCol,
 } from "./panel/lifecycle.js";
-import { getRegisteredOrder } from "./shipyard/carrier/framework.js";
+import { findColIndex } from "./panel/state.js";
 import type {
   UnifiedAgentRequestBridge,
   UnifiedAgentRequestOptions,
@@ -63,7 +63,7 @@ export async function runAgentRequest(options: RunAgentRequestOptions): Promise<
   } = options;
 
   const carrierId = options.carrierId;
-  const colIndex = getRegisteredOrder().indexOf(carrierId);
+  const colIndex = findColIndex(carrierId);
 
   // 1. store에 새 run 생성 (첫 줄만 추출하여 헤더 미리보기로 저장)
   const requestPreview = request?.trim().split(/\r?\n/, 1)[0];

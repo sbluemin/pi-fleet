@@ -1,10 +1,14 @@
 # Changelog
 
 ## [Unreleased]
-- **Breaking**: `Alt+1~9` 개별 캐리어 단축키 완전 제거
-- **Feature**: 인라인 슬롯 내비게이션 도입
-  - `Alt+H / Alt+L`: Fleet Bridge 패널 내에서 좌/우 슬롯으로 커서 이동
-  - `Ctrl+Enter`: 현재 커서 위치의 Carrier를 독점(Exclusive) 모드로 즉시 활성화
-- **UX**: 커서 위치 슬롯에 시각적 하이라이트(`▸` 접두사 + 강조색) 추가
-- unified-agent-status 기능을 unified-agent-direct 내부 status 하위 패키지로 합치고, footer에 각 CLI 상태를 인라인으로 표시하도록 정리
-- 기본 기능 추가
+- **Breaking**: Completely removed `Alt+1~9` individual carrier shortcuts
+- **Feature**: Introduced inline slot navigation
+  - `Alt+H / Alt+L`: Move cursor to left/right slots within the Fleet Bridge panel
+  - `Ctrl+Enter`: Immediately activate the carrier at the current cursor position in Exclusive mode
+- **Feature**: Introduced Dynamic CliType Overrides
+  - Press `c` key in `Alt+O` (Fleet Status Overlay) to immediately change the CLI type (Claude/Codex/Gemini) of a specific carrier
+  - Changed settings are permanently saved in `states.json` and maintained after session restart
+  - Changes to CLI type are immediately reflected in the model's theme color and sorting order
+- **UX**: Added visual highlight to the cursor position slot (`▸` prefix + highlight color)
+- Merged unified-agent-status functionality into the status subpackage inside unified-agent-direct, and cleaned up to display each CLI status inline in the footer
+- Added basic functionality

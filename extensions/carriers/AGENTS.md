@@ -40,11 +40,11 @@ carriers/
 
 | Source | Forbidden Target | Reason |
 |--------|-----------------|--------|
-| `carriers/*` | `fleet/index.ts` | carriers는 fleet 확장에 의존하지 않음 — framework SDK만 사용 |
-| `carriers/*` | `fleet/internal/*` | fleet 내부 구현은 carriers의 관심사가 아님 |
-| `carriers/*` | `fleet/operation-runner.ts` | 실행 파이프라인은 framework SDK를 통해 간접 접근 |
-| `carriers/*` | `core/*` | 다른 확장 레이어에 대한 직접 의존 금지 |
-| `fleet/*` | `carriers/*` | fleet 코어는 carriers를 알지 못함 (역방향 의존 금지) |
+| `carriers/*` | `fleet/index.ts` | carriers do not depend on the fleet extension — use only framework SDK |
+| `carriers/*` | `fleet/internal/*` | fleet internal implementation is not a concern for carriers |
+| `carriers/*` | `fleet/operation-runner.ts` | execution pipeline is accessed indirectly via framework SDK |
+| `carriers/*` | `core/*` | direct dependency on other extension layers is forbidden |
+| `fleet/*` | `carriers/*` | fleet core is unaware of carriers (no reverse dependency) |
 
 ### Summary
 
@@ -57,15 +57,16 @@ carriers/  →  fleet/shipyard/carrier/ (framework SDK only)
 
 ## Core Rules
 
-- **`index.ts`는 wiring 전용** — carrier 파일들을 import하고 등록만 수행. 비즈니스 로직 금지.
-- **각 carrier 파일은 독립적** — 자체 persona, prompt metadata, slot을 정의. carrier 간 상호 import 금지.
-- **Prompt text는 각 carrier 파일에 귀속** — carrier별 역할 분화를 허용하기 위해 의도적으로 prompt를 각 carrier 파일에 유지. `prompts.ts`로 통합하지 않음 (이 규칙은 `extensions/AGENTS.md`의 prompts.ts 기본 규칙에 대한 명시적 예외).
-- **Slot은 전체 carrier 중 고유해야 함** — `CarrierConfig.slot` 값이 중복되면 keybinding 충돌 발생.
+- **`index.ts` is for wiring only** — imports and registers carrier files only. No business logic allowed.
+- **Each carrier file is independent** — defines its own persona, prompt metadata, and slot. Mutual imports between carriers are forbidden.
+- **Prompt text belongs to each carrier file** — intentionally maintain prompts in each carrier file to allow for role divergence. Do not consolidate into `prompts.ts` (this rule is an explicit exception to the `prompts.ts` base rule in `extensions/AGENTS.md`).
+- **Slot must be unique across all carriers** — duplicate `CarrierConfig.slot` values will cause keybinding conflicts.
+- **`cliType` is automatically assigned and dynamically changeable** — `registerSingleCarrier` automatically sets `defaultCliType` upon registration, and users can change (override) this at runtime.
 
 ## Slash Commands
 
-이 확장에서 등록하는 slash command는 `fleet:carrier:` 도메인을 사용한다.
+Slash commands registered in this extension use the `fleet:carrier:` domain.
 
 | Command | Description |
 |---------|-------------|
-| (향후 필요 시 추가) | |
+| (To be added if needed in the future) | |
