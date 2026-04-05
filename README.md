@@ -39,10 +39,10 @@ Independent carrier registrations defining unique personas for each CLI instance
 | Carrier | CLI | Role | Slot |
 |---------|-----|------|------|
 | **Genesis** | Claude | CVN-01 Chief Engineer (System design & core backend) | #1 |
-| **Arbiter** | Claude | CVN-02 Chief Doctrine Officer (Standards & instruction conflict resolution) | #2 |
+| **Arbiter** | Claude | CVN-02 Strategic Planning Consultant (Requirements analysis & structured work planning) | #2 |
 | **Oracle**  | Claude | CVN-09 Strategic Technical Advisor (Read-only architectural guidance) | #3 |
 | **Crucible**| Codex  | CVN-03 Chief Forgemaster (Dead code removal & DRY refactoring) | #4 |
-| **Sentinel**| Codex  | CVN-04 The Inquisitor (QA lead & hidden bug hunting) | #5 |
+| **Sentinel**| Codex  | CVN-04 The Inquisitor / QA Lead (Code review, defect detection & quality audits) | #5 |
 | **Raven**   | Codex  | CVN-05 Red Team Commander (Security auditing & penetration testing) | #6 |
 | **Vanguard**| Gemini | CVN-06 Scout Specialist (Reconnaissance & web research) | #7 |
 | **Echelon** | Gemini | CVN-07 Chief Intelligence Officer (Deep repository scanning & GitHub intelligence) | #8 |
@@ -98,7 +98,7 @@ Once all three backends are configured for a carrier, it becomes available as a 
 | Key | Action |
 |-----|--------|
 | `Alt+M` | Improve current input via Meta-prompting |
-| `Alt+R` | Cycle Reasoning Level (None → Normal → Deep) |
+| `Alt+R` | Cycle Reasoning Level (Off → Low → Medium → High) |
 | `Alt+.` | Keybinding help overlay |
 | `Alt+/` | Settings overlay |
 
