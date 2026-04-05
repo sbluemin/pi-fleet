@@ -153,7 +153,7 @@ export class CarrierStatusOverlay implements Component, Focusable {
       return;
     }
 
-    if (matchesKey(data, Key.escape)) {
+    if (matchesKey(data, Key.escape) || matchesKey(data, Key.alt("o"))) {
       if (this.mode === "browse") {
         this.done();
       } else {
