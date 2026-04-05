@@ -80,9 +80,13 @@ export interface CarrierOverlayCallbacks {
   openTaskForce?: (carrierId: string) => void;
   /** 해당 캐리어에 커스텀 TF 설정이 있는지 여부 */
   hasTaskForceConfig?: (carrierId: string) => boolean;
+  /** cliType 동적 변경 (없으면 c키 비활성) */
+  updateCliType?: (carrierId: string, newCliType: string) => void;
+  /** 소스레벨 기본 cliType 조회 */
+  getDefaultCliType?: (carrierId: string) => string;
 }
 
-type OverlayMode = "browse" | "model" | "effort" | "saving";
+type OverlayMode = "browse" | "model" | "effort" | "cliType" | "saving";
 
 interface FlatCarrierEntry {
   group: CarrierStatusGroup;
@@ -191,6 +195,12 @@ export class CarrierStatusOverlay implements Component, Focusable {
       return;
     }
 
+    // `c` 키: cliType 변경 모드 진입
+    if (this.mode === "browse" && data === "c") {
+      this.startCliTypeEdit();
+      return;
+    }
+
     // `d` 키: sortie 가용 상태 토글
     if (this.mode === "browse" && data === "d") {
       this.toggleSortieState();
@@ -204,6 +214,8 @@ export class CarrierStatusOverlay implements Component, Focusable {
         this.confirmModelEdit();
       } else if (this.mode === "effort") {
         this.confirmEffortEdit();
+      } else if (this.mode === "cliType") {
+        this.confirmCliTypeEdit();
       }
     }
   }
@@ -292,7 +304,13 @@ export class CarrierStatusOverlay implements Component, Focusable {
         const slotStr = `#${entry.slot}`;
         const slotPad = " ".repeat(Math.max(0, SLOT_WIDTH - slotStr.length));
 
-        const namePad = " ".repeat(Math.max(0, NAME_WIDTH - entry.displayName.length));
+        // cliType이 defaultCliType과 다르면 이름 뒤에 ~cliType 표시
+        const defaultCli = this.callbacks.getDefaultCliType?.(entry.carrierId);
+        const cliOverrideSuffix = defaultCli && entry.cliType !== defaultCli
+          ? `${ANSI_DIM}~${entry.cliType}${ANSI_RESET}`
+          : "";
+        const nameVisualWidth = entry.displayName.length + (defaultCli && entry.cliType !== defaultCli ? 1 + entry.cliType.length : 0);
+        const namePad = " ".repeat(Math.max(0, NAME_WIDTH - nameVisualWidth));
         // sortie 비활성 캐리어: 이름·모델·역할 모두 dim 처리하여 비활성 상태를 직관적으로 전달
         const isDisabled = !entry.isSortieEnabled;
         const nameColor = isDisabled ? ANSI_DIM : entry.color;
@@ -324,13 +342,15 @@ export class CarrierStatusOverlay implements Component, Focusable {
           ? `${isDisabled ? ANSI_DIM : entry.color}▸${ANSI_RESET}`
           : " ";
 
-        const content = `  ${selectedPrefix} ${dim(slotStr)}${slotPad}${coloredName}${namePad}${modelStr}${effortStr}${roleStr}${sortieTag}${tfTag}`;
+        const content = `  ${selectedPrefix} ${dim(slotStr)}${slotPad}${coloredName}${cliOverrideSuffix}${namePad}${modelStr}${effortStr}${roleStr}${sortieTag}${tfTag}`;
         lines.push(row(content, isSelected ? CARRIER_BG_COLORS[entry.cliType] : undefined));
 
-        if (isSelected && this.mode !== "browse") {
-          const currentValue = this.mode === "model"
-            ? entry.model
-            : entry.effort ?? this.getDefaultEffort(entry.cliType);
+        if (isSelected && this.mode !== "browse" && this.mode !== "saving") {
+          const currentValue = this.mode === "cliType"
+            ? entry.cliType
+            : this.mode === "model"
+              ? entry.model
+              : entry.effort ?? this.getDefaultEffort(entry.cliType);
           const options = this.getEditOptions(entry);
 
           for (let i = 0; i < options.length; i++) {
@@ -497,6 +517,36 @@ export class CarrierStatusOverlay implements Component, Focusable {
     this.tui.requestRender();
   }
 
+  private startCliTypeEdit(): void {
+    const entry = this.getSelectedEntry();
+    if (!entry) return;
+    if (!this.callbacks.updateCliType) return;
+
+    this.mode = "cliType";
+    const options = this.getEditOptions(entry);
+    this.editCursor = Math.max(0, options.findIndex((o) => o.value === entry.cliType));
+    this.feedbackMessage = null;
+  }
+
+  private confirmCliTypeEdit(): void {
+    const entry = this.getSelectedEntry();
+    if (!entry) return;
+
+    const options = this.getEditOptions(entry);
+    const selected = options[this.editCursor];
+    if (!selected) return;
+
+    if (selected.value !== entry.cliType) {
+      this.callbacks.updateCliType!(entry.carrierId, selected.value);
+      entry.cliType = selected.value as CarrierCliType;
+      this.feedbackMessage = `${entry.displayName} CLI → ${selected.value}`;
+    }
+
+    this.mode = "browse";
+    this.editCursor = 0;
+    this.tui.requestRender();
+  }
+
   private cancelEdit(): void {
     this.mode = "browse";
     this.pendingModelId = null;
@@ -516,6 +566,14 @@ export class CarrierStatusOverlay implements Component, Focusable {
       return (this.callbacks.getEffortLevels(entry.cliType) ?? []).map((level) => ({
         value: level,
         label: level,
+      }));
+    }
+
+    if (this.mode === "cliType") {
+      const defaultCli = this.callbacks.getDefaultCliType?.(entry.carrierId) ?? entry.cliType;
+      return (["claude", "codex", "gemini"] as const).map((cli) => ({
+        value: cli,
+        label: cli !== defaultCli ? `${cli} (default: ${defaultCli})` : cli,
       }));
     }
 
@@ -589,7 +647,7 @@ export class CarrierStatusOverlay implements Component, Focusable {
     }
 
     if (this.mode === "browse") {
-      return "↑↓ select  Enter edit  T task force  d sortie toggle  Tab detail  Esc close";
+      return "↑↓ select  Enter edit  c cli  T task force  d sortie toggle  Tab detail  Esc close";
     }
 
     return "↑↓ select  Enter confirm  Esc cancel";

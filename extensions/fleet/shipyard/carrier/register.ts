@@ -11,7 +11,7 @@ import type { CliType } from "@sbluemin/unified-agent";
 
 import { registerCarrier, reorderRegisteredByCliType } from "./framework.js";
 import { runAgentRequest } from "../../operation-runner.js";
-import type { CarrierMetadata, CarrierResult } from "./types.js";
+import type { CarrierConfig, CarrierMetadata, CarrierResult } from "./types.js";
 import { composeTier2Request } from "./prompts.js";
 import {
   CLI_DISPLAY_NAMES,
@@ -52,9 +52,10 @@ export function registerSingleCarrier(
   const carrierId = options.id ?? cli;
   const displayName = options.displayName ?? CLI_DISPLAY_NAMES[cli] ?? cli;
   // ── Carrier 등록 (메타데이터 포함) ──
-  registerCarrier(pi, {
+  const config: CarrierConfig = {
     id: carrierId,
     cliType: cli,
+    defaultCliType: cli,
     slot: options.slot,
     displayName,
     color: options.color ?? CARRIER_COLORS[cli] ?? "",
@@ -72,7 +73,7 @@ export function registerSingleCarrier(
       const composedRequest = composeTier2Request(metadata, request);
 
       const result = await runAgentRequest({
-        cli,
+        cli: config.cliType,
         carrierId,
         request: composedRequest,
         ctx,
@@ -91,7 +92,8 @@ export function registerSingleCarrier(
         },
       };
     },
-  });
+  };
+  registerCarrier(pi, config);
 
   // 등록 후 CliType 우선순위(claude→codex→gemini)로 순서 재정렬
   reorderRegisteredByCliType();

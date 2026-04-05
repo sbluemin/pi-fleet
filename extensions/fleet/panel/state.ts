@@ -113,6 +113,11 @@ export function makeCols(clis?: readonly string[]): AgentCol[] {
   }));
 }
 
+/** carrierId에 해당하는 cols 배열 내 인덱스를 반환합니다. 없으면 -1. */
+export function findColIndex(carrierId: string): number {
+  return getState().cols.findIndex((col) => col.cli === carrierId);
+}
+
 export function syncColSessionIds(): void {
   const s = getState();
   const sessionMap = getSessionStore().getAll() as Readonly<Record<string, string | undefined>>;

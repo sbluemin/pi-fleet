@@ -87,6 +87,15 @@ export function registerCarrier(
   };
   gs.modes.set(config.id, state);
 
+  // carrier 등록 후 pending cliType override 적용
+  const pendingCli = gs.pendingCliTypeOverrides.get(config.id);
+  if (pendingCli) {
+    state.config.cliType = pendingCli;
+    state.config.color = CARRIER_COLORS[pendingCli] ?? "";
+    state.config.bgColor = CARRIER_BG_COLORS[pendingCli];
+    gs.pendingCliTypeOverrides.delete(config.id);
+  }
+
   // registeredOrder에 slot 순으로 삽입 (resume 시 중복 방지: 기존 항목 먼저 제거)
   const existingIdx = gs.registeredOrder.indexOf(config.id);
   if (existingIdx !== -1) gs.registeredOrder.splice(existingIdx, 1);
@@ -303,6 +312,31 @@ export function notifyTaskForceConfigChange(): void {
 }
 
 /**
+ * 부팅 시 디스크에서 복원한 cliType override를 pending으로 저장합니다.
+ * carrier 등록 시 registerCarrier()에서 자동 적용됩니다.
+ */
+export function setPendingCliTypeOverrides(overrides: Record<string, CliType>): void {
+  const gs = getState();
+  gs.pendingCliTypeOverrides = new Map(Object.entries(overrides));
+}
+
+/**
+ * 지정 carrier의 cliType을 동적으로 변경합니다.
+ * 색상·배경색을 새 cliType에 맞게 갱신하고 정렬 + 상태바를 업데이트합니다.
+ */
+export function updateCarrierCliType(carrierId: string, newType: CliType): void {
+  const gs = getState();
+  const state = gs.modes.get(carrierId);
+  if (!state) return;
+  const config = state.config;
+  config.cliType = newType;
+  config.color = CARRIER_COLORS[newType] ?? "";
+  config.bgColor = CARRIER_BG_COLORS[newType];
+  reorderRegisteredByCliType();
+  notifyStatusUpdate();
+}
+
+/**
  * registeredOrder를 CliType 우선순위(claude→codex→gemini)로 재정렬합니다.
  * 같은 CliType 내에서는 slot 순서를 유지합니다.
  * registerSingleCarrier 호출 시점마다 자동으로 실행됩니다.
@@ -389,9 +423,12 @@ function getState(): CarrierFrameworkState {
       sortieStateChangeCallbacks: [],
       sortieRegisterTimer: null,
       taskforceConfigChangeCallbacks: [],
+      pendingCliTypeOverrides: new Map(),
     };
     (globalThis as any)[CARRIER_FRAMEWORK_KEY] = s;
   }
+  // 런타임 방어: 기존 상태에 필드가 없을 경우 초기화
+  if (!s.pendingCliTypeOverrides) s.pendingCliTypeOverrides = new Map();
   return s;
 }
 

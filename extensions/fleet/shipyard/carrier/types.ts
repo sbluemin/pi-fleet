@@ -58,6 +58,8 @@ export interface CarrierConfig {
   id: string;
   /** 사용할 CLI 바이너리 타입 */
   cliType: CliType;
+  /** 소스레벨 기본 CLI 타입 (사용자 변경과 무관하게 원본 유지) */
+  defaultCliType: CliType;
   /** 정렬 및 표시용 슬롯 번호 (키바인딩에는 사용되지 않음) */
   slot: number;
   /** 표시 이름 */
@@ -140,4 +142,6 @@ export interface CarrierFrameworkState {
   sortieRegisterTimer: ReturnType<typeof setTimeout> | null;
   /** Task Force 설정 변경 시 호출되는 콜백 */
   taskforceConfigChangeCallbacks: Array<() => void>;
+  /** 캐리어 등록 전 로드된 cliType override (carrier 등록 시 자동 적용) */
+  pendingCliTypeOverrides: Map<string, CliType>;
 }
