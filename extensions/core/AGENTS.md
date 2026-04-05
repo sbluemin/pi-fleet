@@ -25,8 +25,8 @@ Infrastructure extensions for pi-fleet. Each provides a core UI or system featur
 - **HUD is a private extension**: Other extensions MUST NOT import from `extensions/core/hud/`. It does not provide a public API.
 - **Status Bar Integration**: HUD uses `setupStatusBar()` to initialize the status bar and manage widget placements.
 - **Widget Placement**:
-  - `hud-status-bar`: Primary status information (belowEditor, left align).
-  - `hud-notification`: Temporary notifications and status messages (belowEditor).
+  - `hud-status-bar`: Primary status information (belowEditor, center align).
+  - `hud-notification`: Temporary notifications and status messages (belowEditor, center align).
 - HUD is no longer responsible for rendering fleet carrier-specific colors or banners.
 
 ## Slash Command Domain Assignment

@@ -138,14 +138,14 @@ export function setupCustomEditor(ctx: any, state: HudEditorState): void {
           const layout = getResponsiveLayout(width, theme, state);
           const lines: string[] = [];
 
-          // 상태바 (좌측 정렬)
+          // 상태바 (중앙 정렬)
           if (layout.topContent) {
-            lines.push(truncateToWidth(` ${layout.topContent}`, width));
+            lines.push(centerLine(` ${layout.topContent}`, width));
           }
 
           // 오버플로우 세그먼트
           if (layout.secondaryContent) {
-            lines.push(truncateToWidth(` ${layout.secondaryContent}`, width));
+            lines.push(centerLine(` ${layout.secondaryContent}`, width));
           }
 
           return lines;
@@ -170,7 +170,7 @@ export function setupCustomEditor(ctx: any, state: HudEditorState): void {
               const lineContent = ` ${value}`;
               const contentWidth = visibleWidth(lineContent);
               if (contentWidth <= width) {
-                notifications.push(lineContent);
+                notifications.push(centerLine(lineContent, width));
               }
             }
           }
@@ -189,6 +189,12 @@ export function setupCustomEditor(ctx: any, state: HudEditorState): void {
 
 function dismissWelcomeViaGlobal(): void {
   (globalThis as any)[WELCOME_GLOBAL_KEY]?.dismiss?.();
+}
+
+function centerLine(line: string, width: number): string {
+  const visLen = visibleWidth(line);
+  const pad = Math.max(0, Math.floor((width - visLen) / 2));
+  return truncateToWidth(" ".repeat(pad) + line, width);
 }
 
 
