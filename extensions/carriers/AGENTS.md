@@ -1,6 +1,6 @@
 # carriers
 
-**Independent carrier registration extension** — defines individual carriers (genesis, arbiter, crucible, sentinel, raven, vanguard, echelon, chronicle, oracle) as a standalone, optional extension.
+**Independent carrier registration extension** — defines individual carriers (genesis, arbiter, crucible, sentinel, raven, vanguard, echelon, chronicle, oracle) as a standalone, optional extension. Chronicle additionally owns change-impact documentation and release communication within the documentation domain.
 
 ## Role
 
@@ -22,7 +22,7 @@ carriers/
 ├── raven.ts           ← CVN-05 Red Team Commander (Codex CLI)
 ├── vanguard.ts        ← CVN-06 Scout Specialist (Gemini CLI)
 ├── echelon.ts         ← CVN-07 Chief Intelligence Officer (Gemini CLI)
-├── chronicle.ts       ← CVN-08 Chief Knowledge Officer (Gemini CLI)
+├── chronicle.ts       ← CVN-08 Chief Knowledge Officer (Gemini CLI · docs + change-impact reporting)
 └── oracle.ts          ← CVN-09 Read-Only Strategic Technical Advisor (Claude Code)
 ```
 

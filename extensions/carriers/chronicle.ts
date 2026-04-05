@@ -1,6 +1,6 @@
 /**
  * carriers/chronicle — Chronicle carrier (CVN-08)
- * @specialization 수석 기록참모 — API 명세서·README·PR 요약·AGENTS.md 교리 관리·연관 .md 동기화 특화
+ * @specialization 수석 기록참모 — 문서 작성, 변경 영향 문서화, 설정/명령/설치 영향 감사, AGENTS.md 교리 관리, 연관 .md 동기화 특화
  *
  * Chronicle carrier를 프레임워크에 등록합니다 (alt+8, bridge mode, 프롬프트 메타데이터).
  */
@@ -12,7 +12,7 @@ import { registerSingleCarrier } from "../fleet/shipyard/carrier/register.js";
 const CARRIER_METADATA: CarrierMetadata = {
   // ── Tier 1: Routing ──
   title: "Chief Knowledge Officer",
-  summary: "Documentation steward — API specs, README, PR summaries, release notes, changelogs, AGENTS.md doctrine management, and cascade .md synchronization across the codebase.",
+  summary: "Documentation and change-impact steward — API specs, README, PR summaries, release notes, changelogs, AGENTS.md doctrine management, user-facing change summaries, setup/config/command impact auditing, and cascade .md synchronization across the codebase.",
   whenToUse: [
     "documentation creation or update",
     "PR summaries and changelogs",
@@ -20,8 +20,12 @@ const CARRIER_METADATA: CarrierMetadata = {
     "API specification generation (OpenAPI/Swagger)",
     "AGENTS.md creation, revision, or doctrinal alignment",
     "post-change .md audit — scanning and updating all .md files affected by recent code or structural changes",
+    "user-facing change-impact summary generation",
+    "setup/config/command impact auditing after code changes",
+    "breaking-change and compatibility note detection",
+    "release communication drafting (announcements, migration guides, operator notes)",
   ],
-  whenNotToUse: "before implementation and verification are complete. Code modification (→genesis), code review (→sentinel), architecture (→oracle)",
+  whenNotToUse: "before implementation and verification are complete. Code modification (→genesis), code review (→sentinel), architecture (→oracle). Change-impact work that requires architectural judgment, go/no-go decisions, or release strategy decisions (→oracle/arbiter)",
 
   // ── Tier 2: Composition ──
   permissions: [
@@ -29,12 +33,15 @@ const CARRIER_METADATA: CarrierMetadata = {
     "Full access to the codebase — read, write, and execute commands.",
     "Owns all .md files including AGENTS.md across every directory — authoritative source for doctrine text and documentation consistency.",
     "On every sortie, must scan for .md files affected by the change scope and update them to maintain consistency.",
+    "Detects and documents breaking changes and compatibility impacts — but must NOT make go/no-go, release timing, or release-scope decisions (escalate to Arbiter/Oracle).",
   ],
   requestBlocks: [
-    { tag: "target", hint: "Which code, module, PR, or feature to document.", required: true },
-    { tag: "doc_type", hint: "README, API spec, PR summary, release notes, changelog, AGENTS.md, or '.md-audit' for cascade sync.", required: true },
-    { tag: "audience", hint: "developers, end-users, API consumers, or contributors.", required: true },
-    { tag: "scope", hint: "What to include/exclude. Commit range for changelogs.", required: false },
+    { tag: "target", hint: "Which code, module, PR, feature, or release artifact to document.", required: true },
+    { tag: "doc_type", hint: "README, API spec, PR summary, release notes, changelog, AGENTS.md, '.md-audit', change-impact summary, breaking-change report, or migration guide.", required: true },
+    { tag: "audience", hint: "developers, end-users, API consumers, operators, or contributors.", required: true },
+    { tag: "scope", hint: "What to include/exclude. Commit range for changelogs or release notes.", required: false },
+    { tag: "change_scope", hint: "Commit range, PR, diff, feature slice, or deployment scope to inspect for impact.", required: false },
+    { tag: "impact_audience", hint: "Who is affected by the change: end-users, operators, API consumers, contributors, or internal maintainers.", required: false },
   ],
   outputFormat:
     `<output_format>\n` +
@@ -52,6 +59,8 @@ const CARRIER_METADATA: CarrierMetadata = {
     "AGENTS.md is a first-class deliverable, not an afterthought — treat doctrine files with the same rigor as API specs.",
     "When updating AGENTS.md, cross-reference parent and child AGENTS.md files to prevent doctrinal conflicts.",
     "CRITICAL: README.md files must ONLY be updated where they already exist — NEVER create new README.md files. If a directory lacks a README.md, leave it as-is and note the absence in the audit report.",
+    "Change-impact documentation must be factual and observable — never recommend whether a change should ship, be reverted, or be delayed.",
+    "Breaking-change detection must reference the specific API surfaces, config keys, file paths, CLI commands, or operator workflows affected — no vague warnings.",
   ],
 };
 

@@ -52,7 +52,7 @@ Independent carrier registrations defining unique personas for each CLI instance
 | **Raven**   | Codex  | CVN-05 Red Team Commander (Security auditing & penetration testing) | #6 |
 | **Vanguard**| Gemini | CVN-06 Scout Specialist (Reconnaissance & web research) | #7 |
 | **Echelon** | Gemini | CVN-07 Chief Intelligence Officer (Deep repository scanning & GitHub intelligence) | #8 |
-| **Chronicle**| Gemini | CVN-08 Chief Knowledge Officer (Documentation & technical writing) | #9 |
+| **Chronicle**| Gemini | CVN-08 Chief Knowledge Officer (Documentation, change-impact reporting & technical writing) | #9 |
 
 ## Task Force
 

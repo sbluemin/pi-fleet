@@ -49,7 +49,7 @@ PI is the **host agent** (orchestrator). Genesis, Sentinel, and Vanguard are **s
 | **Raven** (sub) | CVN-05 Red Team Commander (Codex CLI via ACP) |
 | **Vanguard** (sub) | CVN-06 Scout Specialist (Gemini CLI via ACP) |
 | **Echelon** (sub) | CVN-07 Chief Intelligence Officer (Gemini CLI via ACP) |
-| **Chronicle** (sub) | CVN-08 Chief Knowledge Officer (Gemini CLI via ACP) |
+| **Chronicle** (sub) | CVN-08 Chief Knowledge Officer — documentation, change-impact summaries, and release communication (Gemini CLI via ACP) |
 
 ### Execution Modes
 
