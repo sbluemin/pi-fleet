@@ -39,7 +39,8 @@ export interface CarrierAssignment {
 export const FLEET_SORTIE_DESCRIPTION =
   `Launch carriers for task execution — single or parallel.` +
   ` This is the only tool for delegating tasks to carrier agents.` +
-  ` Use it whenever you want to delegate implementation, analysis, exploration, or any coding task to one or more carriers.`;
+  ` Use it whenever you want to delegate implementation, analysis, exploration, or any coding task to one or more carriers.` +
+  ` Always bundle all intended carriers into one call — never split a parallel batch into multiple sequential calls.`;
 
 /**
  * carrier_sortie promptSnippet 기본값.
@@ -64,35 +65,33 @@ const SORTIE_PARALLEL_WORK_GUIDELINE =
  * 시스템이 즉시 에러를 반환하며 전체 sortie가 실패한다.
  */
 const SORTIE_DEDUP_GUIDELINE =
-  `Each carrier ID may appear at most once per carriers_sortie call.` +
+  `Each carrier ID may appear at most once per carrier_sortie call.` +
   ` Duplicate carrier IDs in the same call are rejected by the system and cause the entire sortie to fail.` +
-  ` If you need two different workloads of the same type, split the work between two different carriers.`;
+  ` If you need two different workloads handled by carriers of the same type, assign each to a different carrier ID within the same call's carriers array.`;
 
 /**
  * 병렬 출격 시 누락 방지 규칙 — 계획한 모든 carrier를 단일 carrier_sortie 호출의
  * carriers 배열에 빠짐없이 포함해야 한다. 분리된 tool call로 나누지 말 것.
  */
 const SORTIE_COMPLETENESS_GUIDELINE =
-  `When planning a parallel launch, ALL intended carriers MUST be listed together in the carriers array of a SINGLE carrier_sortie call.` +
-  ` Do NOT split a planned parallel operation into separate sequential calls.` +
-  ` Before submitting the call, mentally verify: every carrier you planned is present in the carriers array.` +
-  ` A carrier omitted from the array will silently not be launched — there is no automatic retry.` +
-  ` If a previous carrier_sortie call failed for any reason (for example, a validation error), retry with ALL originally intended carriers without dropping any.`;
+  `ALL intended carriers MUST be listed together in the carriers array of a SINGLE carrier_sortie call — never split a parallel launch into separate sequential calls.` +
+  ` Before submitting any multi-carrier sortie, enumerate every planned carrier by name and confirm the count in the carriers array matches; do NOT submit if any carrier is missing — rewrite the call to include all of them.` +
+  ` If a previous carrier_sortie call failed, retry with ALL originally intended carriers if the cause was a validation error or transient issue; if an inactive or unregistered carrier caused the failure, review alternatives or request Fleet Admiral clarification instead.`;
 
 /**
  * carrier_sortie promptGuidelines 고정 항목.
  * 시스템 프롬프트 "Guidelines" 섹션의 기본 bullets.
  */
 const SORTIE_BASE_GUIDELINES: string[] = [
+  SORTIE_COMPLETENESS_GUIDELINE,
   `carrier_sortie is the only way to delegate tasks to carrier agents.` +
   ` Always use this tool — never attempt to invoke carriers directly.`,
-  `You can launch a single carrier or multiple carriers in parallel.` +
-  ` When launching multiple carriers, this tool provides unified progress tracking and a consolidated result view.`,
+  `You can launch a single carrier or multiple carriers in parallel — when launching multiple carriers, you MUST include all of them in a single carrier_sortie call.` +
+  ` This tool provides unified progress tracking and a consolidated result view.`,
   `When composing a carrier request, provide only background, context, objective, and constraints.` +
   ` Do NOT prescribe implementation details or step-by-step instructions — trust the carrier's own reasoning.` +
   ` Use the Tags listed for each carrier to structure your request.`,
   SORTIE_DEDUP_GUIDELINE,
-  SORTIE_COMPLETENESS_GUIDELINE,
   SORTIE_PARALLEL_WORK_GUIDELINE,
 ];
 

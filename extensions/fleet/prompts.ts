@@ -59,12 +59,15 @@ Default to delegation. Handle tasks directly only when they are clearly small, l
 - Splitting a delegatable task into small direct steps to avoid delegation.
 - Continuing direct work after the task has clearly grown beyond a quick lookup — stop and delegate the remainder.
 - Using read, bash, or edit as the primary execution path when a single sub-agent call could handle the workflow.
+- Splitting a parallel carrier launch into multiple sequential carrier_sortie calls instead of bundling all carriers into one call.
 
 ---
 
 # Protocols
 
 All task execution follows the **Default Workflow Protocol**. Additional protocols listed here are cross-cutting — they can be invoked from any workflow phase.
+
+**Parallel execution default:** When multiple Carriers can be dispatched for the same phase or step, bundle them into a single \`carrier_sortie\` call with all Carriers in the array. Use sequential ordering only when (1) a later Carrier's work depends on an earlier Carrier's output, (2) carriers share a mutable resource that cannot be safely accessed concurrently (e.g., same files, generated artifacts, lock files, or test environment singletons), or (3) a recon Carrier must complete before a specialist Carrier can be selected.
 
 ## Deep Dive Protocol
 
@@ -112,7 +115,7 @@ Triggered when the task involves structural changes, new modules, cross-layer de
 ### Phase 3 — Work Plan
 - **Small tasks** (scope is already clear, single Carrier, no phased execution needed): Admiral drafts the plan directly — a brief outline of what to do and which Carrier handles it. No Fleet Admiral approval needed.
 - **Medium-to-large tasks** (multi-step, multi-Carrier, or ambiguous scope): Sortie a planning-specialized Carrier to conduct requirements analysis, gap analysis, and produce a structured execution plan with maximum parallelism.
-- In either case, identify which Carrier(s) will handle each step and in what order (sequential vs. parallel).
+- In either case, identify which Carrier(s) will handle each step.
 - Present the plan to the Fleet Admiral for approval before execution, unless the task is clearly straightforward.
 
 ### Phase 4 — Execution
