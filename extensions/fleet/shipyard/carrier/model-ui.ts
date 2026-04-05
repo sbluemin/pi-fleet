@@ -43,7 +43,7 @@ export function registerModelCommands(pi: ExtensionAPI): void {
     action: "model-change",
     defaultKey: "alt+shift+m",
     description: "활성 캐리어 모델/추론 설정 변경",
-    category: "Infra",
+    category: "Core",
     handler: async (ctx) => {
       const activeCarrierId = getActiveCarrierId();
       let targetCarrierId: string;

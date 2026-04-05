@@ -5,7 +5,7 @@
  * 에이전트 활동 시작 시 자동으로 해제한다.
  *
  * globalThis["__pi_core_welcome__"]에 dismiss 함수를 노출하여
- * 다른 확장(infra-hud 등)에서도 디스미스를 트리거할 수 있다.
+ * 다른 확장(core-hud 등)에서도 디스미스를 트리거할 수 있다.
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";

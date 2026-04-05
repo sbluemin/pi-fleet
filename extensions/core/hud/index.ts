@@ -1,5 +1,5 @@
 /**
- * infra-hud — 상태바 에디터 확장
+ * core-hud — 상태바 에디터 확장
  *
  * 배선(wiring)만 담당: 이벤트 핸들러, 커맨드, 단축키 등록.
  * 에디터 UI 로직은 editor.ts에 분리.
@@ -175,11 +175,11 @@ export default function hudEditor(pi: ExtensionAPI) {
 
   const keybind = getKeybindAPI();
   keybind.register({
-    extension: "infra-hud",
+    extension: "core-hud",
     action: "stash",
     defaultKey: "alt+s",
     description: "Stash/restore editor text",
-    category: "Infra",
+    category: "Core",
     handler: async (ctx) => {
       const rawText = state.currentEditor?.getExpandedText?.() ?? ctx.ui.getEditorText();
       const hasText = rawText.trim().length > 0;

@@ -168,7 +168,7 @@ export interface SegmentStateProvider {
 /**
  * 에디터 렌더링에 필요한 모드 정보를 제공하는 인터페이스.
  *
- * infra-hud(인프라)가 계약을 정의하고,
+ * core-hud(코어)가 계약을 정의하고,
  * 기능 확장(예: unified-agent-direct)이 구현하여 globalThis에 주입한다.
  * 이를 통해 인프라 → 기능 방향의 역방향 의존을 제거한다.
  */
@@ -188,4 +188,4 @@ export interface EditorModeProvider {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /** globalThis 키 — EditorModeProvider 슬롯 */
-export const EDITOR_MODE_PROVIDER_KEY = "__pi_infra_hud_mode_provider__";
+export const EDITOR_MODE_PROVIDER_KEY = "__pi_core_hud_mode_provider__";

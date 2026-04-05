@@ -1,5 +1,5 @@
 /**
- * infra-settings/overlay.ts — 설정 오버레이 컴포넌트
+ * core-settings/overlay.ts — 설정 오버레이 컴포넌트
  *
  * Component + Focusable 인터페이스를 구현하여
  * ctx.ui.custom() overlay로 등록된 섹션들을 동적으로 렌더링한다.

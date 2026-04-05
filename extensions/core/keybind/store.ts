@@ -1,5 +1,5 @@
 /**
- * infra-keybind/store.ts — keybindings.json 읽기
+ * core-keybind/store.ts — keybindings.json 읽기
  *
  * 우선순위:
  *   1. extensions/keybindings.json — 사용자 커스텀 오버라이드 (.gitignore)

@@ -1,5 +1,5 @@
 /**
- * infra-keybind — 중앙 집중 키바인딩 확장
+ * core-keybind — 중앙 집중 키바인딩 확장
  *
  * 배선(wiring)만 담당:
  *   - factory에서 실제 API 구현 주입 (큐 flush)
@@ -9,7 +9,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 
 import { _bootstrapKeybind, getKeybindAPI } from "./bridge.js";
-import type { InfraKeybindAPI, KeybindRegistration, ResolvedBinding } from "./types.js";
+import type { CoreKeybindAPI, KeybindRegistration, ResolvedBinding } from "./types.js";
 import { getOverrideKey } from "./store.js";
 import { addBinding, getBindings, getKey } from "./registry.js";
 import { KeybindOverlay } from "./overlay.js";
@@ -20,7 +20,7 @@ let activePopup: Promise<void> | null = null;
 
 export default function (pi: ExtensionAPI) {
   // 실제 API 구현 생성
-  const realApi: InfraKeybindAPI = {
+  const realApi: CoreKeybindAPI = {
     register(binding: KeybindRegistration): void {
       const override = getOverrideKey(binding.extension, binding.action);
       const resolvedKey = override ?? binding.defaultKey;
@@ -58,11 +58,11 @@ export default function (pi: ExtensionAPI) {
   // 자체 오버레이 단축키 등록 (storedPi가 설정된 후이므로 즉시 등록됨)
   const keybindApi = getKeybindAPI();
   keybindApi.register({
-    extension: "infra-keybind",
+    extension: "core-keybind",
     action: "popup",
     defaultKey: "alt+.",
     description: "키바인딩 오버레이 팝업 표시",
-    category: "Infra",
+    category: "Core",
     handler: async (ctx) => {
       await openKeybindPopup(ctx);
     },

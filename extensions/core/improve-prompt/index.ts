@@ -26,8 +26,8 @@ export default function (pi: ExtensionAPI) {
 
   // ── 팝업 섹션 등록 ──
 
-  const infraApi = getSettingsAPI();
-  infraApi?.registerSection({
+  const settingsApi = getSettingsAPI();
+  settingsApi?.registerSection({
     key: "core-improve-prompt",
     displayName: "Meta Prompt",
     getDisplayFields() {

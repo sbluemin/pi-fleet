@@ -1,5 +1,5 @@
 /**
- * infra-settings/registry.ts — 섹션 표시 레지스트리
+ * core-settings/registry.ts — 섹션 표시 레지스트리
  *
  * 각 확장이 등록한 SectionDisplayConfig를 관리한다.
  * 섹션 Map은 globalThis에 보관하여 모듈 재로드 시 유실을 방지한다.

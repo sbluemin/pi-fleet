@@ -21,12 +21,13 @@ import { loadSettings, saveSettings } from "./settings.js";
 import type { AutoSummarizeSettings } from "./settings.js";
 import { resolveModel, generateOneLiner } from "./summarizer.js";
 import { getSettingsAPI } from "../settings/bridge.js";
+import { SUMMARY_FOOTER_STATUS_KEY } from "../hud/editor.js";
 
 export default function (pi: ExtensionAPI) {
   // ── 팝업 섹션 등록 ──
 
-  const infraApi = getSettingsAPI();
-  infraApi?.registerSection({
+  const settingsApi = getSettingsAPI();
+  settingsApi?.registerSection({
     key: "core-summarize",
     displayName: "Auto Summarize",
     getDisplayFields() {
@@ -59,6 +60,7 @@ export default function (pi: ExtensionAPI) {
     const summary = await generateOneLiner(ctx, model, conversationText, maxLength);
     if (summary) {
       pi.setSessionName(summary);
+      ctx.ui.setStatus(SUMMARY_FOOTER_STATUS_KEY, summary);
     }
   });
 
@@ -75,6 +77,7 @@ export default function (pi: ExtensionAPI) {
     const summary = await generateOneLiner(ctx, model, compactionSummary, maxLength);
     if (summary) {
       pi.setSessionName(summary);
+      ctx.ui.setStatus(SUMMARY_FOOTER_STATUS_KEY, summary);
     }
   });
 

@@ -1,11 +1,11 @@
 {
-  "infra-hud": {
+  "core-hud": {
     "stash": "alt+s"
   },
-  "infra-keybind": {
+  "core-keybind": {
     "popup": "alt+."
   },
-  "infra-settings": {
+  "core-settings": {
     "popup": "alt+/"
   },
   "fleet": {

@@ -1,12 +1,12 @@
 /**
  * core-improve-prompt/settings.ts — 설정 파일 관리
  *
- * infra-settings API를 통해 ~/.pi/fleet/settings.json의 "core-improve-prompt" 섹션에서 읽고 쓴다.
+ * core-settings API를 통해 ~/.pi/fleet/settings.json의 "core-improve-prompt" 섹션에서 읽고 쓴다.
  */
 
 import type { ReasoningLevel } from "./constants.js";
 import { getSettingsAPI } from "../settings/bridge.js";
-import type { InfraSettingsAPI } from "../settings/types.js";
+import type { CoreSettingsAPI } from "../settings/types.js";
 
 /** 설정 파일 구조 */
 export interface MetaPromptSettings {
@@ -34,8 +34,8 @@ export function saveSettings(settings: MetaPromptSettings): void {
   getAPI().save(SECTION_KEY, settings);
 }
 
-function getAPI(): InfraSettingsAPI {
+function getAPI(): CoreSettingsAPI {
   const api = getSettingsAPI();
-  if (!api) throw new Error("infra-settings API not available");
+  if (!api) throw new Error("core-settings API not available");
   return api;
 }

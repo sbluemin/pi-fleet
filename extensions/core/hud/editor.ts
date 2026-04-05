@@ -1,5 +1,5 @@
 /**
- * infra-hud/editor.ts — 커스텀 에디터, footer, 위젯 설정
+ * core-hud/editor.ts — 커스텀 에디터, footer, 위젯 설정
  *
  * 커스텀 에디터 팩토리, 상태바 렌더링, footer 등록, 위젯 등록을 담당한다.
  * footer를 직접 등록하여 footerDataRef를 확보하므로 globalThis 간접 참조가 없다.
@@ -24,6 +24,9 @@ import { WELCOME_GLOBAL_KEY } from "../welcome/types.js";
 /** footer 상태 전용 status key (문자열 계약) */
 const UA_DIRECT_FOOTER_STATUS_KEY = "ua-direct-footer";
 
+/** 세션 요약 footer status key — summarize 확장에서 사용 */
+export const SUMMARY_FOOTER_STATUS_KEY = "summary-footer";
+
 /** Footer 등록 — ua-direct 상태 표시 + footerData/tui 참조를 state에 저장 */
 export function setupFooter(ctx: any, state: HudEditorState): void {
   if (!ctx.hasUI) return;
@@ -39,12 +42,22 @@ export function setupFooter(ctx: any, state: HudEditorState): void {
       invalidate() {},
       render(width: number): string[] {
         const statuses = footerData.getExtensionStatuses();
+        const result: string[] = [];
+
+        // ua-direct-footer 행 (기존 동작 유지)
         const uaStatus = statuses.get(UA_DIRECT_FOOTER_STATUS_KEY)?.trimEnd();
+        if (uaStatus) {
+          const lines = uaStatus.split("\n");
+          result.push(...lines.map(line => centerLine(line, width)));
+        }
 
-        if (!uaStatus) return [];
+        // 세션 요약 — 무조건 맨 마지막 행
+        const summaryStatus = statuses.get(SUMMARY_FOOTER_STATUS_KEY)?.trimEnd();
+        if (summaryStatus) {
+          result.push(centerLine(summaryStatus, width));
+        }
 
-        const lines = uaStatus.split("\n");
-        return lines.map(line => centerLine(line, width));
+        return result;
       },
     };
   });

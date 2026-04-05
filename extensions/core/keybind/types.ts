@@ -1,5 +1,5 @@
 /**
- * infra-keybind/types.ts — 순수 타입/인터페이스 정의
+ * core-keybind/types.ts — 순수 타입/인터페이스 정의
  *
  * 부수효과 없음: import만으로 globalThis를 조작하지 않는다.
  * 런타임 브릿지 로직은 bridge.ts에 분리되어 있다.
@@ -29,8 +29,8 @@ export interface ResolvedBinding extends KeybindRegistration {
   conflicted?: boolean;
 }
 
-/** infra-keybind가 globalThis를 통해 제공하는 API */
-export interface InfraKeybindAPI {
+/** core-keybind가 globalThis를 통해 제공하는 API */
+export interface CoreKeybindAPI {
   /** 단축키 등록 (pi.registerShortcut 대행) */
   register(binding: KeybindRegistration): void;
   /** 등록된 모든 바인딩 반환 */
@@ -42,4 +42,4 @@ export interface InfraKeybindAPI {
 // ── 상수 ──
 
 /** globalThis 브릿지 키 (AGENTS.md: globalThis key는 types.ts에 정의) */
-export const INFRA_KEYBIND_KEY = "__infra_keybind__";
+export const CORE_KEYBIND_KEY = "__core_keybind__";

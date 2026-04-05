@@ -1,16 +1,16 @@
 /**
- * infra-keybind/registry.ts — 바인딩 레지스트리
+ * core-keybind/registry.ts — 바인딩 레지스트리
  *
  * 등록된 모든 키바인딩을 관리한다.
  * 바인딩 배열은 globalThis에 보관하여 모듈 재로드 시 유실을 방지한다.
  */
 
-import { INFRA_KEYBIND_KEY } from "./bridge.js";
+import { CORE_KEYBIND_KEY } from "./bridge.js";
 import type { ResolvedBinding } from "./types.js";
 
 /** globalThis에 보관된 바인딩 배열 접근 */
 function bindings(): ResolvedBinding[] {
-  return (globalThis as any)[INFRA_KEYBIND_KEY]._bindings;
+  return (globalThis as any)[CORE_KEYBIND_KEY]._bindings;
 }
 
 /** 바인딩 등록 (동일 extension+action이 이미 있으면 교체, 키 충돌 감지) */
@@ -30,7 +30,7 @@ export function addBinding(binding: ResolvedBinding): void {
     binding.conflicted = true;
     conflict.conflicted = true;
     console.warn(
-      `[infra-keybind] 키 충돌: "${binding.resolvedKey}" — ` +
+      `[core-keybind] 키 충돌: "${binding.resolvedKey}" — ` +
       `${conflict.extension}/${conflict.action} ↔ ${binding.extension}/${binding.action}`,
     );
   }

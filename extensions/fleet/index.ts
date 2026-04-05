@@ -559,8 +559,8 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
 
   // ── 설정 팝업(Alt+/) 섹션 등록 ──
 
-  const infraApi = getSettingsAPI();
-  infraApi?.registerSection({
+  const settingsApi = getSettingsAPI();
+  settingsApi?.registerSection({
     key: "fleet",
     displayName: "Fleet",
     getDisplayFields() {

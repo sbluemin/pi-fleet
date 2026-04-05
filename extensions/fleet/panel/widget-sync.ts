@@ -67,7 +67,7 @@ export function syncFooterStatus(ctx: ExtensionContext | null): void {
  *
  * 렌더링 분기:
  * - expanded → aboveEditor 위젯으로 renderPanelFull 표시 (터미널 높이 기반 클램핑)
- * - !expanded → 위젯 제거 (배너는 infra-hud/editor.ts에서 직접 렌더링)
+ * - !expanded → 위젯 제거 (배너는 core-hud/editor.ts에서 직접 렌더링)
  */
 export function syncWidget(ctx: ExtensionContext): void {
   const s = getState();

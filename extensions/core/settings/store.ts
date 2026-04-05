@@ -1,5 +1,5 @@
 /**
- * infra-settings/store.ts — settings.json CRUD
+ * core-settings/store.ts — settings.json CRUD
  *
  * extensions/settings.json 파일을 읽고 쓰는 저수준 함수.
  */

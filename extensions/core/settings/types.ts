@@ -1,5 +1,5 @@
 /**
- * infra-settings/types.ts — 순수 타입/인터페이스 정의
+ * core-settings/types.ts — 순수 타입/인터페이스 정의
  *
  * 부수효과 없음: import만으로 globalThis를 조작하지 않는다.
  * 런타임 브릿지 로직은 bridge.ts에 분리되어 있다.
@@ -23,8 +23,8 @@ export interface SectionDisplayConfig {
   getDisplayFields(): DisplayField[];
 }
 
-/** infra-settings가 globalThis를 통해 제공하는 API */
-export interface InfraSettingsAPI {
+/** core-settings가 globalThis를 통해 제공하는 API */
+export interface CoreSettingsAPI {
   /** settings.json에서 특정 섹션 읽기 */
   load<T = Record<string, unknown>>(sectionKey: string): T;
   /** settings.json에 특정 섹션 저장 */
@@ -38,4 +38,4 @@ export interface InfraSettingsAPI {
 // ── 상수 ──
 
 /** globalThis 브릿지 키 (AGENTS.md: globalThis key는 types.ts에 정의) */
-export const INFRA_SETTINGS_KEY = "__infra_settings__";
+export const CORE_SETTINGS_KEY = "__core_settings__";

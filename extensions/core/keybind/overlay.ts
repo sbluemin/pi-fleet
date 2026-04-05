@@ -1,5 +1,5 @@
 /**
- * infra-keybind/overlay.ts — 키바인딩 오버레이 컴포넌트
+ * core-keybind/overlay.ts — 키바인딩 오버레이 컴포넌트
  *
  * Component + Focusable 인터페이스를 구현하여
  * ctx.ui.custom() overlay로 등록된 키바인딩을 카테고리별로 렌더링한다.

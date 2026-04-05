@@ -1,5 +1,5 @@
 /**
- * infra-settings — 중앙 설정 API + 오버레이 팝업 확장
+ * core-settings — 중앙 설정 API + 오버레이 팝업 확장
  *
  * 배선(wiring)만 담당:
  *   - globalThis API 등록
@@ -9,15 +9,15 @@
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 
 import { getKeybindAPI } from "../keybind/bridge.js";
-import { INFRA_SETTINGS_KEY } from "./bridge.js";
-import type { InfraSettingsAPI } from "./types.js";
+import { CORE_SETTINGS_KEY } from "./bridge.js";
+import type { CoreSettingsAPI } from "./types.js";
 import { loadSection, saveSection } from "./store.js";
 import { registerSection, unregisterSection, getSections } from "./registry.js";
 import { SettingsOverlay } from "./overlay.js";
 
 // ── globalThis API 객체 생성 ──
 
-const api: InfraSettingsAPI = {
+const api: CoreSettingsAPI = {
   load: loadSection,
   save: saveSection,
   registerSection,
@@ -29,16 +29,16 @@ const api: InfraSettingsAPI = {
 let activePopup: Promise<void> | null = null;
 
 // 즉시 등록 — 다른 확장의 모듈 초기화 시점에도 접근 가능하도록
-(globalThis as any)[INFRA_SETTINGS_KEY] = api;
+(globalThis as any)[CORE_SETTINGS_KEY] = api;
 
 export default function (_pi: ExtensionAPI) {
   const keybind = getKeybindAPI();
   keybind.register({
-    extension: "infra-settings",
+    extension: "core-settings",
     action: "popup",
     defaultKey: "alt+/",
     description: "설정 오버레이 팝업 표시",
-    category: "Infra",
+    category: "Core",
     handler: async (ctx) => {
       await openSettingsPopup(ctx);
     },

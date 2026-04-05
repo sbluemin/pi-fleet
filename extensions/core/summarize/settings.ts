@@ -1,11 +1,11 @@
 /**
  * core-summarize/settings.ts — 설정 파일 관리
  *
- * infra-settings API를 통해 ~/.pi/fleet/settings.json의 "core-summarize" 섹션에서 읽고 쓴다.
+ * core-settings API를 통해 ~/.pi/fleet/settings.json의 "core-summarize" 섹션에서 읽고 쓴다.
  */
 
 import { getSettingsAPI } from "../settings/bridge.js";
-import type { InfraSettingsAPI } from "../settings/types.js";
+import type { CoreSettingsAPI } from "../settings/types.js";
 
 export interface AutoSummarizeSettings {
   /** 모델 프로바이더 (미설정 시 세션 모델 사용) */
@@ -32,8 +32,8 @@ export function saveSettings(settings: AutoSummarizeSettings): void {
   getAPI().save(SECTION_KEY, settings);
 }
 
-function getAPI(): InfraSettingsAPI {
+function getAPI(): CoreSettingsAPI {
   const api = getSettingsAPI();
-  if (!api) throw new Error("infra-settings API not available");
+  if (!api) throw new Error("core-settings API not available");
   return api;
 }
