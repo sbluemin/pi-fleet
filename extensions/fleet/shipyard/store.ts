@@ -18,6 +18,14 @@ import { getSessionStore } from "../../core/agent/runtime.js";
 
 // ─── 타입 정의 ──────────────────────────────────────────
 
+/** CLI별 설정 캐시 (CLI 변경 시 이전 설정 복원용) */
+type PerCliSettings = {
+  model?: string;
+  effort?: string;
+  budgetTokens?: number;
+  direct?: boolean;
+};
+
 /** 각 carrier별 모델 선택 설정 */
 export interface ModelSelection {
   /** 선택된 모델 ID */
@@ -30,6 +38,8 @@ export interface ModelSelection {
   budgetTokens?: number;
   /** Task Force 백엔드별 커스텀 설정 (cliType → 모델 선택) */
   taskforce?: TaskForceConfig;
+  /** CLI 변경 시 이전 설정 복원을 위한 CLI별 설정 캐시 */
+  perCliSettings?: Partial<Record<string, PerCliSettings>>;
 }
 
 /** states.json의 models 키 전체 구조 */
@@ -143,7 +153,14 @@ export async function updateModelSelection(
   selection: ModelSelection,
 ): Promise<void> {
   const s = readStates();
-  s.models = { ...s.models, [carrierId]: selection };
+  // 기존 설정에서 taskforce와 perCliSettings를 보존하면서 병합
+  const existing = s.models?.[carrierId];
+  const merged: ModelSelection = {
+    ...selection,
+    taskforce: selection.taskforce ?? existing?.taskforce,
+    perCliSettings: selection.perCliSettings ?? existing?.perCliSettings,
+  };
+  s.models = { ...s.models, [carrierId]: merged };
   writeStates(s);
   getSessionStore().clear(carrierId);
   await disconnectClient(carrierId);
@@ -163,6 +180,58 @@ export async function updateAllModelSelections(
     sessionStore.clear(key);
   }
   await Promise.allSettled(keys.map((key) => disconnectClient(key)));
+}
+
+// ─── CLI별 설정 캐시 ────────────────────────────────────
+
+/**
+ * CLI별 설정 캐시에서 특정 CLI 타입의 설정을 반환합니다.
+ */
+export function getPerCliSettings(
+  carrierId: string,
+  cliType: string,
+): PerCliSettings | undefined {
+  const config = loadModels();
+  const perCli = config[carrierId]?.perCliSettings;
+  if (!perCli) return undefined;
+  return sanitizePerCliSettings(perCli[cliType]);
+}
+
+/**
+ * 현재 설정을 CLI별 설정 캐시에 저장합니다.
+ * 원자적: read → merge → write (세션 무효화 없음)
+ */
+export function savePerCliSettings(
+  carrierId: string,
+  cliType: string,
+  settings: PerCliSettings,
+): void {
+  // 모든 필드가 undefined면 저장 스킵
+  if (
+    settings.model === undefined &&
+    settings.effort === undefined &&
+    settings.budgetTokens === undefined &&
+    settings.direct === undefined
+  ) {
+    return;
+  }
+
+  const sanitizedKey = sanitizeConfigKey(cliType);
+  if (!sanitizedKey) return;
+
+  const s = readStates();
+  if (!s.models) s.models = {};
+  if (!s.models[carrierId]) s.models[carrierId] = { model: "" };
+
+  const carrier = s.models[carrierId]!;
+  if (!carrier.perCliSettings) carrier.perCliSettings = {};
+  carrier.perCliSettings[sanitizedKey] = {
+    model: settings.model,
+    effort: settings.effort,
+    budgetTokens: settings.budgetTokens,
+    direct: settings.direct,
+  };
+  writeStates(s);
 }
 
 // ─── Task Force 모델 설정 ───────────────────────────────
@@ -341,8 +410,9 @@ function sanitizeModelSelection(value: unknown): ModelSelection | null {
   if (!isRecord(value)) return null;
 
   const taskforce = sanitizeTaskforceConfig(value.taskforce);
+  const perCliSettings = sanitizeAllPerCliSettings(value.perCliSettings);
   const model = sanitizeFreeformText(value.model);
-  if (!model && !taskforce) return null;
+  if (!model && !taskforce && !perCliSettings) return null;
 
   const result: ModelSelection = { model: model ?? "" };
 
@@ -364,7 +434,51 @@ function sanitizeModelSelection(value: unknown): ModelSelection | null {
     result.taskforce = taskforce;
   }
 
+  if (perCliSettings) {
+    result.perCliSettings = perCliSettings;
+  }
+
   return result;
+}
+
+function sanitizePerCliSettings(value: unknown): PerCliSettings | undefined {
+  if (!isRecord(value)) return undefined;
+  const result: PerCliSettings = {};
+  let hasField = false;
+
+  const model = sanitizeFreeformText(value.model);
+  if (model) { result.model = model; hasField = true; }
+
+  const effort = sanitizeFreeformText(value.effort);
+  if (effort) { result.effort = effort; hasField = true; }
+
+  const budgetTokens = sanitizeBudgetTokens(value.budgetTokens);
+  if (budgetTokens !== undefined) { result.budgetTokens = budgetTokens; hasField = true; }
+
+  if (typeof value.direct === "boolean") { result.direct = value.direct; hasField = true; }
+
+  return hasField ? result : undefined;
+}
+
+function sanitizeAllPerCliSettings(
+  value: unknown,
+): Partial<Record<string, PerCliSettings>> | undefined {
+  if (!isRecord(value)) return undefined;
+
+  const result: Partial<Record<string, PerCliSettings>> = {};
+  let hasEntry = false;
+
+  for (const [key, entry] of Object.entries(value)) {
+    const sanitizedKey = sanitizeConfigKey(key);
+    if (!sanitizedKey) continue;
+    const sanitized = sanitizePerCliSettings(entry);
+    if (sanitized) {
+      result[sanitizedKey] = sanitized;
+      hasEntry = true;
+    }
+  }
+
+  return hasEntry ? result : undefined;
 }
 
 function sanitizeTaskforceConfig(value: unknown): TaskForceConfig | undefined {

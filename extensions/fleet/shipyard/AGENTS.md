@@ -23,9 +23,10 @@ Core logic for carrier management and fleet persistence. This subpackage contain
 
 ### Responsibilities
 1. **Model Management**: Loading and saving model selections, including Task Force custom backends.
-2. **Sortie Control**: Tracking which carriers have their sortie tools disabled.
-3. **CLI Overrides**: Persisting runtime changes to a carrier's CLI type.
-4. **Provider Catalog**: Providing available models, effort levels, and default budget tokens for various providers.
+2. **CLI Preference Caching**: Persisting model/inference settings (effort, budgetTokens, direct) per CLI type for seamless restoration when switching carriers' CLI backends.
+3. **Sortie Control**: Tracking which carriers have their sortie tools disabled.
+4. **CLI Overrides**: Persisting runtime changes to a carrier's CLI type.
+5. **Provider Catalog**: Providing available models, effort levels, and default budget tokens for various providers.
 
 ### Migration Logic
 On the first boot after the consolidation, `store.ts` checks for `selected-models.json`. If found, it migrates the content to the `models` key in `states.json` and renames the legacy file to `selected-models.json.migrated`.
@@ -33,7 +34,8 @@ On the first boot after the consolidation, `store.ts` checks for `selected-model
 ### Key API
 - `initStore(dir)`: Initializes the store directory and runs migrations.
 - `loadModels()` / `saveModels(config)`: CRUD for model selections.
-- `updateModelSelection(carrierId, selection)`: Atomic update that also clears the corresponding agent session to ensure the model change is applied immediately.
+- `updateModelSelection(carrierId, selection)`: Atomic update that also clears the corresponding agent session to ensure the model change is applied immediately. It preserves existing `taskforce` and `perCliSettings` fields if not explicitly provided in the new selection.
+- `getPerCliSettings(carrierId, cliType)` / `savePerCliSettings(carrierId, cliType, settings)`: Utilities for managing CLI-specific setting caches (`model`, `effort`, `budgetTokens`, `direct`).
 - `loadSortieDisabled()` / `saveSortieDisabled(ids)`: CRUD for sortie status.
 - `loadCliTypeOverrides()` / `saveCliTypeOverrides(overrides)`: CRUD for CLI type overrides.
 - `getAvailableModels(cli)`: Catalog lookup for supported models.

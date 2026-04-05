@@ -51,6 +51,8 @@ import {
   updateTaskForceModelSelection,
   resetTaskForceModelSelection,
   isTaskForceFullyConfigured,
+  getPerCliSettings,
+  savePerCliSettings,
   getAvailableModels,
   getEffortLevels,
   getDefaultBudgetTokens,
@@ -360,10 +362,42 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
                 return isTaskForceFullyConfigured(carrierId);
               },
               updateCliType: (carrierId: string, newCliType: string) => {
+                // 1. 현재 CLI 설정 저장
+                const currentCliType = getRegisteredCarrierConfig(carrierId)?.cliType;
+                if (currentCliType) {
+                  const currentConfig = getModelConfig()[carrierId];
+                  if (currentConfig) {
+                    savePerCliSettings(carrierId, currentCliType, {
+                      model: currentConfig.model,
+                      effort: currentConfig.effort,
+                      budgetTokens: currentConfig.budgetTokens,
+                      direct: currentConfig.direct,
+                    });
+                  }
+                }
+
+                // 2. CLI 타입 변경
                 updateCarrierCliType(carrierId, newCliType as CliType);
-                // 모델 호환성: 새 cliType 기본 모델로 리셋
+
+                // 3. 새 CLI의 저장된 설정 복원 (없으면 기본 모델)
+                const saved = getPerCliSettings(carrierId, newCliType);
                 const provider = getAvailableModels(newCliType as CliType);
-                void updateModelSelection(carrierId, { model: provider.defaultModel });
+                const effortLevels = getEffortLevels(newCliType as CliType);
+                const restoredEffort = saved?.effort && effortLevels?.includes(saved.effort)
+                  ? saved.effort
+                  : undefined;
+                // budgetTokens는 Claude이고 effort가 none이 아닌 경우에만 복원
+                const restoredBudget = restoredEffort && restoredEffort !== "none" && newCliType === "claude"
+                  ? saved?.budgetTokens
+                  : undefined;
+                void updateModelSelection(carrierId, {
+                  model: saved?.model && provider.models.some(m => m.modelId === saved.model)
+                    ? saved.model
+                    : provider.defaultModel,
+                  effort: restoredEffort,
+                  budgetTokens: restoredBudget,
+                  direct: saved?.direct,
+                });
                 syncModelConfig();
                 // 영속화: defaultCliType과 다를 때만 override 저장
                 const overrides: Record<string, string> = {};
