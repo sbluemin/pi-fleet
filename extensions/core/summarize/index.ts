@@ -21,8 +21,7 @@ import { convertToLlm, serializeConversation } from "@mariozechner/pi-coding-age
 import { loadSettings, saveSettings } from "./settings.js";
 import type { AutoSummarizeSettings } from "./settings.js";
 import { resolveModel, generateOneLiner } from "./summarizer.js";
-import type { InfraSettingsAPI } from "../settings/types.js";
-import { INFRA_SETTINGS_KEY } from "../settings/types.js";
+import { getSettingsAPI } from "../settings/bridge.js";
 
 export default function (pi: ExtensionAPI) {
   /** 이번 세션에서 첫 턴 자동 요약이 완료되었는지 추적 */
@@ -30,7 +29,7 @@ export default function (pi: ExtensionAPI) {
 
   // ── 팝업 섹션 등록 ──
 
-  const infraApi = (globalThis as any)[INFRA_SETTINGS_KEY] as InfraSettingsAPI | undefined;
+  const infraApi = getSettingsAPI();
   infraApi?.registerSection({
     key: "utils-summarize",
     displayName: "Auto Summarize",

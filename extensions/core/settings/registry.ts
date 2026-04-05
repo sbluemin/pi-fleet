@@ -5,7 +5,7 @@
  * 섹션 Map은 globalThis에 보관하여 모듈 재로드 시 유실을 방지한다.
  */
 
-import { _getSectionsMap } from "./types.js";
+import { _getSectionsMap } from "./bridge.js";
 import type { SectionDisplayConfig } from "./types.js";
 
 /** 섹션 등록 */

@@ -1,8 +1,8 @@
 /**
- * infra-settings/types.ts — API 인터페이스 및 표시 타입 정의
+ * infra-settings/types.ts — 순수 타입/인터페이스 정의
  *
- * globalThis 키와 브릿지 인터페이스를 이 파일에서 정의한다.
- * (AGENTS.md: "globalThis key와 bridge interface는 소유 확장의 types.ts에 정의")
+ * 부수효과 없음: import만으로 globalThis를 조작하지 않는다.
+ * 런타임 브릿지 로직은 bridge.ts에 분리되어 있다.
  */
 
 /** 팝업에 표시할 필드 하나 */
@@ -35,17 +35,7 @@ export interface InfraSettingsAPI {
   unregisterSection(sectionKey: string): void;
 }
 
-/** globalThis 브릿지 키 */
+// ── 상수 ──
+
+/** globalThis 브릿지 키 (AGENTS.md: globalThis key는 types.ts에 정의) */
 export const INFRA_SETTINGS_KEY = "__infra_settings__";
-
-// ── globalThis에 섹션 레지스트리 보관 (모듈 재로드 시 유실 방지) ──
-// 가드: 이미 등록되어 있으면 덮어쓰지 않는다.
-const _SECTIONS_KEY = "__infra_settings_sections__";
-if (!(globalThis as any)[_SECTIONS_KEY]) {
-  (globalThis as any)[_SECTIONS_KEY] = new Map<string, SectionDisplayConfig>();
-}
-
-/** @internal registry.ts에서 사용 — globalThis에 보관된 섹션 Map 접근 */
-export function _getSectionsMap(): Map<string, SectionDisplayConfig> {
-  return (globalThis as any)[_SECTIONS_KEY];
-}

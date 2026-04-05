@@ -8,9 +8,8 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 
-import { INFRA_KEYBIND_KEY } from "../keybind/types.js";
-import type { InfraKeybindAPI } from "../keybind/types.js";
-import { INFRA_SETTINGS_KEY } from "./types.js";
+import { getKeybindAPI } from "../keybind/bridge.js";
+import { INFRA_SETTINGS_KEY } from "./bridge.js";
 import type { InfraSettingsAPI } from "./types.js";
 import { loadSection, saveSection } from "./store.js";
 import { registerSection, unregisterSection, getSections } from "./registry.js";
@@ -33,7 +32,7 @@ let activePopup: Promise<void> | null = null;
 (globalThis as any)[INFRA_SETTINGS_KEY] = api;
 
 export default function (_pi: ExtensionAPI) {
-  const keybind = (globalThis as any)[INFRA_KEYBIND_KEY] as InfraKeybindAPI;
+  const keybind = getKeybindAPI();
   keybind.register({
     extension: "infra-settings",
     action: "popup",

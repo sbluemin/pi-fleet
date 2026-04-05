@@ -5,8 +5,8 @@
  */
 
 import type { ReasoningLevel } from "./constants.js";
+import { getSettingsAPI } from "../settings/bridge.js";
 import type { InfraSettingsAPI } from "../settings/types.js";
-import { INFRA_SETTINGS_KEY } from "../settings/types.js";
 
 /** 설정 파일 구조 */
 export interface MetaPromptSettings {
@@ -35,7 +35,7 @@ export function saveSettings(settings: MetaPromptSettings): void {
 }
 
 function getAPI(): InfraSettingsAPI {
-  const api = (globalThis as any)[INFRA_SETTINGS_KEY];
+  const api = getSettingsAPI();
   if (!api) throw new Error("infra-settings API not available");
   return api;
 }
