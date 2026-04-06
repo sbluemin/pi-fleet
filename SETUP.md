@@ -26,6 +26,7 @@ cd packages/unified-agent && npm install && npm link && cd ../..
 
 # Install extension dependencies
 cd extensions/fleet && npm install && cd ../..
+cd extensions/core/agent && npm install && cd ../../..
 cd extensions/core/shell && npm install && cd ../../..
 ```
 
