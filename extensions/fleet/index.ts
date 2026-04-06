@@ -25,9 +25,7 @@ import {
   getRegisteredOrder,
   getRegisteredCarrierConfig,
   notifyStatusUpdate,
-  resolveCarrierColor,
   resolveCarrierDisplayName,
-  resolveCarrierCliDisplayName,
   disableSortieCarrier,
   enableSortieCarrier,
   isSortieCarrierEnabled,
@@ -79,8 +77,13 @@ import { TaskForceConfigOverlay } from "./shipyard/carrier/taskforce-config-over
 import type { TaskForceOverlayCallbacks } from "./shipyard/carrier/taskforce-config-overlay.js";
 import { getFocusedCarrierId } from "./panel/state.js";
 import { CarrierStatusOverlay } from "./shipyard/carrier/status-overlay.js";
-import type { CarrierStatusGroup, CarrierStatusEntry } from "./shipyard/carrier/status-overlay.js";
-import type { ProviderKey } from "../core/agent/types.js";
+import { StatusOverlayController } from "./shipyard/carrier/status-overlay-controller.js";
+import type {
+  CarrierCliType,
+  CarrierStatusEntry,
+  CliModelInfo,
+  ModelSelection as OverlayModelSelection,
+} from "./shipyard/carrier/types.js";
 
 import { getKeybindAPI } from "../core/keybind/bridge.js";
 import { SHELL_POPUP_BRIDGE_KEY } from "../core/shell/types.js";
@@ -119,11 +122,9 @@ export {
   getAllCliTypes,
   onStatusUpdate,
   notifyStatusUpdate,
-  resolveCarrierColor,
   resolveCarrierBgColor,
   resolveCarrierRgb,
   resolveCarrierDisplayName,
-  resolveCarrierCliDisplayName,
   disableSortieCarrier,
   enableSortieCarrier,
   isSortieCarrierEnabled,
@@ -133,6 +134,10 @@ export {
   onSortieStateChange,
   onTaskForceConfigChange,
   notifyTaskForceConfigChange,
+} from "./shipyard/carrier/framework.js";
+export {
+  resolveCarrierColor,
+  resolveCarrierCliDisplayName,
 } from "./shipyard/carrier/framework.js";
 
 export type {
@@ -257,23 +262,13 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
 
       const carrierIds = getRegisteredOrder();
       const modelConfig = getModelConfig();
-      const groupMap = new Map<string, { header: string; color: string; providerKey: ProviderKey; entries: CarrierStatusEntry[] }>();
-      const cliOrder = ["claude", "codex", "gemini"] as const;
+      const entries: CarrierStatusEntry[] = [];
 
       for (const id of carrierIds) {
         const config = getRegisteredCarrierConfig(id);
         if (!config) continue;
 
         const cliType = config.cliType;
-        if (!groupMap.has(cliType)) {
-          groupMap.set(cliType, {
-            header: resolveCarrierCliDisplayName(id),
-            color: resolveCarrierColor(id),
-            providerKey: cliType,
-            entries: [],
-          });
-        }
-
         const selection = modelConfig[id];
         const provider = getAvailableModels(cliType);
         const model = selection?.model || provider.defaultModel;
@@ -283,13 +278,12 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
         const meta = config.carrierMetadata;
         const role = meta?.title ?? null;
 
-        groupMap.get(cliType)!.entries.push({
+        entries.push({
           carrierId: id,
           slot: config.slot,
           cliType,
+          defaultCliType: config.defaultCliType as CarrierCliType,
           displayName: resolveCarrierDisplayName(id),
-          color: resolveCarrierColor(id),
-          cliDisplayName: resolveCarrierCliDisplayName(id),
           model,
           isDefault,
           effort,
@@ -297,31 +291,71 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
           role,
           roleDescription: meta ? `${meta.title} — ${meta.summary}` : null,
           isSortieEnabled: isSortieCarrierEnabled(id),
+          hasTaskForceConfig: isTaskForceFullyConfigured(id),
         });
-      }
-
-      const groups: CarrierStatusGroup[] = [];
-      for (const cli of cliOrder) {
-        const group = groupMap.get(cli);
-        if (group) groups.push(group);
       }
 
       activeStatusPopup = ctx.ui.custom(
         (tui: any, theme: any, _keybindings: any, done: () => void) => {
           dismissStatusPopup = done;
+          const handleModelUpdated = (): void => {
+            syncModelConfig();
+            notifyStatusUpdate();
+          };
+
+          const getCliModelInfo = (cliType: CarrierCliType): CliModelInfo => {
+            const provider = getAvailableModels(cliType as CliType);
+            const effortLevels = getEffortLevels(cliType as CliType) ?? [];
+            return {
+              ...provider,
+              defaultBudgetTokens: Object.fromEntries(
+                effortLevels.map((level) => [level, getDefaultBudgetTokens(level)]),
+              ),
+            };
+          };
+
+          const overlayController = new StatusOverlayController({
+            getEntries: () => entries,
+            getRegisteredOrder,
+            getRegisteredCarrierConfig: (carrierId: string) => getRegisteredCarrierConfig(carrierId),
+            getCurrentModelSelection: (carrierId: string) => getModelConfig()[carrierId],
+            getAvailableModels: getCliModelInfo,
+            getPerCliSettings: (carrierId: string, cliType: CarrierCliType) => getPerCliSettings(carrierId, cliType),
+            savePerCliSettings: (carrierId: string, cliType: CarrierCliType, selection) => {
+              savePerCliSettings(carrierId, cliType, selection);
+            },
+            updateCarrierCliType: (carrierId: string, cliType: CarrierCliType) => {
+              updateCarrierCliType(carrierId, cliType as CliType);
+            },
+            updateModelSelection: async (carrierId: string, selection) => {
+              await updateModelSelection(carrierId, selection);
+            },
+            refreshAgentPanel: () => {
+              refreshAgentPanel(ctx);
+            },
+            syncModelConfig,
+            notifyStatusUpdate,
+            saveCliTypeOverrides,
+          });
+
           return new CarrierStatusOverlay(
             tui,
             theme,
-            groups,
-            getServiceSnapshots,
+            entries,
             {
-              getAvailableModels,
-              getEffortLevels,
-              getDefaultBudgetTokens,
-              updateModelSelection,
-              onModelUpdated: () => {
-                syncModelConfig();
-                notifyStatusUpdate();
+              getEntries: () => entries,
+              changeCliType: (carrierId: string, newCliType: CarrierCliType) => {
+                return overlayController.changeCliType(carrierId, newCliType);
+              },
+              changeCliTypes: async (updates: Array<{ carrierId: string; newCliType: CarrierCliType }>) => {
+                return overlayController.changeCliTypes(updates);
+              },
+              resetCliTypesToDefault: async () => {
+                return overlayController.resetCliTypesToDefault();
+              },
+              saveModelSelection: async (carrierId: string, selection: OverlayModelSelection) => {
+                await updateModelSelection(carrierId, selection);
+                handleModelUpdated();
               },
               toggleSortieEnabled: (carrierId: string) => {
                 if (isSortieCarrierEnabled(carrierId)) {
@@ -330,63 +364,12 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
                   enableSortieCarrier(carrierId);
                 }
               },
-              hasTaskForceConfig: (carrierId: string) => {
-                return isTaskForceFullyConfigured(carrierId);
-              },
-              updateCliType: (carrierId: string, newCliType: string) => {
-                // 1. 현재 CLI 설정 저장
-                const currentCliType = getRegisteredCarrierConfig(carrierId)?.cliType;
-                if (currentCliType) {
-                  const currentConfig = getModelConfig()[carrierId];
-                  if (currentConfig) {
-                    savePerCliSettings(carrierId, currentCliType, {
-                      model: currentConfig.model,
-                      effort: currentConfig.effort,
-                      budgetTokens: currentConfig.budgetTokens,
-                      direct: currentConfig.direct,
-                    });
-                  }
-                }
-
-                // 2. CLI 타입 변경
-                updateCarrierCliType(carrierId, newCliType as CliType);
-                refreshAgentPanel(ctx);
-
-                // 3. 새 CLI의 저장된 설정 복원 (없으면 기본 모델)
-                const saved = getPerCliSettings(carrierId, newCliType);
-                const provider = getAvailableModels(newCliType as CliType);
-                const effortLevels = getEffortLevels(newCliType as CliType);
-                const restoredEffort = saved?.effort && effortLevels?.includes(saved.effort)
-                  ? saved.effort
-                  : undefined;
-                // budgetTokens는 Claude이고 effort가 none이 아닌 경우에만 복원
-                const restoredBudget = restoredEffort && restoredEffort !== "none" && newCliType === "claude"
-                  ? saved?.budgetTokens
-                  : undefined;
-                void updateModelSelection(carrierId, {
-                  model: saved?.model && provider.models.some(m => m.modelId === saved.model)
-                    ? saved.model
-                    : provider.defaultModel,
-                  effort: restoredEffort,
-                  budgetTokens: restoredBudget,
-                  direct: saved?.direct,
-                });
-                syncModelConfig();
-                // 영속화: defaultCliType과 다를 때만 override 저장
-                const overrides: Record<string, string> = {};
-                for (const cid of getRegisteredOrder()) {
-                  const cfg = getRegisteredCarrierConfig(cid);
-                  if (cfg && cfg.cliType !== cfg.defaultCliType) {
-                    overrides[cid] = cfg.cliType;
-                  }
-                }
-                saveCliTypeOverrides(overrides);
-                // 오버레이 닫기 (그룹 재구성을 위해)
-                dismissStatusPopup?.();
-              },
-              getDefaultCliType: (carrierId: string) => {
-                return getRegisteredCarrierConfig(carrierId)?.defaultCliType ?? "claude";
-              },
+              getAvailableModels: getCliModelInfo,
+              getServiceSnapshots: () =>
+                new Map(
+                  getServiceSnapshots().map((snapshot) => [snapshot.provider as CarrierCliType, { status: snapshot.status }]),
+                ),
+              getDefaultCliType: () => "claude",
               openTaskForce: (carrierId: string) => {
                 dismissStatusPopup?.();
                 const carrierConfig = getRegisteredCarrierConfig(carrierId);

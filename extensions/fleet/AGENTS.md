@@ -18,6 +18,7 @@ The number of carriers is determined at runtime by the number of registered carr
 - **Slot-based ordering**: Each carrier's `slot` determines its panel column position and inline navigation order. Slots must be unique across all registered carriers. **When `cliType` changes, the sorting order and theme color of the corresponding CLI type are immediately reflected.**
 - **carriers_sortie call instance isolation**: The `carriers_sortie` tool uses `toolCallId` as the `sortieKey` to isolate state (progress, streaming content, result cache) per call. This prevents UI interference and redundant content output during concurrent/sequential calls.
 - **Dynamic CliType Overrides**: You can change the CLI type of a specific carrier at runtime via `updateCarrierCliType`. The changed state is saved in `states.json` and maintained after restart. **When switching CLI types, the current model, reasoning effort, and budget tokens are cached (`perCliSettings`) and automatically restored when returning to that CLI type (with validation against the new provider's capabilities).**
+- **Batch CLI Control**: Supports batch switching of all carriers belonging to a specific CLI type to another type (`Shift+C` in Status Overlay) and restoring all carriers to their source-level default CLI types (`Shift+R` in Status Overlay).
 - **Same carrierId concurrent calls are not supported** — UI layer manages one visible run per carrierId.
 - The Agent Panel is the main UI for streaming — multi-column is the default, and `Ctrl+Enter` opens a panel-local 1-column detail view for the selected carrier.
 
@@ -95,7 +96,7 @@ Consumer (carriers, external extensions)
 | `shipyard/carrier/sortie.ts` | Carrier Sortie tool — sole carrier delegation PI tool. Through **call instance isolation (sortieKey)** and **runId-based streaming filtering**, it displays unified progress/results without UI interference even when multiple calls run simultaneously. |
 | `shipyard/store.ts` | Unified fleet persistence store — `initStore`, `loadModels`, `saveModels`, `updateModelSelection` (with Task Force/CLI settings preservation), `getPerCliSettings`/`savePerCliSettings` (CLI preference caching), `loadSortieDisabled`, `saveSortieDisabled`, `loadCliTypeOverrides`, `saveCliTypeOverrides`. Single source of truth for all fleet persistent state in `states.json`. |
 
-| `shipyard/carrier/status-overlay.ts` | Status Overlay UI — Added `"cliType"` to `OverlayMode` and provides CLI type change functionality via the `c` key. Supports `updateCliType`, `getDefaultCliType` callbacks. |
+| `shipyard/carrier/status-overlay.ts` | Status Overlay UI — Supports individual CLI change (`c`), batch CLI transition (`C`), and global default restoration (`R`). Managed via `"cliType"`, `"batchFrom"`, `"batchTo"` modes. |
 
 | `shipyard/carrier/model-ui.ts` | Model selection UI — model selection TUI component + keybind/command registration |
 | `shipyard/carrier/status-renderer.ts` | Carrier status segment renderer — renders carrier icon + name + status-based color. Integrates with `setWidget("fleet-carrier-status", ..., { placement: "aboveEditor" })`. |

@@ -7,6 +7,7 @@
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { CliType } from "@sbluemin/unified-agent";
+import type { HealthStatus, ProviderKey } from "../../../core/agent/types.js";
 
 // ─── Carrier 메타데이터 (2-Tier) ────────────────────────
 
@@ -74,6 +75,99 @@ export interface CarrierConfig {
   renderUser?: (...args: any[]) => any;
   /** carrier 메타데이터 (2-Tier: Routing + Composition) */
   carrierMetadata?: CarrierMetadata;
+}
+
+export type CarrierCliType = ProviderKey;
+
+export interface ModelSelection {
+  model: string;
+  effort?: string;
+  budgetTokens?: number;
+}
+
+export interface CliModelInfo {
+  defaultModel: string;
+  models: Array<{ modelId: string; name: string }>;
+  reasoningEffort: {
+    supported: boolean;
+    levels?: string[];
+    default?: string;
+  };
+  defaultBudgetTokens?: Record<string, number>;
+}
+
+export interface CliServiceSnapshot {
+  status: HealthStatus;
+}
+
+export interface ResolvedCliSelection {
+  model: string;
+  effort: string | null;
+  isDefault: boolean;
+  budgetTokens: number | null;
+}
+
+export interface CliTypeChangeResult {
+  carrierId: string;
+  newCliType: CarrierCliType;
+  selection: ResolvedCliSelection;
+}
+
+export interface CarrierStatusEntry {
+  carrierId: string;
+  slot: number;
+  cliType: CarrierCliType;
+  defaultCliType: CarrierCliType;
+  displayName: string;
+  model: string;
+  isDefault: boolean;
+  effort: string | null;
+  budgetTokens: number | null;
+  role: string | null;
+  roleDescription: string | null;
+  isSortieEnabled: boolean;
+  hasTaskForceConfig: boolean;
+}
+
+export interface CarrierStatusGroup {
+  header: string;
+  color: string;
+  providerKey: ProviderKey;
+  entries: CarrierStatusEntry[];
+}
+
+export interface CliTypeChoice {
+  value: CarrierCliType;
+  label: string;
+}
+
+export interface BatchCliChoice {
+  cliType: CarrierCliType;
+  label: string;
+  carrierCount: number;
+  status: HealthStatus;
+}
+
+export type OverlayState =
+  | { kind: "browse" }
+  | { kind: "model"; carrierId: string; choices: string[]; cursor: number }
+  | { kind: "effort"; carrierId: string; pendingModel: string; choices: string[]; cursor: number }
+  | { kind: "cliType"; carrierId: string; choices: CliTypeChoice[]; cursor: number }
+  | { kind: "batchFrom"; choices: BatchCliChoice[]; cursor: number }
+  | { kind: "batchTo"; fromCli: CarrierCliType; choices: BatchCliChoice[]; cursor: number }
+  | { kind: "saving" };
+
+export interface CarrierOverlayCallbacks {
+  getEntries(): CarrierStatusEntry[];
+  changeCliType(carrierId: string, newCliType: CarrierCliType): Promise<ResolvedCliSelection>;
+  changeCliTypes(updates: Array<{ carrierId: string; newCliType: CarrierCliType }>): Promise<CliTypeChangeResult[]>;
+  resetCliTypesToDefault(): Promise<CliTypeChangeResult[]>;
+  saveModelSelection(carrierId: string, selection: ModelSelection): Promise<void>;
+  toggleSortieEnabled(carrierId: string): void;
+  openTaskForce(carrierId: string): void;
+  getAvailableModels(cliType: CarrierCliType): CliModelInfo;
+  getServiceSnapshots(): Map<CarrierCliType, CliServiceSnapshot>;
+  getDefaultCliType(): CarrierCliType;
 }
 
 // ─── 내부 상태 타입 ──────────────────────────────────────
