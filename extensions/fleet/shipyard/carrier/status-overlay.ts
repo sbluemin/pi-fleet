@@ -160,6 +160,11 @@ export class CarrierStatusOverlay implements Component, Focusable {
       return;
     }
 
+    if (this.state.kind === "browse" && data === "S") {
+      this.toggleSquadronState();
+      return;
+    }
+
     if (matchesKey(data, Key.enter)) {
       switch (this.state.kind) {
         case "browse":
@@ -228,15 +233,18 @@ export class CarrierStatusOverlay implements Component, Focusable {
         const coloredName = `${nameColor}${entry.displayName}${ANSI_RESET}`;
         const modelStr = (entry.isDefault || isDisabled) ? dim(entry.model) : entry.model;
         const effortStr = entry.effort ? dim(" · ") + (isDisabled ? dim(entry.effort) : entry.effort) : "";
-        const sortieTag = isDisabled ? `  \x1b[38;2;255;80;80m✕ sortie off${ANSI_RESET}` : "";
+        const sortieTag = entry.isSquadronEnabled
+          ? `  \x1b[38;2;180;140;255m→SQ${ANSI_RESET}`
+          : isDisabled ? `  \x1b[38;2;255;80;80m✕ sortie off${ANSI_RESET}` : "";
         const tfTag = entry.hasTaskForceConfig ? `  \x1b[38;2;100;180;255m[TF]${ANSI_RESET}` : "";
+        const sqTag = entry.isSquadronEnabled ? `  \x1b[38;2;180;140;255m[SQ]${ANSI_RESET}` : "";
         const roleStr = entry.role ? dim(`  (${entry.role})`) : "";
         const selectedPrefix = isSelected
           ? `${isDisabled ? ANSI_DIM : this.getEntryColor(entry)}▸${ANSI_RESET}`
           : " ";
 
         const content =
-          `  ${selectedPrefix} ${dim(slotStr)}${slotPad}${coloredName}${cliOverrideSuffix}${namePad}${modelStr}${effortStr}${roleStr}${sortieTag}${tfTag}`;
+          `  ${selectedPrefix} ${dim(slotStr)}${slotPad}${coloredName}${cliOverrideSuffix}${namePad}${modelStr}${effortStr}${roleStr}${sortieTag}${tfTag}${sqTag}`;
         lines.push(frame.row(content, isSelected ? CARRIER_BG_COLORS[entry.cliType] : undefined));
 
         if (isSelected && this.shouldRenderEntryEditor(entry.carrierId)) {
@@ -480,11 +488,30 @@ export class CarrierStatusOverlay implements Component, Focusable {
     const entry = this.getSelectedEntry();
     if (!entry) return;
 
+    // squadron 활성 캐리어는 sortie에서 자동 제외됨 — 사용자에게 안내
+    if (entry.isSquadronEnabled) {
+      this.feedbackMessage = `${entry.displayName}은(는) Squadron 모드 활성 중이므로 sortie에서 자동 제외됩니다. S키로 Squadron을 먼저 비활성화하세요.`;
+      this.tui.requestRender();
+      return;
+    }
+
     this.callbacks.toggleSortieEnabled(entry.carrierId);
     entry.isSortieEnabled = !entry.isSortieEnabled;
     this.feedbackMessage = entry.isSortieEnabled
       ? `${entry.displayName} sortie 활성화됨`
       : `${entry.displayName} sortie 비활성화됨`;
+    this.tui.requestRender();
+  }
+
+  private toggleSquadronState(): void {
+    const entry = this.getSelectedEntry();
+    if (!entry) return;
+
+    this.callbacks.toggleSquadronEnabled(entry.carrierId);
+    entry.isSquadronEnabled = !entry.isSquadronEnabled;
+    this.feedbackMessage = entry.isSquadronEnabled
+      ? `${entry.displayName} squadron 활성화됨`
+      : `${entry.displayName} squadron 비활성화됨`;
     this.tui.requestRender();
   }
 
@@ -597,7 +624,7 @@ export class CarrierStatusOverlay implements Component, Focusable {
 
   private getFooterHint(): string {
     return this.state.kind === "browse"
-      ? "↑↓ select  Enter edit  c cli  C batch  R reset  t tf  d toggle  Tab  Esc"
+      ? "↑↓ select  Enter edit  c cli  C batch  R reset  t tf  S sq  d toggle  Tab  Esc"
       : this.state.kind === "saving"
         ? "저장 중..."
         : "↑↓ select  Enter confirm  Esc cancel";

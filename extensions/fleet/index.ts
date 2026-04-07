@@ -35,6 +35,12 @@ import {
   onTaskForceConfigChange,
   updateCarrierCliType,
   setPendingCliTypeOverrides,
+  enableSquadronCarrier,
+  disableSquadronCarrier,
+  isSquadronCarrierEnabled,
+  getSquadronEnabledIds,
+  setSquadronEnabledCarriers,
+  onSquadronStateChange,
 } from "./shipyard/carrier/framework.js";
 import {
   initRuntime,
@@ -55,6 +61,8 @@ import {
   getDefaultBudgetTokens,
   loadSortieDisabled,
   saveSortieDisabled,
+  loadSquadronEnabled,
+  saveSquadronEnabled,
   loadCliTypeOverrides,
   saveCliTypeOverrides,
 } from "./shipyard/store.js";
@@ -69,6 +77,7 @@ import { initServiceStatus, attachStatusContext, refreshStatusNow, getServiceSna
 import { CARRIER_BRIDGE_KEY } from "./constants";
 import { registerFleetSortie } from "./shipyard/carrier/sortie.js";
 import { registerFleetTaskForce } from "./shipyard/taskforce/index.js";
+import { registerFleetSquadron } from "./shipyard/squadron/index.js";
 import {
   TASKFORCE_CLI_TYPES,
   type TaskForceCliType,
@@ -134,6 +143,10 @@ export {
   onSortieStateChange,
   onTaskForceConfigChange,
   notifyTaskForceConfigChange,
+  enableSquadronCarrier,
+  disableSquadronCarrier,
+  isSquadronCarrierEnabled,
+  getSquadronEnabledIds,
 } from "./shipyard/carrier/framework.js";
 export {
   resolveCarrierColor,
@@ -169,6 +182,12 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
     setSortieDisabledCarriers(restoredDisabled, true);
   }
 
+  // ── Squadron 활성 상태 복원 ──
+  const restoredSquadron = loadSquadronEnabled();
+  if (restoredSquadron.length > 0) {
+    setSquadronEnabledCarriers(restoredSquadron, true);
+  }
+
   // ── cliType 오버라이드 복원 ──
   // 부팅 시 carrier 미등록 상태이므로 validIds 없이 전체 로드 후 pending으로 저장.
   // registerCarrier() 호출 시 자동 적용됨.
@@ -179,16 +198,36 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
 
   registerFleetSortie(pi);
   registerFleetTaskForce(pi);
+  registerFleetSquadron(pi);
   const refreshTaskForceState = () => {
     registerFleetTaskForce(pi);
     notifyStatusUpdate();
   };
 
   // sortie 상태 변경 시 → 도구 재등록 + 영속화 + 상태바 갱신
+  // carrier 등록 완료 후 debounce를 통해 최초 1회 발화됨 → stale squadron ID도 이 시점에 정리
   onSortieStateChange(() => {
     registerFleetSortie(pi);
+    registerFleetSquadron(pi);
     refreshTaskForceState();
     saveSortieDisabled(getSortieDisabledIds());
+    // 부팅 시 복원된 stale squadron ID 정리 (등록된 carrier와 교집합만 유지)
+    const registeredSet = new Set(getRegisteredOrder());
+    const validSquadronIds = getSquadronEnabledIds().filter((id) => registeredSet.has(id));
+    if (validSquadronIds.length !== getSquadronEnabledIds().length) {
+      setSquadronEnabledCarriers(validSquadronIds, true);
+      saveSquadronEnabled(validSquadronIds);
+    }
+  });
+
+  // squadron 상태 변경 시 → sortie/squadron 도구 재등록 + 영속화 + 상태바 갱신
+  onSquadronStateChange(() => {
+    registerFleetSortie(pi);
+    registerFleetSquadron(pi);
+    // 등록된 carrier ID와의 교집합만 영속화 (미등록 ID 제거)
+    const registeredSet = new Set(getRegisteredOrder());
+    saveSquadronEnabled(getSquadronEnabledIds().filter((id) => registeredSet.has(id)));
+    notifyStatusUpdate();
   });
 
   // Task Force 설정 변경 시 → 도구 재등록 + 상태바 갱신
@@ -291,6 +330,7 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
           role,
           roleDescription: meta ? `${meta.title} — ${meta.summary}` : null,
           isSortieEnabled: isSortieCarrierEnabled(id),
+          isSquadronEnabled: isSquadronCarrierEnabled(id),
           hasTaskForceConfig: isTaskForceFullyConfigured(id),
         });
       }
@@ -362,6 +402,13 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
                   disableSortieCarrier(carrierId);
                 } else {
                   enableSortieCarrier(carrierId);
+                }
+              },
+              toggleSquadronEnabled: (carrierId: string) => {
+                if (isSquadronCarrierEnabled(carrierId)) {
+                  disableSquadronCarrier(carrierId);
+                } else {
+                  enableSquadronCarrier(carrierId);
                 }
               },
               getAvailableModels: getCliModelInfo,

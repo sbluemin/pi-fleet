@@ -126,6 +126,7 @@ export interface CarrierStatusEntry {
   role: string | null;
   roleDescription: string | null;
   isSortieEnabled: boolean;
+  isSquadronEnabled: boolean;
   hasTaskForceConfig: boolean;
 }
 
@@ -164,6 +165,7 @@ export interface CarrierOverlayCallbacks {
   resetCliTypesToDefault(): Promise<CliTypeChangeResult[]>;
   saveModelSelection(carrierId: string, selection: ModelSelection): Promise<void>;
   toggleSortieEnabled(carrierId: string): void;
+  toggleSquadronEnabled(carrierId: string): void;
   openTaskForce(carrierId: string): void;
   getAvailableModels(cliType: CarrierCliType): CliModelInfo;
   getServiceSnapshots(): Map<CarrierCliType, CliServiceSnapshot>;
@@ -196,6 +198,10 @@ export interface CarrierFrameworkState {
   sortieRegisterTimer: ReturnType<typeof setTimeout> | null;
   /** Task Force 설정 변경 시 호출되는 콜백 */
   taskforceConfigChangeCallbacks: Array<() => void>;
+  /** squadron 활성화된 carrier ID 집합 */
+  squadronEnabledCarriers: Set<string>;
+  /** squadron 가용 상태 변경 시 호출되는 콜백 */
+  squadronStateChangeCallbacks: Array<() => void>;
   /** 캐리어 등록 전 로드된 cliType override (carrier 등록 시 자동 적용) */
   pendingCliTypeOverrides: Map<string, CliType>;
 }

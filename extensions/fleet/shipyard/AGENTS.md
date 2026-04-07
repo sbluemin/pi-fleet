@@ -13,8 +13,9 @@ Core logic for carrier management and fleet persistence. This subpackage contain
 
 | File | Role |
 |------|------|
-| `store.ts` | Unified fleet persistence store. Consolidates model selection, Task Force configs, `sortieDisabled` status, and `cliTypeOverrides`. |
+| `store.ts` | Unified fleet persistence store. Consolidates model selection, Task Force configs, `sortieDisabled`, `squadronEnabled` status, and `cliTypeOverrides`. |
 | **carrier/** | **Carrier Framework SDK** — registration, activation, tool delegation (`carriers_sortie`), and status bar UI (via direct `setWidget` for carrier status and banners). |
+| **squadron/** | **Carrier Squadron** — parallel execution of same-type carriers using `executeOneShot`. |
 | **taskforce/** | **Task Force Logic** — cross-validation between multiple CLI backends. |
 
 ## Persistence Store (`store.ts`)
@@ -25,8 +26,9 @@ Core logic for carrier management and fleet persistence. This subpackage contain
 1. **Model Management**: Loading and saving model selections, including Task Force custom backends.
 2. **CLI Preference Caching**: Persisting model/inference settings (effort, budgetTokens, direct) per CLI type for seamless restoration when switching carriers' CLI backends.
 3. **Sortie Control**: Tracking which carriers have their sortie tools disabled.
-4. **CLI Overrides**: Persisting runtime changes to a carrier's CLI type.
-5. **Provider Catalog**: Providing available models, effort levels, and default budget tokens for various providers.
+4. **Squadron Control**: Tracking which carriers have squadron mode enabled (parallel one-shot execution).
+5. **CLI Overrides**: Persisting runtime changes to a carrier's CLI type.
+6. **Provider Catalog**: Providing available models, effort levels, and default budget tokens for various providers.
 
 ### Migration Logic
 On the first boot after the consolidation, `store.ts` checks for `selected-models.json`. If found, it migrates the content to the `models` key in `states.json` and renames the legacy file to `selected-models.json.migrated`.
@@ -37,5 +39,6 @@ On the first boot after the consolidation, `store.ts` checks for `selected-model
 - `updateModelSelection(carrierId, selection)`: Atomic update that also clears the corresponding agent session to ensure the model change is applied immediately. It preserves existing `taskforce` and `perCliSettings` fields if not explicitly provided in the new selection.
 - `getPerCliSettings(carrierId, cliType)` / `savePerCliSettings(carrierId, cliType, settings)`: Utilities for managing CLI-specific setting caches (`model`, `effort`, `budgetTokens`, `direct`).
 - `loadSortieDisabled()` / `saveSortieDisabled(ids)`: CRUD for sortie status.
+- `loadSquadronEnabled()` / `saveSquadronEnabled(ids)`: CRUD for squadron status.
 - `loadCliTypeOverrides()` / `saveCliTypeOverrides(overrides)`: CRUD for CLI type overrides.
 - `getAvailableModels(cli)`: Catalog lookup for supported models.

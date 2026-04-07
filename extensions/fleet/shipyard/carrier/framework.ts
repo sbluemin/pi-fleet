@@ -164,7 +164,9 @@ export function isSortieCarrierEnabled(id: string): boolean {
  */
 export function getSortieEnabledIds(): string[] {
   const gs = getState();
-  return gs.registeredOrder.filter((id) => !gs.sortieDisabledCarriers.has(id));
+  return gs.registeredOrder.filter(
+    (id) => !gs.sortieDisabledCarriers.has(id) && !gs.squadronEnabledCarriers.has(id),
+  );
 }
 
 /**
@@ -190,6 +192,61 @@ export function setSortieDisabledCarriers(ids: string[], silent = false): void {
  */
 export function onSortieStateChange(callback: () => void): void {
   replaceStateChangeCallbacks("sortieStateChangeCallbacks", callback);
+}
+
+// ─── Squadron 가용 상태 관리 ─────────────────────────────
+
+/**
+ * 지정 carrier를 squadron 모드로 활성화합니다.
+ */
+export function enableSquadronCarrier(id: string): void {
+  const gs = getState();
+  if (!gs.modes.has(id)) return;
+  if (gs.squadronEnabledCarriers.has(id)) return;
+  gs.squadronEnabledCarriers.add(id);
+  notifySquadronStateChange();
+}
+
+/**
+ * 지정 carrier의 squadron 모드를 비활성화합니다.
+ */
+export function disableSquadronCarrier(id: string): void {
+  const gs = getState();
+  if (!gs.squadronEnabledCarriers.has(id)) return;
+  gs.squadronEnabledCarriers.delete(id);
+  notifySquadronStateChange();
+}
+
+/**
+ * 지정 carrier가 squadron 모드로 활성화되었는지 반환합니다.
+ */
+export function isSquadronCarrierEnabled(id: string): boolean {
+  return getState().squadronEnabledCarriers.has(id);
+}
+
+/**
+ * squadron 활성화된 carrier ID 목록을 반환합니다.
+ */
+export function getSquadronEnabledIds(): string[] {
+  return [...getState().squadronEnabledCarriers];
+}
+
+/**
+ * squadron 활성화 목록을 일괄 설정합니다.
+ * @param silent true면 콜백을 호출하지 않음 (부팅 시 복원용)
+ */
+export function setSquadronEnabledCarriers(ids: string[], silent = false): void {
+  const gs = getState();
+  gs.squadronEnabledCarriers = new Set(ids);
+  if (!silent) notifySquadronStateChange();
+}
+
+/**
+ * squadron 상태 변경 시 호출될 콜백을 등록합니다.
+ * 재초기화(/reload) 시 이전 콜백이 누적되지 않도록 기존 목록을 클리어합니다.
+ */
+export function onSquadronStateChange(callback: () => void): void {
+  replaceStateChangeCallbacks("squadronStateChangeCallbacks", callback);
 }
 
 // ─── Task Force 설정 변경 관리 ──────────────────────────
@@ -319,12 +376,16 @@ function getState(): CarrierFrameworkState {
       sortieStateChangeCallbacks: [],
       sortieRegisterTimer: null,
       taskforceConfigChangeCallbacks: [],
+      squadronEnabledCarriers: new Set(),
+      squadronStateChangeCallbacks: [],
       pendingCliTypeOverrides: new Map(),
     };
     (globalThis as any)[CARRIER_FRAMEWORK_KEY] = s;
   }
   // 런타임 방어: 기존 상태에 필드가 없을 경우 초기화
   if (!s.pendingCliTypeOverrides) s.pendingCliTypeOverrides = new Map();
+  if (!s.squadronEnabledCarriers) s.squadronEnabledCarriers = new Set();
+  if (!s.squadronStateChangeCallbacks) s.squadronStateChangeCallbacks = [];
   return s;
 }
 
@@ -333,15 +394,25 @@ function notifySortieStateChange(): void {
   notifyStateChangeCallbacks("sortieStateChangeCallbacks");
 }
 
+/** squadron 상태 변경 콜백을 모두 호출합니다. */
+function notifySquadronStateChange(): void {
+  notifyStateChangeCallbacks("squadronStateChangeCallbacks");
+}
+
+type StateChangeCallbackKey =
+  | "sortieStateChangeCallbacks"
+  | "taskforceConfigChangeCallbacks"
+  | "squadronStateChangeCallbacks";
+
 function replaceStateChangeCallbacks(
-  key: "sortieStateChangeCallbacks" | "taskforceConfigChangeCallbacks",
+  key: StateChangeCallbackKey,
   callback: () => void,
 ): void {
   getState()[key] = [callback];
 }
 
 function notifyStateChangeCallbacks(
-  key: "sortieStateChangeCallbacks" | "taskforceConfigChangeCallbacks",
+  key: StateChangeCallbackKey,
 ): void {
   for (const callback of getState()[key]) {
     try { callback(); } catch { /* 무시 */ }

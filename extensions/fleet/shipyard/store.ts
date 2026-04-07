@@ -63,6 +63,8 @@ interface FleetStates {
   models?: SelectedModelsConfig;
   /** sortie 비활성 carrier ID 목록 */
   sortieDisabled?: string[];
+  /** squadron 활성화된 carrier ID 목록 */
+  squadronEnabled?: string[];
   /** carrier별 cliType 오버라이드 (defaultCliType과 다를 때만 저장) */
   cliTypeOverrides?: Record<string, string>;
 }
@@ -323,6 +325,30 @@ export function loadSortieDisabled(validIds?: Set<string>): string[] {
 export function saveSortieDisabled(ids: string[]): void {
   const states = readStates();
   states.sortieDisabled = ids;
+  writeStates(states);
+}
+
+// ─── Squadron 상태 ──────────────────────────────────────
+
+/**
+ * 디스크에서 squadron 활성화된 carrier ID 목록을 로드합니다.
+ * 유효한 carrier ID만 필터링하여 반환합니다.
+ */
+export function loadSquadronEnabled(validIds?: Set<string>): string[] {
+  const states = readStates();
+  const ids = states.squadronEnabled;
+  if (!Array.isArray(ids)) return [];
+  return ids.filter((id): id is string =>
+    typeof id === "string" && (!validIds || validIds.has(id)),
+  );
+}
+
+/**
+ * squadron 활성화 carrier ID 목록을 디스크에 저장합니다.
+ */
+export function saveSquadronEnabled(ids: string[]): void {
+  const states = readStates();
+  states.squadronEnabled = ids;
   writeStates(states);
 }
 

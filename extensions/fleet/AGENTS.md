@@ -17,6 +17,11 @@ The number of carriers is determined at runtime by the number of registered carr
 - **carrierId vs cliType**: `carrierId` (string) is the unique carrier identity used for pool keys, session keys, and panel column identity. `cliType` (CliType) is the CLI binary to execute. Multiple carriers can share the same `cliType` while maintaining fully isolated sessions and connections. **`cliType` can be dynamically changed and persisted at runtime, and `defaultCliType` preserves the original CLI type.**
 - **Slot-based ordering**: Each carrier's `slot` determines its panel column position and inline navigation order. Slots must be unique across all registered carriers. **When `cliType` changes, the sorting order and theme color of the corresponding CLI type are immediately reflected.**
 - **carriers_sortie call instance isolation**: The `carriers_sortie` tool uses `toolCallId` as the `sortieKey` to isolate state (progress, streaming content, result cache) per call. This prevents UI interference and redundant content output during concurrent/sequential calls.
+- **Carrier Squadron (Parallel Execution)**: Same-type carriers can be grouped into a **Squadron** (toggled via 'S' key in Status Overlay) for parallel task processing.
+  - `squadronEnabled` carriers are **automatically excluded** from `carriers_sortie` to prevent session conflicts.
+  - Squadrons use `executeOneShot` for fire-and-forget execution (no persistent session/history).
+  - A hard cap of **5 concurrent instances** is enforced per squadron.
+  - Active squadrons are indicated by a `[SQ]` tag in the Status Bar.
 - **Dynamic CliType Overrides**: You can change the CLI type of a specific carrier at runtime via `updateCarrierCliType`. The changed state is saved in `states.json` and maintained after restart. **When switching CLI types, the current model, reasoning effort, and budget tokens are cached (`perCliSettings`) and automatically restored when returning to that CLI type (with validation against the new provider's capabilities).**
 - **Batch CLI Control**: Supports batch switching of all carriers belonging to a specific CLI type to another type (`Shift+C` in Status Overlay) and restoring all carriers to their source-level default CLI types (`Shift+R` in Status Overlay).
 - **Same carrierId concurrent calls are not supported** — UI layer manages one visible run per carrierId.
@@ -35,9 +40,10 @@ shipyard/carrier/      ← Carrier framework SDK + carrier visual representation
   ├── register.ts      ← registerSingleCarrier (dynamic cliType reference and defaultCliType auto-configuration)
   ├── prompts.ts       ← carriers_sortie tool base prompt management
   ├── sortie.ts        ← carriers_sortie (sole carrier delegation PI tool) registration + dynamic prompt synthesis
-  ├── status-overlay.ts ← Carrier status bar overlay (supports cliType change mode, 'c' key binding)
+  ├── status-overlay.ts ← Carrier status bar overlay (supports cliType change mode, 'c' key binding, squadron 's' toggle)
   └── launch.ts        ← native bridge command builder
-shipyard/store.ts    ← Unified fleet persistence store (states.json)
+shipyard/squadron/     ← Carrier Squadron logic (parallel one-shot execution)
+shipyard/store.ts      ← Unified fleet persistence store (states.json)
 panel/             ← panel state(findColIndex) + lifecycle + widget bridge + panel domain types
 streaming/         ← stream store + streaming domain types (ColBlock, ColStatus, CollectedStreamData)
 render/            ← panel rendering engine (panel layout, block transform, message renderers)
@@ -53,11 +59,11 @@ admiral/               ← (REMOVED — now at extensions/admiral/)
 - **Carriers have been separated into `carriers/`** — an independent extension at `extensions/carriers/`. Carrier files reside in the standalone `carriers/` extension, not in `fleet/`. See `extensions/carriers/AGENTS.md` for carrier rules.
 - **Fleet core modules must never import from `carriers/`**.
 - **Subpackage modules reference siblings directly** — e.g., `panel/config.ts` imports from `shipyard/carrier/framework.ts` without going through the facade.
-- **`index.ts` is the only public facade**: It owns extension wiring plus export-only public re-exports. Keep business logic in `shipyard/carrier/`, `panel/`, `render/`, `streaming/`, and `operation-runner.ts`.
+- **`index.ts` is the only public facade**: It owns extension wiring plus export-only public re-exports. Keep business logic in `shipyard/carrier/`, `panel/`, `render/`, `streaming/`, `shipyard/squadron/`, and `operation-runner.ts`.
 - **Service status lives in core**: Service status monitoring (polling, rendering) lives in **`core/agent/service-status/`**. `fleet/index.ts` injects a callback into `core/agent/service-status/store.ts` to trigger fleet UI updates without core needing to know about fleet.
 - **Persistence is dual-layered**:
   - **Core persistence** (`core/agent/runtime.ts`) manages the data directory and **session-only** maps (mapping host PI session IDs to individual carrier session IDs).
-  - **Fleet persistence** (`shipyard/store.ts`) manages the **fleet-wide state** in a single `states.json` file. This includes model selection, `sortieDisabled` status, and `cliTypeOverrides`.
+  - **Fleet persistence** (`shipyard/store.ts`) manages the **fleet-wide state** in a single `states.json` file. This includes model selection, `sortieDisabled`, `squadronEnabled` status, and `cliTypeOverrides`.
 - `shipyard/store.ts` is the single source of truth for persistent fleet configuration. `initStore(dataDir)` must be called in `fleet/index.ts` immediately after `initRuntime(dataDir)`. All writes to `states.json` use an atomic tmp+rename pattern to prevent corruption.
 
 ### Unified Execution Pipeline
@@ -94,12 +100,16 @@ Consumer (carriers, external extensions)
 | `shipyard/carrier/register.ts` | Single-carrier registration — `registerSingleCarrier` (carrier framework + prompt metadata, no PI tool). Performs dynamic cliType reference and `defaultCliType` auto-configuration during registration. |
 | `shipyard/carrier/prompts.ts` | carriers_sortie prompt / schema management (Tier 1 · Tier 2 request assembly) |
 | `shipyard/carrier/sortie.ts` | Carrier Sortie tool — sole carrier delegation PI tool. Through **call instance isolation (sortieKey)** and **runId-based streaming filtering**, it displays unified progress/results without UI interference even when multiple calls run simultaneously. |
-| `shipyard/store.ts` | Unified fleet persistence store — `initStore`, `loadModels`, `saveModels`, `updateModelSelection` (with Task Force/CLI settings preservation), `getPerCliSettings`/`savePerCliSettings` (CLI preference caching), `loadSortieDisabled`, `saveSortieDisabled`, `loadCliTypeOverrides`, `saveCliTypeOverrides`. Single source of truth for all fleet persistent state in `states.json`. |
+| `shipyard/squadron/index.ts` | Squadron module entry point — registration and public API |
+| `shipyard/squadron/squadron.ts` | Squadron execution logic — manages parallel `executeOneShot` calls, prompt synthesis, and result aggregation. |
+| `shipyard/squadron/prompts.ts` | Squadron-specific tool prompts and JSON schema |
+| `shipyard/squadron/types.ts` | Squadron domain types and interfaces |
+| `shipyard/store.ts` | Unified fleet persistence store — `initStore`, `loadModels`, `saveModels`, `updateModelSelection` (with Task Force/CLI settings preservation), `getPerCliSettings`/`savePerCliSettings` (CLI preference caching), `loadSortieDisabled`, `saveSortieDisabled`, `loadSquadronEnabled`, `saveSquadronEnabled`, `loadCliTypeOverrides`, `saveCliTypeOverrides`. Single source of truth for all fleet persistent state in `states.json`. |
 
-| `shipyard/carrier/status-overlay.ts` | Status Overlay UI — Supports individual CLI change (`c`), batch CLI transition (`C`), and global default restoration (`R`). Managed via `"cliType"`, `"batchFrom"`, `"batchTo"` modes. |
+| `shipyard/carrier/status-overlay.ts` | Status Overlay UI — Supports individual CLI change (`c`), batch CLI transition (`C`), global default restoration (`R`), and squadron toggle (`s`). Managed via `"cliType"`, `"batchFrom"`, `"batchTo"`, `"squadron"` modes. |
 
 | `shipyard/carrier/model-ui.ts` | Model selection UI — model selection TUI component + keybind/command registration |
-| `shipyard/carrier/status-renderer.ts` | Carrier status segment renderer — renders carrier icon + name + status-based color. Integrates with `setWidget("fleet-carrier-status", ..., { placement: "aboveEditor" })`. |
+| `shipyard/carrier/status-renderer.ts` | Carrier status segment renderer — renders carrier icon + name + status-based color + `[SQ]` tag for active squadrons. Integrates with `setWidget("fleet-carrier-status", ..., { placement: "aboveEditor" })`. |
 | `shipyard/carrier/launch.ts` | Central assembly of carrier native bridge commands |
 | `panel/state.ts` | Panel global state management — provides functionality to directly look up the column index of a specific carrier via `findColIndex(carrierId)`. |
 | `panel/*` | Panel state/lifecycle/widget modules |
