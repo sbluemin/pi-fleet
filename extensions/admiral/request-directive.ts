@@ -630,7 +630,7 @@ export default function registerRequestDirective(pi: ExtensionAPI) {
       const qs = (args.questions as DirectiveQuestion[]) || [];
       const count = qs.length;
       const headers = qs.map((q) => q.header || "?").join(", ");
-      let text = theme.fg("toolTitle", theme.bold("request_directive "));
+      let text = theme.fg("toolTitle", theme.bold("Request Directive "));
       text += theme.fg("muted", `${count}개 질문`);
       if (headers) {
         text += theme.fg("dim", ` (${truncateToWidth(headers, 40)})`);
