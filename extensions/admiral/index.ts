@@ -9,21 +9,27 @@
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import { appendAdmiralSystemPrompt, isWorldviewEnabled, setWorldviewEnabled } from "./prompts.js";
+import { appendAdmiralSystemPrompt, isWorldviewEnabled, setWorldviewEnabled, REQUEST_DIRECTIVE_PROMPT } from "./prompts.js";
 import { getSettingsAPI } from "../core/settings/bridge.js";
+import registerRequestDirective from "./request-directive.js";
 
 const ADMIRAL_EXTENSION_LOADED_KEY = "__pi_admiral_extension_loaded__";
 
 export default function admiralExtension(pi: ExtensionAPI) {
   (globalThis as any)[ADMIRAL_EXTENSION_LOADED_KEY] = true;
   registerAdmiralSettingsSection();
+  registerRequestDirective(pi);
 
   // ── 시스템 프롬프트 주입 ──
 
   pi.on("before_agent_start", (event, _ctx) => {
-    return {
-      systemPrompt: appendAdmiralSystemPrompt(event.systemPrompt),
-    };
+    let prompt = appendAdmiralSystemPrompt(event.systemPrompt);
+    // request_directive 가이드라인 추가 (prompts.ts 비수정)
+    const directiveGuide = REQUEST_DIRECTIVE_PROMPT.trim();
+    if (!prompt.includes(directiveGuide)) {
+      prompt = prompt + "\n\n" + directiveGuide;
+    }
+    return { systemPrompt: prompt };
   });
 
   // ── 세계관 프롬프트 토글 커맨드 ──

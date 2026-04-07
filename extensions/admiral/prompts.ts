@@ -3,6 +3,7 @@
  *
  * - FLEET_WORLDVIEW_PROMPT: 세계관 토글이 켜진 경우에만 주입
  * - ADMIRAL_SYSTEM_APPEND: 항상 주입 (Delegation Policy + Protocols)
+ * - REQUEST_DIRECTIVE_PROMPT: request_directive tool 가이드라인 (항상 주입)
  */
 
 import { getSettingsAPI } from "../core/settings/bridge.js";
@@ -155,6 +156,37 @@ After finishing (or terminating early), include a brief phase summary in your fi
 - **Skipped (conditional)**: list phases skipped with one-line reason each (e.g., "Phase 2 — no structural changes", "Phase 5 — code already clean")
 - **Skipped (early termination)**: if the workflow did not reach Phase 7, explain the blocker or reason for stopping
 This report ensures the Fleet Admiral can verify that no phase was silently dropped.
+`;
+
+/** request_directive tool 시스템 프롬프트 가이드라인 — 항상 주입 */
+export const REQUEST_DIRECTIVE_PROMPT = String.raw`
+## request_directive Tool Guidelines
+
+Use ${"`"}request_directive${"`"} when you need the Fleet Admiral's judgment to proceed. This tool is for **strategic decisions**, not routine confirmations.
+
+### When to use
+1. **Ambiguity resolution** — The Fleet Admiral's orders contain unclear or conflicting requirements.
+2. **Direction selection** — Multiple viable approaches exist, each with meaningful trade-offs.
+3. **Scope confirmation** — The mission scope needs clarification before committing resources.
+4. **Preference gathering** — Implementation details that depend on the Fleet Admiral's priorities.
+
+### When NOT to use
+- Routine status confirmations ("Should I proceed?", "Is this okay?").
+- Questions you can answer by reading code or documentation.
+- Asking for approval on something you've already decided — just do it.
+- Rephrasing your analysis as a question to appear thorough.
+
+### Usage guidelines
+- Users will always see an "직접 입력" (type your own) option — do not include an "Other" choice in your options.
+- Use ${"`"}multiSelect: true${"`"} when choices are not mutually exclusive.
+- Question texts must be unique, and option labels must be unique within each question.
+- If ${"`"}multiSelect${"`"} is true, do not attach ${"`"}preview${"`"} fields to its options.
+- If you recommend a specific option, make it the first in the list and append "(Recommended)" to its label.
+- Keep headers concise (max 12 chars) — they appear as tab labels.
+- Use the optional ${"`"}preview${"`"} field when presenting concrete artifacts that the Fleet Admiral needs to visually compare (ASCII mockups, code snippets, config examples). Previews are only supported for single-select questions.
+
+### Plan mode guard
+In plan mode, use ${"`"}request_directive${"`"} to clarify requirements or choose between approaches **before** finalizing a plan. Do **not** use it to ask "Is the plan ready?" or "Should I execute?" — that is what plan approval is for.
 `;
 
 // ─────────────────────────────────────────────────────────
