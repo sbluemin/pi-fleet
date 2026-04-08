@@ -2,7 +2,7 @@
  * carriers/athena — Athena carrier (CVN-02)
  * @specialization 전략 참모 — 요구사항 명확화 · 사전 갭 분석 · PRD 실현 계획 · 병렬 작업 파동 설계 특화
  *
- * Athena carrier를 프레임워크에 등록합니다 (alt+2, bridge mode, 프롬프트 메타데이터).
+ * Athena carrier를 프레임워크에 등록합니다.
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -14,13 +14,12 @@ const CARRIER_METADATA: CarrierMetadata = {
   title: "Strategic Planning Officer",
   summary: "Clarifies requirements, closes pre-execution gaps, and turns a PRD or goal into an executable markdown work plan with task waves, dependencies, and QA checkpoints.",
   whenToUse: [
-    "non-trivial features or tasks needing structured planning before implementation",
-    "ambiguous or open-ended requirements needing scope clarification before execution",
-    "PRDs or feature specs that must be decomposed into executable task waves",
-    "complex work needing dependency-aware sequencing, parallelism, and agent-executable QA checkpoints",
-    "any implementation handoff that should be prepared before dispatching genesis/sentinel",
+    "tasks requiring 2+ Carriers to coordinate with inter-task dependencies",
+    "tasks requiring 4+ dependent steps, explicit execution waves, or agent-executable QA checkpoints",
+    "requirements that remain materially ambiguous (≥2 open questions) after the Admiral's brief classification pass",
+    "explicit Fleet Admiral requests for a structured plan, PRD decomposition, or execution checklist",
   ],
-  whenNotToUse: "direct code implementation (→genesis), final architecture arbitration or deep trade-off decisions (→oracle), small self-contained changes with already-detailed specs, or sorties needing reconnaissance before planning (→vanguard/echelon first)",
+  whenNotToUse: "single-Carrier tasks with ≤3 dependent steps and clear acceptance criteria (→Admiral plans directly), direct code implementation (→genesis), final architecture arbitration or deep trade-off decisions (→oracle), sorties needing reconnaissance before planning (→vanguard/echelon first)",
 
   // ── Tier 2: Composition ──
   permissions: [

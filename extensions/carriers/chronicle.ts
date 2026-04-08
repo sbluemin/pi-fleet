@@ -2,7 +2,7 @@
  * carriers/chronicle — Chronicle carrier (CVN-08)
  * @specialization 수석 기록참모 — 문서 작성, 변경 영향 문서화, 설정/명령/설치 영향 감사, AGENTS.md 교리 관리, 연관 .md 동기화 특화
  *
- * Chronicle carrier를 프레임워크에 등록합니다 (alt+8, bridge mode, 프롬프트 메타데이터).
+ * Chronicle carrier를 프레임워크에 등록합니다.
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";

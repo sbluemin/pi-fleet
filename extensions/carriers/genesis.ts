@@ -2,7 +2,7 @@
  * carriers/genesis — Genesis carrier (CVN-01)
  * @specialization 수석 엔지니어 — 전방위 코드 구현 · 신규 기능 구축 특화
  *
- * Genesis carrier를 프레임워크에 등록합니다 (alt+1, bridge mode, 프롬프트 메타데이터).
+ * Genesis carrier를 프레임워크에 등록합니다.
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
