@@ -55,11 +55,61 @@ PI is the **host agent** (orchestrator). Genesis, Sentinel, and Vanguard are **s
 
 | Mode | Trigger | Flow |
 |------|---------|------|
-| **Default** | Normal chat | PI handles directly (no sub-agents) |
+| **Fleet Action** | Alt+1 (Active Protocol) | PI handles directly (no sub-agents) — Standard workflow |
 | **Tool delegation** | PI's own judgment | PI → tool_call(any carrier) → sub-agent result → PI synthesizes |
 | **Bridge (single)** | Alt+H/L → Ctrl+Enter | User → single sub-agent (PI acts as router only, no synthesis) |
 
-### Key Principles
+## Operational Protocols & Standing Orders
+
+The Admiral extension implements a modular prompt policy system that governs how the host agent (PI) operates. This system is composed of **Standing Orders** and **Protocols**.
+
+### Core Concepts
+
+| Concept | Definition | Scope |
+|---------|------------|-------|
+| **Standing Orders** | Cross-cutting mechanisms always injected into the system prompt. | Global — applies to all sessions and protocols. |
+| **Protocols** | Mutually exclusive workflows that define the current operational mode. | Session-specific — exactly one protocol is always active. |
+
+### Standing Orders
+
+- **Delegation Policy**: Defines how and when PI should delegate tasks to carriers.
+- **Deep Dive**: Strategy for recursive investigation and root-cause analysis.
+- **Always Active**: These are injected into every agent start sequence regardless of the selected protocol.
+
+### Protocols
+
+- **Fleet Action Protocol (Alt+1)**: The default, high-performance workflow for standard operations.
+- **Modular Expansion**: Additional protocols (e.g., specific research or refactoring modes) can be assigned to `Alt+2` through `Alt+9`.
+- **Switching**: Protocols are switched via dedicated hotkeys. Only one protocol can be active at a time; deactivation is not possible (switching only).
+
+### Prompt Structure
+
+The final system prompt delivered to the LLM is synthesized as follows:
+
+```text
+System Prompt
+  + [Toggle] Worldview (via fleet:admiral:worldview)
+  + [Always] Standing Orders (Delegation Policy + Deep Dive + ...)
+  + [Always] Active Protocol (Fleet Action Protocol, etc.)
+  + [Always] request_directive guide
+```
+
+### UI & UX Integration
+
+- **Editor Border Color**: The editor's border color changes based on the active protocol (communicated via `globalThis.__pi_hud_editor_border_color__`).
+- **aboveEditor Widget**: Displays the active protocol label (e.g., `⚓ Fleet Action Protocol`) above the input field.
+- **Settings Popup (Alt+/)**: The "Admiral" section allows manual selection of the `activeProtocol` and toggling of the `worldview`.
+
+### Key Bindings
+
+| Key | Protocol / Action |
+|-----|-------------------|
+| **Alt+1** | Switch to Fleet Action Protocol |
+| **Alt+2~9** | Switch to dynamically assigned protocols |
+| **Alt+/** | Open Settings (to configure Admiral parameters) |
+
+## Fleet Architecture (Metaphor)
+
 
 - **Sub-agents are fully independent** — PI provides only background, objectives, and constraints. Never prescribe implementation details.
 - **Sub-agents are unaware of each other** — Cross-analysis is performed solely by PI after all responses are collected.

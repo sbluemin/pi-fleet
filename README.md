@@ -82,11 +82,17 @@ Once all three backends are configured for a carrier, it becomes available as a 
 
 ## Keybindings
 
+### Admiral Protocol
+| Key | Action |
+|-----|--------|
+| `Alt+1` | Switch to Fleet Action Protocol |
+| `Alt+2~9` | Switch to additional protocols (future) |
+
 ### Carrier Slots & Navigation
 | Key | Action |
 |-----|--------|
 | `Alt+H` / `L` | Navigate to Previous / Next Carrier slot |
-| `Ctrl+Enter` | Enable **Exclusive Mode** for the selected carrier (direct communication) |
+| `Ctrl+Enter` | Toggle detail view for the selected carrier |
 
 ### Panel & Fleet Control
 | Key | Action |
