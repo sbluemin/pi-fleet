@@ -1,15 +1,15 @@
 /**
- * unified-agent CLI
- * 원샷 프롬프트 실행을 위한 CLI 진입점
+ * ait CLI — 통합 진입점
+ * 인자 있음 → 원샷 모드, 인자 없음 + TTY → REPL 모드
  * (shebang은 tsup banner로 자동 추가)
  */
 
 import { parseArgs } from 'node:util';
 import picocolors from 'picocolors';
 
-import { CliRenderer } from './cli-renderer.js';
-import { UnifiedAgentClient } from './client/UnifiedAgentClient.js';
 import { getModelsRegistry, getProviderModels } from './models/ModelRegistry.js';
+import { runOneShot } from './cli-oneshot.js';
+import { startRepl } from './cli-repl.js';
 import type { CliType } from './types/config.js';
 
 // Claude Code 내부에서 실행될 때 환경변수 충돌 방지
@@ -49,7 +49,7 @@ try {
   });
 } catch (err) {
   process.stderr.write(`${ce.red('오류')}: ${(err as Error).message}\n`);
-  process.stderr.write(`도움말: unified-agent --help\n`);
+  process.stderr.write(`도움말: ait --help\n`);
   process.exit(1);
 }
 
@@ -59,11 +59,12 @@ const { values, positionals } = parsed;
 
 if (values.help) {
   const help = `
-${c.bold('unified-agent')} — Gemini, Claude, Codex 통합 CLI
+${c.bold('ait')} — Gemini, Claude, Codex 통합 CLI
 
 ${c.bold('사용법')}
-  unified-agent [옵션] <프롬프트>
-  echo "프롬프트" | unified-agent [옵션]
+  ait [옵션] <프롬프트>       원샷 모드
+  ait [옵션]                 인터랙티브 REPL 모드
+  echo "프롬프트" | ait [옵션]
 
 ${c.bold('옵션')}
   -c, --cli <name>      CLI 선택 (gemini | claude | codex)
@@ -78,22 +79,25 @@ ${c.bold('옵션')}
 
 ${c.bold('예시')}
   ${c.dim('# 자동 감지된 CLI로 실행')}
-  unified-agent "이 프로젝트를 분석해줘"
+  ait "이 프로젝트를 분석해줘"
 
   ${c.dim('# Claude로 실행, 모델 지정')}
-  unified-agent -c claude -m opus "코드를 리뷰해줘"
+  ait -c claude -m opus "코드를 리뷰해줘"
 
   ${c.dim('# Codex로 실행, reasoning effort 설정')}
-  unified-agent -c codex -e high "버그를 찾아줘"
+  ait -c codex -e high "버그를 찾아줘"
 
   ${c.dim('# stdin 파이프')}
-  cat error.log | unified-agent -c gemini "이 에러를 분석해줘"
+  cat error.log | ait -c gemini "이 에러를 분석해줘"
 
   ${c.dim('# 이전 세션 재개')}
-  unified-agent -c claude -s <sessionId> "이어서 설명해줘"
+  ait -c claude -s <sessionId> "이어서 설명해줘"
 
   ${c.dim('# JSON 출력 (스크립트에서 파싱 용도)')}
-  unified-agent --json -c claude "요약해줘" | jq .response
+  ait --json -c claude "요약해줘" | jq .response
+
+  ${c.dim('# 인터랙티브 REPL 모드')}
+  ait -c claude
 `;
   process.stdout.write(help.trimStart());
   process.exit(0);
@@ -180,140 +184,68 @@ if (effortOpt && !VALID_EFFORTS.includes(effortOpt as (typeof VALID_EFFORTS)[num
   process.exit(1);
 }
 
-// ─── 프롬프트 읽기 ──────────────────────────────────────
+// ─── 모드 분기 ──────────────────────────────────────────
+
+const cwd = (values.cwd as string) || process.cwd();
+const selectedCli = cliOpt as CliType | undefined;
+const yolo = values.yolo as boolean;
+const jsonMode = values.json as boolean;
+const modelOpt = values.model as string | undefined;
 
 let prompt = positionals.join(' ');
+const hasPipedInput = !process.stdin.isTTY;
 
-if (!prompt && !process.stdin.isTTY) {
-  const chunks: Buffer[] = [];
-  for await (const chunk of process.stdin) {
-    chunks.push(chunk as Buffer);
-  }
-  prompt = Buffer.concat(chunks).toString().trim();
-}
-
-if (!prompt) {
-  process.stderr.write(`${ce.red('오류')}: 프롬프트를 입력해주세요.\n`);
-  process.stderr.write(`도움말: unified-agent --help\n`);
+// --json은 원샷 모드에서만 사용 가능
+if (jsonMode && !prompt && !hasPipedInput) {
+  process.stderr.write(`${ce.red('오류')}: --json 플래그는 프롬프트와 함께 사용해야 합니다.\n`);
+  process.stderr.write(`예시: ait --json -c claude "요약해줘"\n`);
   process.exit(1);
 }
 
-// ─── 실행 ──────────────────────────────────────────────
-
-const jsonMode = values.json as boolean;
-const startTime = Date.now();
-
-const selectedCli = cliOpt as CliType | undefined;
-
-// ─── 통합 실행 (ACP) ────────────────────────────────────
-
-const client = new UnifiedAgentClient();
-const renderer = new CliRenderer({ color: c, colorErr: ce });
-let fullResponse = '';
-let isLivePrompt = false;
-
-// 이벤트 리스너 설정 (세션 재개 시 replay 이벤트는 무시)
-client.on('messageChunk', (text) => {
-  if (!isLivePrompt) return;
-  fullResponse += text;
-  if (!jsonMode) renderer.renderMessageChunk(text);
-});
-
-// error 리스너는 모드 무관하게 항상 등록 (미등록 시 Unhandled 'error' event crash)
-client.on('error', (err) => {
-  if (!jsonMode) renderer.renderError(err);
-});
-
-if (!jsonMode) {
-  client.on('thoughtChunk', (text) => {
-    if (!isLivePrompt) return;
-    renderer.renderThoughtChunk(text);
-  });
-
-  client.on('toolCall', (title, status, _sid, data) => {
-    if (!isLivePrompt) return;
-    renderer.renderToolCall(title, status, data);
-  });
-
-  client.on('toolCallUpdate', (title, status, _sid, data) => {
-    if (!isLivePrompt) return;
-    renderer.renderToolCallUpdate(title, status, data);
-  });
-}
-
-try {
-  const cwd = (values.cwd as string) || process.cwd();
-
-  if (!jsonMode) {
-    const resumeLabel = sessionOpt ? `, resume: ${sessionOpt.slice(0, 8)}…` : '';
-    const cliLabel = selectedCli ?? '자동 감지';
-    renderer.renderHeader(cliLabel, resumeLabel);
+if (prompt || hasPipedInput) {
+  // 파이프 입력이 있으면 읽어서 프롬프트에 추가
+  if (!prompt && hasPipedInput) {
+    const chunks: Buffer[] = [];
+    for await (const chunk of process.stdin) {
+      chunks.push(chunk as Buffer);
+    }
+    prompt = Buffer.concat(chunks).toString().trim();
   }
 
-  const result = await client.connect({
-    cwd,
+  if (!prompt) {
+    process.stderr.write(`${ce.red('오류')}: 프롬프트를 입력해주세요.\n`);
+    process.stderr.write(`도움말: ait --help\n`);
+    process.exit(1);
+  }
+
+  // 원샷 모드
+  await runOneShot({
+    prompt,
     cli: selectedCli,
-    autoApprove: true,
-    yoloMode: values.yolo as boolean,
-    model: values.model as string | undefined,
-    sessionId: sessionOpt,
+    session: sessionOpt,
+    model: modelOpt,
+    effort: effortOpt,
+    cwd,
+    yolo,
+    json: jsonMode,
+    color: c,
+    colorErr: ce,
   });
-
-  // reasoning effort 설정
-  if (effortOpt) {
-    try {
-      await client.setConfigOption('reasoning_effort', effortOpt);
-    } catch {
-      // reasoning_effort 미지원 CLI인 경우 무시
-    }
-  }
-
-  if (!jsonMode) {
-    // 헤더에 실제 연결된 CLI 표시 (자동 감지된 경우)
-    if (!selectedCli) {
-      renderer.renderAutoDetected(result.cli);
-    }
-  }
-
-  // 세션 로드 중 재생된 이벤트 무시 후, 현재 프롬프트부터 출력 시작
-  fullResponse = '';
-  isLivePrompt = true;
-
-  await client.sendMessage(prompt);
-
-  if (!jsonMode) {
-    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-    const sid = client.getConnectionInfo().sessionId;
-    renderer.renderComplete(elapsed, sid);
-  }
-
-  if (jsonMode) {
-    const sid = client.getConnectionInfo().sessionId;
-    await stdoutWrite(
-      JSON.stringify({ response: fullResponse, cli: result.cli, sessionId: sid }) + '\n',
-    );
-  }
-} catch (err) {
-  const sid = client.getConnectionInfo().sessionId;
-  if (!jsonMode) {
-    const sessionInfo = sid ? ` ${ce.dim(`(세션: ${sid})`)}` : '';
-    process.stderr.write(`\n${ce.red('오류')}: ${(err as Error).message}${sessionInfo}\n`);
-  } else {
-    await stdoutWrite(
-      JSON.stringify({ error: (err as Error).message, sessionId: sid ?? null }) + '\n',
-    );
-  }
-  process.exitCode = 1;
-} finally {
-  await client.disconnect();
-  process.exit(process.exitCode ?? 0);
-}
-
-// stdout에 데이터를 쓰고 flush가 완료된 후 resolve하는 헬퍼
-// process.stdout.write()는 파이프 환경(non-TTY)에서 비동기이므로,
-// process.exit() 전에 write 콜백을 기다려야 데이터 유실을 방지할 수 있음
-function stdoutWrite(data: string): Promise<void> {
-  return new Promise<void>((resolve) => {
-    process.stdout.write(data, () => resolve());
+} else if (process.stdin.isTTY && process.stdout.isTTY && process.stderr.isTTY) {
+  // REPL 모드
+  await startRepl({
+    cli: selectedCli,
+    session: sessionOpt,
+    model: modelOpt,
+    effort: effortOpt,
+    cwd,
+    yolo,
+    color: c,
+    colorErr: ce,
   });
+} else {
+  // non-TTY + 인자 없음 → 에러
+  process.stderr.write(`${ce.red('오류')}: 프롬프트를 입력해주세요.\n`);
+  process.stderr.write(`도움말: ait --help\n`);
+  process.exit(1);
 }

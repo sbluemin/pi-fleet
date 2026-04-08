@@ -162,6 +162,13 @@ export class CliRenderer {
     this.isFirstChunk = true;
   }
 
+  /** 내부 상태 초기화 (REPL 턴 간 재사용) */
+  reset(): void {
+    this.phase = 'idle';
+    this.isFirstChunk = true;
+    this.pendingToolCalls.clear();
+  }
+
   /** 에러 렌더링: ⏺ 오류: message */
   renderError(error: Error): void {
     process.stderr.write(

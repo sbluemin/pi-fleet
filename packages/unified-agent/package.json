@@ -4,7 +4,7 @@
   "private": true,
   "description": "Codex CLI, Claude Code, Gemini CLI를 통합하는 TypeScript 기반 SDK",
   "bin": {
-    "unified-agent": "./dist/cli.mjs"
+    "ait": "./dist/cli.mjs"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

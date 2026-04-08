@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-03-08T00:00:00Z",
+  "updatedAt": "2026-04-08T00:00:00Z",
   "providers": {
     "claude": {
       "name": "Anthropic Claude Code",
@@ -33,10 +33,12 @@
     },
     "gemini": {
       "name": "Google Gemini CLI",
-      "defaultModel": "gemini-3.1-pro-preview",
+      "defaultModel": "gemini-3.1-flash-lite-preview",
       "models": [
+        { "modelId": "gemini-2.5-flash", "name": "Gemini 2.5 Flash" },
         { "modelId": "gemini-3-flash-preview", "name": "Gemini 3 Flash Preview" },
-        { "modelId": "gemini-3.1-pro-preview", "name": "Gemini 3.1 Pro Preview" }
+        { "modelId": "gemini-3.1-pro-preview", "name": "Gemini 3.1 Pro Preview" },
+        { "modelId": "gemini-3.1-flash-lite-preview", "name": "Gemini 3.1 Flash Lite Preview" }
       ],
       "reasoningEffort": {
         "supported": false

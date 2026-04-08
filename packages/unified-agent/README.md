@@ -38,10 +38,10 @@ npm run build
 npm link
 ```
 
-After linking, the `unified-agent` command is available globally:
+After linking, the `ait` command is available globally:
 
 ```bash
-unified-agent --help
+ait --help
 ```
 
 To unlink:
@@ -50,29 +50,56 @@ To unlink:
 npm unlink -g @sbluemin/unified-agent
 ```
 
-### Basic Usage
+### REPL Mode
+
+Running `ait` without any arguments enters the interactive REPL mode:
+
+```bash
+ait
+```
+
+#### REPL Prompt
+The prompt displays the current model and reasoning effort:
+`ait (model) (effort) ❯`
+
+#### Slash Commands
+| Command | Description |
+|---------|-------------|
+| `/model <name>` | Change the current model |
+| `/effort <level>` | Change reasoning effort (`low` \| `medium` \| `high` \| `xhigh`) |
+| `/status` | Show connection status and session info |
+| `/clear` | Clear the terminal screen |
+| `/help` | Show available commands |
+| `/exit` | Exit the REPL |
+
+#### Keyboard Shortcuts
+- **Ctrl+C**:
+  - While streaming: Cancels the current response generation.
+  - While waiting for input: Double-tap to exit the REPL.
+
+### Basic Usage (One-shot)
 
 ```bash
 # Auto-detect available CLI and run
-unified-agent "Analyze this project"
+ait "Analyze this project"
 
 # Select a specific CLI
-unified-agent -c claude "Review this code"
+ait -c claude "Review this code"
 
 # Select a model
-unified-agent -c claude -m opus "Find bugs"
+ait -c claude -m opus "Find bugs"
 
 # Set reasoning effort (Codex)
-unified-agent -c codex -e high "Refactor this module"
+ait -c codex -e high "Refactor this module"
 
 # Pipe from stdin
-cat error.log | unified-agent -c gemini "Explain this error"
+cat error.log | ait -c gemini "Explain this error"
 
 # Resume a previous session
-unified-agent -c claude -s <sessionId> "Continue this conversation"
+ait -c claude -s <sessionId> "Continue this conversation"
 
 # JSON output (for scripting / AI agents)
-unified-agent --json -c claude "Summarize" | jq .response
+ait --json -c claude "Summarize" | jq .response
 ```
 
 ### Options
@@ -93,7 +120,7 @@ unified-agent --json -c claude "Summarize" | jq .response
 **Pretty mode** (default) — streams the AI response to stdout with status on stderr:
 
 ```
-● unified-agent (claude)
+● ait (claude)
 
 The project is a TypeScript SDK that...
 
