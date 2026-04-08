@@ -9,6 +9,7 @@ import type { StandingOrder } from "./types.js";
 
 import { DELEGATION_POLICY } from "./delegation-policy.js";
 import { DEEP_DIVE } from "./deep-dive.js";
+import { RESULT_INTEGRITY } from "./result-integrity.js";
 
 // ─────────────────────────────────────────────────────────
 // 상수
@@ -18,6 +19,7 @@ import { DEEP_DIVE } from "./deep-dive.js";
 const STANDING_ORDERS: readonly StandingOrder[] = [
   DELEGATION_POLICY,
   DEEP_DIVE,
+  RESULT_INTEGRITY,
 ];
 
 // ─────────────────────────────────────────────────────────

@@ -34,17 +34,19 @@ const CARRIER_METADATA: CarrierMetadata = {
   ],
   outputFormat:
     `<output_format>\n` +
-    `Report findings as a structured security assessment:\n` +
-    `For each vulnerability, use this format:\n` +
-    `- **[SEVERITY]** (critical/high/medium/low) **file:line** — Vulnerability class (e.g., XSS, SSRF)\n` +
-    `  - Attack vector: how an attacker exploits this\n` +
-    `  - Impact: what is compromised (data, access, availability)\n` +
-    `  - Proof of concept: minimal exploit scenario or payload sketch\n` +
-    `  - Mitigation: specific defensive code or configuration change\n` +
-    `Group findings by severity (critical first).\n` +
-    `End with:\n` +
-    `**Threat summary** — Total count by severity. Overall security posture in 1-2 sentences.\n` +
-    `**Dependency risks** — Any vulnerable transitive dependencies found (if scanned).\n` +
+    `Report findings as a structured security assessment.\n` +
+    `[Required] always include:\n` +
+    `  **Threat summary** — Total count by severity. Overall security posture in 1-2 sentences.\n` +
+    `[If vulnerabilities found] for each vulnerability:\n` +
+    `  - **[SEVERITY]** (critical/high/medium/low) **file:line** — Vulnerability class (e.g., XSS, SSRF)\n` +
+    `    - Attack vector: how an attacker exploits this\n` +
+    `    - Impact: what is compromised (data, access, availability)\n` +
+    `    - Proof of concept: minimal exploit scenario or payload sketch\n` +
+    `    - Mitigation: specific defensive code or configuration change\n` +
+    `  Group findings by severity (critical first).\n` +
+    `[If applicable] omit if not scanned:\n` +
+    `  **Dependency risks** — Any vulnerable transitive dependencies found.\n` +
+    `If no vulnerabilities found, state clean posture and omit the findings section.\n` +
     `</output_format>`,
 };
 

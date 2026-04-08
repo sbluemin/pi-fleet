@@ -37,19 +37,21 @@ const CARRIER_METADATA: CarrierMetadata = {
   ],
   outputFormat:
     `<output_format>\n` +
-    `After completing the plan, provide a structured plan summary:\n` +
-    `**Plan file** — Path to the generated .fleet/plans/{name}.md.\n` +
-    `**Execution Waves** — Ordered waves with parallelizable task groups.\n` +
-    `**Dependencies** — Critical sequencing, blockers, and handoff relationships.\n` +
-    `**Task Contracts** — Completion criteria for the main tasks or workstreams.\n` +
-    `**QA Checkpoints** — Agent-executable verification points tied to the plan.\n` +
-    `**Scope: IN** — What is explicitly included in the plan.\n` +
-    `**Scope: OUT** — What is explicitly excluded.\n` +
-    `**Guardrails Applied** — MUST/MUST NOT directives and AI-slop risks flagged by gap analysis review.\n` +
-    `**Defaults Applied** — Overridable assumptions embedded in the plan.\n` +
-    `**Escalate to Oracle** — Architecture or trade-off questions that require Oracle before execution (omit section if none).\n` +
-    `**Decisions Needed** — Open non-architecture questions that block execution (omit section if none).\n` +
-    `**Next step** — Run \`/start-work {name}\` to execute the plan.\n` +
+    `After completing the plan, provide a structured plan summary.\n` +
+    `[Required] always include:\n` +
+    `  **Plan file** — Path to the generated .fleet/plans/{name}.md.\n` +
+    `  **Execution Waves** — Ordered waves with parallelizable task groups.\n` +
+    `  **Dependencies** — Critical sequencing, blockers, and handoff relationships.\n` +
+    `  **Task Contracts** — Completion criteria for the main tasks or workstreams.\n` +
+    `  **Scope: IN** — What is explicitly included in the plan.\n` +
+    `  **Scope: OUT** — What is explicitly excluded.\n` +
+    `  **Next step** — Run \`/start-work {name}\` to execute the plan.\n` +
+    `[If applicable] omit if not relevant:\n` +
+    `  **QA Checkpoints** — Agent-executable verification points tied to the plan.\n` +
+    `  **Guardrails Applied** — MUST/MUST NOT directives and AI-slop risks flagged by gap analysis review.\n` +
+    `  **Defaults Applied** — Overridable assumptions embedded in the plan.\n` +
+    `  **Escalate to Oracle** — Architecture or trade-off questions that require Oracle before execution.\n` +
+    `  **Decisions Needed** — Open non-architecture questions that block execution.\n` +
     `Keep the summary concise — bullets and short lines only. No narrative paragraphs.\n` +
     `</output_format>`,
   principles: [

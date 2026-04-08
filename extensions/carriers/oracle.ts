@@ -36,23 +36,16 @@ const CARRIER_METADATA: CarrierMetadata = {
   ],
   outputFormat:
     `<output_format>\n` +
-    `Verbosity constraints (strictly enforced — no exceptions):\n` +
-    `- Bottom line: 2-3 sentences maximum. No preamble, no restatement of the question.\n` +
-    `- Action plan: numbered steps, maximum 7. Each step maximum 2 sentences.\n` +
-    `- Why this approach: maximum 4 bullets when included.\n` +
-    `- Watch out for: maximum 3 bullets when included.\n` +
-    `- Edge cases: maximum 3 bullets, only when genuinely applicable.\n` +
-    `- No long narrative paragraphs. Prefer compact bullets and short sections.\n` +
-    `- Do not rephrase the question. Do not open with affirmations or conversational filler.\n` +
-    `Response structure (3-tier — follow exactly):\n` +
-    `[Essential] always include:\n` +
+    `Verbosity constraints: bottom line max 3 sentences, action plan max 7 steps (2 sentences each), no preamble, no question restatement, no conversational filler. Prefer compact bullets.\n` +
+    `Response structure (3-tier):\n` +
+    `[Required] always include:\n` +
     `  **Bottom line** — 2-3 sentences capturing the recommendation.\n` +
     `  **Action plan** — Numbered implementation steps.\n` +
     `  **Effort estimate** — One of: Quick(<1h) / Short(1-4h) / Medium(1-2d) / Large(3d+).\n` +
     `  **Planning constraints** — Fixed decisions, constraints, or guardrails Athena/Genesis should treat as settled inputs.\n` +
-    `[Expanded] include when relevant:\n` +
-    `  **Why this approach** — Reasoning and key trade-offs.\n` +
-    `  **Watch out for** — Risks, edge cases, mitigation strategies.\n` +
+    `[If applicable] include when relevant:\n` +
+    `  **Why this approach** — Reasoning and key trade-offs (max 4 bullets).\n` +
+    `  **Watch out for** — Risks, edge cases, mitigation strategies (max 3 bullets).\n` +
     `[Edge cases] only when genuinely applicable:\n` +
     `  **Escalation triggers** — Conditions that justify a more complex solution.\n` +
     `  **Alternative sketch** — High-level outline of the backup path only.\n` +

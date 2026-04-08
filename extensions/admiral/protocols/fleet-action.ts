@@ -38,21 +38,21 @@ Triggered when the task involves structural changes, new modules, cross-layer de
 
 ### Phase 3 — Work Plan
 
-Classify the task using these objective criteria, then follow the matching path:
+Apply the **Oracle vs Athena Decision Flow** from the Delegation Policy to determine the planning path:
 
 **Admiral-direct planning** (do NOT sortie Athena):
-- Single Carrier execution with ≤3 dependent steps
-- Requirements are already specific (what to change, where, acceptance criteria all known)
-- No cross-Carrier dependencies or sequencing concerns
+- Single Carrier execution with ≤3 dependent steps.
+- Requirements already specific (what, where, acceptance criteria all known).
+- No cross-Carrier dependencies or sequencing concerns.
 - Admiral drafts a brief inline plan: objective, target file(s)/module(s), Carrier assignment, done-criteria.
 
-**Athena sortie** (planning Carrier required) — at least one of the following must be true:
-- 2+ Carriers must coordinate with inter-task dependencies
-- 4+ dependent steps or explicit phased execution / parallel waves needed
-- Material requirement ambiguity remains after the Admiral's brief classification pass (≥2 open questions that block execution)
-- The Fleet Admiral explicitly requests a structured plan, PRD decomposition, or execution checklist
+**Athena sortie** — at least one of the following must be true:
+- 2+ Carriers must coordinate with inter-task dependencies.
+- 4+ dependent steps or explicit phased execution / parallel waves needed.
+- Material requirement ambiguity remains (≥2 open questions blocking execution).
+- Fleet Admiral explicitly requests a structured plan or PRD decomposition.
 
-If a task falls exactly on the boundary, prefer Admiral-direct — Athena can always be sortied later if the plan proves insufficient during Phase 4.
+If boundary, prefer Admiral-direct — Athena can always be sortied later if the plan proves insufficient during Phase 4.
 
 "Dependent steps" means meaningful handoff or dependency units, not micro-operations. Do not count read→edit→test as 3 steps — that is one unit of work.
 

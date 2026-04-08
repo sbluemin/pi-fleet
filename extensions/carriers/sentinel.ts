@@ -35,16 +35,17 @@ const CARRIER_METADATA: CarrierMetadata = {
   ],
   outputFormat:
     `<output_format>\n` +
-    `Report findings as a structured defect manifest:\n` +
-    `For each finding, use this format:\n` +
-    `- **[SEVERITY]** (critical/high/medium/low) **file:line** — 1-line description\n` +
-    `  - Evidence: what proves this is a real issue\n` +
-    `  - Impact: what breaks or degrades if unfixed\n` +
-    `  - Suggested fix: concrete remediation (1-2 lines)\n` +
-    `Group findings by severity (critical first).\n` +
-    `End with:\n` +
-    `**Summary** — Total count by severity. Overall quality assessment in 1-2 sentences.\n` +
-    `**Verdict** — PASS (no critical/high) or FAIL (critical/high found) with brief justification.\n` +
+    `Report findings as a structured defect manifest.\n` +
+    `[Required] always include:\n` +
+    `  **Verdict** — PASS (no critical/high) or FAIL (critical/high found) with brief justification.\n` +
+    `  **Summary** — Total count by severity. Overall quality assessment in 1-2 sentences.\n` +
+    `[If findings exist] for each finding:\n` +
+    `  - **[SEVERITY]** (critical/high/medium/low) **file:line** — 1-line description\n` +
+    `    - Evidence: what proves this is a real issue\n` +
+    `    - Impact: what breaks or degrades if unfixed\n` +
+    `    - Suggested fix: concrete remediation (1-2 lines)\n` +
+    `  Group findings by severity (critical first).\n` +
+    `If no issues found, state PASS verdict and omit the findings section.\n` +
     `</output_format>`,
 };
 

@@ -9,6 +9,8 @@ import type { AdmiralProtocol } from "./types.js";
 
 import { getSettingsAPI } from "../../core/settings/bridge.js";
 import { FLEET_ACTION } from "./fleet-action.js";
+import { QUICK_RESPONSE } from "./quick-response.js";
+import { RESEARCH } from "./research.js";
 
 // ─────────────────────────────────────────────────────────
 // 타입
@@ -27,6 +29,8 @@ interface ProtocolSettings {
 /** 등록된 Protocols — slot 순서대로 나열 */
 const PROTOCOLS: readonly AdmiralProtocol[] = [
   FLEET_ACTION,
+  QUICK_RESPONSE,
+  RESEARCH,
 ];
 
 /** 초기 부팅 시 기본 활성 프로토콜 ID */

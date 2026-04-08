@@ -46,12 +46,14 @@ const CARRIER_METADATA: CarrierMetadata = {
   outputFormat:
     `<output_format>\n` +
     `Deliver the documentation artifact directly — write it to the appropriate file(s).\n` +
-    `After writing, provide a brief completion report:\n` +
-    `**Documents written** — List each file created/modified with its path and doc type.\n` +
-    `**Cascade .md audit** — List every .md file inspected for consistency. For each: path, status (updated / already consistent / not applicable), and 1-line summary of changes if updated.\n` +
-    `**Coverage** — What was documented and any gaps noted.\n` +
-    `**Style notes** — Any conventions followed or decisions about tone/structure (max 3 bullets).\n` +
-    `**Spotted issues** — Code issues noticed during documentation that should be reported to other carriers (if any).\n` +
+    `After writing, provide a brief completion report.\n` +
+    `[Required] always include:\n` +
+    `  **Documents written** — List each file created/modified with its path and doc type.\n` +
+    `  **Cascade .md audit** — List every .md file inspected for consistency. For each: path, status (updated / already consistent / not applicable), and 1-line summary of changes if updated.\n` +
+    `[If applicable] omit if not relevant:\n` +
+    `  **Coverage** — What was documented and any gaps noted.\n` +
+    `  **Style notes** — Any conventions followed or decisions about tone/structure (max 3 bullets).\n` +
+    `  **Spotted issues** — Code issues noticed during documentation that should be reported to other carriers (if any).\n` +
     `Keep the completion report concise — the documentation itself is the primary deliverable.\n` +
     `</output_format>`,
   principles: [

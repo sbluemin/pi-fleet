@@ -36,13 +36,15 @@ const CARRIER_METADATA: CarrierMetadata = {
   ],
   outputFormat:
     `<output_format>\n` +
-    `Report findings as a structured reconnaissance report:\n` +
-    `**Thoroughness** — quick / medium / thorough (indicate scan depth performed).\n` +
-    `**Findings** — Organized list of discoveries. For code exploration:\n` +
-    `  - Use absolute file paths with line references (e.g., /abs/path/file.ts:42).\n` +
-    `  - Group by relevance — most important findings first.\n` +
-    `**Key observations** — 3-5 bullets summarizing patterns, anomalies, or notable discoveries.\n` +
-    `**Next steps** — Suggested follow-up actions for the orchestrator (max 3 bullets).\n` +
+    `Report findings as a structured reconnaissance report.\n` +
+    `[Required] always include:\n` +
+    `  **Thoroughness** — quick / medium / thorough (indicate scan depth performed).\n` +
+    `  **Findings** — Organized list of discoveries. For code exploration:\n` +
+    `    - Use absolute file paths with line references (e.g., /abs/path/file.ts:42).\n` +
+    `    - Group by relevance — most important findings first.\n` +
+    `[If applicable] omit if not relevant:\n` +
+    `  **Key observations** — 3-5 bullets summarizing patterns, anomalies, or notable discoveries.\n` +
+    `  **Next steps** — Suggested follow-up actions for the orchestrator (max 3 bullets).\n` +
     `Keep the report concise — bullets and short lines only. No narrative paragraphs.\n` +
     `</output_format>`,
   principles: [

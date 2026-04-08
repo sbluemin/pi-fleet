@@ -215,21 +215,31 @@ function buildCarrierGuidelines(carrierIds: string[]): string[] {
 // ═════════════════════════════════════════════════════════
 
 /**
- * Tier 2 자동 주입: permissions + principles를 앞에, outputFormat을 끝에 붙여
- * 최종 request를 조립합니다.
+ * Tier 2 자동 주입: 원본 request를 최상단에, permissions + principles를
+ * 보조 컨텍스트로, outputFormat을 최하단에 배치하여 최종 request를 조립합니다.
+ *
+ * 주입 순서 (LLM의 primacy bias 활용):
+ *  1. Original Request (가장 중요 — 최상단)
+ *  2. Operational Context: Permissions & Constraints + Principles (보조)
+ *  3. Output Format (구조 가이드 — 최하단)
  */
 export function composeTier2Request(metadata: CarrierMetadata, originalRequest: string): string {
+  const parts: string[] = [];
+
+  // 1. 원본 요청을 최상단에 배치 — Carrier가 의도를 먼저 파악
+  parts.push(originalRequest);
+
+  // 2. 운영 컨텍스트 (permissions, principles)를 보조 섹션으로
   const directives = [
     buildDirectiveSection("## Permissions & Constraints", metadata.permissions),
     buildDirectiveSection("## Principles", metadata.principles ?? []),
   ].filter((section) => section.length > 0);
 
-  const parts: string[] = [];
   if (directives.length > 0) {
-    parts.push(directives.map((section) => section.join("\n")).join("\n\n") + "\n\n---\n");
+    parts.push("\n---\n\n" + directives.map((section) => section.join("\n")).join("\n\n"));
   }
-  parts.push(originalRequest);
 
+  // 3. 출력 형식 가이드를 최하단에
   if (metadata.outputFormat) {
     parts.push("\n" + metadata.outputFormat);
   }

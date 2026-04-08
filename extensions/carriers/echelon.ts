@@ -35,14 +35,16 @@ const CARRIER_METADATA: CarrierMetadata = {
   ],
   outputFormat:
     `<output_format>\n` +
-    `Report findings as a structured intelligence briefing:\n` +
-    `**Repository overview** — 1-2 sentences on what the repo is and its relevance.\n` +
-    `**Key code paths** — Important files and directories with brief descriptions. Use owner/repo relative paths.\n` +
-    `**Intelligence findings** — Organized list of discoveries relevant to the objective:\n` +
-    `  - Code patterns, implementation details, or API usage examples found.\n` +
-    `  - Include relevant code snippets (keep each under 20 lines).\n` +
-    `**Actionable insights** — How these findings apply to our codebase (max 5 bullets).\n` +
-    `**Confidence level** — high / medium / low — based on depth of investigation achieved.\n` +
+    `Report findings as a structured intelligence briefing.\n` +
+    `[Required] always include:\n` +
+    `  **Intelligence findings** — Organized list of discoveries relevant to the objective:\n` +
+    `    - Code patterns, implementation details, or API usage examples found.\n` +
+    `    - Include relevant code snippets (keep each under 20 lines).\n` +
+    `  **Confidence level** — high / medium / low — based on depth of investigation achieved.\n` +
+    `[If applicable] omit if not relevant:\n` +
+    `  **Repository overview** — 1-2 sentences on what the repo is and its relevance.\n` +
+    `  **Key code paths** — Important files and directories with brief descriptions. Use owner/repo relative paths.\n` +
+    `  **Actionable insights** — How these findings apply to our codebase (max 5 bullets).\n` +
     `Keep the report concise — bullets and short lines only. No narrative paragraphs.\n` +
     `</output_format>`,
 };

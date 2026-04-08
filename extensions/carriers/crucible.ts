@@ -35,13 +35,15 @@ const CARRIER_METADATA: CarrierMetadata = {
   ],
   outputFormat:
     `<output_format>\n` +
-    `Provide a structured refactoring proposal (read-only analysis — do NOT modify any files):\n` +
-    `**Purge targets** — Dead code, unused imports, and unreachable paths identified (list with file:line).\n` +
-    `**Consolidation plan** — Duplicate logic to merge, with before→after mapping and target shared modules.\n` +
-    `**Restructuring plan** — Proposed dependency changes, decoupling improvements, or pattern introductions.\n` +
-    `**Verification strategy** — How to confirm behavior is preserved after changes (test commands, expected outputs).\n` +
-    `**Risk notes** — Areas where the proposed refactoring carries residual risk (max 3 bullets).\n` +
-    `**Genesis handoff** — Concise implementation instructions ready for Genesis to execute the proposed changes.\n` +
+    `Provide a structured refactoring proposal (read-only analysis — do NOT modify any files).\n` +
+    `[Required] always include:\n` +
+    `  **Genesis handoff** — Concise implementation instructions ready for Genesis to execute the proposed changes.\n` +
+    `[If applicable] include sections relevant to the analysis:\n` +
+    `  **Purge targets** — Dead code, unused imports, and unreachable paths identified (list with file:line).\n` +
+    `  **Consolidation plan** — Duplicate logic to merge, with before→after mapping and target shared modules.\n` +
+    `  **Restructuring plan** — Proposed dependency changes, decoupling improvements, or pattern introductions.\n` +
+    `  **Verification strategy** — How to confirm behavior is preserved after changes (test commands, expected outputs).\n` +
+    `  **Risk notes** — Areas where the proposed refactoring carries residual risk (max 3 bullets).\n` +
     `Keep the report concise — bullets and short lines only. No narrative paragraphs.\n` +
     `</output_format>`,
 };
