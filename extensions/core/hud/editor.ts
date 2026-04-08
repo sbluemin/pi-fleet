@@ -11,6 +11,7 @@ import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 import type { HudEditorState } from "./index.js";
 import type { SegmentStateProvider } from "./types.js";
 import { ansi, getFgAnsiCode } from "./colors.js";
+import { getEditorBorderColor } from "./border-bridge.js";
 import { getPreset } from "./presets.js";
 import { buildSegmentContext } from "./context.js";
 import { computeResponsiveLayout } from "./layout.js";
@@ -74,8 +75,11 @@ export function setupCustomEditor(ctx: any, state: HudEditorState): void {
           return originalRender(width);
         }
 
-        // 테두리: sep 색상 고정
-        const bc = (s: string) => `${getFgAnsiCode("sep")}${s}${ansi.reset}`;
+        // 테두리: 외부 override가 있으면 사용, 없으면 sep 색상
+        const override = getEditorBorderColor();
+        const bc = (s: string) => override
+          ? `${override}${s}${ansi.reset}`
+          : `${getFgAnsiCode("sep")}${s}${ansi.reset}`;
         // 프롬프트 `>`: 회색 고정
         const prompt = `${ansi.getFgAnsi(200, 200, 200)}>${ansi.reset}`;
 

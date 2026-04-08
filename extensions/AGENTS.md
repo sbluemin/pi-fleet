@@ -13,7 +13,7 @@ Do not create intermediate layers that simply wrap official TUI APIs (e.g., `set
 | Extension | Role | Main Files |
 |-----------|------|------------|
 | `fleet/` | Agent orchestration framework — carrier SDK (`shipyard/carrier/`), unified pipeline, Agent Panel, model selection. Provides the carrier framework that `carriers/` depends on. | `index.ts` (wiring), `shipyard/carrier/` (framework), `internal/` (implementation) |
-| `admiral/` | Admiral prompt policy — system prompt injection (`before_agent_start`), worldview toggle, settings section. Independent of `fleet/` and `carriers/`. | `index.ts` (wiring), `prompts.ts` (prompt constants + settings) |
+| `admiral/` | Admiral prompt policy — system prompt injection (`before_agent_start`), worldview toggle, settings section. + Standing Orders/Protocols module management, protocol transition keybinds, protocol status widget, editor border color control. Independent of `fleet/` and `carriers/`. | `index.ts` (wiring), `prompts.ts` (prompts), `protocols/` (Fleet Action, etc.), `standing-orders/` (Deep Dive, etc.) |
 | `carriers/` | Carrier registrations — independent extension defining individual carriers (genesis, sentinel, vanguard, etc.). Depends only on `shipyard/carrier` package, not on `fleet/` extension. Optional — users may omit from `settings.json`. | `index.ts` (wiring), individual carrier files |
 | `core/hud/` | Editor + Status Bar (Private rendering engine) | `index.ts` (wiring), `editor.ts` (editor/status bar/widget UI) |
 | `core/keybind/` | Centralized keybinding management + overlay (alt+.) | `index.ts` (wiring), `types.ts` (API types + globalThis key), `bridge.ts` (globalThis bridge runtime), `store.ts` (JSON), `registry.ts` (bindings), `overlay.ts` (UI) |
@@ -326,18 +326,19 @@ carriers/ (feature)
 |-------|----------------|----------------------|
 | `core/` | external packages only | `fleet/`, `admiral/`, `carriers/` |
 | `fleet/` (feature) | `core/` | `admiral/`, `carriers/` |
-| `admiral/` (feature) | `core/` | `fleet/`, `carriers/` |
+| `admiral/` (feature) | `core/settings`, `core/keybind` (Editor border via `globalThis` indirect communication) | `fleet/`, `carriers/` |
 | `carriers/` (feature) | `fleet/shipyard/carrier/` (framework SDK only) | `fleet/index.ts`, `fleet/internal/`, `admiral/`, `core/` |
 
 > **Skipping layers is allowed** — e.g., `core/` utility extensions may import from `core/` infrastructure modules directly.
 
-### Verification (as of 2026-03-29)
+### Verification (as of 2026-04-09)
 
 All cross-domain imports verified — **no reverse dependency violations found**.
 
 | Import | Direction | Status |
 |--------|-----------|--------|
 | `fleet/` → `core/keybind` | fleet → core | ✅ |
+| `admiral/` → `core/keybind`, `core/settings` | admiral → core | ✅ |
 | `core/summarize` → `core/settings` | core internal | ✅ |
 | `core/improve-prompt` → `core/settings`, `core/keybind` | core internal | ✅ |
 

@@ -53,21 +53,23 @@ interface WelcomeData {
 // Shared rendering utilities
 // ═══════════════════════════════════════════════════════════════════════════
 
-const PI_LOGO = [
-  "      ▄▄      ",
-  "     ████     ",
-  "    ██████    ",
-  "   ▀▄████▄▀  ",
-  "     ▀  ▀     ",
+// Fleet block letter ASCII 배너 (5줄, 23자 폭)
+const FLEET_BANNER = [
+  "████ █    ████ ████ ███",
+  "█    █    █    █     █ ",
+  "███  █    ███  ███   █ ",
+  "█    █    █    █     █ ",
+  "█    ████ ████ ████  █ ",
 ];
 
+// cyan-blue 그라데이션 (기존 pink-purple 교체)
 const GRADIENT_COLORS = [
-  "\x1b[38;5;199m",
-  "\x1b[38;5;171m",
-  "\x1b[38;5;135m",
-  "\x1b[38;5;99m",
-  "\x1b[38;5;75m",
   "\x1b[38;5;51m",
+  "\x1b[38;5;45m",
+  "\x1b[38;5;39m",
+  "\x1b[38;5;33m",
+  "\x1b[38;5;27m",
+  "\x1b[38;5;21m",
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -127,7 +129,7 @@ export class WelcomeComponent implements Component {
 
 /**
  * Welcome header - same layout as overlay but persistent (no countdown).
- * Used when quietStartup: true.
+ * Welcome header — persistent Fleet banner rendered on session start.
  */
 export class WelcomeHeader implements Component {
   private data: WelcomeData;
@@ -425,37 +427,36 @@ function truncateToWidth(str: string, width: number): string {
   return truncated;
 }
 
-function buildLeftColumn(data: WelcomeData, colWidth: number): string[] {
-  const logoColored = PI_LOGO.map((line) => gradientLine(line));
+function buildFleetBanner(data: WelcomeData, colWidth: number): string[] {
+  const bannerColored = FLEET_BANNER.map((line) => gradientLine(line));
 
   return [
     "",
-    centerText(bold("Welcome back!"), colWidth),
-    "",
-    ...logoColored.map((l) => centerText(l, colWidth)),
+    ...bannerColored.map((l) => centerText(l, colWidth)),
     "",
     centerText(fgOnly("model", data.modelName), colWidth),
     centerText(dim(data.providerName), colWidth),
+    "",
   ];
 }
 
-function buildRightColumn(data: WelcomeData, colWidth: number): string[] {
+function buildFleetInfo(data: WelcomeData, colWidth: number): string[] {
   const hChar = "─";
   const separator = ` ${dim(hChar.repeat(colWidth - 2))}`;
 
-  // Session lines
+  // 최근 세션 섹션
   const sessionLines: string[] = [];
   if (data.recentSessions.length === 0) {
     sessionLines.push(` ${dim("No recent sessions")}`);
   } else {
     for (const session of data.recentSessions.slice(0, 3)) {
       sessionLines.push(
-        ` ${dim("• ")}${fgOnly("path", session.name)}${dim(` (${session.timeAgo})`)}`,
+        ` ${dim("▸ ")}${fgOnly("path", session.name)}${dim(` ${session.timeAgo}`)}`,
       );
     }
   }
 
-  // Loaded counts lines
+  // 로드 통계 섹션
   const countLines: string[] = [];
   const { contextFiles, extensions, skills, promptTemplates } = data.loadedCounts;
 
@@ -473,19 +474,19 @@ function buildRightColumn(data: WelcomeData, colWidth: number): string[] {
       countLines.push(` ${checkmark()} ${fgOnly("gitClean", `${promptTemplates}`)} prompt template${promptTemplates !== 1 ? "s" : ""}`);
     }
   } else {
-    countLines.push(` ${dim("No extensions loaded")}`);
+    countLines.push(` ${dim("Nothing loaded")}`);
   }
 
   return [
-    ` ${bold(fgOnly("accent", "Tips"))}`,
-    ` ${dim("/")} for commands`,
-    ` ${dim("!")} to run bash`,
-    ` ${dim("Shift+Tab")} cycle thinking`,
+    ` ${bold(fgOnly("accent", "Shortcuts"))}`,
+    ` ${dim("/")} commands  ${dim("·")} ${dim("!")} shell`,
+    ` ${dim("Alt+.")} keybinds`,
+    ` ${dim("Alt+H/L")} carriers`,
     separator,
     ` ${bold(fgOnly("accent", "Loaded"))}`,
     ...countLines,
     separator,
-    ` ${bold(fgOnly("accent", "Recent sessions"))}`,
+    ` ${bold(fgOnly("accent", "Recent"))}`,
     ...sessionLines,
     "",
   ];
@@ -518,15 +519,15 @@ function renderWelcomeBox(
   const bl = dim("╰");
   const br = dim("╯");
 
-  const leftLines = buildLeftColumn(data, leftCol);
-  const rightLines = buildRightColumn(data, rightCol);
+  const leftLines = buildFleetBanner(data, leftCol);
+  const rightLines = buildFleetInfo(data, rightCol);
 
   const lines: string[] = [];
 
-  // Top border with title
+  // 상단 보더 — Fleet 타이틀
   const title = " Fleet ";
   const titlePrefix = dim(hChar.repeat(3));
-  const titleStyled = titlePrefix + fgOnly("model", title);
+  const titleStyled = titlePrefix + fgOnly("accent", title);
   const titleVisLen = 3 + visibleWidth(title);
   const afterTitle = boxWidth - 2 - titleVisLen;
   const afterTitleText = afterTitle > 0 ? dim(hChar.repeat(afterTitle)) : "";
@@ -543,7 +544,11 @@ function renderWelcomeBox(
   // Bottom border
   lines.push(bl + bottomLine + br);
 
-  return lines;
+  // 수평 중앙 정렬 — 터미널 너비에서 박스 너비를 빼고 좌우로 나눠 패딩
+  const hPad = Math.max(0, Math.floor((termWidth - boxWidth) / 2));
+  if (hPad === 0) return lines;
+  const pad = " ".repeat(hPad);
+  return lines.map((line) => pad + line);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

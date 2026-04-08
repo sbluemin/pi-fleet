@@ -22,7 +22,8 @@ Infrastructure extensions for pi-fleet. Each provides a core UI or system featur
 
 ## Core Rules (hud)
 
-- **HUD is a private extension**: Other extensions MUST NOT import from `extensions/core/hud/`. It does not provide a public API.
+- **HUD는 private extension**: 외부 확장은 `extensions/core/hud/`의 내부 파일을 직접 import할 수 없다.
+- **유일한 public 인터페이스**: `border-bridge.ts` — globalThis `"__pi_hud_editor_border_color__"` 키를 통한 간접 통신만 허용.
 - **Status Bar Integration**: HUD uses `setupStatusBar()` to initialize the status bar and manage widget placements.
 - **Widget Placement**:
   - `hud-status-bar`: Primary status information (belowEditor, center align).

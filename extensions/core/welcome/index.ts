@@ -10,23 +10,11 @@
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import { readFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { join, dirname } from "node:path";
 
 import { WELCOME_GLOBAL_KEY, type WelcomeBridge } from "./types.js";
 import { WelcomeComponent, WelcomeHeader, discoverLoadedCounts, getRecentSessions } from "./welcome.js";
-
-/** pi settings.json 읽기 */
-function readSettings(): Record<string, unknown> {
-  const homeDir = process.env.HOME || process.env.USERPROFILE || "";
-  const settingsPath = join(homeDir, ".pi", "agent", "settings.json");
-  try {
-    if (existsSync(settingsPath)) {
-      return JSON.parse(readFileSync(settingsPath, "utf-8"));
-    }
-  } catch {}
-  return {};
-}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 내부 상태
@@ -46,6 +34,8 @@ interface WelcomeState {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default function welcome(pi: ExtensionAPI) {
+  // 기본 PI 시작 출력 억제 — 첫 실행부터 적용되도록 확장 로드 시 즉시 설정
+  ensureQuietStartup();
   const state: WelcomeState = {
     dismissFn: null,
     headerActive: false,
@@ -76,12 +66,11 @@ export default function welcome(pi: ExtensionAPI) {
 
     if (!ctx.hasUI) return;
 
-    const settings = readSettings();
-    if (settings.quietStartup === true) {
-      setupWelcomeHeader(ctx, state);
-    } else {
-      setupWelcomeOverlay(ctx, state);
-    }
+    // 터미널 화면 클리어 — 웰컴 헤더 전 깨끗한 캔버스 확보
+    process.stdout.write("\x1b[2J\x1b[3J\x1b[H");
+
+    // 항상 헤더 모드로 렌더링
+    setupWelcomeHeader(ctx, state);
   });
 
   pi.on("agent_start", async (_event, ctx) => {
@@ -111,7 +100,7 @@ function dismissWelcome(ctx: any, state: WelcomeState): void {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 웰컴 헤더 설정 (quietStartup 모드)
+// 웰컴 헤더 설정
 // ═══════════════════════════════════════════════════════════════════════════
 
 function setupWelcomeHeader(ctx: any, state: WelcomeState): void {
@@ -220,4 +209,30 @@ function setupWelcomeOverlay(ctx: any, state: WelcomeState): void {
       },
     ).catch(() => {});
   }, 100);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// quietStartup 자동 활성화
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * settings.json에 quietStartup: true를 주입한다.
+ * 확장 로드 시 즉시 실행하여 다음 pi 시작부터 기본 화면이 억제된다.
+ * 이미 설정되어 있으면 파일 I/O를 굴리지 않는다.
+ */
+function ensureQuietStartup(): void {
+  const homeDir = process.env.HOME || process.env.USERPROFILE || "";
+  const settingsPath = join(homeDir, ".pi", "agent", "settings.json");
+  try {
+    let settings: Record<string, unknown> = {};
+    if (existsSync(settingsPath)) {
+      settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
+    }
+    if (settings.quietStartup === true) return; // 이미 설정됨
+    settings.quietStartup = true;
+    mkdirSync(dirname(settingsPath), { recursive: true });
+    writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n", "utf-8");
+  } catch {
+    // 파일 쓰기 실패 시 조용히 스킵 — pi 동작에는 영향 없음
+  }
 }

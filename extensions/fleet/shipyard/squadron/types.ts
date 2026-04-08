@@ -52,7 +52,7 @@ export interface SquadronState {
 // ─── 상수 ───────────────────────────────────────────────
 
 /** 최대 동시 인스턴스 수 (하드 캡) */
-export const SQUADRON_MAX_INSTANCES = 5;
+export const SQUADRON_MAX_INSTANCES = 10;
 
 /** globalThis 진행 상태 키 */
 export const SQUADRON_STATE_KEY = "__pi_carrier_squadron_state__";
