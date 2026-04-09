@@ -11,7 +11,7 @@ import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 import type { HudEditorState } from "./index.js";
 import type { SegmentStateProvider } from "./types.js";
 import { ansi, getFgAnsiCode } from "./colors.js";
-import { getEditorBorderColor } from "./border-bridge.js";
+import { getEditorBorderColor, getEditorRightLabel } from "./border-bridge.js";  // [Feature] rightLabel을 상단 테두리 우측에 삽입
 import { getPreset } from "./presets.js";
 import { buildSegmentContext } from "./context.js";
 import { computeResponsiveLayout } from "./layout.js";
@@ -102,8 +102,22 @@ export function setupCustomEditor(ctx: any, state: HudEditorState): void {
 
         const result: string[] = [];
 
-        // 상단 테두리
-        result.push(" " + bc("─".repeat(width - 2)));
+        // 상단 테두리 — 레이블을 중앙에 삽입
+        const rightLabel = getEditorRightLabel();
+        if (rightLabel) {
+          const rawLabel = rightLabel.replace(/\x1b\[[0-9;]*m/g, "");
+          const labelVisibleWidth = visibleWidth(rawLabel);
+          const totalDash = width - 2 - labelVisibleWidth - 2; // 양쪽 공백 각 1칸
+          if (totalDash >= 2) {
+            const leftDash = Math.floor(totalDash / 2);
+            const rightDash = totalDash - leftDash;
+            result.push(" " + bc("─".repeat(leftDash)) + " " + rightLabel + " " + bc("─".repeat(rightDash)));
+          } else {
+            result.push(" " + bc("─".repeat(width - 2)));
+          }
+        } else {
+          result.push(" " + bc("─".repeat(width - 2)));
+        }
 
         // 콘텐츠 줄: 첫 줄 "> " 프롬프트, 이후 들여쓰기
         for (let i = 1; i < bottomBorderIndex; i++) {
@@ -116,7 +130,7 @@ export function setupCustomEditor(ctx: any, state: HudEditorState): void {
           result.push(`${promptPrefix}${" ".repeat(contentWidth)}`);
         }
 
-        // 하단 테두리
+        // 하단 테두리 — solid 라인 복원 [Feature]
         result.push(" " + bc("─".repeat(width - 2)));
 
         // 자동완성 항목

@@ -15,6 +15,7 @@ import { getKeybindAPI } from "../core/keybind/bridge.js";
 import { getAllProtocols, getActiveProtocol, setActiveProtocol } from "./protocols/index.js";
 import { registerProtocolWidget, updateProtocolWidget } from "./widget.js";
 import registerRequestDirective from "./request-directive.js";
+import { setEditorBorderColor, setEditorRightLabel } from "../core/hud/border-bridge.js"; // [Fix-Low2] setter API 사용
 
 const ADMIRAL_EXTENSION_LOADED_KEY = "__pi_admiral_extension_loaded__";
 
@@ -23,7 +24,7 @@ export default function admiralExtension(pi: ExtensionAPI) {
 
   // ── 부팅 시 에디터 테두리 색상 초기화 ──
   const bootProtocol = getActiveProtocol();
-  (globalThis as any)["__pi_hud_editor_border_color__"] = bootProtocol.color;
+  syncProtocolToHud(bootProtocol); // [Fix-Low2] setter 경유
 
   registerAdmiralSettingsSection();
   registerRequestDirective(pi);
@@ -59,6 +60,9 @@ export default function admiralExtension(pi: ExtensionAPI) {
   // ── 설정 팝업(Alt+/) 섹션 등록 + 위젯 등록 ──
 
   pi.on("session_start", (_event, ctx) => {
+    // [Fix-Medium] settings API가 보장된 시점에 프로토콜 상태 재동기화
+    const sessionProtocol = getActiveProtocol();
+    syncProtocolToHud(sessionProtocol);
     registerAdmiralSettingsSection();
     registerProtocolWidget(ctx);
   });
@@ -89,12 +93,20 @@ function registerProtocolKeybinds(_pi: ExtensionAPI): void {
           return;
         }
         setActiveProtocol(protocol.id);
-        (globalThis as any)["__pi_hud_editor_border_color__"] = protocol.color;
+        syncProtocolToHud(protocol); // [Fix-Low2] setter 경유
         ctx.ui.notify(`Protocol → ${protocol.name}`, "info");
         updateProtocolWidget(ctx);
       },
     });
   }
+}
+
+// ── 프로토콜 HUD 동기화 헬퍼 ──
+
+/** border color + right label을 일괄 갱신하는 내부 헬퍼 [Fix-Low2] */
+function syncProtocolToHud(protocol: { color: string; shortLabel: string }): void {
+  setEditorBorderColor(protocol.color);
+  setEditorRightLabel(`${protocol.color}⚓ ${protocol.shortLabel}\x1b[0m`);
 }
 
 // ── 설정 섹션 등록 ──
