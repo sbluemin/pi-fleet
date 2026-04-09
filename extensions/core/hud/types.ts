@@ -117,7 +117,7 @@ export interface UsageStats {
 }
 
 export interface SegmentContext {
-  model: { id: string; name?: string; reasoning?: boolean; contextWindow?: number } | undefined;
+  model: { id: string; name?: string; reasoning?: boolean; contextWindow?: number; provider?: string } | undefined;
   thinkingLevel: string;
   sessionId: string | undefined;
   usageStats: UsageStats;

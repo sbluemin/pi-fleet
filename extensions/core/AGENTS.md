@@ -19,6 +19,7 @@ Infrastructure extensions for pi-fleet. Each provides a core UI or system featur
 | `keybind/` | Centralized keybinding management + overlay (Alt+.) |
 | `settings/` | Centralized settings API + overlay popup (Alt+/) |
 | `welcome/` | Welcome overlay displayed on session start |
+| `provider-guard/` | Always-on guard — disables specified built-in providers and auto-fallbacks away from blocked placeholder models on session_start / model_select |
 
 ## Core Rules (hud)
 

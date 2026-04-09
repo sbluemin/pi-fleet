@@ -29,6 +29,8 @@ import { renderBlockLines, blockLineAnsiColor } from "../../render/block-rendere
 import {
   getRegisteredOrder,
   getSortieEnabledIds,
+  isSortieCarrierEnabled,
+  isSquadronCarrierEnabled,
   resolveCarrierColor,
   resolveCarrierDisplayName,
   getRegisteredCarrierConfig,
@@ -190,10 +192,16 @@ export function registerFleetSortie(pi: ExtensionAPI): void {
           throw new Error(`Unknown carrier: "${a.carrier}". Registered carriers: ${registered}`);
         }
         // sortie 비활성 carrier 가드 — throw 대신 content로 에러 반환하여 LLM이 재시도 가능
+        // 사유를 구체적으로 전달하여 LLM이 적절한 대안을 선택하도록 유도
         if (!enabledIds.has(a.carrier)) {
+          const reason = isSquadronCarrierEnabled(a.carrier)
+            ? "assigned to squadron (use carrier_squadron instead)"
+            : !isSortieCarrierEnabled(a.carrier)
+              ? "manually disabled"
+              : "unavailable";
           const available = [...enabledIds].join(", ") || "(none)";
           return {
-            content: [{ type: "text" as const, text: `Carrier "${a.carrier}" is currently disabled for sortie. Available carriers: ${available}` }],
+            content: [{ type: "text" as const, text: `Carrier "${a.carrier}" is not available for sortie: ${reason}. Available carriers: ${available}` }],
             details: { sortieKey: id, results: [] as CarrierSortieResult[] },
           };
         }

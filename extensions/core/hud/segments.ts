@@ -58,6 +58,11 @@ const modelSegment: StatusLineSegment = {
       }
     }
 
+    // Fleet CC provider일 때 배지 추가
+    if (ctx.model?.provider === "Fleet CC") {
+      content += " " + applyColor(ctx.theme, "#ff9500", "\x1b[1m[Fleet CC]\x1b[22m");
+    }
+
     return { content: color(ctx, "model", content), visible: true };
   },
 };

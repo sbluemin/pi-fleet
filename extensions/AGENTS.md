@@ -22,6 +22,7 @@ Do not create intermediate layers that simply wrap official TUI APIs (e.g., `set
 | `core/improve-prompt/` | Meta-prompting (alt+m), reasoning level cycle (alt+r) | `index.ts` (wiring), `ui.ts` (Status Bar segment) |
 | `core/thinking-timer/` | Inline elapsed-time display for Thinking blocks | `index.ts` (wiring), `timer.ts` (patch/store/ticker) |
 | `core/summarize/` | Auto one-line session summary | `index.ts` (wiring), `ui.ts` (Status Bar segment) |
+| `core/provider-guard/` | Always-on guard — replaces built-in providers (anthropic, google-antigravity, google-gemini-cli) with blocked placeholders and auto-fallbacks away from blocked active models | `index.ts` (wiring) |
 
 ### Shared Libraries — Directories without `index.ts`
 
