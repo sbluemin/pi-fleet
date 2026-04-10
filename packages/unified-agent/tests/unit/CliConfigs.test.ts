@@ -34,7 +34,7 @@ describe('CliConfigs', () => {
       });
 
       expect(config.command).toContain('npx');
-      expect(config.args).toContain('--package=@agentclientprotocol/claude-agent-acp@0.24.2');
+      expect(config.args).toContain('--package=@agentclientprotocol/claude-agent-acp@0.26.0');
       expect(config.args).toContain('claude-agent-acp');
       expect(config.useNpx).toBe(true);
     });
@@ -45,7 +45,7 @@ describe('CliConfigs', () => {
       });
 
       expect(config.command).toContain('npx');
-      expect(config.args).toContain('--package=@zed-industries/codex-acp@^0.10.0');
+      expect(config.args).toContain('--package=@zed-industries/codex-acp@^0.11.0');
       expect(config.args).toContain('codex-acp');
       expect(config.useNpx).toBe(true);
     });
