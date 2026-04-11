@@ -18,7 +18,7 @@ import { getSettingsAPI } from "../settings/bridge.js";
 
 // /model 목록에 표시할 프로바이더 화이트리스트
 const ALLOWED_PROVIDERS = new Set([
-	"openai",
+	"openai-codex",
 	"Fleet ACP",
 ]);
 
