@@ -273,7 +273,31 @@ export function notifyTaskForceConfigChange(): void {
  */
 export function setPendingCliTypeOverrides(overrides: Record<string, CliType>): void {
   const gs = getState();
-  gs.pendingCliTypeOverrides = new Map(Object.entries(overrides));
+  gs.pendingCliTypeOverrides = new Map();
+  let changed = false;
+
+  for (const [carrierId, cliType] of Object.entries(overrides)) {
+    const registered = gs.modes.get(carrierId);
+    if (!registered) {
+      gs.pendingCliTypeOverrides.set(carrierId, cliType);
+      continue;
+    }
+
+    const config = registered.config;
+    if (config.cliType === cliType) {
+      continue;
+    }
+
+    config.cliType = cliType;
+    config.color = CARRIER_COLORS[cliType] ?? "";
+    config.bgColor = CARRIER_BG_COLORS[cliType];
+    changed = true;
+  }
+
+  if (changed) {
+    reorderRegisteredByCliType();
+    notifyStatusUpdate();
+  }
 }
 
 /**
