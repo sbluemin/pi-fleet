@@ -21,6 +21,10 @@ export interface ParsedModelId {
 
 /** ACP 세션 상태 — pi session 키 기준 관리 */
 export interface AcpSessionState {
+  /** provider 내부 세션 키 */
+  sessionKey: string;
+  /** provider scope 키 */
+  scopeKey: string;
   /** Unified Agent 클라이언트 인스턴스 */
   client: UnifiedAgentClient | null;
   /** ACP 세션 ID */
@@ -39,7 +43,13 @@ export interface AcpSessionState {
   mcpSessionToken?: string;
   /** tool 목록 해시 — 변경 감지용 */
   toolHash?: string;
-  /** sendPrompt idle timeout 등으로 reject된 경우 true — activeSessionKey 보존을 위한 플래그 */
+  /** 현재 ACP turn이 진행 중인지 여부 */
+  turnActive: boolean;
+  /** 아직 toolResult를 기다리거나 다음 재진입을 기다리는 MCP tool call FIFO */
+  pendingToolCalls: PendingToolCallState[];
+  /** 현재 turn에서 pending MCP call을 flush하는 notifier */
+  pendingToolCallNotifier: (() => void) | null;
+  /** sendPrompt idle timeout 등으로 reject된 경우 true */
   sendPromptError?: boolean;
 }
 
@@ -47,8 +57,22 @@ export interface AcpSessionState {
 export interface AcpProviderState {
   /** pi session 키 → ACP 세션 상태 맵 */
   sessions: Map<string, AcpSessionState>;
-  /** 활성 sendPrompt가 진행 중인 세션 키 — tool result delivery 감지용 */
-  activeSessionKey: string | null;
+  /** scope 키 → provider 세션 키 집합 */
+  sessionKeysByScope: Map<string, Set<string>>;
+  /** toolCallId → provider 세션 키 역참조 */
+  toolCallToSessionKey: Map<string, string>;
+}
+
+/** session 내부 MCP tool call FIFO 항목 */
+export interface PendingToolCallState {
+  /** pi/native toolCallId */
+  toolCallId: string;
+  /** 호출된 tool 이름 */
+  toolName: string;
+  /** 호출 인자 */
+  args: Record<string, unknown>;
+  /** 현재 turn에서 이미 pi로 emit되었는지 여부 */
+  emitted: boolean;
 }
 
 /** CLI별 capability 차이를 명시하는 매트릭스 */
@@ -293,6 +317,7 @@ export function getOrInitState(): AcpProviderState {
 function createInitialState(): AcpProviderState {
   return {
     sessions: new Map(),
-    activeSessionKey: null,
+    sessionKeysByScope: new Map(),
+    toolCallToSessionKey: new Map(),
   };
 }

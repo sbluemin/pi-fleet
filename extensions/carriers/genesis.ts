@@ -55,5 +55,5 @@ const CARRIER_METADATA: CarrierMetadata = {
 };
 
 export function registerGenesisCarrier(pi: ExtensionAPI): void {
-  registerSingleCarrier(pi, "claude", CARRIER_METADATA, { slot: 1, id: "genesis", displayName: "Genesis" });
+  registerSingleCarrier(pi, "codex", CARRIER_METADATA, { slot: 1, id: "genesis", displayName: "Genesis" });
 }

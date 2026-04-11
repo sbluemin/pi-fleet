@@ -48,14 +48,21 @@ export interface McpCallToolResult {
 /** FIFO 큐의 대기 중인 tool call */
 interface PendingToolCall {
   toolName: string;
+  toolCallId: string;
   resolve: (result: JsonRpcResponse) => void;
+}
+
+/** tools/call보다 먼저 도착한 결과 */
+interface PendingToolResult {
+  toolCallId: string;
+  result: McpCallToolResult;
 }
 
 /** MCP tool call 도착 콜백 — provider가 등록, tools/call 수신 시 호출 */
 export type ToolCallArrivedCallback = (
   toolName: string,
   args: Record<string, unknown>,
-) => void;
+) => string;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Module state — singleton
@@ -74,10 +81,13 @@ let opaquePath: string | null = null;
 const pendingToolCalls = new Map<string, PendingToolCall[]>();
 
 /** 세션별 pre-queued 결과 — pi result가 먼저 도달한 경우 */
-const pendingResults = new Map<string, McpCallToolResult[]>();
+const pendingResults = new Map<string, PendingToolResult[]>();
 
 /** 세션별 MCP tool call 도착 콜백 — token 기준으로 격리 */
 const toolCallArrivedCallbacks = new Map<string, ToolCallArrivedCallback>();
+
+/** 현재 turn에서 tools/call을 받을 수 있는 세션 token */
+const acceptingToolCalls = new Set<string>();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Functions — 서버 lifecycle
@@ -149,6 +159,16 @@ export function setOnToolCallArrived(token: string, cb: ToolCallArrivedCallback 
     toolCallArrivedCallbacks.set(token, cb);
   } else {
     toolCallArrivedCallbacks.delete(token);
+    acceptingToolCalls.delete(token);
+  }
+}
+
+/** 세션 token의 tools/call 수락 여부 설정 */
+export function setToolCallAcceptance(token: string, accepting: boolean): void {
+  if (accepting) {
+    acceptingToolCalls.add(token);
+  } else {
+    acceptingToolCalls.delete(token);
   }
 }
 
@@ -162,26 +182,32 @@ export function setOnToolCallArrived(token: string, cb: ToolCallArrivedCallback 
  */
 export function resolveNextToolCall(
   token: string,
+  toolCallId: string,
   result: McpCallToolResult,
 ): void {
   const log = getLogAPI();
   const queue = pendingToolCalls.get(token);
 
   if (queue && queue.length > 0) {
-    // FIFO: 첫 번째 대기 중인 tool call에 결과 전달
-    const pending = queue.shift()!;
+    const pending = queue[0]!;
+    if (pending.toolCallId !== toolCallId) {
+      throw new Error(
+        `MCP FIFO head mismatch: expected=${pending.toolCallId} actual=${toolCallId}`,
+      );
+    }
+    queue.shift();
     if (queue.length === 0) pendingToolCalls.delete(token);
-    log.debug("acp-provider", `FIFO resolve: ${pending.toolName}`);
+    log.debug("acp-provider", `FIFO resolve: ${pending.toolName} (${toolCallId})`);
     pending.resolve(makeResult(null, result));
   } else {
-    // MCP가 아직 도착하지 않음 — pre-queue
+    // MCP가 아직 도착하지 않음 — toolCallId와 함께 pre-queue
     let preQueue = pendingResults.get(token);
     if (!preQueue) {
       preQueue = [];
       pendingResults.set(token, preQueue);
     }
-    preQueue.push(result);
-    log.debug("acp-provider", `FIFO pre-queue result (${preQueue.length} pending)`);
+    preQueue.push({ toolCallId, result });
+    log.debug("acp-provider", `FIFO pre-queue result (${preQueue.length} pending, id=${toolCallId})`);
   }
 }
 
@@ -204,6 +230,7 @@ export function clearPendingForSession(token: string): void {
     pendingToolCalls.delete(token);
   }
   pendingResults.delete(token);
+  acceptingToolCalls.delete(token);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -342,15 +369,29 @@ async function processJsonRpc(
 
       // 콜백으로 event-mapper에 알림 — token 기준으로 올바른 세션에 전달
       const cb = toolCallArrivedCallbacks.get(token);
-      cb?.(p.name, p.arguments ?? {});
+      if (!cb) {
+        return makeError(id, -32000, "tool call router가 연결되지 않았습니다");
+      }
+      if (!acceptingToolCalls.has(token)) {
+        return makeError(id, -32000, "현재 ACP turn이 종료되어 tool call을 받을 수 없습니다");
+      }
+      const toolCallId = cb(p.name, p.arguments ?? {});
 
-      // pre-queued 결과가 있으면 즉시 반환
+      // pre-queued 결과가 현재 toolCallId와 일치하면 즉시 반환
       const preQueue = pendingResults.get(token);
       if (preQueue && preQueue.length > 0) {
-        const result = preQueue.shift()!;
-        if (preQueue.length === 0) pendingResults.delete(token);
-        log.debug("acp-provider", `FIFO pre-queued 결과 반환: ${p.name}`);
-        return makeResult(id, result);
+        const pendingResult = preQueue[0]!;
+        if (pendingResult.toolCallId === toolCallId) {
+          preQueue.shift();
+          if (preQueue.length === 0) pendingResults.delete(token);
+          log.debug("acp-provider", `FIFO pre-queued 결과 반환: ${p.name} (${toolCallId})`);
+          return makeResult(id, pendingResult.result);
+        }
+        return makeError(
+          id,
+          -32000,
+          `MCP FIFO pre-queue mismatch: expected=${toolCallId} actual=${pendingResult.toolCallId}`,
+        );
       }
 
       // FIFO 큐에 넣고 대기 — pi agent-loop이 결과를 전달할 때까지 HTTP 응답 보류
@@ -362,6 +403,7 @@ async function processJsonRpc(
         }
         queue.push({
           toolName: p.name!,
+          toolCallId,
           resolve: (result) => {
             // JSON-RPC id를 올바르게 설정
             resolve({ ...result, id: id ?? null });

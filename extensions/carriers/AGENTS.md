@@ -15,11 +15,11 @@ This extension is responsible solely for **registering carrier instances** with 
 carriers/
 ├── AGENTS.md          ← This file
 ├── index.ts           ← Extension entry point (wiring only — imports and registers all carriers)
-├── genesis.ts         ← CVN-01 Chief Engineer (Claude Code)
+├── genesis.ts         ← CVN-01 Chief Engineer (Codex CLI)
 ├── athena.ts          ← CVN-02 Strategic Planning Officer (Claude Code)
 ├── oracle.ts          ← CVN-09 Read-Only Strategic Technical Advisor (Claude Code)
 ├── sentinel.ts        ← CVN-04 The Inquisitor / QA & Security Lead (Codex CLI)
-├── vanguard.ts        ← CVN-06 Scout Specialist (Gemini CLI)
+├── vanguard.ts        ← CVN-06 Scout Specialist (Codex CLI)
 ├── echelon.ts         ← CVN-07 Chief Intelligence Officer (Gemini CLI)
 └── chronicle.ts       ← CVN-08 Chief Knowledge Officer (Gemini CLI · docs + change-impact reporting)
 ```

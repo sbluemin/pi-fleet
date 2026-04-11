@@ -30,7 +30,7 @@ Beyond simple parallel API calls, the system adopts a **naval fleet metaphor** t
 | **Fleet** | The fleet | The logical unit encompassing the entire agent harness system. |
 | **Fleet Admiral** | Supreme commander | The **user** who wields the tool. Sets the ultimate strategy and final objectives for the fleet. |
 | **Admiral** | Fleet commander | The **main orchestrator (PI's LLM router)** that plans operations and issues commands to the entire fleet on behalf of the Fleet Admiral. |
-| **Carrier** | Aircraft carrier | An **execution instance (process)** of an individual CLI tool such as Genesis (Claude Code), Sentinel (Codex), or Vanguard (Gemini). A large, independent asset with its own internal sub-agent ecosystem. Each carrier has its own persona and configuration, managed in the `carriers/` extension. |
+| **Carrier** | Aircraft carrier | An **execution instance (process)** of an individual CLI tool such as Genesis (Codex), Sentinel (Codex), or Vanguard (Codex). A large, independent asset with its own internal sub-agent ecosystem. Each carrier has its own persona and configuration, managed in the `carriers/` extension. |
 
 ## Architecture — Agent Workflow
 
@@ -41,11 +41,11 @@ PI is the **host agent** (orchestrator). Genesis, Sentinel, and Vanguard are **s
 | Speaker | Role |
 |---------|------|
 | **PI** (host) | Orchestrator — routes requests, invokes tools, synthesizes cross-reports |
-| **Genesis** (sub) | CVN-01 Chief Engineer (Claude Code CLI via ACP) |
+| **Genesis** (sub) | CVN-01 Chief Engineer (Codex CLI via ACP) |
 | **Athena** (sub) | CVN-02 Strategic Planning Officer (Claude Code CLI via ACP) |
 | **Oracle** (sub) | CVN-09 Strategic Technical Advisor — read-only (Claude Code CLI via ACP) |
 | **Sentinel** (sub) | CVN-04 The Inquisitor / QA & Security Lead (Codex CLI via ACP) |
-| **Vanguard** (sub) | CVN-06 Scout Specialist (Gemini CLI via ACP) |
+| **Vanguard** (sub) | CVN-06 Scout Specialist (Codex CLI via ACP) |
 | **Echelon** (sub) | CVN-07 Chief Intelligence Officer (Gemini CLI via ACP) |
 | **Chronicle** (sub) | CVN-08 Chief Knowledge Officer — documentation, change-impact summaries, and release communication (Gemini CLI via ACP) |
 

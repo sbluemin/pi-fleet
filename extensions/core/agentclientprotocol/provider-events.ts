@@ -47,7 +47,7 @@ export interface EventMapperHandle {
   /** pi tool 이름 Set 설정 — MCP tool(pi tool) vs CLI 내장 tool 구분용 */
   setPiToolNames: (names: Set<string>) => void;
   /** MCP HTTP 요청 도착 시 호출 — toolCall 블록 + done="toolUse" 발행 */
-  emitMcpToolCall: (toolName: string, args: Record<string, unknown>) => void;
+  emitMcpToolCall: (toolName: string, args: Record<string, unknown>, toolCallId: string) => boolean;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -384,16 +384,15 @@ export function createEventMapper(
     setTargetSessionId: (id: string) => { targetSessionId = id; },
     setPiToolNames: (names: Set<string>) => { piToolNames = names; },
 
-    emitMcpToolCall: (toolName: string, args: Record<string, unknown>): void => {
-      if (finished) return;
+    emitMcpToolCall: (toolName: string, args: Record<string, unknown>, toolCallId: string): boolean => {
+      if (finished) return false;
       ensureStarted();
       closeTextBlock();
       closeThinkingBlock();
 
-      const toolId = `acp-tool-${Date.now()}`;
       const block = {
         type: "toolCall" as const,
-        id: toolId,
+        id: toolCallId,
         name: toolName,
         arguments: args,
       };
@@ -410,7 +409,8 @@ export function createEventMapper(
       stream.push({ type: "done", reason: "toolUse", message: output });
       stream.end();
 
-      debug(`MCP toolCall → done=toolUse: ${toolName} (id=${toolId})`);
+      debug(`MCP toolCall → done=toolUse: ${toolName} (id=${toolCallId})`);
+      return true;
     },
   };
 }

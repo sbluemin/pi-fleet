@@ -3,7 +3,7 @@
  *
  * UnifiedAgentClient를 통해 Gemini/Codex/Claude CLI 백엔드를 pi TUI에 통합.
  * Virtual Tool 방식: ACP CLI가 투명 스트리밍 백엔드. pi tool 루프 우회.
- * context.messages에서 최신 user 메시지만 추출하여 sendMessage()에 전달.
+ * 신규 세션 시 pi 대화내역을 XML 구조화 히스토리로 첫 프롬프트에 주입.
  *
  * imports → types/interfaces → constants → functions 순서 준수.
  */
@@ -22,8 +22,8 @@ import type { CliType, AcpMcpServer } from "@sbluemin/unified-agent";
 import {
   type AcpSessionState,
   type AcpProviderState,
+  type PendingToolCallState,
   DEFAULT_PROMPT_IDLE_TIMEOUT,
-  CLI_CAPABILITIES,
   parseModelId,
   hashSystemPrompt,
   getOrInitState,
@@ -31,14 +31,13 @@ import {
 import { acquireSession, releaseSession } from "./executor.js";
 import { createEventMapper } from "./provider-events.js";
 import { getLogAPI } from "../log/bridge.js";
-import { getSessionStore } from "./runtime.js";
 import {
   startMcpServer,
   stopMcpServer,
   resolveNextToolCall,
   clearPendingForSession,
-  hasPendingToolCall,
   setOnToolCallArrived,
+  setToolCallAcceptance,
   type McpCallToolResult,
 } from "./provider-mcp.js";
 import {
@@ -50,7 +49,31 @@ import {
 } from "./provider-tools.js";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Internal helpers
+// Types / Interfaces
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface StreamOptionsLike extends SimpleStreamOptions {
+  cwd?: string;
+  sessionId?: string;
+  piSessionId?: string;
+  conversationId?: string;
+}
+
+interface ToolResultEnvelope {
+  content: unknown;
+  isError?: boolean;
+  toolCallId?: string;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Constants
+// ═══════════════════════════════════════════════════════════════════════════
+
+const SESSION_KEY_PREFIX = "acp";
+const SESSION_SCOPE_PREFIX = "session";
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Functions
 // ═══════════════════════════════════════════════════════════════════════════
 
 /** 디버그 로깅 — log 시스템 사용 */
@@ -86,9 +109,223 @@ function extractLatestUserMessage(context: Context): string | null {
   return null;
 }
 
-/** pi session key 생성 — pi에서 전달하는 context 기반 */
-function getSessionKey(cwd: string): string {
-  return `acp:${cwd}`;
+/** 메시지 content에서 텍스트 추출 (string | ContentBlock[]) */
+function extractMessageText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    const texts: string[] = [];
+    for (const block of content) {
+      if (block.type === "text" && block.text) texts.push(block.text);
+    }
+    return texts.join("\n");
+  }
+  return "";
+}
+
+/**
+ * 신규 세션의 첫 프롬프트용 XML 구조화 프롬프트 생성.
+ * systemPrompt + 대화 히스토리(user/assistant) + 현재 사용자 요청을 XML 태그로 구조화.
+ * 사용자 요청은 항상 마지막에 위치.
+ */
+function buildInitialPrompt(context: Context, currentUserMessage: string): string {
+  const parts: string[] = [];
+
+  // systemPrompt
+  if (context.systemPrompt) {
+    parts.push(`<system-instructions>\n${context.systemPrompt}\n</system-instructions>`);
+  }
+
+  // 대화 히스토리 — 마지막 user 메시지 제외, user/assistant만 포함
+  const historyMessages = context.messages.slice(0, -1);
+  const historyParts: string[] = [];
+  for (const msg of historyMessages) {
+    if (msg.role !== "user" && msg.role !== "assistant") continue;
+    const text = extractMessageText(msg.content);
+    if (!text) continue;
+    historyParts.push(`<message role="${msg.role}">\n${text}\n</message>`);
+  }
+
+  if (historyParts.length > 0) {
+    parts.push(`<conversation-history>\n${historyParts.join("\n")}\n</conversation-history>`);
+  }
+
+  // 현재 사용자 요청 — 항상 마지막
+  parts.push(`<user-request>\n${currentUserMessage}\n</user-request>`);
+
+  return parts.join("\n\n");
+}
+
+/** stream 옵션에서 provider scope 키 추출 */
+function getSessionScopeKey(options: StreamOptionsLike | undefined, cwd: string): string {
+  if (options?.sessionId) {
+    return `${SESSION_SCOPE_PREFIX}:pi:${options.sessionId}`;
+  }
+  if (options?.piSessionId) {
+    return `${SESSION_SCOPE_PREFIX}:pi-session:${options.piSessionId}`;
+  }
+  if (options?.conversationId) {
+    return `${SESSION_SCOPE_PREFIX}:conversation:${options.conversationId}`;
+  }
+  throw new Error(`ACP 세션 스코프 식별자가 없습니다 (cwd fallback 금지): ${cwd}`);
+}
+
+/** provider 세션 키 생성 — cwd 단독 키를 금지하고 cli를 항상 포함 */
+function getSessionKey(cli: CliType, scopeKey: string): string {
+  return `${SESSION_KEY_PREFIX}:${cli}:${scopeKey}`;
+}
+
+/** scope 키로 기존 세션 조회 */
+function getSessionByScope(
+  state: AcpProviderState,
+  cli: CliType,
+  scopeKey: string,
+): AcpSessionState | undefined {
+  const sessionKey = getSessionKey(cli, scopeKey);
+  const session = state.sessions.get(sessionKey);
+  if (!session) return undefined;
+  return session.cli === cli ? session : undefined;
+}
+
+/** session을 provider 상태에 등록/갱신 */
+function registerSession(
+  state: AcpProviderState,
+  session: AcpSessionState,
+): void {
+  state.sessions.set(session.sessionKey, session);
+  let scopeSessions = state.sessionKeysByScope.get(session.scopeKey);
+  if (!scopeSessions) {
+    scopeSessions = new Set();
+    state.sessionKeysByScope.set(session.scopeKey, scopeSessions);
+  }
+  scopeSessions.add(session.sessionKey);
+}
+
+/** session의 toolCall 라우팅 상태를 정리 */
+function clearSessionRoutingState(
+  state: AcpProviderState,
+  session: AcpSessionState,
+): void {
+  for (const pending of session.pendingToolCalls) {
+    state.toolCallToSessionKey.delete(pending.toolCallId);
+  }
+  session.pendingToolCalls = [];
+  session.pendingToolCallNotifier = null;
+  session.turnActive = false;
+  if (session.mcpSessionToken) {
+    setToolCallAcceptance(session.mcpSessionToken, false);
+  }
+}
+
+/** session을 provider 상태에서 제거 */
+function removeSession(
+  state: AcpProviderState,
+  session: AcpSessionState,
+): void {
+  clearSessionRoutingState(state, session);
+  const scopeSessions = state.sessionKeysByScope.get(session.scopeKey);
+  scopeSessions?.delete(session.sessionKey);
+  if (scopeSessions && scopeSessions.size === 0) {
+    state.sessionKeysByScope.delete(session.scopeKey);
+  }
+  state.sessions.delete(session.sessionKey);
+}
+
+/** MCP toolCallId를 세션 FIFO에 등록 */
+function registerPendingToolCall(
+  state: AcpProviderState,
+  session: AcpSessionState,
+  toolName: string,
+  args: Record<string, unknown>,
+): PendingToolCallState {
+  const toolCallId = crypto.randomUUID();
+  const pending: PendingToolCallState = {
+    toolCallId,
+    toolName,
+    args,
+    emitted: false,
+  };
+  session.pendingToolCalls.push(pending);
+  session.turnActive = true;
+  state.toolCallToSessionKey.set(toolCallId, session.sessionKey);
+  return pending;
+}
+
+/** FIFO head의 toolCallId를 세션에서 소비 */
+function consumePendingToolCall(
+  state: AcpProviderState,
+  session: AcpSessionState,
+  toolCallId: string,
+): void {
+  const head = session.pendingToolCalls[0];
+  if (!head || head.toolCallId !== toolCallId) {
+    throw new Error(
+      `pending MCP head mismatch: expected=${head?.toolCallId ?? "none"} actual=${toolCallId}`,
+    );
+  }
+  session.pendingToolCalls.shift();
+  state.toolCallToSessionKey.delete(toolCallId);
+}
+
+/** 현재 세션의 pending FIFO head 조회 */
+function getPendingToolCallHead(session: AcpSessionState): PendingToolCallState | undefined {
+  return session.pendingToolCalls[0];
+}
+
+/** 현재 turn에서 아직 emit되지 않은 head MCP call을 pi로 전달 */
+function emitNextPendingToolCall(
+  mapper: ReturnType<typeof createEventMapper>,
+  session: AcpSessionState,
+): boolean {
+  const head = getPendingToolCallHead(session);
+  if (!head || head.emitted) return false;
+  const emitted = mapper.emitMcpToolCall(head.toolName, head.args, head.toolCallId);
+  if (emitted) {
+    head.emitted = true;
+  }
+  return emitted;
+}
+
+/** 세션 수명 동안 유지되는 MCP tool router 설치 */
+function installToolCallRouter(
+  state: AcpProviderState,
+  session: AcpSessionState,
+): void {
+  if (!session.mcpSessionToken) return;
+  setOnToolCallArrived(session.mcpSessionToken, (toolName, args) => {
+    const pending = registerPendingToolCall(state, session, toolName, args);
+    session.pendingToolCallNotifier?.();
+    return pending.toolCallId;
+  });
+  setToolCallAcceptance(session.mcpSessionToken, false);
+}
+
+/** toolResult 묶음이 가리키는 원본 ACP 세션 조회 */
+function resolveToolResultSession(
+  state: AcpProviderState,
+  toolResults: ToolResultEnvelope[],
+): AcpSessionState | null {
+  let resolvedSession: AcpSessionState | null = null;
+  for (const result of toolResults) {
+    if (!result.toolCallId) {
+      return null;
+    }
+    const sessionKey = state.toolCallToSessionKey.get(result.toolCallId);
+    if (!sessionKey) {
+      return null;
+    }
+    const session = state.sessions.get(sessionKey);
+    if (!session) {
+      return null;
+    }
+    if (!resolvedSession) {
+      resolvedSession = session;
+      continue;
+    }
+    if (resolvedSession.sessionKey !== session.sessionKey) {
+      throw new Error("서로 다른 ACP 세션의 toolResult가 한 턴에 섞였습니다");
+    }
+  }
+  return resolvedSession;
 }
 
 /**
@@ -99,13 +336,14 @@ function getSessionKey(cwd: string): string {
 async function ensureSession(
   cli: CliType,
   backendModel: string,
+  scopeKey: string,
   cwd: string,
   systemPromptHash: string,
   tools?: Tool[],
 ): Promise<AcpSessionState> {
   const state = getOrInitState();
-  const key = getSessionKey(cwd);
-  let session = state.sessions.get(key);
+  const key = getSessionKey(cli, scopeKey);
+  let session = getSessionByScope(state, cli, scopeKey);
 
   // tool hash 계산
   const currentToolHash = tools && tools.length > 0 ? computeToolHash(tools) : undefined;
@@ -129,20 +367,15 @@ async function ensureSession(
       );
       await session.client?.endSession().catch(() => {});
       await session.client?.disconnect().catch(() => {});
-      releaseSession(key);
+      releaseSession(session.sessionKey);
       session.client = null;
-      if (session.mcpSessionToken) removeToolsForSession(session.mcpSessionToken);
-      state.sessions.delete(key);
+      if (session.mcpSessionToken) {
+        clearPendingForSession(session.mcpSessionToken);
+        removeToolsForSession(session.mcpSessionToken);
+        setOnToolCallArrived(session.mcpSessionToken, null);
+      }
+      removeSession(state, session);
       session = undefined;
-    }
-  }
-
-  if (session && !session.client && session.sessionId) {
-    const cap = CLI_CAPABILITIES[cli as keyof typeof CLI_CAPABILITIES];
-    if (!cap?.supportsSessionLoad) {
-      debug(`CLI ${cli}는 session/load 미지원 — 저장된 sessionId 폐기`);
-      getSessionStore().clear(key);
-      session.sessionId = null;
     }
   }
 
@@ -158,12 +391,13 @@ async function ensureSession(
         // setModel 실패 — 세션 폐기 후 재생성으로 fallback
         debug(`setModel 실패, 세션 재생성으로 fallback:`, errorMessage(err));
         await disconnectSession(session);
-        releaseSession(key);
-        state.sessions.delete(key);
+        releaseSession(session.sessionKey);
+        removeSession(state, session);
         session = undefined;
       }
     }
     if (session) {
+      installToolCallRouter(state, session);
       debug(`기존 세션 재사용: ${session.sessionId!.slice(0, 8)}`);
       return session;
     }
@@ -191,14 +425,10 @@ async function ensureSession(
     }
   }
 
-  // resume 시도는 acquireSession이 SessionMapStore를 기준으로 수행하므로,
-  // provider가 저장해둔 sessionId를 store에 먼저 주입한다.
-  if (session?.sessionId) {
-    getSessionStore().set(key, session.sessionId);
-  }
-
-  // 새 세션 생성 또는 resume 복원
+  // 새 세션 생성
   const newSession: AcpSessionState = {
+    sessionKey: key,
+    scopeKey,
     client: null,
     sessionId: null,
     cwd,
@@ -208,6 +438,9 @@ async function ensureSession(
     currentModel: backendModel,
     mcpSessionToken: mcpActive ? sessionToken : undefined,
     toolHash: currentToolHash,
+    turnActive: false,
+    pendingToolCalls: [],
+    pendingToolCallNotifier: null,
   };
 
   try {
@@ -224,7 +457,8 @@ async function ensureSession(
     });
     newSession.client = acquired.client;
     newSession.sessionId = acquired.sessionId || acquired.connectionInfo.sessionId || null;
-    state.sessions.set(key, newSession);
+    registerSession(state, newSession);
+    installToolCallRouter(state, newSession);
     acquired.release();
     if (newSession.sessionId) {
       debug(`세션 생성 완료: ${newSession.sessionId.slice(0, 8)}`);
@@ -236,9 +470,8 @@ async function ensureSession(
     releaseSession(key);
     if (session?.sessionId) {
       debug(`session/load 실패, 새 세션으로 fallback: ${errorMessage(err)}`);
-      getSessionStore().clear(key);
       session.sessionId = null;
-      return ensureSession(cli, backendModel, cwd, systemPromptHash, tools);
+      return ensureSession(cli, backendModel, scopeKey, cwd, systemPromptHash, tools);
     }
     throw err;
   }
@@ -269,9 +502,68 @@ async function disconnectSession(
   }
   // MCP tool registry 정리
   if (session.mcpSessionToken) {
+    clearPendingForSession(session.mcpSessionToken);
     removeToolsForSession(session.mcpSessionToken);
+    setOnToolCallArrived(session.mcpSessionToken, null);
     session.mcpSessionToken = undefined;
   }
+  session.pendingToolCallNotifier = null;
+  session.turnActive = false;
+}
+
+/** 현재 ACP turn의 listener/abort/toolCall acceptance 수명주기 관리 */
+function createTurnCleanup(
+  session: AcpSessionState,
+  mapper: ReturnType<typeof createEventMapper>,
+  removeListeners: () => void,
+  cleanupAbort: () => void,
+): () => void {
+  let cleaned = false;
+
+  return (): void => {
+    if (cleaned) return;
+    cleaned = true;
+    removeListeners();
+    cleanupAbort();
+    if (session.mcpSessionToken) {
+      setToolCallAcceptance(session.mcpSessionToken, false);
+    }
+    if (mapper.output.stopReason !== "toolUse") {
+      session.turnActive = false;
+      session.sendPromptError = false;
+    }
+  };
+}
+
+/** mapper 종료 지점(toolUse 포함)에 turn cleanup을 연결 */
+function attachTurnCleanup(
+  session: AcpSessionState,
+  mapper: ReturnType<typeof createEventMapper>,
+  removeListeners: () => void,
+  cleanupAbort: () => void,
+): void {
+  const cleanup = createTurnCleanup(session, mapper, removeListeners, cleanupAbort);
+  const originalFinishDone = mapper.finishDone;
+  const originalFinishWithError = mapper.finishWithError;
+  const originalEmitMcpToolCall = mapper.emitMcpToolCall;
+
+  mapper.finishDone = (): void => {
+    originalFinishDone();
+    cleanup();
+  };
+
+  mapper.finishWithError = (reason: "aborted" | "error", message: string): void => {
+    originalFinishWithError(reason, message);
+    cleanup();
+  };
+
+  mapper.emitMcpToolCall = (toolName: string, args: Record<string, unknown>, toolCallId: string): boolean => {
+    const emitted = originalEmitMcpToolCall(toolName, args, toolCallId);
+    if (emitted) {
+      cleanup();
+    }
+    return emitted;
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -300,44 +592,42 @@ export function streamAcp(
   }
 
   const { cli, backendModel } = parsed;
-  const cwd = (options as { cwd?: string } | undefined)?.cwd ?? process.cwd();
+  const mapper = createEventMapper(model.id);
+  const streamOptions = options as StreamOptionsLike | undefined;
+  const cwd = streamOptions?.cwd ?? process.cwd();
+  let scopeKey: string;
+  try {
+    scopeKey = getSessionScopeKey(streamOptions, cwd);
+  } catch (err) {
+    queueMicrotask(() => {
+      mapper.finishWithError("error", errorMessage(err));
+    });
+    return mapper.stream;
+  }
   const systemPromptHash = hashSystemPrompt(context.systemPrompt);
   const state = getOrInitState();
-  const key = getSessionKey(cwd);
-
-  // ── Case 감지: 마지막 메시지가 toolResult이고 activeSessionKey가 있으면 Case 2 ──
-  const lastMsg = context.messages[context.messages.length - 1];
-  const isLastMsgToolResult = lastMsg?.role === "toolResult";
-  let isToolResultDelivery = isLastMsgToolResult && state.activeSessionKey === key;
-
-  // fallback: sendPrompt idle timeout으로 activeSessionKey가 소실된 경우에만 복원.
-  // 조건: (1) activeSessionKey가 null, (2) sendPromptError 플래그 설정됨,
-  // (3) 세션이 유효, (4) 실제 pending MCP tool call이 FIFO 큐에 존재
-  if (!isToolResultDelivery && isLastMsgToolResult && state.activeSessionKey === null) {
-    const session = state.sessions.get(key);
-    if (
-      session?.client && session.sessionId && session.mcpSessionToken &&
-      session.sendPromptError === true &&
-      hasPendingToolCall(session.mcpSessionToken)
-    ) {
-      debug("Case 2 fallback: sendPromptError + pending FIFO 확인 → activeSessionKey 복원");
-      session.sendPromptError = false; // 플래그 소비
-      state.activeSessionKey = key; // 복원
-      isToolResultDelivery = true;
-    }
-  }
-
-  const mapper = createEventMapper(model.id);
+  const toolResults = extractAllToolResults(context);
+  const isToolResultDelivery = toolResults.length > 0;
+  const toolResultSession = isToolResultDelivery ? resolveToolResultSession(state, toolResults) : null;
 
   if (isToolResultDelivery) {
+    if (!toolResultSession) {
+      queueMicrotask(() => {
+        mapper.finishWithError(
+          "error",
+          "toolResult 라우팅 실패: toolCallId로 원본 ACP 세션을 찾을 수 없습니다",
+        );
+      });
+      return mapper.stream;
+    }
     // ── Case 2: tool result delivery ──
-    runToolResultDelivery(key, context, model, options, mapper).catch((err) => {
+    runToolResultDelivery(toolResultSession, toolResults, model, options, mapper).catch((err) => {
       debug(`tool result delivery 에러:`, errorMessage(err));
       mapper.finishWithError("error", errorMessage(err));
     });
   } else {
     // ── Case 1: fresh query ──
-    runFreshQuery(cli, backendModel, cwd, context, systemPromptHash, model, options, mapper).catch((err) => {
+    runFreshQuery(cli, backendModel, scopeKey, cwd, context, systemPromptHash, model, options, mapper).catch((err) => {
       debug(`streamAcp 치명적 에러:`, errorMessage(err));
       mapper.finishWithError("error", errorMessage(err));
     });
@@ -353,21 +643,19 @@ export function streamAcp(
 async function runFreshQuery(
   cli: CliType,
   backendModel: string,
+  scopeKey: string,
   cwd: string,
   context: Context,
   systemPromptHash: string,
-  model: Model<any>,
+  _model: Model<any>,
   options: SimpleStreamOptions | undefined,
   mapper: ReturnType<typeof createEventMapper>,
 ): Promise<void> {
   const state = getOrInitState();
-  const key = getSessionKey(cwd);
-
-  // 이전 activeQuery 정리
-  state.activeSessionKey = null;
+  const key = getSessionKey(cli, scopeKey);
 
   // 새 prompt 시작 시 sendPromptError 플래그 초기화
-  const existingSession = state.sessions.get(key);
+  const existingSession = getSessionByScope(state, cli, scopeKey);
   if (existingSession?.sendPromptError) {
     existingSession.sendPromptError = false;
     debug("sendPromptError 플래그 초기화 (새 prompt 시작)");
@@ -392,7 +680,7 @@ async function runFreshQuery(
   // ── 세션 확보 ──
   let session: AcpSessionState;
   try {
-    session = await ensureSession(cli, backendModel, cwd, systemPromptHash, context.tools);
+    session = await ensureSession(cli, backendModel, scopeKey, cwd, systemPromptHash, context.tools);
   } catch (err) {
     mapper.finishWithError("error", `ACP 연결 실패: ${errorMessage(err)}`);
     return;
@@ -403,11 +691,11 @@ async function runFreshQuery(
     return;
   }
 
-  // ── systemPrompt prefix 주입 (첫 프롬프트만) ──
+  // ── 프롬프트 구성 ──
   let finalPrompt = promptText;
-  if (!session.firstPromptSent && context.systemPrompt) {
-    finalPrompt = `${context.systemPrompt}\n\n---\n\n${promptText}`;
-    debug("systemPrompt prefix 주입 (첫 프롬프트)");
+  if (!session.firstPromptSent) {
+    finalPrompt = buildInitialPrompt(context, promptText);
+    debug("XML 구조화 초기 프롬프트 주입 (첫 프롬프트)");
   }
 
   // 매퍼 설정
@@ -418,11 +706,17 @@ async function runFreshQuery(
 
   // ── 이벤트 리스너 등록 ──
   const client = session.client;
-  const removeListeners = wireListeners(client, mapper, session.mcpSessionToken);
+  const removeListeners = wireListeners(client, mapper, session, session.mcpSessionToken);
 
   // ── abort 핸들링 ──
   const { wasAborted, cleanupAbort } = setupAbortHandling(session, state, mapper, removeListeners, options);
   if (wasAborted.value) return;
+
+  session.turnActive = true;
+  if (session.mcpSessionToken) {
+    setToolCallAcceptance(session.mcpSessionToken, true);
+  }
+  attachTurnCleanup(session, mapper, removeListeners, cleanupAbort);
 
   // ── sendMessage — fire-and-forget ──
   // sendMessage는 promptComplete까지 resolve되지 않음.
@@ -433,29 +727,24 @@ async function runFreshQuery(
   client.sendMessage(finalPrompt).then(() => {
     session.firstPromptSent = true;
     session.lastSystemPromptHash = systemPromptHash;
-    // promptComplete 이벤트가 발화되면 mapper가 done="stop" emit
-    // → 여기서는 activeSessionKey 정리만
-    state.activeSessionKey = null;
+    if (session.pendingToolCalls.length === 0) {
+      session.turnActive = false;
+    }
     debug("sendMessage 완료 (promptComplete 처리됨)");
   }).catch((err) => {
     if (wasAborted.value) return;
     const msg = errorMessage(err);
     debug(`sendMessage 에러: ${msg}`);
-    // activeSessionKey를 보존 — pi agent-loop이 tool 실행 중이면
-    // sendMessage reject을 인지하지 못하고 toolResult로 재호출하므로,
-    // Case 2 분기가 정상 동작하려면 activeSessionKey가 유지되어야 함.
-    // 대신 에러 플래그를 설정하여 Case 2에서 세션 상태 검증에 활용.
     session.sendPromptError = true;
+    session.turnActive = session.pendingToolCalls.length > 0;
     debug(`sendPromptError 플래그 설정: key=${key}`);
     // mapper가 아직 finished가 아니면 에러 발행
     mapper.finishWithError("error", `ACP 요청 실패: ${msg}`);
   }).finally(() => {
-    removeListeners();
-    cleanupAbort();
+    if (session.mcpSessionToken) {
+      setToolCallAcceptance(session.mcpSessionToken, false);
+    }
   });
-
-  // activeSessionKey 설정 — tool result delivery를 위해
-  state.activeSessionKey = key;
 
   // 매퍼 스트림이 종료될 때까지 대기 (done="toolUse" 또는 done="stop")
   // 스트림 종료는 mapper 내부에서 처리됨 — 여기서는 기다리지 않음
@@ -466,26 +755,27 @@ async function runFreshQuery(
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function runToolResultDelivery(
-  key: string,
-  context: Context,
-  model: Model<any>,
+  session: AcpSessionState,
+  toolResults: ToolResultEnvelope[],
+  _model: Model<any>,
   options: SimpleStreamOptions | undefined,
   mapper: ReturnType<typeof createEventMapper>,
 ): Promise<void> {
   const state = getOrInitState();
-  const session = state.sessions.get(key);
 
   if (!session?.client || !session.sessionId || !session.mcpSessionToken) {
     mapper.finishWithError("error", "tool result delivery: 세션이 유효하지 않습니다");
-    state.activeSessionKey = null;
+    clearSessionRoutingState(state, session);
     return;
   }
 
   debug("Case 2: tool result delivery");
 
-  // ── toolResult 추출 및 MCP 결과로 변환 ──
-  const toolResults = extractAllToolResults(context);
   for (const result of toolResults) {
+    const head = getPendingToolCallHead(session);
+    if (!result.toolCallId || head?.toolCallId !== result.toolCallId) {
+      throw new Error("toolResult의 toolCallId가 현재 ACP 세션의 FIFO head와 일치하지 않습니다");
+    }
     const mcpResult: McpCallToolResult = {
       content: [],
       isError: result.isError ?? false,
@@ -506,7 +796,8 @@ async function runToolResultDelivery(
     }
 
     // FIFO 큐 resolve — MCP HTTP 응답 반환
-    resolveNextToolCall(session.mcpSessionToken, mcpResult);
+    resolveNextToolCall(session.mcpSessionToken, result.toolCallId, mcpResult);
+    consumePendingToolCall(state, session, result.toolCallId);
     debug(`tool result → MCP resolve 완료`);
   }
 
@@ -518,39 +809,22 @@ async function runToolResultDelivery(
 
   // 이벤트 리스너 재등록 — ACP CLI가 MCP 응답 받고 계속 처리
   const client = session.client;
-  const removeListeners = wireListeners(client, mapper, session.mcpSessionToken);
+  const removeListeners = wireListeners(client, mapper, session, session.mcpSessionToken);
 
   // abort 핸들링
   const { wasAborted, cleanupAbort } = setupAbortHandling(session, state, mapper, removeListeners, options);
   if (wasAborted.value) return;
+  if (session.mcpSessionToken) {
+    setToolCallAcceptance(session.mcpSessionToken, true);
+  }
 
   // 매퍼가 done="toolUse" (다음 tool call) 또는 done="stop" (완료)을 emit할 때까지 대기
   // sendMessage()는 Case 1에서 이미 호출되어 pending — 다시 호출하지 않음
   // mapper의 finishDone/finishWithError를 래핑하여 정리 로직 트리거
   // (EventStream에는 .on("end") 없음 — push/end/[Symbol.asyncIterator]만 지원)
+  attachTurnCleanup(session, mapper, removeListeners, cleanupAbort);
 
-  const originalFinishDone = mapper.finishDone;
-  const originalFinishWithError = mapper.finishWithError;
-
-  const cleanup = (): void => {
-    removeListeners();
-    cleanupAbort();
-    // done="stop"이면 activeSessionKey + sendPromptError 정리
-    if (mapper.output.stopReason !== "toolUse") {
-      state.activeSessionKey = null;
-      session.sendPromptError = false;
-    }
-  };
-
-  mapper.finishDone = (): void => {
-    originalFinishDone();
-    cleanup();
-  };
-
-  mapper.finishWithError = (reason: "aborted" | "error", message: string): void => {
-    originalFinishWithError(reason, message);
-    cleanup();
-  };
+  emitNextPendingToolCall(mapper, session);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -580,7 +854,7 @@ function setupAbortHandling(
     if (session.mcpSessionToken) {
       clearPendingForSession(session.mcpSessionToken);
     }
-    state.activeSessionKey = null;
+    clearSessionRoutingState(state, session);
     mapper.finishWithError("aborted", "Operation aborted");
     removeListeners();
   };
@@ -606,6 +880,7 @@ function setupAbortHandling(
 function wireListeners(
   client: UnifiedAgentClient,
   mapper: ReturnType<typeof createEventMapper>,
+  session: AcpSessionState,
   mcpToken?: string,
 ): () => void {
   const { listeners } = mapper;
@@ -618,11 +893,11 @@ function wireListeners(
   client.on("error", listeners.onError);
   client.on("exit", listeners.onExit);
 
-  // MCP tool call 도착 콜백 — token 기준 격리
+  // 현재 turn에서만 flush notifier를 연결
   if (mcpToken) {
-    setOnToolCallArrived(mcpToken, (toolName, args) => {
-      mapper.emitMcpToolCall(toolName, args);
-    });
+    session.pendingToolCallNotifier = () => {
+      emitNextPendingToolCall(mapper, session);
+    };
   }
 
   return (): void => {
@@ -633,15 +908,17 @@ function wireListeners(
     client.off("promptComplete", listeners.onPromptComplete);
     client.off("error", listeners.onError);
     client.off("exit", listeners.onExit);
-    if (mcpToken) setOnToolCallArrived(mcpToken, null);
+    if (mcpToken && session.pendingToolCallNotifier) {
+      session.pendingToolCallNotifier = null;
+    }
   };
 }
 
 /** context.messages에서 모든 toolResult 추출 (끝에서부터 연속) */
 function extractAllToolResults(
   context: Context,
-): Array<{ content: unknown; isError?: boolean; toolCallId?: string }> {
-  const results: Array<{ content: unknown; isError?: boolean; toolCallId?: string }> = [];
+): ToolResultEnvelope[] {
+  const results: ToolResultEnvelope[] = [];
   for (let i = context.messages.length - 1; i >= 0; i--) {
     const msg = context.messages[i];
     if (msg.role === "toolResult") {
@@ -664,13 +941,9 @@ function extractAllToolResults(
 /**
  * 모든 ACP 세션 정리.
  * session_shutdown 이벤트에서 호출.
- * 종료 전 sessionId를 파일에 영속화하여 resume 시 복원 가능.
  */
 export async function cleanupAll(): Promise<void> {
   const state = getOrInitState();
-
-  // sessionId 영속화 (disconnect 전에 저장)
-  saveAcpSessions(state);
 
   await clearSessionsAndPreSpawn(state);
 
@@ -682,113 +955,28 @@ export async function cleanupAll(): Promise<void> {
 
 /**
  * session_start 이벤트 처리.
- * new: 모든 상태 초기화
- * resume: 기존 세션 유지 (reconnect 시도)
- * fork: 새 상태로 시작
+ * 모든 reason에서 기존 세션 정리 — 새 연결 시 히스토리로 컨텍스트 전달.
  */
 export async function handleSessionStart(
   reason: "new" | "resume" | "fork",
-  piSessionId?: string,
+  _piSessionId?: string,
 ): Promise<void> {
   const state = getOrInitState();
 
-  if (reason === "new" || reason === "fork") {
-    await clearSessionsAndPreSpawn(state);
-    debug(`session_start(${reason}): 세션 + MCP 초기화`);
-  } else if (reason === "resume") {
-    restoreAcpSessions(state, piSessionId);
-    debug("session_start(resume): 세션 상태 복원 완료");
-  }
+  // new/fork/resume 모두 기존 세션 정리 — 새 연결 시 히스토리로 컨텍스트 전달
+  await clearSessionsAndPreSpawn(state);
+  debug(`session_start(${reason}): 세션 + MCP 초기화`);
 }
 
-/** 세션, MCP tool registry, activeSessionKey 일괄 정리 */
+/** 세션, MCP tool registry, toolCall 라우팅 상태 일괄 정리 */
 async function clearSessionsAndPreSpawn(state: AcpProviderState): Promise<void> {
-  for (const [key, session] of state.sessions) {
+  for (const session of state.sessions.values()) {
+    clearSessionRoutingState(state, session);
     await disconnectSession(session);
-    state.sessions.delete(key);
-    releaseSession(key);
+    releaseSession(session.sessionKey);
   }
+  state.sessions.clear();
+  state.sessionKeysByScope.clear();
+  state.toolCallToSessionKey.clear();
   clearAllTools();
-  state.activeSessionKey = null;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// 세션 영속화 — SessionMapStore (네임스페이스 키: acp:{cli}:{field})
-// ═══════════════════════════════════════════════════════════════════════════
-
-/** 세션 상태를 SessionMapStore에 저장 — shutdown 시 호출 */
-function saveAcpSessions(state: AcpProviderState): void {
-  try {
-    const store = getSessionStore();
-    // 기존 acp: 키 정리 — 현재 state에 없는 CLI의 잔여 키 제거
-    const allEntries = store.getAll();
-    for (const key of Object.keys(allEntries)) {
-      if (key.startsWith("acp:")) {
-        store.clear(key);
-      }
-    }
-    // 현재 세션 저장
-    let count = 0;
-    for (const [_key, session] of state.sessions) {
-      if (!session.sessionId) continue;
-      const prefix = `acp:${session.cli}`;
-      store.set(`${prefix}:sessionId`, session.sessionId);
-      store.set(`${prefix}:cli`, session.cli);
-      store.set(`${prefix}:currentModel`, session.currentModel);
-      store.set(`${prefix}:lastSystemPromptHash`, session.lastSystemPromptHash);
-      store.set(`${prefix}:cwd`, session.cwd);
-      count++;
-    }
-    if (count > 0) debug(`세션 상태 저장: ${count}개`);
-  } catch (err) {
-    debug("세션 상태 저장 실패 (silent):", errorMessage(err));
-  }
-}
-
-/** SessionMapStore에서 세션 상태 복원 — resume 시 호출 */
-function restoreAcpSessions(state: AcpProviderState, piSessionId?: string): void {
-  try {
-    // 방어적 restore — fleet/index.ts보다 먼저 로드될 경우 대비
-    if (piSessionId) {
-      getSessionStore().restore(piSessionId);
-    }
-
-    const store = getSessionStore();
-    const allEntries = store.getAll();
-
-    // acp: 접두사 키에서 CLI별 그룹화
-    const cliGroups = new Map<string, Record<string, string>>();
-    for (const [key, value] of Object.entries(allEntries)) {
-      if (!key.startsWith("acp:")) continue;
-      // acp:{cli}:{field} 파싱
-      const parts = key.split(":");
-      if (parts.length !== 3) continue;
-      const cli = parts[1];
-      const field = parts[2];
-      if (!cliGroups.has(cli)) cliGroups.set(cli, {});
-      cliGroups.get(cli)![field] = value;
-    }
-
-    for (const [cli, fields] of cliGroups) {
-      if (!fields.sessionId) continue;
-      // 세션 키는 기존 형식 유지: acp:{cwd}
-      const sessionKey = `acp:${fields.cwd || ""}`;
-      if (state.sessions.has(sessionKey)) continue;
-
-      const session: AcpSessionState = {
-        client: null, // 프로세스 죽었으므로 null
-        sessionId: fields.sessionId, // session/load에 사용
-        cwd: fields.cwd || "",
-        lastSystemPromptHash: fields.lastSystemPromptHash || "",
-        cli: cli as CliType,
-        firstPromptSent: true, // 이전 대화가 있었으므로
-        currentModel: fields.currentModel || "",
-      };
-      state.sessions.set(sessionKey, session);
-      debug(`세션 복원: ${sessionKey} → ${fields.sessionId.slice(0, 8)}`);
-    }
-  } catch {
-    // 파싱 실패 — 새 세션으로 시작
-    debug("세션 상태 복원 실패 (silent) — 새 세션으로 시작");
-  }
 }

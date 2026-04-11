@@ -65,28 +65,29 @@ Unified ACP infrastructure for pi-fleet, providing both the carrier execution en
 | **Model change within same CLI family** | Reuse the current process and switch backend model without recreating the whole session when the backend supports it. |
 | **Model change across CLI families** | Dispose the old session/process pair and create a fresh CLI session. |
 | **pi `/new`** | Clear live sessions and processes, reset pre-spawn state, then lazily recreate on the next request. |
-| **pi shutdown** | Persist PI session to carrier session mappings under `.data/session-maps/` using ACP namespaced keys. |
-| **pi restart / resume** | Restore persisted mappings through `SessionMapStore` and attempt provider-specific session reload when supported. |
+| **pi shutdown / restart** | Sessions are ephemeral and tied to the live process lifecycle. Persistence of session mappings for resume is no longer supported; fresh sessions are created on restart. |
 
 ### Provider and Event Mapper Contract
 
 - `provider-stream.ts` creates the mapper from `provider-events.ts` and owns listener registration and cleanup.
 - The mapper filters by target ACP session ID so unrelated session events never leak into the active PI turn.
+- **Strict Session Identification**: Provider scope is tied exclusively to `sessionId` identifiers. `cwd` fallback or `activeSessionKey` standalone dependency is forbidden to prevent cross-session routing collisions.
 - Two entry paths must remain intact:
   - **Case 1 (Fresh Query)**: latest user message is sent to the CLI and normal streaming begins.
-  - **Case 2 (Tool Result Delivery)**: pi tool output resolves the next queued MCP tool call, then streaming resumes on the same CLI turn.
+  - **Case 2 (Tool Result Delivery)**: pi tool output resolves the next queued MCP tool call using strict `toolCallId` verification, then streaming resumes on the same CLI turn.
 
 ## MCP Tool Execution Flow
 
 ```
-1. CLI sends an MCP `tools/call` HTTP request.
-2. provider-mcp.ts queues the request in FIFO order and keeps the HTTP response open.
-3. provider-stream.ts is notified through the tool-arrived callback.
-4. provider-events.ts emits a toolCall content block and ends the current stream turn with `done="toolUse"`.
-5. pi agent-loop executes the requested tool through ToolExecutionComponent.
-6. pi re-enters `streamSimple` with the tool result payload.
-7. provider-stream.ts resolves the next queued MCP call result.
-8. provider-mcp.ts returns the HTTP response and the CLI continues streaming.
+1. CLI sends an MCP `tools/call` HTTP request with a unique `toolCallId`.
+2. provider-mcp.ts verifies the session token and current turn acceptance gate.
+3. provider-mcp.ts queues the request in per-session FIFO order and keeps the HTTP response open.
+4. provider-stream.ts is notified through the tool-arrived callback.
+5. provider-events.ts emits a toolCall content block and ends the current stream turn with `done="toolUse"`.
+6. pi agent-loop executes the requested tool through ToolExecutionComponent.
+7. pi re-enters `streamSimple` with the tool result and the original `toolCallId`.
+8. provider-stream.ts validates that the result `toolCallId` matches the head of the per-session FIFO queue.
+9. provider-mcp.ts resolves the queued MCP call and returns the HTTP response.
 ```
 
 ## Dual Tool Routing
@@ -96,19 +97,17 @@ CLI-visible tools are split into two paths:
 | Category | MCP Tool | CLI Built-in Tool |
 |----------|----------|-------------------|
 | **Path** | MCP HTTP -> pi agent-loop -> ToolExecutionComponent | Executed internally by the CLI |
+| **Routing Evidence** | `toolCallId` (Primary) + session token FIFO order | Implicit (intra-process) |
 | **Rendering** | Native pi tool rendering with expand/collapse support | Inline completion line inside assistant output |
 | **Turn control** | `done="toolUse"` pauses stream for pi execution | Stream keeps running until normal completion |
-| **Examples** | `bash`, `read`, `edit`, `write` exposed from pi | CLI-native search/read helpers |
-
-Provider events must preserve this distinction so pi-native tools remain inspectable while CLI-native tools stay lightweight.
 
 ## Persistence
 
 `runtime.ts` owns the `.data/` base directory for this module.
 
-- Session maps are persisted under `.data/session-maps/`.
-- Stored data is limited to PI session to carrier session continuity and ACP namespaced session metadata.
-- Fleet-wide user configuration such as model selection remains outside this module.
+- Persistence of session-to-carrier mappings is limited to runtime continuity; long-term session resume across restarts is deprecated.
+- Stored data focus shifted to ephemeral session metadata and service snapshots.
+- Enhanced cleanup is enforced for `toolUse`, `abort`, and `promptComplete` events to prevent leaked state across turns.
 
 ## Service Status Monitoring
 
