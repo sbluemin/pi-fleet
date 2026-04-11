@@ -13,8 +13,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { getProviderModels, getReasoningEffortLevels } from "@sbluemin/unified-agent";
 import type { CliType } from "@sbluemin/unified-agent";
-import { disconnectClient } from "../../core/agent/client-pool.js";
-import { getSessionStore } from "../../core/agent/runtime.js";
+import { disconnectClient } from "../../core/agentclientprotocol/agent/client-pool.js";
+import { getSessionStore } from "../../core/agentclientprotocol/agent/runtime.js";
 
 // ─── 타입 정의 ──────────────────────────────────────────
 

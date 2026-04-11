@@ -45,7 +45,7 @@ import {
 import {
   initRuntime,
   onHostSessionChange,
-} from "../core/agent/runtime.js";
+} from "../core/agentclientprotocol/agent/runtime.js";
 import {
   initStore,
   loadModels as getModelConfig,
@@ -66,14 +66,14 @@ import {
   loadCliTypeOverrides,
   saveCliTypeOverrides,
 } from "./shipyard/store.js";
-import { cleanIdleClients } from "../core/agent/client-pool.js";
+import { cleanIdleClients } from "../core/agentclientprotocol/agent/client-pool.js";
 import { registerModelCommands, syncModelConfig } from "./shipyard/carrier/model-ui.js";
 import { exposeAgentApi } from "./operation-runner.js";
 import { refreshAgentPanel } from "./panel/lifecycle.js";
 import { registerAgentPanelShortcut } from "./panel/shortcuts.js";
 import { setAgentPanelServiceLoading, setAgentPanelServiceStatus } from "./panel/config.js";
 import { buildBridgeCommand } from "./shipyard/carrier/launch.js";
-import { initServiceStatus, attachStatusContext, refreshStatusNow, getServiceSnapshots, refreshStatusQuiet } from "../core/agent/service-status/store.js";
+import { initServiceStatus, attachStatusContext, refreshStatusNow, getServiceSnapshots, refreshStatusQuiet } from "../core/agentclientprotocol/agent/service-status/store.js";
 import { CARRIER_BRIDGE_KEY } from "./constants";
 import { registerFleetSortie } from "./shipyard/carrier/sortie.js";
 import { registerFleetTaskForce } from "./shipyard/taskforce/index.js";
@@ -120,7 +120,7 @@ export type {
   SelectedModelsConfig,
 } from "./shipyard/store.js";
 
-export type { AgentStatus } from "../core/agent/types.js";
+export type { AgentStatus } from "../core/agentclientprotocol/agent/types.js";
 
 export { syncModelConfig, registerModelCommands } from "./shipyard/carrier/model-ui.js";
 

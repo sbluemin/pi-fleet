@@ -7,7 +7,7 @@
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { CliType } from "@sbluemin/unified-agent";
-import type { HealthStatus, ProviderKey } from "../../../core/agent/types.js";
+import type { HealthStatus, ProviderKey } from "../../../core/agentclientprotocol/agent/types.js";
 
 // ─── Carrier 메타데이터 (2-Tier) ────────────────────────
 

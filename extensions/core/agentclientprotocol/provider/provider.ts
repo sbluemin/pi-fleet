@@ -43,7 +43,7 @@ import {
   getOrInitState,
 } from "./types.js";
 import { createEventMapper } from "./event-mapper.js";
-import { getLogAPI } from "../log/bridge.js";
+import { getLogAPI } from "../../log/bridge.js";
 import {
   startMcpServer,
   stopMcpServer,

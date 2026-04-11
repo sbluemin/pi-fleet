@@ -15,7 +15,7 @@ Do not create intermediate layers that simply wrap official TUI APIs (e.g., `set
 | `fleet/` | Agent orchestration framework — carrier SDK (`shipyard/carrier/`), unified pipeline, Agent Panel, model selection. Provides the carrier framework that `carriers/` depends on. | `index.ts` (wiring), `shipyard/carrier/` (framework), `internal/` (implementation) |
 | `admiral/` | Admiral prompt policy — system prompt injection (`before_agent_start`), worldview toggle, settings section. + Standing Orders/Protocols module management, protocol transition keybinds, protocol status widget, editor border color control. Independent of `fleet/` and `carriers/`. | `index.ts` (wiring), `prompts.ts` (prompts), `protocols/` (Fleet Action, etc.), `standing-orders/` (Deep Dive, etc.) |
 | `carriers/` | Carrier registrations — independent extension defining individual carriers (genesis, sentinel, vanguard, etc.). Depends only on `shipyard/carrier` package, not on `fleet/` extension. Optional — users may omit from `settings.json`. | `index.ts` (wiring), individual carrier files |
-| `core/` | Unified infrastructure extension — root entry point that wires keybind, settings, log, welcome, hud, shell, improve-prompt, summarize, thinking-timer, provider-guard, and acp-provider modules | `index.ts` (root wiring), `<module>/register.ts` (module wiring), `agent/` (shared infra library) |
+| `core/` | Unified infrastructure extension — root entry point that wires keybind, settings, log, welcome, hud, shell, improve-prompt, summarize, thinking-timer, provider-guard, and acp-provider modules | `index.ts` (root wiring), `<module>/register.ts` (module wiring), `agentclientprotocol/agent/` (shared infra library), `agentclientprotocol/provider/` (ACP provider) |
 
 ### Shared Libraries — Directories without `index.ts`
 
@@ -23,7 +23,7 @@ These are pure libraries not recognized as extensions by pi.
 
 | Library | Role | Main Consumers |
 |---------|------|----------------|
-| `core/agent/` | Core agent infrastructure — executor, client-pool, runtime, session-map, model-config, service-status | `fleet/`, `carriers/` |
+| `core/agentclientprotocol/agent/` | Core agent infrastructure — executor, client-pool, runtime, session-map, model-config, service-status | `fleet/`, `carriers/` |
 | `core/hud/` (also a library) | Status Bar rendering engine (segments, layout, colors, themes, presets) | `core/index.ts`, `core/welcome` |
 
 ### Extension Separation Criteria

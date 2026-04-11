@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import registerAcpProvider from "./acp-provider/register.js";
+import registerAcpProvider from "./agentclientprotocol/provider/register.js";
 import registerHud from "./hud/register.js";
 import registerImprovePrompt from "./improve-prompt/register.js";
 import registerKeybind from "./keybind/register.js";

@@ -9,7 +9,7 @@
 
 import type { Tool } from "@mariozechner/pi-ai";
 
-import { getLogAPI } from "../log/bridge.js";
+import { getLogAPI } from "../../log/bridge.js";
 import { convertToolSchema } from "./schema-adapter.js";
 
 // ═══════════════════════════════════════════════════════════════════════════

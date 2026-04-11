@@ -12,7 +12,7 @@ import type { Component, Focusable, TUI } from "@mariozechner/pi-tui";
 import { Key, matchesKey, visibleWidth } from "@mariozechner/pi-tui";
 import type { Theme } from "@mariozechner/pi-coding-agent";
 import { CARRIER_BG_COLORS, CARRIER_COLORS, CLI_DISPLAY_NAMES } from "../../constants.js";
-import type { HealthStatus } from "../../../core/agent/types.js";
+import type { HealthStatus } from "../../../core/agentclientprotocol/agent/types.js";
 import { createOverlayFrame } from "./overlay-frame.js";
 import { buildModelEffortTransition } from "./overlay-model-flow.js";
 import type {

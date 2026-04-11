@@ -54,15 +54,15 @@ admiral/               ← (REMOVED — now at extensions/admiral/)
 
 ### Dependency Principles
 
-- **Shared domain types** are distributed to their owning subpackages: `streaming/types.ts` owns `ColBlock`, `ColStatus`, `CollectedStreamData`; `panel/types.ts` owns `AgentCol`. Common types (`ProviderKey`, `HealthStatus`, `ServiceSnapshot`) are imported directly from **`core/agent/types.ts`**.
-- **One-way dependency**: The **`core`** layer (including `core/agent`) must never reference the **`fleet`** layer. `fleet` → `core` is the only allowed direction.
+- **Shared domain types** are distributed to their owning subpackages: `streaming/types.ts` owns `ColBlock`, `ColStatus`, `CollectedStreamData`; `panel/types.ts` owns `AgentCol`. Common types (`ProviderKey`, `HealthStatus`, `ServiceSnapshot`) are imported directly from **`core/agentclientprotocol/agent/types.ts`**.
+- **One-way dependency**: The **`core`** layer (including `core/agentclientprotocol/agent`) must never reference the **`fleet`** layer. `fleet` → `core` is the only allowed direction.
 - **Carriers have been separated into `carriers/`** — an independent extension at `extensions/carriers/`. Carrier files reside in the standalone `carriers/` extension, not in `fleet/`. See `extensions/carriers/AGENTS.md` for carrier rules.
 - **Fleet core modules must never import from `carriers/`**.
 - **Subpackage modules reference siblings directly** — e.g., `panel/config.ts` imports from `shipyard/carrier/framework.ts` without going through the facade.
 - **`index.ts` is the only public facade**: It owns extension wiring plus export-only public re-exports. Keep business logic in `shipyard/carrier/`, `panel/`, `render/`, `streaming/`, `shipyard/squadron/`, and `operation-runner.ts`.
-- **Service status lives in core**: Service status monitoring (polling, rendering) lives in **`core/agent/service-status/`**. `fleet/index.ts` injects a callback into `core/agent/service-status/store.ts` to trigger fleet UI updates without core needing to know about fleet.
+- **Service status lives in core**: Service status monitoring (polling, rendering) lives in **`core/agentclientprotocol/agent/service-status/`**. `fleet/index.ts` injects a callback into `core/agentclientprotocol/agent/service-status/store.ts` to trigger fleet UI updates without core needing to know about fleet.
 - **Persistence is dual-layered**:
-  - **Core persistence** (`core/agent/runtime.ts`) manages the data directory and **session-only** maps (mapping host PI session IDs to individual carrier session IDs).
+  - **Core persistence** (`core/agentclientprotocol/agent/runtime.ts`) manages the data directory and **session-only** maps (mapping host PI session IDs to individual carrier session IDs).
   - **Fleet persistence** (`shipyard/store.ts`) manages the **fleet-wide state** in a single `states.json` file. This includes model selection, `sortieDisabled`, `squadronEnabled` status, and `cliTypeOverrides`.
 - `shipyard/store.ts` is the single source of truth for persistent fleet configuration. `initStore(dataDir)` must be called in `fleet/index.ts` immediately after `initRuntime(dataDir)`. All writes to `states.json` use an atomic tmp+rename pattern to prevent corruption.
 
@@ -115,5 +115,5 @@ Consumer (carriers, external extensions)
 | `panel/*` | Panel state/lifecycle/widget modules |
 | `streaming/*` | Stream store/widget modules |
 | `render/*` | Renderer modules |
-| **core/agent/** | **(Core Infrastructure)** — See `extensions/core/agent/AGENTS.md` for details |
+| **core/agentclientprotocol/agent/** | **(Core Infrastructure)** — See `extensions/core/agentclientprotocol/agent/AGENTS.md` for details |
 | **carriers/** | **(Separated)** — now at `extensions/carriers/`. See `extensions/carriers/AGENTS.md` |

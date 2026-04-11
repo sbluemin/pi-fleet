@@ -1,4 +1,4 @@
-# core/agent
+# core/agentclientprotocol/agent
 
 Core agent infrastructure for pi-fleet. This module provides execution, process management, session persistence, and service status monitoring features used by `fleet/` and `carriers/` extensions.
 

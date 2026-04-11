@@ -14,7 +14,7 @@ Infrastructure extension for pi-fleet. `core/index.ts` is the only extension ent
 | Module | Role |
 |--------|------|
 | `index.ts` | Root entry point — registers all core modules in deterministic order |
-| `agent/` | Core agent infrastructure — executor, client-pool, runtime, session-map, model-config, service-status |
+| `agentclientprotocol/agent/` | Core agent infrastructure — executor, client-pool, runtime, session-map, model-config, service-status |
 | `hud/` | Editor + Status Bar (Private rendering engine) |
 | `shell/` | Interactive shell session inside pi |
 | `keybind/` | Centralized keybinding management + overlay (Alt+.) |
@@ -25,13 +25,13 @@ Infrastructure extension for pi-fleet. `core/index.ts` is the only extension ent
 | `summarize/` | Auto one-line session summary widget |
 | `thinking-timer/` | Inline elapsed-time display for Thinking blocks |
 | `provider-guard/` | Always-on guard — disables specified built-in providers and auto-fallbacks away from blocked placeholder models on session_start / model_select |
-| `acp-provider/` | ACP-based native provider — integrates CLI backends (Claude, Codex, Gemini) via ACP protocol + in-process MCP server |
+| `agentclientprotocol/provider/` | ACP-based native provider — integrates CLI backends (Claude, Codex, Gemini) via ACP protocol + in-process MCP server |
 
 ## Wiring Rule
 
 - `core/index.ts` is the only auto-loaded extension entry point.
 - Each functional module below `core/` exposes `register.ts` for root wiring.
-- `agent/` remains a shared library and must not become an extension entry point.
+- `agentclientprotocol/agent/` remains a shared library and must not become an extension entry point.
 
 ## Core Rules (hud)
 
@@ -56,4 +56,4 @@ Infrastructure extension for pi-fleet. `core/index.ts` is the only extension ent
 | `summarize/` | `summary` | Session summary features |
 | `thinking-timer/` | `timer` | Thinking block timer features |
 | `provider-guard/` | `guard` | Provider guard features |
-| `acp-provider/` | `acp` | ACP provider features |
+| `agentclientprotocol/provider/` | `acp` | ACP provider features |

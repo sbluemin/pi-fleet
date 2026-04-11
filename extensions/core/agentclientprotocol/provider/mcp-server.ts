@@ -14,7 +14,7 @@
 import http from "http";
 import crypto from "crypto";
 
-import { getLogAPI } from "../log/bridge.js";
+import { getLogAPI } from "../../log/bridge.js";
 import {
   getToolsForSession,
 } from "./tool-registry.js";

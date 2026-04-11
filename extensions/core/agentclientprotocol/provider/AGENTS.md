@@ -1,4 +1,4 @@
-# ACP Provider
+# ACP Provider (core/agentclientprotocol/provider)
 
 ACP(Agent Communication Protocol) 기반 CLI 백엔드(Claude, Codex, Gemini)를 pi-coding-agent의 agent loop과 TUI에 네이티브 통합하는 프로바이더 확장.
 
