@@ -1,0 +1,89 @@
+/**
+ * core-log/types.ts — 순수 타입/인터페이스 정의
+ *
+ * 부수효과 없음: import만으로 globalThis를 조작하지 않는다.
+ * 런타임 브릿지 로직은 bridge.ts에 분리되어 있다.
+ */
+
+// ── 타입/인터페이스 ──
+
+/** 로그 레벨 */
+export type LogLevel = "debug" | "info" | "warn" | "error";
+
+/** 개별 로그 항목 */
+export interface LogEntry {
+  /** ISO 8601 타임스탬프 */
+  timestamp: string;
+  /** 로그 레벨 */
+  level: LogLevel;
+  /** 로그 소스 (확장명 등) */
+  source: string;
+  /** 로그 메시지 */
+  message: string;
+}
+
+/** 로그 설정 (settings.json 저장용) */
+export interface LogSettings {
+  /** 활성화 여부 (기본: false) */
+  enabled?: boolean;
+  /** 파일 로그 활성화 여부 (기본: true when enabled) */
+  fileLog?: boolean;
+  /** Footer 표시 활성화 여부 (기본: true when enabled) */
+  footerDisplay?: boolean;
+  /** 최소 로그 레벨 (기본: "debug") */
+  minLevel?: LogLevel;
+}
+
+/** core-log가 globalThis를 통해 제공하는 API */
+export interface CoreLogAPI {
+  /** 디버그 로그 기록 */
+  debug(source: string, message: string): void;
+  /** 정보 로그 기록 */
+  info(source: string, message: string): void;
+  /** 경고 로그 기록 */
+  warn(source: string, message: string): void;
+  /** 에러 로그 기록 */
+  error(source: string, message: string): void;
+  /** 범용 로그 기록 */
+  log(level: LogLevel, source: string, message: string): void;
+  /** 현재 활성화 여부 */
+  isEnabled(): boolean;
+  /** 활성화/비활성화 토글 */
+  setEnabled(enabled: boolean): void;
+  /** 최근 로그 항목 조회 */
+  getRecentLogs(count?: number): LogEntry[];
+}
+
+// ── 상수 ──
+
+/** globalThis 브릿지 키 (AGENTS.md: globalThis key는 types.ts에 정의) */
+export const CORE_LOG_KEY = "__core_log__";
+
+/**
+ * Footer bridge용 globalThis 키.
+ * 값: LogFooterBridge 객체 (아래 참조).
+ *
+ * 통신 흐름:
+ *   HUD setupStatusBar → 객체 생성 + requestRender 콜백 주입
+ *   log → .line 갱신 후 .requestRender() 호출 → Footer 즉시 재렌더
+ *
+ * border-bridge.ts와 동일한 간접 통신 패턴이되,
+ * requestRender 콜백을 통해 push 방식 즉시 렌더를 보장한다.
+ */
+export const CORE_LOG_FOOTER_KEY = "__core_log_footer__";
+
+/** Footer bridge 객체 형태 — globalThis[CORE_LOG_FOOTER_KEY]의 런타임 값 */
+export interface LogFooterBridge {
+  /** Footer에 표시할 plain text (null이면 표시 없음) */
+  line: string | null;
+  /** HUD가 주입하는 렌더 트리거 콜백 (null이면 HUD 미로드 상태) */
+  requestRender: (() => void) | null;
+}
+
+/** 로그 레벨 우선순위 (낮을수록 상세) */
+export const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
+  debug: 0,
+  info: 1,
+  warn: 2,
+  error: 3,
+};

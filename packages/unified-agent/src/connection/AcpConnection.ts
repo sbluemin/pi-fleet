@@ -18,8 +18,10 @@ import {
   type NewSessionResponse,
   type LoadSessionRequest,
   type LoadSessionResponse,
+  type InitializeResponse,
   type PromptResponse,
   type ContentBlock,
+  type McpServer,
   type CreateTerminalRequest,
   type CreateTerminalResponse,
   type TerminalOutputRequest,
@@ -31,8 +33,10 @@ import {
   type KillTerminalRequest,
   type KillTerminalResponse,
 } from '@agentclientprotocol/sdk';
+import type { ChildProcess } from 'child_process';
 import { readFile, writeFile, mkdir, access } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import type { Stream } from '@agentclientprotocol/sdk';
 import type { ConnectionState } from '../types/common.js';
 import type {
   AcpAvailableCommand,
@@ -90,12 +94,23 @@ export class AcpConnection extends BaseConnection {
   private readonly protocolVersion: number;
   private readonly autoApprove: boolean;
   private agentProxy: Agent | null = null;
+  private agentCapabilities: InitializeResponse['agentCapabilities'] | null = null;
   private readonly pendingPermissionRequests = new Set<(
     response: RequestPermissionResponse,
   ) => void>();
 
   /** 현재 프롬프트의 idle timeout 리셋 콜백 (null이면 프롬프트 미실행 중) */
   private promptKeepAlive: (() => void) | null = null;
+
+  /** Pool health check용 자식 프로세스 참조 */
+  get childProcess(): ChildProcess | null {
+    return this.child;
+  }
+
+  /** Pool의 PreSpawnedHandle 생성용 ACP 스트림 참조 */
+  get stream(): Stream | null {
+    return this.acpStream;
+  }
 
   constructor(options: AcpConnectionOptions) {
     super(options);
@@ -140,81 +155,107 @@ export class AcpConnection extends BaseConnection {
   }
 
   /**
+   * spawn + initialize만 수행합니다 (세션 미생성).
+   * Pool이 warm 상태의 AcpConnection을 보유할 수 있도록 합니다.
+   *
+   * @param workspace - 작업 디렉토리 경로 (initialize에 필요)
+   */
+  async initializeConnection(_workspace: string): Promise<void> {
+    const { stream } = this.spawnProcess();
+    this.setState('initializing');
+
+    try {
+      await this.performInitialize(stream);
+      this.setState('connected');
+    } catch (error) {
+      this.setState('error');
+      try {
+        await this.disconnect();
+      } catch {
+        // 정리 실패는 원본 예외를 가리지 않음
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * 외부 프로세스를 받아 initialize만 수행합니다 (세션 미생성).
+   *
+   * @param child - 외부에서 spawn된 자식 프로세스
+   * @param stream - ACP SDK 호환 Stream
+   * @param workspace - 작업 디렉토리 경로
+   */
+  async initializeWithExternalProcess(
+    child: ChildProcess,
+    stream: Stream,
+    _workspace: string,
+  ): Promise<void> {
+    this.adoptExternalProcess(child, stream);
+    this.setState('initializing');
+
+    try {
+      await this.performInitialize(stream);
+      this.setState('connected');
+    } catch (error) {
+      this.setState('error');
+      try {
+        await this.disconnect();
+      } catch {
+        // 정리 실패는 원본 예외를 가리지 않음
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * 이미 initialized된 연결에서 세션을 생성하거나 로드합니다.
+   *
+   * @param workspace - 작업 디렉토리 경로
+   * @param sessionId - 로드할 기존 세션 ID (선택)
+   * @param mcpServers - 에이전트에 연결할 MCP 서버 목록 (선택, 기본: [])
+   * @returns 세션 정보
+   */
+  async createSession(workspace: string, sessionId?: string, mcpServers?: McpServer[]): Promise<NewSessionResponse> {
+    const agent = this.getAgent();
+    const servers = mcpServers ?? [];
+
+    let session: NewSessionResponse;
+    if (sessionId) {
+      if (!agent.loadSession) {
+        throw new Error('연결된 에이전트가 session/load를 지원하지 않습니다');
+      }
+      const loadResult = await this.withFixedTimeout(
+        agent.loadSession({ sessionId, cwd: workspace, mcpServers: servers }),
+        this.initTimeout,
+        'session/load',
+      );
+      session = { ...loadResult, sessionId } as LoadSessionResponse & NewSessionResponse;
+    } else {
+      session = await this.withFixedTimeout(
+        agent.newSession({
+          cwd: workspace,
+          mcpServers: servers,
+        }),
+        this.initTimeout,
+        'session/new',
+      );
+    }
+
+    this.setState('ready');
+    return session;
+  }
+
+  /**
    * ACP 연결을 시작합니다.
    * 프로세스 spawn → ClientSideConnection 생성 → initialize → 세션 생성까지 수행합니다.
    *
    * @param workspace - 작업 디렉토리 경로
    * @returns 세션 정보
    */
-  async connect(workspace: string, sessionId?: string): Promise<NewSessionResponse> {
-    // 1. 프로세스 spawn + Web Streams 생성
-    const { stream } = this.spawnProcess();
-    this.setState('initializing');
-
-    // 2. ClientSideConnection 생성 (Client 인터페이스 구현)
-    const connection = new ClientSideConnection(
-      (agent: Agent): Client => {
-        // Agent 참조 저장 (나중에 RPC 호출용)
-        this.agentProxy = agent;
-        return this.createClientHandler();
-      },
-      stream,
-    );
-
-    // 연결 종료 감지
-    connection.closed.then(() => {
-      this.setState('closed');
-    });
-
-    const clientCapabilities = {
-      fs: {
-        readTextFile: true,
-        writeTextFile: true,
-      },
-      permissions: true,
-      terminal: false,
-    } as unknown as Parameters<Agent['initialize']>[0]['clientCapabilities'];
-
-    const agent = this.getAgent();
-
+  async connect(workspace: string, sessionId?: string, mcpServers?: McpServer[]): Promise<NewSessionResponse> {
+    await this.initializeConnection(workspace);
     try {
-      // 3. initialize 요청 (공식 SDK 타입: clientCapabilities, clientInfo)
-      await this.withFixedTimeout(
-        agent.initialize({
-          protocolVersion: this.protocolVersion,
-          clientCapabilities,
-          clientInfo: this.clientInfo,
-        }),
-        this.initTimeout,
-        'initialize',
-      );
-
-      // 4. 세션 생성 또는 기존 세션 로드
-      let session: NewSessionResponse;
-      if (sessionId) {
-        if (!agent.loadSession) {
-          throw new Error('연결된 에이전트가 session/load를 지원하지 않습니다');
-        }
-        const loadResult = await this.withFixedTimeout(
-          agent.loadSession({ sessionId, cwd: workspace, mcpServers: [] }),
-          this.initTimeout,
-          'session/load',
-        );
-        // LoadSessionResponse에 sessionId를 합쳐 NewSessionResponse와 구조적 동일성 보장
-        session = { ...loadResult, sessionId } as LoadSessionResponse & NewSessionResponse;
-      } else {
-        session = await this.withFixedTimeout(
-          agent.newSession({
-            cwd: workspace,
-            mcpServers: [],
-          }),
-          this.initTimeout,
-          'session/new',
-        );
-      }
-
-      this.setState('ready');
-      return session;
+      return await this.createSession(workspace, sessionId, mcpServers);
     } catch (error) {
       this.setState('error');
       try {
@@ -243,6 +284,90 @@ export class AcpConnection extends BaseConnection {
       this.requestTimeout,
       'session/load',
     );
+  }
+
+  /**
+   * 외부에서 pre-spawn된 프로세스를 사용하여 ACP 연결을 시작합니다.
+   * spawn 단계를 건너뛰고, ClientSideConnection 생성 ~ 세션 생성까지 수행합니다.
+   *
+   * @param child - 외부에서 spawn된 자식 프로세스
+   * @param stream - ACP SDK 호환 Stream
+   * @param workspace - 작업 디렉토리 경로
+   * @param sessionId - 재개할 기존 세션 ID (선택)
+   * @returns 세션 정보
+   */
+  async connectWithExternalProcess(
+    child: ChildProcess,
+    stream: Stream,
+    workspace: string,
+    sessionId?: string,
+    mcpServers?: McpServer[],
+  ): Promise<NewSessionResponse> {
+    await this.initializeWithExternalProcess(child, stream, workspace);
+    try {
+      return await this.createSession(workspace, sessionId, mcpServers);
+    } catch (error) {
+      try {
+        await this.disconnect();
+      } catch {
+        // 정리 실패는 원본 예외를 가리지 않음
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * 현재 세션을 종료합니다 (프로세스는 유지).
+   * close capability가 있는 에이전트만 unstable_closeSession을 호출합니다.
+   * Gemini 등 close 미지원 에이전트는 아무것도 하지 않습니다 (hang 방지).
+   *
+   * @param sessionId - 종료할 세션 ID
+   */
+  async endSession(sessionId: string): Promise<void> {
+    if (this.agentCapabilities?.sessionCapabilities?.close != null) {
+      const agent = this.getAgent();
+      try {
+        await agent.unstable_closeSession?.({ sessionId });
+      } catch {
+        // best-effort: 실패 무시
+      }
+    }
+    // 프로세스 유지 — disconnect 호출 금지
+  }
+
+  /**
+   * 기존 연결에서 새 세션을 생성하거나 기존 세션을 로드합니다.
+   * initialize()는 재호출하지 않습니다 (E1: ClientSideConnection 세션 전환 시 재생성 금지).
+   *
+   * @param workspace - 작업 디렉토리 경로
+   * @param sessionId - 로드할 기존 세션 ID (선택, 없으면 새 세션 생성)
+   * @returns 세션 정보
+   */
+  /**
+   * 세션 리셋(newSession 재호출) 가능 여부를 반환합니다.
+   * close capability가 없는 Gemini는 두 번째 newSession 호출 시 hang되므로 false를 반환합니다.
+   */
+  get canResetSession(): boolean {
+    return this.agentCapabilities?.sessionCapabilities?.close != null;
+  }
+
+  async reconnectSession(
+    workspace: string,
+    sessionId?: string,
+    mcpServers?: McpServer[],
+  ): Promise<NewSessionResponse> {
+    // close capability가 없는 CLI(Gemini 등)는 newSession 재호출 시 hang됩니다
+    if (!sessionId && !this.canResetSession) {
+      throw new Error(
+        `[${this.command}] 세션 리셋을 지원하지 않습니다 (session/close 미지원). disconnect() 후 재연결하세요.`,
+      );
+    }
+
+    if (sessionId && this.agentCapabilities?.loadSession !== true) {
+      throw new Error(`[${this.command}] loadSession을 지원하지 않습니다 (E3)`);
+    }
+
+    return this.createSession(workspace, sessionId, mcpServers);
   }
 
   override async disconnect(): Promise<void> {
@@ -375,6 +500,47 @@ export class AcpConnection extends BaseConnection {
       this.requestTimeout,
       'session/set_config_option',
     );
+  }
+
+  /**
+   * ClientSideConnection 생성 → initialize 공통 로직.
+   * initializeConnection과 initializeWithExternalProcess에서 호출됩니다.
+   */
+  private async performInitialize(stream: Stream): Promise<void> {
+    const connection = new ClientSideConnection(
+      (agent: Agent): Client => {
+        this.agentProxy = agent;
+        return this.createClientHandler();
+      },
+      stream,
+    );
+
+    // 연결 종료 감지
+    connection.closed.then(() => {
+      this.setState('closed');
+    });
+
+    const clientCapabilities = {
+      fs: {
+        readTextFile: true,
+        writeTextFile: true,
+      },
+      permissions: true,
+      terminal: false,
+    } as unknown as Parameters<Agent['initialize']>[0]['clientCapabilities'];
+
+    const agent = this.getAgent();
+
+    const initResult = await this.withFixedTimeout(
+      agent.initialize({
+        protocolVersion: this.protocolVersion,
+        clientCapabilities,
+        clientInfo: this.clientInfo,
+      }),
+      this.initTimeout,
+      'initialize',
+    );
+    this.agentCapabilities = initResult.agentCapabilities ?? null;
   }
 
   /**

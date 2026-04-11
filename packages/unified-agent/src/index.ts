@@ -45,10 +45,14 @@ export { AcpConnection, createIdleTimeoutRace, type AcpConnectionOptions, type A
 // === CLI 감지 ===
 export { CliDetector } from './detector/CliDetector.js';
 
+// === 프로세스 풀 ===
+export { getProcessPool, ProcessPool, type ProcessPoolOptions, type WarmUpOptions } from './pool/ProcessPool.js';
+
 // === CLI 설정 ===
 export {
   CLI_BACKENDS,
   createSpawnConfig,
+  createPreSpawnConfig,
   getBackendConfig,
   getAllBackendConfigs,
 } from './config/CliConfigs.js';
@@ -65,6 +69,7 @@ export type {
   Client as AcpClient,
   Agent as AcpAgent,
   Stream as AcpStream,
+  McpServer as AcpMcpServer,
 } from '@agentclientprotocol/sdk';
 
 // === 타입 ===
@@ -129,6 +134,7 @@ export type {
   ConnectionOptions,
   CliDetectionResult,
   UnifiedClientOptions,
+  PreSpawnedHandle,
 } from './types/config.js';
 
 // === 유틸리티 ===

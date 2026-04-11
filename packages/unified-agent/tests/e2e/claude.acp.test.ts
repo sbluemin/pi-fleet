@@ -15,6 +15,7 @@ import {
   SESSION_REMEMBER_PROMPT,
   SESSION_RECALL_PROMPT,
 } from './helpers.js';
+import { getProcessPool } from '../../src/index.js';
 import type { UnifiedAgentClient } from '../../src/index.js';
 import type { CliJsonResult } from './helpers.js';
 
@@ -86,16 +87,8 @@ describe.skipIf(!installed)('E2E: Claude ACP', () => {
       const { response } = await sendAndCollect(client, SIMPLE_PROMPT);
       expect(response).toContain('2');
 
-      // exit 이벤트 감지 준비
-      const exitReceived = new Promise<void>((resolve) => {
-        client!.once('exit', () => resolve());
-      });
-
-      // disconnect → 프로세스 종료
+      // disconnect → 프로세스를 Pool에 반환 (Claude/Codex) 또는 kill (Gemini)
       await client.disconnect();
-
-      // exit 이벤트 수신 확인 (프로세스가 실제로 종료됨)
-      await withTimeout(exitReceived, 5_000, 'exit 이벤트');
 
       // 연결 상태 초기화 확인
       const info = client.getConnectionInfo();
@@ -105,6 +98,9 @@ describe.skipIf(!installed)('E2E: Claude ACP', () => {
 
       // 재전송 시 에러 발생 확인
       await expect(client.sendMessage(SIMPLE_PROMPT)).rejects.toThrow();
+
+      // Pool에 반환된 프로세스 정리
+      await getProcessPool().drain();
 
       client = null;
     }, 180_000);

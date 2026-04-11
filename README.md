@@ -21,6 +21,7 @@ This project treats individual LLM agents as **Carriers** within a **Fleet**.
 | `keybind/` | `keybind` | Centralized keybinding management + overlay (`Alt+.`) |
 | `settings/` | `settings` | Centralized settings API + overlay popup (`Alt+/`) |
 | `welcome/` | `welcome` | Welcome overlay displayed on session start |
+| `log/` | `log` | Reusable logging — file log + footer display + globalThis API for other extensions |
 | `shell/` | `shell` | Interactive shell session (xterm.js + node-pty) inside pi |
 | `improve-prompt/` | `prompt` | Meta-prompting via `Alt+M`, reasoning level cycle via `Alt+R` |
 | `summarize/` | `summary` | Auto one-line session summary displayed in Status Bar |
@@ -124,6 +125,8 @@ Once all three backends are configured for a carrier, it becomes available as a 
 | `/fleet:hud:editor` | Configure HUD editor display status (toggle, preset) |
 | `/fleet:prompt:settings` | Meta-prompt model and reasoning level settings |
 | `/fleet:summary:settings` | Auto-summary model and max-length settings |
+| `/fleet:log:toggle` | Toggle logging on/off |
+| `/fleet:log:settings` | Detailed logging settings (file, footer, level, clear) |
 
 ## Packages
 

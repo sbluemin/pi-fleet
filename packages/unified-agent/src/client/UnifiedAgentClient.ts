@@ -4,12 +4,14 @@
  */
 
 import { EventEmitter } from 'events';
-import type { PromptResponse } from '@agentclientprotocol/sdk';
+import type { PromptResponse, McpServer } from '@agentclientprotocol/sdk';
 import type {
   CliType,
   UnifiedClientOptions,
+  ConnectionOptions,
   CliDetectionResult,
   AgentMode,
+  PreSpawnedHandle,
 } from '../types/config.js';
 import type {
   AcpAvailableCommand,
@@ -36,12 +38,14 @@ import { AcpConnection } from '../connection/AcpConnection.js';
 import { CliDetector } from '../detector/CliDetector.js';
 import {
   createSpawnConfig,
+  createPreSpawnConfig,
   getBackendConfig,
   getYoloModeId,
 } from '../config/CliConfigs.js';
 import { cleanEnvironment, isWindows } from '../utils/env.js';
 import { getProviderModels } from '../models/ModelRegistry.js';
 import type { ProviderModelInfo } from '../models/schemas.js';
+import { getProcessPool } from '../pool/ProcessPool.js';
 
 // 인터페이스 파일에서 타입 re-export
 export type { UnifiedClientEvents, ConnectResult, ConnectionInfo, IUnifiedAgentClient } from './IUnifiedAgentClient.js';
@@ -99,6 +103,24 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
     // 기존 연결 정리
     await this.disconnect();
 
+    // preSpawned 핸들 처리
+    if (options.preSpawned) {
+      const handle = options.preSpawned;
+
+      if (handle.consumed) {
+        throw new Error('PreSpawnedHandle이 이미 소비되었습니다');
+      }
+
+      // dead handle → 기존 spawn 경로로 fallback
+      if (handle.child.exitCode !== null) {
+        return this.connectAcp(handle.cli, options);
+      }
+
+      // 정상: consumed 세팅 후 connectWithHandle 호출
+      handle.consumed = true;
+      return this.connectWithHandle(handle, options);
+    }
+
     // 세션 재개 시 CLI 미지정 방지 (자동 감지로 엉뚱한 CLI에 재개 시도하는 문제 차단)
     if (options.sessionId && !options.cli) {
       throw new Error('세션 재개 시 cli 지정이 필요합니다.');
@@ -121,18 +143,40 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
 
   /**
    * ACP 프로토콜로 연결합니다.
+   * Pool에 idle 엔트리가 있으면 재사용하고, 없으면 새로 spawn합니다.
    */
   private async connectAcp(
     cli: CliType,
     options: UnifiedClientOptions,
   ): Promise<ConnectResult> {
+    // Pool에서 acquire 시도
+    const pool = getProcessPool();
+    const pooled = pool.acquire(cli);
+
+    if (pooled) {
+      // Pool에서 획득한 connection 재사용: createSession만 호출
+      this.acpConnection = pooled;
+      this.setupAcpEventForwarding();
+
+      let session: AcpSessionNewResult;
+      try {
+        session = await pooled.createSession(options.cwd, options.sessionId);
+      } catch (error) {
+        const connectionError = this.buildConnectionError(cli, error, []);
+        await this.cleanupFailedAcpConnection();
+        throw connectionError;
+      }
+
+      return this.finalizeConnect(cli, options, session);
+    }
+
+    // Pool에 없으면 새로 spawn
     const spawnConfig = createSpawnConfig(cli, options);
     const cleanEnv = cleanEnvironment(process.env, options.env);
 
     const env: Record<string, string | undefined> = { ...cleanEnv };
 
     if (cli === 'gemini' && isWindows() && env.GEMINI_CLI_NO_RELAUNCH === undefined) {
-      // Gemini CLI는 Windows에서 self-relaunch 경로를 타면 ACP stdio 핸드셰이크가 멈출 수 있어 비활성화합니다.
       env.GEMINI_CLI_NO_RELAUNCH = 'true';
     }
 
@@ -148,7 +192,6 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
       autoApprove: options.autoApprove,
     });
 
-    // 이벤트 전파
     this.setupAcpEventForwarding();
 
     const recentLogs: string[] = [];
@@ -162,7 +205,6 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
 
     let session: AcpSessionNewResult;
     try {
-      // 연결 실행
       session = await this.acpConnection.connect(options.cwd, options.sessionId);
     } catch (error) {
       const connectionError = this.buildConnectionError(cli, error, recentLogs);
@@ -172,10 +214,21 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
       this.acpConnection?.off('log', collectLog);
     }
 
+    return this.finalizeConnect(cli, options, session);
+  }
+
+  /**
+   * 연결 완료 후 공통 후처리 (YOLO 모드, 모델 설정, 상태 저장).
+   */
+  private async finalizeConnect(
+    cli: CliType,
+    options: UnifiedClientOptions,
+    session: AcpSessionNewResult,
+  ): Promise<ConnectResult> {
     // YOLO 모드 설정
     if (options.yoloMode && session.sessionId) {
       try {
-        await this.acpConnection.setMode(session.sessionId, getYoloModeId(cli));
+        await this.acpConnection!.setMode(session.sessionId, getYoloModeId(cli));
       } catch {
         // YOLO 모드 미지원 CLI인 경우 무시
       }
@@ -184,7 +237,7 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
     // 모델 설정
     if (options.model && session.sessionId) {
       try {
-        await this.acpConnection.setModel(session.sessionId, options.model);
+        await this.acpConnection!.setModel(session.sessionId, options.model);
       } catch {
         // 모델 설정 미지원 CLI인 경우 무시
       }
@@ -199,6 +252,158 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
       protocol: 'acp',
       session,
     };
+  }
+
+  /**
+   * CLI 프로세스를 미리 스폰하고 opaque PreSpawnedHandle을 반환합니다.
+   * Pool의 warmUp을 사용하여 spawn+initialize까지 완료된 connection을 생성합니다.
+   * connect() 시 preSpawned로 전달하면 createSession만 수행합니다.
+   *
+   * @param cli - 스폰할 CLI 종류
+   * @param options - 연결 옵션 (cwd 제외)
+   * @returns 미리 스폰된 프로세스 핸들
+   */
+  async preSpawn(
+    cli: CliType,
+    options?: Omit<ConnectionOptions, 'cwd'>,
+  ): Promise<PreSpawnedHandle> {
+    const pool = getProcessPool();
+    const connection = await pool.warmUp(cli, {
+      env: options?.env,
+      cliPath: options?.cliPath,
+      timeout: options?.timeout,
+      clientInfo: options?.clientInfo,
+    });
+
+    const child = connection.childProcess!;
+    const stream = connection.stream!;
+
+    // opaque handle 생성 (unique symbol brand 때문에 as unknown as 필요)
+    // Pool에서 acquire하여 active 상태로 전환 (Pool에서 제거됨)
+    pool.acquire(cli);
+
+    const handle = {
+      cli,
+      child,
+      stream,
+      consumed: false,
+      _pooledConnection: connection,
+    } as unknown as PreSpawnedHandle;
+
+    return handle;
+  }
+
+  /**
+   * 현재 프로세스를 유지한 채 세션만 교체합니다.
+   *
+   * @param cwd - 새 세션의 작업 디렉토리 (선택, 미지정 시 현재 cwd 재사용)
+   * @returns 연결 결과
+   */
+  async resetSession(cwd?: string): Promise<ConnectResult> {
+    if (!this.acpConnection || !this.sessionId) {
+      throw new Error('연결되어 있지 않습니다');
+    }
+
+    const targetCwd = cwd ?? this.sessionCwd ?? process.cwd();
+
+    // close capability 없는 CLI(Gemini 등)는 newSession 재호출이 hang됩니다
+    if (!this.acpConnection.canResetSession) {
+      throw new Error(
+        `[${this.activeCli}] 세션 리셋을 지원하지 않습니다. disconnect() 후 재연결하세요.`,
+      );
+    }
+
+    await this.acpConnection.endSession(this.sessionId);
+    this.sessionId = null;
+
+    const session = await this.acpConnection.reconnectSession(targetCwd);
+
+    this.sessionId = session.sessionId;
+    this.sessionCwd = targetCwd;
+
+    return {
+      cli: this.activeCli!,
+      protocol: 'acp',
+      session,
+    };
+  }
+
+  /**
+   * pre-spawn 핸들을 사용하여 ACP 연결을 수행합니다.
+   * _pooledConnection이 있으면 이미 initialized된 connection을 재사용합니다.
+   */
+  private async connectWithHandle(
+    handle: PreSpawnedHandle,
+    options: UnifiedClientOptions,
+  ): Promise<ConnectResult> {
+    // Pool에서 생성된 connection이 있으면 재사용
+    const pooledConn = handle._pooledConnection as AcpConnection | undefined;
+    if (pooledConn) {
+      this.acpConnection = pooledConn;
+      this.setupAcpEventForwarding();
+
+      let session: AcpSessionNewResult;
+      try {
+        session = await pooledConn.createSession(options.cwd, options.sessionId);
+      } catch (error) {
+        const connectionError = this.buildConnectionError(handle.cli, error, []);
+        await this.cleanupFailedAcpConnection();
+        throw connectionError;
+      }
+
+      return this.finalizeConnect(handle.cli, options, session);
+    }
+
+    // Pool connection 없으면 기존 connectWithExternalProcess 경로
+    const spawnConfig = createPreSpawnConfig(handle.cli, options);
+    const cleanEnv = cleanEnvironment(process.env, options.env);
+
+    const env: Record<string, string | undefined> = { ...cleanEnv };
+
+    if (handle.cli === 'gemini' && isWindows() && env.GEMINI_CLI_NO_RELAUNCH === undefined) {
+      env.GEMINI_CLI_NO_RELAUNCH = 'true';
+    }
+
+    this.acpConnection = new AcpConnection({
+      command: spawnConfig.command,
+      args: spawnConfig.args,
+      cwd: options.cwd,
+      env,
+      requestTimeout: options.timeout,
+      initTimeout: options.timeout,
+      promptIdleTimeout: options.promptIdleTimeout,
+      clientInfo: options.clientInfo,
+      autoApprove: options.autoApprove,
+    });
+
+    this.setupAcpEventForwarding();
+
+    const recentLogs: string[] = [];
+    const collectLog = (message: string): void => {
+      recentLogs.push(message);
+      if (recentLogs.length > 30) {
+        recentLogs.shift();
+      }
+    };
+    this.acpConnection.on('log', collectLog);
+
+    let session;
+    try {
+      session = await this.acpConnection.connectWithExternalProcess(
+        handle.child,
+        handle.stream,
+        options.cwd,
+        options.sessionId,
+      );
+    } catch (error) {
+      const connectionError = this.buildConnectionError(handle.cli, error, recentLogs);
+      await this.cleanupFailedAcpConnection();
+      throw connectionError;
+    } finally {
+      this.acpConnection?.off('log', collectLog);
+    }
+
+    return this.finalizeConnect(handle.cli, options, session);
   }
 
   /**
@@ -306,8 +511,9 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
    * 기존 세션을 로드합니다.
    *
    * @param sessionId - 로드할 세션 ID
+   * @param mcpServers - 에이전트에 연결할 MCP 서버 목록 (선택, 기본: [])
    */
-  async loadSession(sessionId: string): Promise<void> {
+  async loadSession(sessionId: string, mcpServers?: McpServer[]): Promise<void> {
     if (!this.acpConnection) {
       throw new Error('연결되어 있지 않습니다');
     }
@@ -315,7 +521,7 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
     await this.acpConnection.loadSession({
       sessionId,
       cwd: this.sessionCwd ?? process.cwd(),
-      mcpServers: [],
+      mcpServers: mcpServers ?? [],
     });
 
     this.sessionId = sessionId;
@@ -346,11 +552,37 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
 
   /**
    * 연결을 닫습니다.
+   * Claude/Codex(canResetSession=true): endSession → pool.release로 프로세스 재사용.
+   * Gemini(canResetSession=false): pool.release에서 disconnect (프로세스 kill).
    */
   async disconnect(): Promise<void> {
     if (this.acpConnection) {
-      await this.acpConnection.disconnect();
-      this.acpConnection.removeAllListeners();
+      const conn = this.acpConnection;
+      const cli = this.activeCli;
+
+      if (cli && this.sessionId && conn.canResetSession) {
+        // Claude/Codex: endSession 후 Pool에 반환
+        try {
+          await conn.endSession(this.sessionId);
+          conn.removeAllListeners();
+          const pool = getProcessPool();
+          await pool.release(cli, conn);
+        } catch {
+          // endSession 실패 시 fallback: 프로세스 kill
+          await conn.disconnect();
+          conn.removeAllListeners();
+        }
+      } else if (cli) {
+        // Gemini 또는 세션 없음: Pool에 release (내부에서 disconnect 호출됨)
+        conn.removeAllListeners();
+        const pool = getProcessPool();
+        await pool.release(cli, conn);
+      } else {
+        // CLI 없음: 직접 disconnect
+        await conn.disconnect();
+        conn.removeAllListeners();
+      }
+
       this.acpConnection = null;
     }
 

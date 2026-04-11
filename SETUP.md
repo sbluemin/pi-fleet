@@ -28,7 +28,6 @@ cd packages/unified-agent && npm install && npm link && cd ../..
 cd extensions/fleet && npm install && cd ../..
 cd extensions/core/agent && npm install && cd ../../..
 cd extensions/core/shell && npm install && cd ../../..
-cd extensions/core/claude-provider && npm install && cd ../../..
 ```
 
 > `npm install` automatically builds via the `prepare` script, and `npm link` registers the `unified-agent` CLI globally.

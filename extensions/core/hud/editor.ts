@@ -2,7 +2,8 @@
  * core-hud/editor.ts — 커스텀 에디터, footer, 위젯 설정
  *
  * 커스텀 에디터 팩토리, 상태바 렌더링, footer 등록, 위젯 등록을 담당한다.
- * footer를 직접 등록하여 footerDataRef를 확보하므로 globalThis 간접 참조가 없다.
+ * footer를 직접 등록하여 footerDataRef를 확보하고,
+ * log footer bridge(globalThis 간접 통신)의 requestRender 콜백을 주입한다.
  */
 
 import type { ReadonlyFooterDataProvider, Theme } from "@mariozechner/pi-coding-agent";
@@ -21,21 +22,50 @@ import { WELCOME_GLOBAL_KEY } from "../welcome/types.js";
 // 상태바 설정 (footerDataRef 획득 목적)
 // ═══════════════════════════════════════════════════════════════════════════
 
-/** 상태바 등록 — footerData/tui 참조를 state에 저장 (렌더링은 빈 배열) */
+/**
+ * 상태바 등록 — footerData/tui 참조를 state에 저장.
+ *
+ * Footer render는 globalThis["__core_log_footer__"] bridge 객체의
+ * .line 값을 읽어 실제 Footer zone에 표시한다.
+ * HUD가 bridge 객체에 requestRender 콜백을 주입하여
+ * log 확장이 값 변경 시 즉시 렌더를 트리거할 수 있다.
+ * (border-bridge.ts와 동일한 간접 통신 패턴 + push 렌더)
+ */
 export function setupStatusBar(ctx: any, state: HudEditorState): void {
   if (!ctx.hasUI) return;
 
-  ctx.ui.setFooter((tui: any, _theme: Theme, footerData: ReadonlyFooterDataProvider) => {
+  ctx.ui.setFooter((tui: any, theme: Theme, footerData: ReadonlyFooterDataProvider) => {
     state.footerDataRef = footerData;
     state.tuiRef = tui;
+
+    // log footer bridge 초기화 — requestRender 콜백 주입
+    // 이미 bridge 객체가 있으면(log가 먼저 로드됨) requestRender만 주입
+    const bridgeKey = "__core_log_footer__";
+    if (!(globalThis as any)[bridgeKey]) {
+      (globalThis as any)[bridgeKey] = { line: null, requestRender: null };
+    }
+    const ownRenderCb = () => tui.requestRender();
+    (globalThis as any)[bridgeKey].requestRender = ownRenderCb;
 
     const unsub = footerData.onBranchChange(() => tui.requestRender());
 
     return {
-      dispose: unsub,
+      dispose() {
+        unsub();
+        // 자신이 주입한 콜백일 때만 해제 — 다른 footer 인스턴스가 이미 교체했을 수 있음
+        const bridge = (globalThis as any)[bridgeKey];
+        if (bridge && bridge.requestRender === ownRenderCb) {
+          bridge.requestRender = null;
+        }
+      },
       invalidate() {},
-      render(_width: number): string[] {
-        return [];
+      render(width: number): string[] {
+        const bridge = (globalThis as any)[bridgeKey];
+        const debugLine: string | null = bridge?.line;
+        if (!debugLine) return [];
+
+        const trimmed = truncateToWidth(theme.fg("dim", debugLine), width);
+        return [trimmed];
       },
     };
   });

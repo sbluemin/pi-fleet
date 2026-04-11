@@ -19,6 +19,7 @@ Do not create intermediate layers that simply wrap official TUI APIs (e.g., `set
 | `core/keybind/` | Centralized keybinding management + overlay (alt+.) | `index.ts` (wiring), `types.ts` (API types + globalThis key), `bridge.ts` (globalThis bridge runtime), `store.ts` (JSON), `registry.ts` (bindings), `overlay.ts` (UI) |
 | `core/settings/` | Centralized settings API + overlay popup (alt+/) | `index.ts` (wiring), `types.ts` (API types + globalThis key), `bridge.ts` (globalThis bridge runtime), `store.ts` (JSON), `registry.ts` (sections), `overlay.ts` (UI) |
 | `core/welcome/` | Welcome overlay/header | `index.ts` (wiring), `welcome.ts` (UI), `types.ts` (globalThis types) |
+| `core/log/` | Reusable logging — file log + footer display + globalThis API for other extensions | `index.ts` (wiring), `bridge.ts` (globalThis bridge), `store.ts` (JSON/state), `types.ts` (API types + globalThis keys) |
 | `core/improve-prompt/` | Meta-prompting (alt+m), reasoning level cycle (alt+r) | `index.ts` (wiring), `ui.ts` (Status Bar segment) |
 | `core/thinking-timer/` | Inline elapsed-time display for Thinking blocks | `index.ts` (wiring), `timer.ts` (patch/store/ticker) |
 | `core/summarize/` | Auto one-line session summary | `index.ts` (wiring), `ui.ts` (Status Bar segment) |

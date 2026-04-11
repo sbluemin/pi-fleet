@@ -127,6 +127,51 @@ export class BaseConnection extends EventEmitter {
   }
 
   /**
+   * 외부에서 생성된(pre-spawn) child process와 stream을 주입합니다.
+   * spawnRawProcess()와 동일한 stderr/exit/error 이벤트 핸들러를 등록합니다.
+   *
+   * @param child - 외부에서 spawn된 자식 프로세스
+   * @param stream - ACP SDK 호환 Stream
+   */
+  protected adoptExternalProcess(child: ChildProcess, stream: Stream): void {
+    if (this.child !== null && this.child.exitCode === null) {
+      throw new Error('이미 연결된 프로세스가 있습니다');
+    }
+
+    this.childExitPromise = new Promise<void>((resolve) => {
+      child.once('exit', () => {
+        resolve();
+      });
+    });
+
+    // stderr 로그 수집
+    child.stderr?.on('data', (data: Buffer) => {
+      const lines = data.toString().split('\n');
+      for (const line of lines) {
+        if (line.trim()) {
+          this.emit('log', line.trim());
+        }
+      }
+    });
+
+    // 프로세스 종료 처리
+    child.on('exit', (code, signal) => {
+      this.setState('closed');
+      this.emit('exit', code, signal);
+    });
+
+    // 프로세스 에러 처리
+    child.on('error', (err) => {
+      this.setState('error');
+      this.emit('error', err);
+    });
+
+    this.child = child;
+    this.acpStream = stream;
+    this.setState('connected');
+  }
+
+  /**
    * CLI 프로세스를 spawn하고 ACP SDK 호환 Stream을 생성합니다.
    * spawnRawProcess()를 호출한 후 ndJsonStream 변환을 추가합니다.
    *

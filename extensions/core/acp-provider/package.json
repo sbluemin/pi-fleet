@@ -1,0 +1,8 @@
+{
+  "name": "core-acp-provider",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "@sbluemin/unified-agent": "file:../../../packages/unified-agent"
+  }
+}
