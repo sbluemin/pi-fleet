@@ -1,6 +1,6 @@
 /**
  * carriers/genesis — Genesis carrier (CVN-01)
- * @specialization 수석 엔지니어 — 전방위 코드 구현 · 신규 기능 구축 특화
+ * @specialization 수석 엔지니어 — 전방위 코드 구현 · 신규 기능 구축 · 클린 코드 특화
  *
  * Genesis carrier를 프레임워크에 등록합니다.
  */
@@ -12,15 +12,17 @@ import { registerSingleCarrier } from "../fleet/shipyard/carrier/register.js";
 const CARRIER_METADATA: CarrierMetadata = {
   // ── Tier 1: Routing ──
   title: "Chief Engineer",
-  summary: "Full-stack implementation workhorse — builds features and writes production-quality code.",
+  summary: "Full-stack implementation workhorse — builds features, writes production-quality clean code, and maintains structural integrity throughout.",
   whenToUse: [
     "new features",
     "integrations",
     "migrations",
     "multi-file coordinated changes",
+    "refactoring and structural cleanup",
+    "dead code removal and deduplication",
     "default carrier for coding tasks",
   ],
-  whenNotToUse: "architecture decisions without prior oracle review, or non-trivial implementation lacking an execution plan from Athena when planning is clearly needed. Post-build: QA (→sentinel), security (→raven), cleanup (→crucible), docs (→chronicle)",
+  whenNotToUse: "architecture decisions without prior oracle review, or non-trivial implementation lacking an execution plan from Athena when planning is clearly needed. Post-build: QA & security (→sentinel), docs (→chronicle)",
 
   // ── Tier 2: Composition ──
   permissions: [

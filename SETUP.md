@@ -55,7 +55,7 @@ Add the `extensions` field to your pi settings file, pointing to the extension d
 > - `extensions/core/` — single infrastructure extension whose root `index.ts` wires keybind, settings, log, welcome, hud, shell, improve-prompt, summarize, thinking-timer, provider-guard, and acp-provider modules
 > - `extensions/admiral/` — Admiral prompt policy (system prompt injection, worldview toggle, settings section)
 > - `extensions/fleet/` — agent orchestration extension (carrier framework SDK, Agent Panel, unified pipeline)
-> - `extensions/carriers/` — default carrier registrations (genesis, athena, oracle, crucible, sentinel, raven, vanguard, echelon, chronicle)
+> - `extensions/carriers/` — default carrier registrations (genesis, athena, oracle, sentinel, vanguard, echelon, chronicle)
 >
 > With `extensions/` registered, `core/`, `admiral/`, `fleet/`, and `carriers/` are discovered from that root automatically.
 

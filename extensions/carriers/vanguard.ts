@@ -20,7 +20,7 @@ const CARRIER_METADATA: CarrierMetadata = {
     "fast file scanning",
     "multi-file reading tasks",
   ],
-  whenNotToUse: "code modification (→genesis/crucible), design decisions (→oracle), GitHub repo deep-dives (→echelon)",
+  whenNotToUse: "code modification (→genesis), design decisions (→oracle), GitHub repo deep-dives (→echelon)",
 
   // ── Tier 2: Composition ──
   permissions: [
@@ -53,5 +53,5 @@ const CARRIER_METADATA: CarrierMetadata = {
 };
 
 export function registerVanguardCarrier(pi: ExtensionAPI): void {
-  registerSingleCarrier(pi, "gemini", CARRIER_METADATA, { slot: 7, id: "vanguard", displayName: "Vanguard" });
+  registerSingleCarrier(pi, "gemini", CARRIER_METADATA, { slot: 5, id: "vanguard", displayName: "Vanguard" });
 }

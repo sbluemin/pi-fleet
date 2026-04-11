@@ -157,7 +157,7 @@ export function buildSortieToolSchema(enabledIds: string[]): TObject {
           "Array of carrier assignments. Length must equal expected_carrier_count. " +
           "When launching multiple carriers in parallel, ALL intended carriers MUST be listed together here in a SINGLE call — never split a parallel batch into multiple sequential calls. " +
           "Example (single): [{\"carrier\": \"genesis\", \"request\": \"...\"}] " +
-          "Example (parallel): [{\"carrier\": \"sentinel\", \"request\": \"...\"}, {\"carrier\": \"raven\", \"request\": \"...\"}] " +
+          "Example (parallel): [{\"carrier\": \"sentinel\", \"request\": \"...\"}, {\"carrier\": \"genesis\", \"request\": \"...\"}] " +
           "MUST be a native JSON array [...], NOT a stringified JSON string.",
       },
     ),

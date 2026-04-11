@@ -30,12 +30,12 @@ When multiple Carriers contribute to the same task, apply structured feedback:
 
 | Pattern | Flow | When |
 |---------|------|------|
-| **Build → Review** | Genesis → Sentinel/Raven (parallel) → findings back to Genesis → re-review | Standard implementation cycle |
-| **Analyze → Execute** | Crucible analysis → Genesis executes proposal → Sentinel verifies | Refactoring workflow |
+| **Build → Review** | Genesis → Sentinel review → findings back to Genesis → re-review | Standard implementation cycle |
+| **Analyze → Execute** | Genesis refactoring → Sentinel verifies | Refactoring workflow |
 | **Decide → Plan → Execute** | Oracle decision → Athena plan → Genesis execution | Complex features |
 | **Research → Act** | Vanguard/Echelon recon → Oracle/Athena/Genesis (based on findings) | Unknown scope tasks |
 
-- After a review Carrier (Sentinel/Raven) produces findings, route actionable items back to the implementation Carrier (Genesis) with explicit fix instructions.
+- After a review Carrier (Sentinel) produces findings, route actionable items back to the implementation Carrier (Genesis) with explicit fix instructions.
 - After fixes are applied, **re-run the same review** on changed code only — do not re-review the entire codebase.
 - Chronicle runs **last** in any pipeline — only after implementation and verification are complete.
 

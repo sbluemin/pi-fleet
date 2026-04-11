@@ -19,7 +19,7 @@ const CARRIER_METADATA: CarrierMetadata = {
     "API usage examples from open-source",
     "upstream dependency deep-dives",
   ],
-  whenNotToUse: "local codebase exploration (→vanguard), code modification (→genesis/crucible), design decisions (→oracle)",
+  whenNotToUse: "local codebase exploration (→vanguard), code modification (→genesis), design decisions (→oracle)",
 
   // ── Tier 2: Composition ──
   permissions: [
@@ -50,5 +50,5 @@ const CARRIER_METADATA: CarrierMetadata = {
 };
 
 export function registerEchelonCarrier(pi: ExtensionAPI): void {
-  registerSingleCarrier(pi, "gemini", CARRIER_METADATA, { slot: 8, id: "echelon", displayName: "Echelon" });
+  registerSingleCarrier(pi, "gemini", CARRIER_METADATA, { slot: 6, id: "echelon", displayName: "Echelon" });
 }

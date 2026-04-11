@@ -49,15 +49,13 @@ Independent carrier registrations defining unique personas for each CLI instance
 
 | Carrier | CLI | Role | Slot |
 |---------|-----|------|------|
-| **Genesis** | Claude | CVN-01 Chief Engineer (Implementation, integration & code delivery) | #1 |
+| **Genesis** | Claude | CVN-01 Chief Engineer (Implementation, integration, code delivery & clean code) | #1 |
 | **Athena** | Claude | CVN-02 Strategic Planning Officer (Requirements clarification, PRD realization & structured work planning) | #2 |
 | **Oracle**  | Claude | CVN-09 Strategic Technical Advisor (Read-only technical path decisions & architectural guidance) | #3 |
-| **Crucible**| Codex  | CVN-03 Chief Forgemaster (Dead code removal & DRY refactoring) | #4 |
-| **Sentinel**| Codex  | CVN-04 The Inquisitor / QA Lead (Code review, defect detection & quality audits) | #5 |
-| **Raven**   | Codex  | CVN-05 Red Team Commander (Security auditing & penetration testing) | #6 |
-| **Vanguard**| Gemini | CVN-06 Scout Specialist (Reconnaissance & web research) | #7 |
-| **Echelon** | Gemini | CVN-07 Chief Intelligence Officer (Deep repository scanning & GitHub intelligence) | #8 |
-| **Chronicle**| Gemini | CVN-08 Chief Knowledge Officer (Documentation, change-impact reporting & technical writing) | #9 |
+| **Sentinel**| Codex  | CVN-04 The Inquisitor / QA & Security Lead (Code review, defect detection, quality audits & security) | #4 |
+| **Vanguard**| Gemini | CVN-06 Scout Specialist (Reconnaissance & web research) | #5 |
+| **Echelon** | Gemini | CVN-07 Chief Intelligence Officer (Deep repository scanning & GitHub intelligence) | #6 |
+| **Chronicle**| Gemini | CVN-08 Chief Knowledge Officer (Documentation, change-impact reporting & technical writing) | #7 |
 
 ## Task Force
 

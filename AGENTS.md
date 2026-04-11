@@ -44,9 +44,7 @@ PI is the **host agent** (orchestrator). Genesis, Sentinel, and Vanguard are **s
 | **Genesis** (sub) | CVN-01 Chief Engineer (Claude Code CLI via ACP) |
 | **Athena** (sub) | CVN-02 Strategic Planning Officer (Claude Code CLI via ACP) |
 | **Oracle** (sub) | CVN-09 Strategic Technical Advisor — read-only (Claude Code CLI via ACP) |
-| **Crucible** (sub) | CVN-03 Chief Forgemaster (Codex CLI via ACP) |
-| **Sentinel** (sub) | CVN-04 The Inquisitor (Codex CLI via ACP) |
-| **Raven** (sub) | CVN-05 Red Team Commander (Codex CLI via ACP) |
+| **Sentinel** (sub) | CVN-04 The Inquisitor / QA & Security Lead (Codex CLI via ACP) |
 | **Vanguard** (sub) | CVN-06 Scout Specialist (Gemini CLI via ACP) |
 | **Echelon** (sub) | CVN-07 Chief Intelligence Officer (Gemini CLI via ACP) |
 | **Chronicle** (sub) | CVN-08 Chief Knowledge Officer — documentation, change-impact summaries, and release communication (Gemini CLI via ACP) |
