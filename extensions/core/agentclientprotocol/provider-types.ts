@@ -4,8 +4,8 @@
  * imports → types/interfaces → constants → functions 순서 준수.
  */
 
-import type { AcpConnection } from "@sbluemin/unified-agent";
 import type { CliType } from "@sbluemin/unified-agent";
+import type { UnifiedAgentClient } from "@sbluemin/unified-agent";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types / Interfaces
@@ -21,8 +21,8 @@ export interface ParsedModelId {
 
 /** ACP 세션 상태 — pi session 키 기준 관리 */
 export interface AcpSessionState {
-  /** ACP 연결 인스턴스 */
-  connection: AcpConnection | null;
+  /** Unified Agent 클라이언트 인스턴스 */
+  client: UnifiedAgentClient | null;
   /** ACP 세션 ID */
   sessionId: string | null;
   /** 작업 디렉토리 */
@@ -43,24 +43,10 @@ export interface AcpSessionState {
   sendPromptError?: boolean;
 }
 
-/** preSpawn 핸들 엔트리 */
-export interface PreSpawnEntry {
-  /** CLI 종류 */
-  cli: CliType;
-  /** spawn된 자식 프로세스 */
-  child: import("child_process").ChildProcess;
-  /** ACP SDK 호환 스트림 */
-  stream: import("@agentclientprotocol/sdk").Stream;
-  /** 생성 시각 — stale 판별용 */
-  createdAt: number;
-}
-
 /** provider 전역 상태 — globalThis에 저장 */
 export interface AcpProviderState {
   /** pi session 키 → ACP 세션 상태 맵 */
   sessions: Map<string, AcpSessionState>;
-  /** CLI별 preSpawn 핸들 풀 */
-  preSpawnPool: Map<CliType, PreSpawnEntry>;
   /** 활성 sendPrompt가 진행 중인 세션 키 — tool result delivery 감지용 */
   activeSessionKey: string | null;
 }
@@ -95,9 +81,6 @@ export const GLOBAL_STATE_KEY = Symbol.for("__pi_fleet_acp_state__");
 
 /** globalThis 키 — 활성 streamSimple 함수 참조 (subagent 중복 등록 방지) */
 export const ACTIVE_STREAM_KEY = Symbol.for("__pi_fleet_acp_stream__");
-
-/** preSpawn 핸들 최대 수명 (ms) — 이후 stale 판정 */
-export const PRE_SPAWN_MAX_AGE_MS = 120_000; // 2분
 
 /** ACP 연결 기본 타임아웃 (ms) */
 export const DEFAULT_REQUEST_TIMEOUT = 600_000; // 10분
@@ -310,7 +293,6 @@ export function getOrInitState(): AcpProviderState {
 function createInitialState(): AcpProviderState {
   return {
     sessions: new Map(),
-    preSpawnPool: new Map(),
     activeSessionKey: null,
   };
 }

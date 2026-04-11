@@ -11,7 +11,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { createSessionMapStore, type SessionMapStore } from "./session-map.js";
+import { createSessionMapStore, type SessionMapStore } from "./session-store.js";
 
 /** 런타임 데이터 디렉토리 (session-maps/ 저장 경로) */
 let dataDir: string | null = null;

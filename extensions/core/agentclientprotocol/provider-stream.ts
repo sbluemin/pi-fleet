@@ -1,9 +1,9 @@
 /**
- * core/acp-provider/provider — ACP 기반 streamSimple 구현
+ * core/agentclientprotocol/provider-stream — ACP 기반 streamSimple 구현
  *
- * AcpConnection을 직접 사용하여 Gemini/Codex CLI 백엔드를 pi TUI에 통합.
+ * UnifiedAgentClient를 통해 Gemini/Codex/Claude CLI 백엔드를 pi TUI에 통합.
  * Virtual Tool 방식: ACP CLI가 투명 스트리밍 백엔드. pi tool 루프 우회.
- * context.messages에서 최신 user 메시지만 추출하여 sendPrompt()에 전달.
+ * context.messages에서 최신 user 메시지만 추출하여 sendMessage()에 전달.
  *
  * imports → types/interfaces → constants → functions 순서 준수.
  */
@@ -15,35 +15,23 @@ import type {
   SimpleStreamOptions,
   Tool,
 } from "@mariozechner/pi-ai";
-import { spawn } from "child_process";
 import crypto from "crypto";
-import { getSessionStore } from "../agent/runtime.js";
-import { Readable, Writable } from "stream";
-import {
-  AcpConnection,
-  createSpawnConfig,
-  createPreSpawnConfig,
-  ndJsonStream,
-  cleanEnvironment,
-  isWindows,
-} from "@sbluemin/unified-agent";
+import { UnifiedAgentClient } from "@sbluemin/unified-agent";
 import type { CliType, AcpMcpServer } from "@sbluemin/unified-agent";
 
 import {
   type AcpSessionState,
   type AcpProviderState,
-  type PreSpawnEntry,
-  DEFAULT_REQUEST_TIMEOUT,
-  DEFAULT_INIT_TIMEOUT,
   DEFAULT_PROMPT_IDLE_TIMEOUT,
-  PRE_SPAWN_MAX_AGE_MS,
   CLI_CAPABILITIES,
   parseModelId,
   hashSystemPrompt,
   getOrInitState,
-} from "./types.js";
-import { createEventMapper } from "./event-mapper.js";
-import { getLogAPI } from "../../log/bridge.js";
+} from "./provider-types.js";
+import { acquireSession, releaseSession } from "./executor.js";
+import { createEventMapper } from "./provider-events.js";
+import { getLogAPI } from "../log/bridge.js";
+import { getSessionStore } from "./runtime.js";
 import {
   startMcpServer,
   stopMcpServer,
@@ -52,23 +40,14 @@ import {
   hasPendingToolCall,
   setOnToolCallArrived,
   type McpCallToolResult,
-} from "./mcp-server.js";
+} from "./provider-mcp.js";
 import {
   registerToolsForSession,
   removeToolsForSession,
   clearAllTools,
   computeToolHash,
   getToolNamesForSession,
-} from "./tool-registry.js";
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Constants
-// ═══════════════════════════════════════════════════════════════════════════
-
-/** Codex CLI에 전달할 MCP 도구 타임아웃 설정 오버라이드 */
-const MCP_TOOL_TIMEOUT_CONFIG_OVERRIDES = [
-  'mcp_servers.pi-tools.tool_timeout_sec=1800', // 30분
-];
+} from "./provider-tools.js";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Internal helpers
@@ -112,38 +91,6 @@ function getSessionKey(cwd: string): string {
   return `acp:${cwd}`;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// AcpConnection 생성/관리
-// ═══════════════════════════════════════════════════════════════════════════
-
-/** AcpConnection을 생성하고 반환 */
-function createAcpConnection(
-  cli: CliType,
-  cwd: string,
-  backendModel?: string,
-): AcpConnection {
-  const spawnConfig = createSpawnConfig(cli, {
-    cwd,
-    model: backendModel,
-    yoloMode: true, // 자동 승인 — pi가 직접 permission 관리하지 않음
-    configOverrides: MCP_TOOL_TIMEOUT_CONFIG_OVERRIDES,
-  });
-
-  return new AcpConnection({
-    command: spawnConfig.command,
-    args: spawnConfig.args,
-    cwd,
-    env: cleanEnvironment(process.env, {
-      MCP_TOOL_TIMEOUT: '1800000', // 30분 — CLI의 MCP 도구 실행 타임아웃 확장
-    }),
-    requestTimeout: DEFAULT_REQUEST_TIMEOUT,
-    initTimeout: DEFAULT_INIT_TIMEOUT,
-    promptIdleTimeout: DEFAULT_PROMPT_IDLE_TIMEOUT,
-    clientInfo: { name: "pi-fleet-acp", version: "1.0.0" },
-    autoApprove: true,
-  });
-}
-
 /**
  * 세션 상태를 가져오거나 새로 생성.
  * systemPrompt drift 감지 시 기존 세션 폐기.
@@ -164,11 +111,11 @@ async function ensureSession(
   const currentToolHash = tools && tools.length > 0 ? computeToolHash(tools) : undefined;
 
   // CLI 변경, systemPrompt drift, tool hash 변경 — 기존 세션 폐기
-  // 단, 복원된 세션(connection=null, sessionId존재)에서는 systemPrompt drift 무시
+  // 단, 복원된 세션(client=null, sessionId존재)에서는 systemPrompt drift 무시
   // — resume 시 pi가 systemPrompt를 새로 생성하므로 hash가 달라질 수 있음
   if (session) {
     const cliChanged = session.cli !== cli;
-    const isRestoredSession = !session.connection && !!session.sessionId;
+    const isRestoredSession = !session.client && !!session.sessionId;
     const promptDrifted = !isRestoredSession &&
       session.lastSystemPromptHash &&
       session.lastSystemPromptHash !== systemPromptHash;
@@ -180,55 +127,38 @@ async function ensureSession(
         `세션 폐기: ${cliChanged ? "CLI 변경" : promptDrifted ? "systemPrompt drift" : "tool 목록 변경"}`,
         `(${session.cli} → ${cli})`,
       );
-      // MCP tool registry 정리
-      if (session.mcpSessionToken) {
-        removeToolsForSession(session.mcpSessionToken);
-      }
-      await disconnectSession(session);
+      await session.client?.endSession().catch(() => {});
+      await session.client?.disconnect().catch(() => {});
+      releaseSession(key);
+      session.client = null;
+      if (session.mcpSessionToken) removeToolsForSession(session.mcpSessionToken);
       state.sessions.delete(key);
       session = undefined;
     }
   }
 
-  // connection이 없지만 sessionId가 있으면 resume 복원 시도 (session/load)
-  if (session && !session.connection && session.sessionId) {
+  if (session && !session.client && session.sessionId) {
     const cap = CLI_CAPABILITIES[cli as keyof typeof CLI_CAPABILITIES];
-    if (cap?.supportsSessionLoad) {
-      debug(`session/load 복원 시도: ${session.sessionId.slice(0, 8)}`);
-      const connection = createAcpConnection(cli, cwd, backendModel);
-      try {
-        const acpSession = await connection.connect(cwd, session.sessionId);
-        session.connection = connection;
-        session.sessionId = acpSession.sessionId;
-        session.firstPromptSent = true; // 이전 대화가 있으므로
-        session.currentModel = backendModel;
-        session.lastSystemPromptHash = systemPromptHash; // resume 후 hash 갱신
-        replenishPreSpawn(cli);
-        debug(`session/load 복원 성공: ${acpSession.sessionId.slice(0, 8)}`);
-        return session;
-      } catch (err) {
-        debug(`session/load 실패, 새 세션으로 fallback:`, errorMessage(err));
-        try { await connection.disconnect(); } catch { /* noop */ }
-        session.sessionId = null; // stale sessionId 정리
-      }
-    } else {
-      debug(`CLI ${cli}는 session/load 미지원 — 새 세션 생성`);
+    if (!cap?.supportsSessionLoad) {
+      debug(`CLI ${cli}는 session/load 미지원 — 저장된 sessionId 폐기`);
+      getSessionStore().clear(key);
       session.sessionId = null;
     }
   }
 
   // 기존 세션이 유효하면 재사용 — 모델 변경 시 setModel 호출
-  if (session?.connection && session.sessionId) {
+  if (session?.client && session.sessionId) {
     if (session.currentModel !== backendModel) {
       debug(`모델 변경 감지: ${session.currentModel} → ${backendModel}`);
       try {
-        await session.connection.setModel(session.sessionId, backendModel);
+        await session.client.setModel(backendModel);
         session.currentModel = backendModel;
         debug(`setModel 성공: ${backendModel}`);
       } catch (err) {
         // setModel 실패 — 세션 폐기 후 재생성으로 fallback
         debug(`setModel 실패, 세션 재생성으로 fallback:`, errorMessage(err));
         await disconnectSession(session);
+        releaseSession(key);
         state.sessions.delete(key);
         session = undefined;
       }
@@ -261,10 +191,15 @@ async function ensureSession(
     }
   }
 
-  // 새 세션 생성
-  const connection = createAcpConnection(cli, cwd, backendModel);
+  // resume 시도는 acquireSession이 SessionMapStore를 기준으로 수행하므로,
+  // provider가 저장해둔 sessionId를 store에 먼저 주입한다.
+  if (session?.sessionId) {
+    getSessionStore().set(key, session.sessionId);
+  }
+
+  // 새 세션 생성 또는 resume 복원
   const newSession: AcpSessionState = {
-    connection,
+    client: null,
     sessionId: null,
     cwd,
     lastSystemPromptHash: systemPromptHash,
@@ -275,37 +210,36 @@ async function ensureSession(
     toolHash: currentToolHash,
   };
 
-  // preSpawn 핸들이 있으면 사용
-  const preSpawnEntry = consumePreSpawn(cli);
-
   try {
-    let acpSession;
-    if (preSpawnEntry) {
-      debug(`preSpawn 핸들 사용: cli=${cli}`);
-      acpSession = await connection.connectWithExternalProcess(
-        preSpawnEntry.child,
-        preSpawnEntry.stream,
-        cwd,
-        undefined,
-        mcpServers,
-      );
-    } else {
-      debug(`새 연결 시작: cli=${cli}`);
-      acpSession = await connection.connect(cwd, undefined, mcpServers);
-    }
-
-    newSession.sessionId = acpSession.sessionId;
+    debug(session?.sessionId ? `session/load 복원 시도: ${session.sessionId.slice(0, 8)}` : `새 연결 시작: cli=${cli}`);
+    const acquired = await acquireSession({
+      key,
+      cliType: cli,
+      cwd,
+      model: backendModel,
+      mcpServers,
+      yoloMode: true,
+      env: { MCP_TOOL_TIMEOUT: '1800000' },
+      promptIdleTimeout: DEFAULT_PROMPT_IDLE_TIMEOUT,
+    });
+    newSession.client = acquired.client;
+    newSession.sessionId = acquired.sessionId || acquired.connectionInfo.sessionId || null;
     state.sessions.set(key, newSession);
-
-    // preSpawn replenish (lazy: 연결 성공 후)
-    replenishPreSpawn(cli);
-
-    debug(`세션 생성 완료: ${acpSession.sessionId.slice(0, 8)}`);
+    acquired.release();
+    if (newSession.sessionId) {
+      debug(`세션 생성 완료: ${newSession.sessionId.slice(0, 8)}`);
+    }
     return newSession;
   } catch (err) {
     // 실패 시 정리
     if (mcpActive) removeToolsForSession(sessionToken);
-    try { await connection.disconnect(); } catch { /* noop */ }
+    releaseSession(key);
+    if (session?.sessionId) {
+      debug(`session/load 실패, 새 세션으로 fallback: ${errorMessage(err)}`);
+      getSessionStore().clear(key);
+      session.sessionId = null;
+      return ensureSession(cli, backendModel, cwd, systemPromptHash, tools);
+    }
     throw err;
   }
 }
@@ -315,20 +249,21 @@ async function disconnectSession(
   session: AcpSessionState,
   preserveSessionId = false,
 ): Promise<void> {
-  if (!session.connection) return;
   try {
-    if (session.sessionId) {
-      await session.connection.endSession(session.sessionId);
+    if (session.client && session.sessionId) {
+      await session.client.endSession().catch(() => {});
     }
   } catch {
     // best-effort
   }
   try {
-    await session.connection.disconnect();
+    if (session.client) {
+      await session.client.disconnect().catch(() => {});
+    }
   } catch {
     // best-effort
   }
-  session.connection = null;
+  session.client = null;
   if (!preserveSessionId) {
     session.sessionId = null;
   }
@@ -340,112 +275,6 @@ async function disconnectSession(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// preSpawn 관리
-// ═══════════════════════════════════════════════════════════════════════════
-
-/** preSpawn 핸들 소비 — stale이면 정리하고 null 반환 */
-function consumePreSpawn(cli: CliType): PreSpawnEntry | null {
-  const state = getOrInitState();
-  const entry = state.preSpawnPool.get(cli);
-  if (!entry) return null;
-
-  state.preSpawnPool.delete(cli);
-
-  // stale 검사
-  if (Date.now() - entry.createdAt > PRE_SPAWN_MAX_AGE_MS) {
-    debug(`preSpawn stale (${cli}): age=${Date.now() - entry.createdAt}ms`);
-    try { entry.child.kill(); } catch { /* noop */ }
-    return null;
-  }
-
-  // 프로세스가 이미 종료됐는지 확인
-  if (entry.child.exitCode !== null) {
-    debug(`preSpawn already exited (${cli}): exitCode=${entry.child.exitCode}`);
-    return null;
-  }
-
-  return entry;
-}
-
-/** preSpawn replenish — 비동기로 새 핸들 생성 */
-function replenishPreSpawn(cli: CliType): void {
-  const state = getOrInitState();
-  // 이미 있으면 skip
-  if (state.preSpawnPool.has(cli)) return;
-
-  // 비동기로 warm-up (실패는 조용히 로깅만)
-  doPreSpawn(cli).then((entry) => {
-    if (entry) {
-      // 사이에 다른 핸들이 생겼으면 새로 만든 것 정리
-      if (state.preSpawnPool.has(cli)) {
-        try { entry.child.kill(); } catch { /* noop */ }
-        return;
-      }
-      state.preSpawnPool.set(cli, entry);
-      debug(`preSpawn replenish 완료: ${cli}`);
-    }
-  }).catch((err) => {
-    debug(`preSpawn replenish 실패 (${cli}):`, errorMessage(err));
-  });
-}
-
-/** 실제 preSpawn 수행 — UnifiedAgentClient.preSpawn() 패턴 참조 */
-async function doPreSpawn(cli: CliType): Promise<PreSpawnEntry | null> {
-  const spawnConfig = createPreSpawnConfig(cli, {
-    configOverrides: MCP_TOOL_TIMEOUT_CONFIG_OVERRIDES,
-  });
-  const cleanEnv = cleanEnvironment(process.env, {
-    MCP_TOOL_TIMEOUT: '1800000', // 30분 — CLI의 MCP 도구 실행 타임아웃 확장
-  });
-
-  const env: Record<string, string | undefined> = { ...cleanEnv };
-  if (cli === "gemini" && isWindows() && env.GEMINI_CLI_NO_RELAUNCH === undefined) {
-    env.GEMINI_CLI_NO_RELAUNCH = "true";
-  }
-
-  const command = isWindows()
-    ? ((env.ComSpec as string) ?? "cmd.exe")
-    : spawnConfig.command;
-  const args = isWindows()
-    ? ["/c", spawnConfig.command, ...spawnConfig.args]
-    : spawnConfig.args;
-
-  const child = spawn(command, args, {
-    cwd: process.cwd(),
-    stdio: ["pipe", "pipe", "pipe"],
-    env: env as NodeJS.ProcessEnv,
-  });
-
-  const webWritable = Writable.toWeb(child.stdin!) as WritableStream<Uint8Array>;
-  const webReadable = Readable.toWeb(child.stdout!) as ReadableStream<Uint8Array>;
-  const stream = ndJsonStream(webWritable, webReadable);
-
-  // 즉시 종료 감지 (2초 대기)
-  await new Promise<void>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      child.removeListener("exit", onExit);
-      resolve();
-    }, 2000);
-
-    const onExit = (code: number | null): void => {
-      clearTimeout(timer);
-      reject(new Error(
-        `pre-spawn 프로세스가 즉시 종료되었습니다 (exitCode: ${code}, cli: ${cli})`,
-      ));
-    };
-
-    child.once("exit", onExit);
-  });
-
-  return {
-    cli,
-    child,
-    stream,
-    createdAt: Date.now(),
-  };
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
 // streamAcp — provider 진입점
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -453,7 +282,7 @@ async function doPreSpawn(cli: CliType): Promise<PreSpawnEntry | null> {
  * Provider 진입점 — pi의 streamSimple 계약 구현.
  *
  * 두 가지 모드:
- * Case 1 (fresh query): sendPrompt() 호출, MCP tool call 시 done="toolUse"로 pi에 양보
+ * Case 1 (fresh query): sendMessage() 호출, MCP tool call 시 done="toolUse"로 pi에 양보
  * Case 2 (tool result delivery): pi가 tool 실행 완료 후 재호출, FIFO 큐 resolve
  */
 export function streamAcp(
@@ -487,7 +316,7 @@ export function streamAcp(
   if (!isToolResultDelivery && isLastMsgToolResult && state.activeSessionKey === null) {
     const session = state.sessions.get(key);
     if (
-      session?.connection && session.sessionId && session.mcpSessionToken &&
+      session?.client && session.sessionId && session.mcpSessionToken &&
       session.sendPromptError === true &&
       hasPendingToolCall(session.mcpSessionToken)
     ) {
@@ -518,7 +347,7 @@ export function streamAcp(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Case 1: Fresh query — sendPrompt 호출
+// Case 1: Fresh query — sendMessage 호출
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function runFreshQuery(
@@ -569,7 +398,7 @@ async function runFreshQuery(
     return;
   }
 
-  if (!session.connection || !session.sessionId) {
+  if (!session.client || !session.sessionId) {
     mapper.finishWithError("error", "ACP 세션이 유효하지 않습니다");
     return;
   }
@@ -588,32 +417,32 @@ async function runFreshQuery(
   }
 
   // ── 이벤트 리스너 등록 ──
-  const conn = session.connection;
-  const removeListeners = wireListeners(conn, mapper, session.mcpSessionToken);
+  const client = session.client;
+  const removeListeners = wireListeners(client, mapper, session.mcpSessionToken);
 
   // ── abort 핸들링 ──
   const { wasAborted, cleanupAbort } = setupAbortHandling(session, state, mapper, removeListeners, options);
   if (wasAborted.value) return;
 
-  // ── sendPrompt — fire-and-forget ──
-  // sendPrompt는 promptComplete까지 resolve되지 않음.
+  // ── sendMessage — fire-and-forget ──
+  // sendMessage는 promptComplete까지 resolve되지 않음.
   // MCP tool call 시 event-mapper가 done="toolUse"로 스트림 종료.
-  // sendPrompt는 계속 pending — ACP CLI가 MCP 응답 대기 중이므로 이벤트 없음.
-  debug(`sendPrompt: cli=${cli} model=${backendModel} prompt=${finalPrompt.slice(0, 60)}...`);
+  // sendMessage는 계속 pending — ACP CLI가 MCP 응답 대기 중이므로 이벤트 없음.
+  debug(`sendMessage: cli=${cli} model=${backendModel} prompt=${finalPrompt.slice(0, 60)}...`);
 
-  conn.sendPrompt(session.sessionId, finalPrompt).then(() => {
+  client.sendMessage(finalPrompt).then(() => {
     session.firstPromptSent = true;
     session.lastSystemPromptHash = systemPromptHash;
     // promptComplete 이벤트가 발화되면 mapper가 done="stop" emit
     // → 여기서는 activeSessionKey 정리만
     state.activeSessionKey = null;
-    debug("sendPrompt 완료 (promptComplete 처리됨)");
+    debug("sendMessage 완료 (promptComplete 처리됨)");
   }).catch((err) => {
     if (wasAborted.value) return;
     const msg = errorMessage(err);
-    debug(`sendPrompt 에러: ${msg}`);
+    debug(`sendMessage 에러: ${msg}`);
     // activeSessionKey를 보존 — pi agent-loop이 tool 실행 중이면
-    // sendPrompt reject을 인지하지 못하고 toolResult로 재호출하므로,
+    // sendMessage reject을 인지하지 못하고 toolResult로 재호출하므로,
     // Case 2 분기가 정상 동작하려면 activeSessionKey가 유지되어야 함.
     // 대신 에러 플래그를 설정하여 Case 2에서 세션 상태 검증에 활용.
     session.sendPromptError = true;
@@ -646,7 +475,7 @@ async function runToolResultDelivery(
   const state = getOrInitState();
   const session = state.sessions.get(key);
 
-  if (!session?.connection || !session.sessionId || !session.mcpSessionToken) {
+  if (!session?.client || !session.sessionId || !session.mcpSessionToken) {
     mapper.finishWithError("error", "tool result delivery: 세션이 유효하지 않습니다");
     state.activeSessionKey = null;
     return;
@@ -688,15 +517,15 @@ async function runToolResultDelivery(
   }
 
   // 이벤트 리스너 재등록 — ACP CLI가 MCP 응답 받고 계속 처리
-  const conn = session.connection;
-  const removeListeners = wireListeners(conn, mapper, session.mcpSessionToken);
+  const client = session.client;
+  const removeListeners = wireListeners(client, mapper, session.mcpSessionToken);
 
   // abort 핸들링
-  const { wasAborted: _wasAborted, cleanupAbort } = setupAbortHandling(session, state, mapper, removeListeners, options);
-  if (_wasAborted.value) return;
+  const { wasAborted, cleanupAbort } = setupAbortHandling(session, state, mapper, removeListeners, options);
+  if (wasAborted.value) return;
 
   // 매퍼가 done="toolUse" (다음 tool call) 또는 done="stop" (완료)을 emit할 때까지 대기
-  // sendPrompt()는 Case 1에서 이미 호출되어 pending — 다시 호출하지 않음
+  // sendMessage()는 Case 1에서 이미 호출되어 pending — 다시 호출하지 않음
   // mapper의 finishDone/finishWithError를 래핑하여 정리 로직 트리거
   // (EventStream에는 .on("end") 없음 — push/end/[Symbol.asyncIterator]만 지원)
 
@@ -745,8 +574,8 @@ function setupAbortHandling(
   const onAbort = (): void => {
     wasAborted.value = true;
     debug("abort 신호 수신");
-    if (session.connection && session.sessionId) {
-      session.connection.cancelSession(session.sessionId).catch(() => {});
+    if (session.client) {
+      session.client.cancelPrompt().catch(() => {});
     }
     if (session.mcpSessionToken) {
       clearPendingForSession(session.mcpSessionToken);
@@ -773,21 +602,21 @@ function setupAbortHandling(
   return { wasAborted, cleanupAbort };
 }
 
-/** AcpConnection에 이벤트 리스너 등록 — 해제 함수 반환 */
+/** UnifiedAgentClient에 이벤트 리스너 등록 — 해제 함수 반환 */
 function wireListeners(
-  conn: AcpConnection,
+  client: UnifiedAgentClient,
   mapper: ReturnType<typeof createEventMapper>,
   mcpToken?: string,
 ): () => void {
   const { listeners } = mapper;
 
-  conn.on("messageChunk", listeners.onMessageChunk);
-  conn.on("thoughtChunk", listeners.onThoughtChunk);
-  conn.on("toolCall", listeners.onToolCall);
-  conn.on("toolCallUpdate", listeners.onToolCallUpdate);
-  conn.on("promptComplete", listeners.onPromptComplete);
-  conn.on("error", listeners.onError);
-  conn.on("exit", listeners.onExit);
+  client.on("messageChunk", listeners.onMessageChunk);
+  client.on("thoughtChunk", listeners.onThoughtChunk);
+  client.on("toolCall", listeners.onToolCall);
+  client.on("toolCallUpdate", listeners.onToolCallUpdate);
+  client.on("promptComplete", listeners.onPromptComplete);
+  client.on("error", listeners.onError);
+  client.on("exit", listeners.onExit);
 
   // MCP tool call 도착 콜백 — token 기준 격리
   if (mcpToken) {
@@ -797,13 +626,13 @@ function wireListeners(
   }
 
   return (): void => {
-    conn.off("messageChunk", listeners.onMessageChunk);
-    conn.off("thoughtChunk", listeners.onThoughtChunk);
-    conn.off("toolCall", listeners.onToolCall);
-    conn.off("toolCallUpdate", listeners.onToolCallUpdate);
-    conn.off("promptComplete", listeners.onPromptComplete);
-    conn.off("error", listeners.onError);
-    conn.off("exit", listeners.onExit);
+    client.off("messageChunk", listeners.onMessageChunk);
+    client.off("thoughtChunk", listeners.onThoughtChunk);
+    client.off("toolCall", listeners.onToolCall);
+    client.off("toolCallUpdate", listeners.onToolCallUpdate);
+    client.off("promptComplete", listeners.onPromptComplete);
+    client.off("error", listeners.onError);
+    client.off("exit", listeners.onExit);
     if (mcpToken) setOnToolCallArrived(mcpToken, null);
   };
 }
@@ -833,7 +662,7 @@ function extractAllToolResults(
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * 모든 ACP 세션과 preSpawn 핸들 정리.
+ * 모든 ACP 세션 정리.
  * session_shutdown 이벤트에서 호출.
  * 종료 전 sessionId를 파일에 영속화하여 resume 시 복원 가능.
  */
@@ -865,23 +694,20 @@ export async function handleSessionStart(
 
   if (reason === "new" || reason === "fork") {
     await clearSessionsAndPreSpawn(state);
-    debug(`session_start(${reason}): 세션 + preSpawn + MCP 초기화`);
+    debug(`session_start(${reason}): 세션 + MCP 초기화`);
   } else if (reason === "resume") {
     restoreAcpSessions(state, piSessionId);
     debug("session_start(resume): 세션 상태 복원 완료");
   }
 }
 
-/** 세션, preSpawn, MCP tool registry, activeSessionKey 일괄 정리 */
+/** 세션, MCP tool registry, activeSessionKey 일괄 정리 */
 async function clearSessionsAndPreSpawn(state: AcpProviderState): Promise<void> {
   for (const [key, session] of state.sessions) {
     await disconnectSession(session);
     state.sessions.delete(key);
+    releaseSession(key);
   }
-  for (const [_cli, entry] of state.preSpawnPool) {
-    try { entry.child.kill(); } catch { /* noop */ }
-  }
-  state.preSpawnPool.clear();
   clearAllTools();
   state.activeSessionKey = null;
 }
@@ -950,7 +776,7 @@ function restoreAcpSessions(state: AcpProviderState, piSessionId?: string): void
       if (state.sessions.has(sessionKey)) continue;
 
       const session: AcpSessionState = {
-        connection: null, // 프로세스 죽었으므로 null
+        client: null, // 프로세스 죽었으므로 null
         sessionId: fields.sessionId, // session/load에 사용
         cwd: fields.cwd || "",
         lastSystemPromptHash: fields.lastSystemPromptHash || "",

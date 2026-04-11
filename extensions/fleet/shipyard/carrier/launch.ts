@@ -7,7 +7,7 @@
 
 import type { CliType } from "@sbluemin/unified-agent";
 import { loadModels as getModelConfig } from "../store.js";
-import { getSessionId } from "../../../core/agentclientprotocol/agent/runtime.js";
+import { getSessionId } from "../../../core/agentclientprotocol/runtime.js";
 
 interface LaunchConfig {
   command: string;

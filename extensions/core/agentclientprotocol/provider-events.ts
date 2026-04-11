@@ -15,8 +15,8 @@ import type { AssistantMessage } from "@mariozechner/pi-ai";
 import { createAssistantMessageEventStream } from "@mariozechner/pi-ai";
 import type { AcpToolCall, AcpToolCallUpdate } from "@sbluemin/unified-agent";
 
-import { PROVIDER_ID } from "./types.js";
-import { getLogAPI } from "../../log/bridge.js";
+import { PROVIDER_ID } from "./provider-types.js";
+import { getLogAPI } from "../log/bridge.js";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types / Interfaces

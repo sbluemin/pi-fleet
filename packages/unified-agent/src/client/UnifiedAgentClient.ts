@@ -160,7 +160,7 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
 
       let session: AcpSessionNewResult;
       try {
-        session = await pooled.createSession(options.cwd, options.sessionId);
+        session = await pooled.createSession(options.cwd, options.sessionId, options.mcpServers);
       } catch (error) {
         const connectionError = this.buildConnectionError(cli, error, []);
         await this.cleanupFailedAcpConnection();
@@ -205,7 +205,7 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
 
     let session: AcpSessionNewResult;
     try {
-      session = await this.acpConnection.connect(options.cwd, options.sessionId);
+      session = await this.acpConnection.connect(options.cwd, options.sessionId, options.mcpServers);
     } catch (error) {
       const connectionError = this.buildConnectionError(cli, error, recentLogs);
       await this.cleanupFailedAcpConnection();
@@ -329,6 +329,19 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
   }
 
   /**
+   * 현재 세션을 종료합니다.
+   * 프로세스는 유지되며 Pool에 반환하지 않습니다.
+   * disconnect()와 달리 연결 자체는 유지됩니다.
+   */
+  async endSession(): Promise<void> {
+    if (!this.acpConnection || !this.sessionId) {
+      throw new Error('연결되어 있지 않습니다');
+    }
+    await this.acpConnection.endSession(this.sessionId);
+    this.sessionId = null;
+  }
+
+  /**
    * pre-spawn 핸들을 사용하여 ACP 연결을 수행합니다.
    * _pooledConnection이 있으면 이미 initialized된 connection을 재사용합니다.
    */
@@ -344,7 +357,7 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
 
       let session: AcpSessionNewResult;
       try {
-        session = await pooledConn.createSession(options.cwd, options.sessionId);
+        session = await pooledConn.createSession(options.cwd, options.sessionId, options.mcpServers);
       } catch (error) {
         const connectionError = this.buildConnectionError(handle.cli, error, []);
         await this.cleanupFailedAcpConnection();
@@ -394,6 +407,7 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
         handle.stream,
         options.cwd,
         options.sessionId,
+        options.mcpServers,
       );
     } catch (error) {
       const connectionError = this.buildConnectionError(handle.cli, error, recentLogs);

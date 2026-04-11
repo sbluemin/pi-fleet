@@ -122,6 +122,8 @@ export interface UnifiedClientOptions extends ConnectionOptions {
   autoApprove?: boolean;
   /** 재개할 기존 세션 ID */
   sessionId?: string;
+  /** 에이전트에 연결할 MCP 서버 목록 (선택) */
+  mcpServers?: import('@agentclientprotocol/sdk').McpServer[];
   /** 미리 스폰된 프로세스 핸들 (preSpawn()으로 생성) */
   preSpawned?: PreSpawnedHandle;
 }

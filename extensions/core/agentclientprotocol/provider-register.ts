@@ -13,8 +13,8 @@ import {
   PROVIDER_ID,
   ACTIVE_STREAM_KEY,
   MODEL_CATALOG,
-} from "./types.js";
-import { streamAcp, cleanupAll, handleSessionStart } from "./provider.js";
+} from "./provider-types.js";
+import { streamAcp, cleanupAll, handleSessionStart } from "./provider-stream.js";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Constants

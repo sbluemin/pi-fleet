@@ -12,7 +12,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
-import { executeOneShot } from "../../../core/agentclientprotocol/agent/executor.js";
+import { executeOneShot } from "../../../core/agentclientprotocol/executor.js";
 import { loadModels } from "../store.js";
 import {
   createRun,

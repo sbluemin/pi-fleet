@@ -19,7 +19,7 @@ import {
   getSessionStore,
   getSessionId,
   getDataDir,
-} from "../../core/agentclientprotocol/agent/runtime.js";
+} from "../../core/agentclientprotocol/runtime.js";
 import {
   initStore,
   loadModels as getModelConfig,

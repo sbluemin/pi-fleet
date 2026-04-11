@@ -1,21 +1,21 @@
 /**
- * fleet/internal/agent/executor.ts — 실행 엔진
+ * core/agentclientprotocol/executor.ts — 실행 엔진
  *
- * 풀 기반(executeWithPool) 및 원샷(executeOneShot) 실행을 제공합니다.
- * 세션 관리가 완전 캡슐화되어 외부에서 sessionId를 제공/변경할 수 없습니다.
+ * 풀 기반 실행, 원샷 실행, 저수준 세션 획득 API를 제공합니다.
+ * 세션 관리가 완전 캡슐화되어 외부에서 sessionId를 직접 주입할 필요가 없습니다.
  * PI API 타입을 사용하지 않습니다.
  */
 
 import { UnifiedAgentClient } from "@sbluemin/unified-agent";
-import type { CliType } from "@sbluemin/unified-agent"; // buildConnectOptions에서 필요
+import type { CliType, AcpMcpServer } from "@sbluemin/unified-agent";
 import type {
   ExecuteOptions,
   ExecuteResult,
   AgentStatus,
   ToolCallInfo,
   ConnectionInfo,
-} from "./types";
-import { disconnectClient, getClientPool, isClientAlive, type PooledClient } from "./client-pool";
+} from "./types.js";
+import { disconnectClient, getClientPool, isClientAlive, type PooledClient } from "./pool.js";
 import { getSessionStore } from "./runtime.js";
 
 type ToolCallLike = {
@@ -23,6 +23,46 @@ type ToolCallLike = {
   rawOutput?: unknown;
   toolCallId?: string;
 };
+
+/** acquireSession 옵션 */
+export interface AcquireOptions {
+  /** 풀 키 (carrierId에 한정되지 않는 일반 키) */
+  key: string;
+  /** CLI 바이너리 타입 */
+  cliType: CliType;
+  /** 작업 디렉토리 */
+  cwd: string;
+  /** 명시적 모델 ID */
+  model?: string;
+  /** connect 시 주입할 MCP 서버 목록 */
+  mcpServers?: AcpMcpServer[];
+  /** Abort 시그널 */
+  signal?: AbortSignal;
+  /** reasoning effort */
+  effort?: string;
+  /** Claude thinking budget tokens */
+  budgetTokens?: number;
+  /** 프롬프트 유휴 타임아웃 (ms) */
+  promptIdleTimeout?: number;
+  /** CLI config override 목록 */
+  configOverrides?: string[];
+  /** 커스텀 환경변수 (cleanEnvironment에 병합) */
+  env?: Record<string, string>;
+  /** YOLO 모드 (자동 승인), 기본값 true */
+  yoloMode?: boolean;
+}
+
+/** acquireSession 반환값 */
+export interface AcquiredSession {
+  /** 연결된 UnifiedAgentClient */
+  client: UnifiedAgentClient;
+  /** 현재 활성 session ID */
+  sessionId: string;
+  /** 연결 메타 정보 */
+  connectionInfo: ConnectionInfo;
+  /** 클라이언트를 풀에 반환하며 busy를 해제 */
+  release: () => void;
+}
 
 // ─── 상수 ────────────────────────────────────────────────
 
@@ -455,6 +495,159 @@ export async function executeOneShot(opts: ExecuteOptions): Promise<ExecuteResul
   }
 
   return { responseText, thoughtText, toolCalls, connectionInfo, status, error };
+}
+
+/**
+ * 풀에서 세션을 획득합니다.
+ * 공통 연결 및 resume 흐름만 수행하며, 프롬프트 전송은 호출자가 담당합니다.
+ */
+export async function acquireSession(opts: AcquireOptions): Promise<AcquiredSession> {
+  const { key, cliType, cwd, signal } = opts;
+  const clientPool = getClientPool();
+  const store = getSessionStore();
+
+  // 1. 풀에서 클라이언트를 가져오거나 새로 만듭니다.
+  let poolEntry = clientPool.get(key);
+
+  if (poolEntry) {
+    if (poolEntry.busy) {
+      throw new Error(`Session ${key} is busy`);
+    }
+    if (!isClientAlive(poolEntry.client)) {
+      clientPool.delete(key);
+      poolEntry = undefined;
+    }
+  }
+
+  let client: UnifiedAgentClient;
+
+  if (poolEntry) {
+    client = poolEntry.client;
+    poolEntry.busy = true;
+  } else {
+    client = new UnifiedAgentClient();
+    const newEntry: PooledClient = { client, busy: true };
+    clientPool.set(key, newEntry);
+    poolEntry = newEntry;
+    client.on("exit", () => {
+      const current = clientPool.get(key);
+      if (current?.client === client) clientPool.delete(key);
+    });
+  }
+
+  // 2. connect 전에 abort를 확인합니다.
+  if (signal?.aborted) {
+    poolEntry.busy = false;
+    throw new Error("Aborted");
+  }
+
+  const connectionInfo: ConnectionInfo = {};
+
+  try {
+    const needsConnect = !isClientAlive(client);
+
+    if (needsConnect) {
+      const connectOpts: Record<string, unknown> = {
+        cwd,
+        cli: cliType,
+        autoApprove: true,
+        clientInfo: CLIENT_INFO,
+        timeout: 0,
+        yoloMode: opts.yoloMode !== false,
+      };
+
+      if (opts.model) connectOpts.model = opts.model;
+      if (opts.promptIdleTimeout !== undefined) {
+        connectOpts.promptIdleTimeout = opts.promptIdleTimeout;
+      }
+      if (opts.mcpServers) connectOpts.mcpServers = opts.mcpServers;
+      if (opts.configOverrides) connectOpts.configOverrides = opts.configOverrides;
+      if (opts.env) connectOpts.env = opts.env;
+
+      const savedSessionId = store.get(key) ?? poolEntry?.sessionId;
+      if (savedSessionId) {
+        connectOpts.sessionId = savedSessionId;
+      }
+
+      let connectResult;
+      try {
+        connectResult = await client.connect(connectOpts as any);
+      } catch (connectError) {
+        if (signal?.aborted) throw connectError;
+        if (!savedSessionId) throw connectError;
+
+        store.clear(key);
+        if (poolEntry) delete poolEntry.sessionId;
+        delete connectOpts.sessionId;
+
+        try {
+          await client.disconnect();
+        } catch {}
+        client.removeAllListeners();
+        client = new UnifiedAgentClient();
+        poolEntry = { client, busy: true };
+        clientPool.set(key, poolEntry);
+        client.on("exit", () => {
+          const current = clientPool.get(key);
+          if (current?.client === client) clientPool.delete(key);
+        });
+
+        connectResult = await client.connect(connectOpts as any);
+      }
+
+      connectionInfo.protocol = connectResult.protocol;
+      connectionInfo.sessionId = connectResult.session?.sessionId ?? undefined;
+
+      const sessionAny = connectResult.session as Record<string, unknown> | undefined;
+      if (sessionAny?.models && Array.isArray(sessionAny.models) && sessionAny.models.length > 0) {
+        connectionInfo.model = String(sessionAny.models[0]);
+      }
+
+      if (poolEntry && connectionInfo.sessionId) {
+        poolEntry.sessionId = connectionInfo.sessionId;
+      }
+      if (connectionInfo.sessionId) {
+        store.set(key, connectionInfo.sessionId);
+      }
+
+      await applyPostConnectConfig(client, cliType, {
+        effort: opts.effort,
+        budgetTokens: opts.budgetTokens,
+      });
+    } else {
+      const info = client.getConnectionInfo();
+      connectionInfo.protocol = info.protocol ?? undefined;
+      connectionInfo.sessionId = info.sessionId ?? undefined;
+
+      if (poolEntry && connectionInfo.sessionId) {
+        poolEntry.sessionId = connectionInfo.sessionId;
+      }
+      if (connectionInfo.sessionId) {
+        store.set(key, connectionInfo.sessionId);
+      }
+    }
+  } catch (err) {
+    poolEntry.busy = false;
+    throw err;
+  }
+
+  const release = () => {
+    if (poolEntry) poolEntry.busy = false;
+  };
+
+  return {
+    client,
+    sessionId: connectionInfo.sessionId ?? "",
+    connectionInfo,
+    release,
+  };
+}
+
+/** 세션을 풀에 반환하며 busy 상태를 해제합니다. */
+export function releaseSession(key: string): void {
+  const pool = getClientPool();
+  const entry = pool.get(key);
+  if (entry) entry.busy = false;
 }
 
 function extractToolResultText(data?: ToolCallLike): string | undefined {
