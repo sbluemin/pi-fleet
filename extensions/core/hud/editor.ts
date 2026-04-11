@@ -26,7 +26,7 @@ import { WELCOME_GLOBAL_KEY } from "../welcome/types.js";
  * 상태바 등록 — footerData/tui 참조를 state에 저장.
  *
  * Footer render는 globalThis["__core_log_footer__"] bridge 객체의
- * .line 값을 읽어 실제 Footer zone에 표시한다.
+ * .lines 값을 읽어 실제 Footer zone에 표시한다 (최대 5줄, 중앙 정렬).
  * HUD가 bridge 객체에 requestRender 콜백을 주입하여
  * log 확장이 값 변경 시 즉시 렌더를 트리거할 수 있다.
  * (border-bridge.ts와 동일한 간접 통신 패턴 + push 렌더)
@@ -42,7 +42,7 @@ export function setupStatusBar(ctx: any, state: HudEditorState): void {
     // 이미 bridge 객체가 있으면(log가 먼저 로드됨) requestRender만 주입
     const bridgeKey = "__core_log_footer__";
     if (!(globalThis as any)[bridgeKey]) {
-      (globalThis as any)[bridgeKey] = { line: null, requestRender: null };
+      (globalThis as any)[bridgeKey] = { lines: null, requestRender: null };
     }
     const ownRenderCb = () => tui.requestRender();
     (globalThis as any)[bridgeKey].requestRender = ownRenderCb;
@@ -61,11 +61,15 @@ export function setupStatusBar(ctx: any, state: HudEditorState): void {
       invalidate() {},
       render(width: number): string[] {
         const bridge = (globalThis as any)[bridgeKey];
-        const debugLine: string | null = bridge?.line;
-        if (!debugLine) return [];
+        const debugLines: string[] | null = bridge?.lines;
+        if (!debugLines || debugLines.length === 0) return [];
 
-        const trimmed = truncateToWidth(theme.fg("dim", debugLine), width);
-        return [trimmed];
+        return debugLines.map((line) => {
+          const styled = theme.fg("dim", line);
+          const lineWidth = visibleWidth(line);
+          const pad = Math.max(0, Math.floor((width - lineWidth) / 2));
+          return truncateToWidth(" ".repeat(pad) + styled, width);
+        });
       },
     };
   });

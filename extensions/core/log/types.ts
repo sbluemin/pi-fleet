@@ -65,7 +65,7 @@ export const CORE_LOG_KEY = "__core_log__";
  *
  * 통신 흐름:
  *   HUD setupStatusBar → 객체 생성 + requestRender 콜백 주입
- *   log → .line 갱신 후 .requestRender() 호출 → Footer 즉시 재렌더
+ *   log → .lines 갱신(최대 5줄) 후 .requestRender() 호출 → Footer 즉시 재렌더 (중앙 정렬)
  *
  * border-bridge.ts와 동일한 간접 통신 패턴이되,
  * requestRender 콜백을 통해 push 방식 즉시 렌더를 보장한다.
@@ -74,8 +74,8 @@ export const CORE_LOG_FOOTER_KEY = "__core_log_footer__";
 
 /** Footer bridge 객체 형태 — globalThis[CORE_LOG_FOOTER_KEY]의 런타임 값 */
 export interface LogFooterBridge {
-  /** Footer에 표시할 plain text (null이면 표시 없음) */
-  line: string | null;
+  /** Footer에 표시할 plain text 배열 (null이면 표시 없음, 최대 5줄) */
+  lines: string[] | null;
   /** HUD가 주입하는 렌더 트리거 콜백 (null이면 HUD 미로드 상태) */
   requestRender: (() => void) | null;
 }

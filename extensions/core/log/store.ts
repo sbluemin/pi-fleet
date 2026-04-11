@@ -120,9 +120,36 @@ export function getLatestVisibleLog(minLevel: LogLevel): LogEntry | null {
   return null;
 }
 
+/** 현재 minLevel 기준으로 최근 로그 최대 count개 반환 (최신이 마지막) */
+export function getLatestVisibleLogs(minLevel: LogLevel, count: number): LogEntry[] {
+  const threshold = LOG_LEVEL_PRIORITY[minLevel];
+  const result: LogEntry[] = [];
+  for (let i = ringBuffer.length - 1; i >= 0 && result.length < count; i--) {
+    if (LOG_LEVEL_PRIORITY[ringBuffer[i]!.level] >= threshold) {
+      result.push(ringBuffer[i]!);
+    }
+  }
+  return result.reverse();
+}
+
 /** 링 버퍼 초기화 */
 export function clearLogs(): void {
   ringBuffer.length = 0;
+}
+
+/** 파일 로그 전체 삭제 */
+export function clearFileLogs(): void {
+  try {
+    if (!fs.existsSync(LOGS_DIR)) return;
+    const files = fs.readdirSync(LOGS_DIR);
+    for (const file of files) {
+      if (file.endsWith(".log")) {
+        fs.unlinkSync(path.join(LOGS_DIR, file));
+      }
+    }
+  } catch {
+    // 파일 삭제 실패 시 무시
+  }
 }
 
 // ── 파일 로그 ──

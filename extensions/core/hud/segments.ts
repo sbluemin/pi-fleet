@@ -264,6 +264,11 @@ const costSegment: StatusLineSegment = {
 const contextPctSegment: StatusLineSegment = {
   id: "context_pct",
   render(ctx) {
+    // Fleet ACP 프로바이더는 컨텍스트를 서브에이전트가 관리하므로 표시 불필요
+    if (ctx.model?.provider === "Fleet ACP") {
+      return { content: "", visible: false };
+    }
+
     const icons = getIcons();
     const pct = ctx.contextPercent;
     const window = ctx.contextWindow;

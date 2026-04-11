@@ -8,7 +8,7 @@
  *   - Settings 오버레이 섹션 등록
  *
  * Footer 표시 방식:
- *   log → globalThis[CORE_LOG_FOOTER_KEY].line 갱신
+ *   log → globalThis[CORE_LOG_FOOTER_KEY].lines 갱신 (최대 5줄)
  *   → .requestRender() 호출 → HUD footer render가 즉시 재렌더
  *   (border-bridge.ts 간접 통신 + push 렌더 패턴, hud private 경계 유지)
  */
@@ -18,7 +18,7 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { CoreLogAPI, LogFooterBridge, LogEntry, LogLevel } from "./types.js";
 import { CORE_LOG_FOOTER_KEY } from "./types.js";
 import { _bootstrapLog } from "./bridge.js";
-import { loadSettings, saveSettings, appendLog, getRecentLogs, getLatestVisibleLog, clearLogs } from "./store.js";
+import { loadSettings, saveSettings, appendLog, getRecentLogs, getLatestVisibleLog, getLatestVisibleLogs, clearLogs, clearFileLogs } from "./store.js";
 import { getSettingsAPI } from "../settings/bridge.js";
 
 // ── 상수 ──
@@ -200,6 +200,17 @@ export default function (pi: ExtensionAPI) {
       }
     },
   });
+
+  // fleet:log:clear — 인메모리 + 파일 로그 전체 삭제
+  pi.registerCommand("fleet:log:clear", {
+    description: "로그 전체 삭제 (메모리 + 파일)",
+    handler: async (_args, ctx) => {
+      clearLogs();
+      clearFileLogs();
+      clearFooterBridge();
+      ctx.ui.notify("모든 로그가 삭제되었습니다 (메모리 + 파일).", "info");
+    },
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -209,34 +220,40 @@ export default function (pi: ExtensionAPI) {
 /** bridge 객체 접근 — 없으면 생성 (HUD보다 먼저 로드되는 경우 대비) */
 function getBridge(): LogFooterBridge {
   if (!(globalThis as any)[CORE_LOG_FOOTER_KEY]) {
-    (globalThis as any)[CORE_LOG_FOOTER_KEY] = { line: null, requestRender: null };
+    (globalThis as any)[CORE_LOG_FOOTER_KEY] = { lines: null, requestRender: null };
   }
   return (globalThis as any)[CORE_LOG_FOOTER_KEY];
 }
 
+/** 표시할 최대 로그 줄 수 */
+const FOOTER_MAX_LINES = 5;
+
 /**
- * 현재 minLevel 기준으로 표시 가능한 가장 최근 로그를 bridge.line에 기록 후
+ * 현재 minLevel 기준으로 표시 가능한 최근 로그(최대 5줄)를 bridge.lines에 기록 후
  * bridge.requestRender()를 호출하여 Footer 즉시 재렌더를 트리거한다.
  */
 function updateFooterBridge(): void {
   const settings = loadSettings();
-  const entry = getLatestVisibleLog(settings.minLevel);
-  if (!entry) {
+  const entries = getLatestVisibleLogs(settings.minLevel, FOOTER_MAX_LINES);
+  if (entries.length === 0) {
     clearFooterBridge();
     return;
   }
-  const time = entry.timestamp.slice(11, 19); // HH:mm:ss
-  const levelTag = entry.level.toUpperCase().padEnd(5);
-  const line = `[${time}] ${levelTag} [${entry.source}] ${entry.message}`;
+
+  const lines = entries.map((entry) => {
+    const time = entry.timestamp.slice(11, 19); // HH:mm:ss
+    const levelTag = entry.level.toUpperCase().padEnd(5);
+    return `[${time}] ${levelTag} [${entry.source}] ${entry.message}`;
+  });
 
   const bridge = getBridge();
-  bridge.line = line;
+  bridge.lines = lines;
   bridge.requestRender?.();
 }
 
 /** Footer bridge 정리 (표시 끄기 + 즉시 재렌더) */
 function clearFooterBridge(): void {
   const bridge = getBridge();
-  bridge.line = null;
+  bridge.lines = null;
   bridge.requestRender?.();
 }
