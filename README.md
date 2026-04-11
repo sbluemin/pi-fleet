@@ -14,8 +14,10 @@ This project treats individual LLM agents as **Carriers** within a **Fleet**.
 
 ### Infrastructure (`extensions/core/`)
 
-| Extension | Domain | Description |
-|-----------|--------|-------------|
+`extensions/core/` is a single infrastructure extension. The root `extensions/core/index.ts` wires the internal modules below.
+
+| Module | Domain | Description |
+|--------|--------|-------------|
 | `agent/` | `agent` | Core agent infrastructure — executor, client-pool, runtime, session-map, model-config, service-status |
 | `hud/` | `hud` | **Heads-Up Display** — Integrated Editor + Status Bar + Footer rendering engine |
 | `keybind/` | `keybind` | Centralized keybinding management + overlay (`Alt+.`) |
@@ -26,6 +28,8 @@ This project treats individual LLM agents as **Carriers** within a **Fleet**.
 | `improve-prompt/` | `prompt` | Meta-prompting via `Alt+M`, reasoning level cycle via `Alt+R` |
 | `summarize/` | `summary` | Auto one-line session summary displayed in Status Bar |
 | `thinking-timer/` | `timer` | Inline elapsed-time display for Thinking blocks in Messages zone |
+| `provider-guard/` | `guard` | Provider allowlist guard and blocked-model fallback |
+| `acp-provider/` | `acp` | ACP-native provider that integrates Claude, Codex, and Gemini CLI backends |
 
 ### Admiral Policy (`extensions/admiral/`)
 

@@ -9,7 +9,7 @@
 import type { ReadonlyFooterDataProvider, Theme } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
-import type { HudEditorState } from "./index.js";
+import type { HudEditorState } from "./types.js";
 import type { SegmentStateProvider } from "./types.js";
 import { ansi, getFgAnsiCode } from "./colors.js";
 import { getEditorBorderColor, getEditorRightLabel } from "./border-bridge.js";  // [Feature] rightLabel을 상단 테두리 우측에 삽입

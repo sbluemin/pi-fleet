@@ -54,7 +54,7 @@ Add the `extensions` field to your pi settings file, pointing to the extension d
 
 > Replace `<path-to-pi-fleet>` with the actual path where you cloned the repository.
 >
-> - `extensions/core/` — infrastructure + utility extensions (hud, keybind, settings, welcome, shell, improve-prompt, summarize, thinking-timer)
+> - `extensions/core/` — single infrastructure extension whose root `index.ts` wires keybind, settings, log, welcome, hud, shell, improve-prompt, summarize, thinking-timer, provider-guard, and acp-provider modules
 > - `extensions/admiral/` — Admiral prompt policy (system prompt injection, worldview toggle, settings section). This should normally be treated as a standard fleet install component, not an optional add-on.
 > - `extensions/fleet/` — agent orchestration extension (carrier framework SDK, Agent Panel, unified pipeline)
 > - `extensions/carriers/` — **(optional)** default carrier registrations (genesis, athena, oracle, crucible, sentinel, raven, vanguard, echelon, chronicle). Omit this line if you do not want the built-in carriers — the fleet framework will still function without any registered carriers.

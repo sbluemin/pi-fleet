@@ -21,7 +21,7 @@
 
 - **globalThis 키는 types.ts에 정의** — `CORE_LOG_KEY`, `CORE_LOG_FOOTER_KEY`
 - **외부 확장은 `bridge.ts`의 `getLogAPI()` 만 사용** — 내부 모듈 직접 import 금지
-- **store.ts, index.ts는 internal** — 이 확장 내부에서만 사용
+- **store.ts, register.ts는 internal** — 이 확장 내부에서만 사용
 
 ## Slash Commands
 

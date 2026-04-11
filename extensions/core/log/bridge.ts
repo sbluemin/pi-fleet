@@ -37,7 +37,7 @@ export function getLogAPI(): CoreLogAPI {
   return (globalThis as any)[CORE_LOG_KEY];
 }
 
-/** @internal index.ts에서 호출 — 실제 구현 주입 */
+/** @internal register.ts에서 호출 — 실제 구현 주입 */
 export function _bootstrapLog(impl: CoreLogAPI): void {
   (globalThis as any)[CORE_LOG_KEY] = impl;
 }

@@ -59,7 +59,7 @@ export function getKeybindAPI(): CoreKeybindAPI {
   return (globalThis as any)[CORE_KEYBIND_KEY];
 }
 
-/** @internal index.ts에서 호출 — 실제 구현 주입 + 큐 flush */
+/** @internal register.ts에서 호출 — 실제 구현 주입 + 큐 flush */
 export function _bootstrapKeybind(impl: CoreKeybindAPI): void {
   const bridge = (globalThis as any)[CORE_KEYBIND_KEY];
   // 단독 실행 경고 타이머 해제

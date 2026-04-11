@@ -5,38 +5,15 @@
  * 에디터 UI 로직은 editor.ts에 분리.
  */
 
-import type { ExtensionAPI, ReadonlyFooterDataProvider } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 
 import { getKeybindAPI } from "../keybind/bridge.js";
-import type { HudCoreConfig, StatusLinePreset } from "./types.js";
+import type { HudEditorState, StatusLinePreset } from "./types.js";
 import { PRESETS } from "./presets.js";
 import { invalidateGitStatus, invalidateGitBranch } from "./git-status.js";
 import { mightChangeGitBranch } from "./utils.js";
 import { setupCustomEditor, setupStatusBar } from "./editor.js";
-
-// ═══════════════════════════════════════════════════════════════════════════
-// 에디터 상태 타입 (이 확장 내부에서만 사용)
-// ═══════════════════════════════════════════════════════════════════════════
-
-export interface HudEditorState {
-  enabled: boolean;
-  sessionStartTime: number;
-  currentCtx: any;
-  getThinkingLevelFn: (() => string) | null;
-  stashedEditorText: string | null;
-  currentEditor: any;
-  config: HudCoreConfig;
-  /** footer 콜백에서 직접 수신한 데이터 제공자 (hud-footer globalThis 불필요) */
-  footerDataRef: ReadonlyFooterDataProvider | null;
-  /** footer 콜백에서 직접 수신한 TUI 인스턴스 */
-  tuiRef: any;
-  layoutCache: {
-    width: number;
-    result: { topContent: string; secondaryContent: string } | null;
-    timestamp: number;
-  };
-}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 확장 진입점

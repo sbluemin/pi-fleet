@@ -1,6 +1,6 @@
 # Extensions Core
 
-Infrastructure extensions for pi-fleet. Each provides a core UI or system feature loaded alongside other extension directories.
+Infrastructure extension for pi-fleet. `core/index.ts` is the only extension entry point; each subdirectory below it is an internal module or shared library.
 
 ## Shared Config Files
 
@@ -9,10 +9,11 @@ Infrastructure extensions for pi-fleet. Each provides a core UI or system featur
 | `settings.json` | Default settings values shared across infra extensions |
 | `keybindings.default.json` | Default keybinding definitions |
 
-## Extensions
+## Modules
 
-| Extension | Role |
-|-----------|------|
+| Module | Role |
+|--------|------|
+| `index.ts` | Root entry point — registers all core modules in deterministic order |
 | `agent/` | Core agent infrastructure — executor, client-pool, runtime, session-map, model-config, service-status |
 | `hud/` | Editor + Status Bar (Private rendering engine) |
 | `shell/` | Interactive shell session inside pi |
@@ -20,8 +21,17 @@ Infrastructure extensions for pi-fleet. Each provides a core UI or system featur
 | `settings/` | Centralized settings API + overlay popup (Alt+/) |
 | `welcome/` | Welcome overlay displayed on session start |
 | `log/` | Reusable logging — file log + footer display + globalThis API for other extensions |
+| `improve-prompt/` | Meta-prompting and reasoning level controls |
+| `summarize/` | Auto one-line session summary widget |
+| `thinking-timer/` | Inline elapsed-time display for Thinking blocks |
 | `provider-guard/` | Always-on guard — disables specified built-in providers and auto-fallbacks away from blocked placeholder models on session_start / model_select |
 | `acp-provider/` | ACP-based native provider — integrates CLI backends (Claude, Codex, Gemini) via ACP protocol + in-process MCP server |
+
+## Wiring Rule
+
+- `core/index.ts` is the only auto-loaded extension entry point.
+- Each functional module below `core/` exposes `register.ts` for root wiring.
+- `agent/` remains a shared library and must not become an extension entry point.
 
 ## Core Rules (hud)
 

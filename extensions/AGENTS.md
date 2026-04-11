@@ -15,15 +15,7 @@ Do not create intermediate layers that simply wrap official TUI APIs (e.g., `set
 | `fleet/` | Agent orchestration framework — carrier SDK (`shipyard/carrier/`), unified pipeline, Agent Panel, model selection. Provides the carrier framework that `carriers/` depends on. | `index.ts` (wiring), `shipyard/carrier/` (framework), `internal/` (implementation) |
 | `admiral/` | Admiral prompt policy — system prompt injection (`before_agent_start`), worldview toggle, settings section. + Standing Orders/Protocols module management, protocol transition keybinds, protocol status widget, editor border color control. Independent of `fleet/` and `carriers/`. | `index.ts` (wiring), `prompts.ts` (prompts), `protocols/` (Fleet Action, etc.), `standing-orders/` (Deep Dive, etc.) |
 | `carriers/` | Carrier registrations — independent extension defining individual carriers (genesis, sentinel, vanguard, etc.). Depends only on `shipyard/carrier` package, not on `fleet/` extension. Optional — users may omit from `settings.json`. | `index.ts` (wiring), individual carrier files |
-| `core/hud/` | Editor + Status Bar (Private rendering engine) | `index.ts` (wiring), `editor.ts` (editor/status bar/widget UI) |
-| `core/keybind/` | Centralized keybinding management + overlay (alt+.) | `index.ts` (wiring), `types.ts` (API types + globalThis key), `bridge.ts` (globalThis bridge runtime), `store.ts` (JSON), `registry.ts` (bindings), `overlay.ts` (UI) |
-| `core/settings/` | Centralized settings API + overlay popup (alt+/) | `index.ts` (wiring), `types.ts` (API types + globalThis key), `bridge.ts` (globalThis bridge runtime), `store.ts` (JSON), `registry.ts` (sections), `overlay.ts` (UI) |
-| `core/welcome/` | Welcome overlay/header | `index.ts` (wiring), `welcome.ts` (UI), `types.ts` (globalThis types) |
-| `core/log/` | Reusable logging — file log + footer display + globalThis API for other extensions | `index.ts` (wiring), `bridge.ts` (globalThis bridge), `store.ts` (JSON/state), `types.ts` (API types + globalThis keys) |
-| `core/improve-prompt/` | Meta-prompting (alt+m), reasoning level cycle (alt+r) | `index.ts` (wiring), `ui.ts` (Status Bar segment) |
-| `core/thinking-timer/` | Inline elapsed-time display for Thinking blocks | `index.ts` (wiring), `timer.ts` (patch/store/ticker) |
-| `core/summarize/` | Auto one-line session summary | `index.ts` (wiring), `ui.ts` (Status Bar segment) |
-| `core/provider-guard/` | Always-on guard — replaces built-in providers (anthropic, google-antigravity, google-gemini-cli) with blocked placeholders and auto-fallbacks away from blocked active models | `index.ts` (wiring) |
+| `core/` | Unified infrastructure extension — root entry point that wires keybind, settings, log, welcome, hud, shell, improve-prompt, summarize, thinking-timer, provider-guard, and acp-provider modules | `index.ts` (root wiring), `<module>/register.ts` (module wiring), `agent/` (shared infra library) |
 
 ### Shared Libraries — Directories without `index.ts`
 
@@ -32,7 +24,7 @@ These are pure libraries not recognized as extensions by pi.
 | Library | Role | Main Consumers |
 |---------|------|----------------|
 | `core/agent/` | Core agent infrastructure — executor, client-pool, runtime, session-map, model-config, service-status | `fleet/`, `carriers/` |
-| `core/hud/` (also a library) | Status Bar rendering engine (segments, layout, colors, themes, presets) | `core/welcome` |
+| `core/hud/` (also a library) | Status Bar rendering engine (segments, layout, colors, themes, presets) | `core/index.ts`, `core/welcome` |
 
 ### Extension Separation Criteria
 
@@ -144,6 +136,7 @@ extensions/
 ### Rules
 
 - **Each extension must be a subdirectory with an `index.ts` file**.
+- **`core/` is the canonical composite example** — only `core/index.ts` is auto-loaded; submodules under `core/*/register.ts` are internal wiring modules, not standalone extensions.
 - Do not place `.ts` files in the root — pi will mistakenly recognize them as extensions.
 - `index.ts` must have a default export function of type `(pi: ExtensionAPI) => void`.
 

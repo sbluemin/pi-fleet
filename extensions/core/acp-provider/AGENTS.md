@@ -122,7 +122,7 @@ CLI 자체 도구 호출은 한 줄 인라인으로 표시된다:
 
 | 모듈 | 역할 |
 |------|------|
-| `index.ts` | 확장 진입점 — 프로바이더 등록, 세션 lifecycle 핸들러 |
+| `register.ts` | core 루트 wiring에서 호출되는 모듈 진입점 — 프로바이더 등록, 세션 lifecycle 핸들러 |
 | `provider.ts` | streamSimple 구현 — 세션 관리, Case 1/Case 2 분기, abort 처리, 영속화 |
 | `event-mapper.ts` | ACP 이벤트 → pi EventStream 변환 — 텍스트/thinking 블록, MCP tool call, CLI tool 렌더링 |
 | `mcp-server.ts` | HTTP MCP 서버 singleton — JSON-RPC 핸들러, FIFO 큐, 토큰 인증 |
