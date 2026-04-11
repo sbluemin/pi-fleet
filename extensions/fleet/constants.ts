@@ -71,9 +71,6 @@ export const CARRIER_BG_COLORS: Record<string, string> = {
   gemini:        "\x1b[48;2;15;22;42m",        // 차가운 어두운 파랑
 };
 
-/** 현재 활성 carrier 브리지 팝업 단축키 */
-export const CARRIER_BRIDGE_KEY = "alt+t";
-
 // ─── 에이전트 패널 스타일 ────────────────────────────────
 
 /** 에이전트 패널 기본 프레임색 (비활성 시) */
@@ -116,10 +113,10 @@ export const BODY_H_STEP = 2;
 // ─── Fleet Bridge 힌트 ──────────────────────────────────
 
 /** Fleet Bridge 멀티컬럼 뷰 하단 힌트 */
-export const PANEL_MULTI_COL_HINT = " alt+h/l move · ctrl+enter detail · alt+t shell · alt+x cancel · alt+j/k · alt+p ";
+export const PANEL_MULTI_COL_HINT = " alt+h/l move · ctrl+enter detail · alt+x cancel · alt+j/k · alt+p ";
 
 /** Fleet Bridge 상세 뷰 하단 힌트 */
-export const PANEL_DETAIL_HINT = " alt+h/l back · alt+t shell · alt+x cancel · alt+shift+m model · alt+j/k ";
+export const PANEL_DETAIL_HINT = " alt+h/l back · alt+x cancel · alt+shift+m model · alt+j/k ";
 
 /** 패널 높이 표시를 포함한 멀티컬럼 뷰 하단 힌트 */
 export function formatPanelMultiColHint(bodyH?: number): string {

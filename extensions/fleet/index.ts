@@ -7,7 +7,6 @@
  * │ alt+p → 에이전트 패널 토글                            │
  * │ alt+h/l → 인라인 슬롯 내비게이션 (←/→)               │
  * │ ctrl+enter → 선택 Carrier 상세 뷰 토글               │
- * │ alt+t → Carrier Bridge (PTY 네이티브 브리지)         │
  * │ alt+x → 선택 Carrier 실행 취소                       │
  * │ alt+shift+m → Carrier 모델/추론 설정 변경             │
  * │ alt+o → 캐리어 함대 현황 오버레이                      │
@@ -72,9 +71,7 @@ import { exposeAgentApi } from "./operation-runner.js";
 import { refreshAgentPanel } from "./panel/lifecycle.js";
 import { registerAgentPanelShortcut } from "./panel/shortcuts.js";
 import { setAgentPanelServiceLoading, setAgentPanelServiceStatus } from "./panel/config.js";
-import { buildBridgeCommand } from "./shipyard/carrier/launch.js";
 import { initServiceStatus, attachStatusContext, refreshStatusNow, getServiceSnapshots, refreshStatusQuiet } from "../core/agentclientprotocol/service-status/store.js";
-import { CARRIER_BRIDGE_KEY } from "./constants";
 import { registerFleetSortie } from "./shipyard/carrier/sortie.js";
 import { registerFleetTaskForce } from "./shipyard/taskforce/index.js";
 import { registerFleetSquadron } from "./shipyard/squadron/index.js";
@@ -84,7 +81,6 @@ import {
 } from "./shipyard/taskforce/types.js";
 import { TaskForceConfigOverlay } from "./shipyard/carrier/taskforce-config-overlay.js";
 import type { TaskForceOverlayCallbacks } from "./shipyard/carrier/taskforce-config-overlay.js";
-import { getFocusedCarrierId } from "./panel/state.js";
 import { CarrierStatusOverlay } from "./shipyard/carrier/status-overlay.js";
 import { StatusOverlayController } from "./shipyard/carrier/status-overlay-controller.js";
 import type {
@@ -95,9 +91,6 @@ import type {
 } from "./shipyard/carrier/types.js";
 
 import { getKeybindAPI } from "../core/keybind/bridge.js";
-import { SHELL_POPUP_BRIDGE_KEY } from "../core/shell/types.js";
-import type { ShellPopupBridge } from "../core/shell/types.js";
-
 export type { CollectedStreamData } from "./streaming/types.js";
 
 export { runAgentRequest, abortCarrierRun } from "./operation-runner.js";
@@ -240,46 +233,6 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
   registerModelCommands(pi);
 
   const keybind = getKeybindAPI();
-  keybind.register({
-    extension: "fleet",
-    action: "carrier-bridge",
-    defaultKey: CARRIER_BRIDGE_KEY,
-    description: "현재 carrier 네이티브 브리지 열기",
-    category: "Fleet Bridge",
-    handler: async (ctx) => {
-      const bridge = (globalThis as Record<string, unknown>)[SHELL_POPUP_BRIDGE_KEY] as ShellPopupBridge | undefined;
-      if (!bridge) {
-        ctx.ui.notify("core-shell 확장이 로드되지 않았습니다.", "warning");
-        return;
-      }
-      if (bridge.isOpen()) return;
-
-      const targetId = getFocusedCarrierId();
-
-      const carrierConfig = targetId ? getRegisteredCarrierConfig(targetId) : undefined;
-      if (!carrierConfig || !targetId) {
-        const shell = process.env.SHELL || "/bin/zsh";
-        try {
-          await bridge.open({ command: shell, title: "Terminal", cwd: ctx.cwd });
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          ctx.ui.notify(`터미널 실행 실패: ${message}`, "error");
-        }
-        return;
-      }
-
-      const command = buildBridgeCommand(targetId, carrierConfig.cliType);
-      const title = carrierConfig.displayName;
-
-      try {
-        await bridge.open({ command, title, cwd: ctx.cwd });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        ctx.ui.notify(`브리지 실행 실패: ${message}`, "error");
-      }
-    },
-  });
-
   // ── 캐리어 함대 현황 오버레이 (Alt+O) ──
 
   let activeStatusPopup: Promise<void> | null = null;

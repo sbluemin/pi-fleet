@@ -41,7 +41,6 @@ shipyard/carrier/      ← Carrier framework SDK + carrier visual representation
   ├── prompts.ts       ← carriers_sortie tool base prompt management
   ├── sortie.ts        ← carriers_sortie (sole carrier delegation PI tool) registration + dynamic prompt synthesis
   ├── status-overlay.ts ← Carrier status bar overlay (supports cliType change mode, 'c' key binding, squadron 's' toggle)
-  └── launch.ts        ← native bridge command builder
 shipyard/squadron/     ← Carrier Squadron logic (parallel one-shot execution)
 shipyard/store.ts      ← Unified fleet persistence store (states.json)
 panel/             ← panel state(findColIndex) + lifecycle + widget bridge + panel domain types
@@ -110,7 +109,6 @@ Consumer (carriers, external extensions)
 
 | `shipyard/carrier/model-ui.ts` | Model selection UI — model selection TUI component + keybind/command registration |
 | `shipyard/carrier/status-renderer.ts` | Carrier status segment renderer — renders carrier icon + name + status-based color + `[SQ]` tag for active squadrons. Integrates with `setWidget("fleet-carrier-status", ..., { placement: "aboveEditor" })`. |
-| `shipyard/carrier/launch.ts` | Central assembly of carrier native bridge commands |
 | `panel/state.ts` | Panel global state management — provides functionality to directly look up the column index of a specific carrier via `findColIndex(carrierId)`. |
 | `panel/*` | Panel state/lifecycle/widget modules |
 | `streaming/*` | Stream store/widget modules |
