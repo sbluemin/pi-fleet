@@ -22,7 +22,7 @@ import {
   resolveCarrierRgb,
   resolveCarrierDisplayName,
 } from "../shipyard/carrier/framework.js";
-import { renderBlockLines, blockLineAnsiColor } from "./block-renderer";
+import { renderBlockLines, blockLineToAnsi } from "./block-renderer";
 
 import type { AgentCol } from "../panel/types.js";
 
@@ -286,8 +286,9 @@ function buildColContent(col: AgentCol, frame: number): ColContentResult {
   if (col.blocks?.length) {
     const blockLines = renderBlockLines(col.blocks);
     for (const bl of blockLines) {
-      lines.push(bl.text);
-      colors.push(blockLineAnsiColor(bl.type));
+      // blockLineToAnsi로 타이틀/상태 색상을 분리 적용한 문자열 삽입
+      lines.push(blockLineToAnsi(bl));
+      colors.push("");
     }
   } else if (col.status === "wait" || col.status === "conn") {
     lines.push(placeholder(col, frame));

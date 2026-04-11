@@ -19,12 +19,11 @@ import {
   THINKING_COLOR,
   TOOLS_COLOR,
   SYM_INDICATOR,
-  SYM_RESULT,
   SYM_THINKING,
 } from "../constants.js";
 
 /** 렌더링된 블록 라인의 의미적 타입 */
-type BlockLineType =
+export type BlockLineType =
   | "thought"
   | "text"
   | "tool-title"
@@ -33,10 +32,14 @@ type BlockLineType =
   | "fold";
 
 /** 블록에서 파생된 포맷팅 라인 */
-interface BlockLine {
+export interface BlockLine {
   type: BlockLineType;
   /** 프리픽스(심볼/들여쓰기) 포함된 포맷팅 텍스트 */
   text: string;
+  /** 한 줄 내에서 별도 색상이 필요한 접미사 (예: status) */
+  suffix?: string;
+  /** suffix에 적용할 의미적 타입 (색상 결정용) */
+  suffixType?: BlockLineType;
 }
 
 // ─── 공통 상수 ───────────────────────────────────────────
@@ -78,20 +81,18 @@ export function renderBlockLines(
         });
       });
     } else {
-      // tool 블록
+      // tool 블록 — 타이틀과 상태를 한 줄로 렌더링하되 의미적 타입을 분리 보존
       const isError = block.status === "failed" || block.status === "error";
       const isFinished = block.status === "completed" || block.status === "failed" || block.status === "error";
-      lines.push({
+      const line: BlockLine = {
         type: isError ? "tool-error" : "tool-title",
         text: `${SYM_INDICATOR} ${block.title}`,
-      });
-
+      };
       if (isFinished) {
-        lines.push({
-          type: isError ? "tool-error" : "tool-result",
-          text: `  ${SYM_RESULT}  ${block.status}`,
-        });
+        line.suffix = ` ${block.status}`;
+        line.suffixType = isError ? "tool-error" : "tool-result";
       }
+      lines.push(line);
     }
   }
 
@@ -116,6 +117,24 @@ export function blockLineAnsiColor(type: BlockLineType): string {
     default:
       return "";
   }
+}
+
+/**
+ * BlockLine을 ANSI 색상이 적용된 단일 문자열로 변환합니다.
+ * suffix가 있으면 별도 색상을 적용하여 이어붙입니다.
+ * 패널/위젯 등 라인 기반 소비자의 공통 포맷팅 헬퍼입니다.
+ */
+export function blockLineToAnsi(line: BlockLine): string {
+  const mainColor = blockLineAnsiColor(line.type);
+  const mainText = mainColor
+    ? `${mainColor}${line.text}${ANSI_RESET}`
+    : line.text;
+  if (!line.suffix) return mainText;
+  const sfxColor = blockLineAnsiColor(line.suffixType ?? line.type);
+  const sfxText = sfxColor
+    ? `${sfxColor}${line.suffix}${ANSI_RESET}`
+    : line.suffix;
+  return `${mainText}${sfxText}`;
 }
 
 // ─── TUI 컴포넌트 렌더링 (채팅 메시지/도구 결과용) ──────
@@ -153,22 +172,25 @@ export function renderBlocksToContainer(
         .join("\n");
       container.addChild(new Markdown(formatted, 0, 0, mdTheme));
     } else {
-      // tool 블록
+      // tool 블록 — 타이틀과 상태를 한 줄로 렌더링
       const isError = block.status === "failed" || block.status === "error";
       const isFinished = block.status === "completed" || block.status === "failed" || block.status === "error";
       const titleText = `${SYM_INDICATOR} ${block.title}`;
-      container.addChild(new Text(
-        isError
-          ? theme.fg("error", titleText)
-          : `${TOOLS_COLOR}${titleText}${ANSI_RESET}`,
-        0, 0,
-      ));
-
       if (isFinished) {
+        // 타이틀(색상) + 상태(색상)를 한 줄에 합성
+        const statusText = ` ${block.status}`;
+        const coloredTitle = isError
+          ? theme.fg("error", titleText)
+          : `${TOOLS_COLOR}${titleText}${ANSI_RESET}`;
+        const coloredStatus = isError
+          ? theme.fg("error", statusText)
+          : `${PANEL_DIM_COLOR}${statusText}${ANSI_RESET}`;
+        container.addChild(new Text(`${coloredTitle}${coloredStatus}`, 0, 0));
+      } else {
         container.addChild(new Text(
           isError
-            ? theme.fg("error", `  ${SYM_RESULT}  ${block.status}`)
-            : `${PANEL_DIM_COLOR}  ${SYM_RESULT}  ${block.status}${ANSI_RESET}`,
+            ? theme.fg("error", titleText)
+            : `${TOOLS_COLOR}${titleText}${ANSI_RESET}`,
           0, 0,
         ));
       }
@@ -198,15 +220,25 @@ export function renderLegacyToContainer(
     container.addChild(new Spacer(1));
   }
 
-  // toolCalls 폴백
+  // toolCalls 폴백 — 한 줄 형식 (current 경로와 동일한 색상 정책)
   if (toolCalls.length > 0) {
     for (const tc of toolCalls) {
-      const toolColor = tc.status === "error" ? "error" : "muted";
-      container.addChild(new Text(theme.fg(toolColor, `${SYM_INDICATOR} ${tc.title}`), 0, 0));
+      const titleText = `${SYM_INDICATOR} ${tc.title}`;
       if (tc.status === "completed") {
-        container.addChild(new Text(theme.fg("dim", `  ${SYM_RESULT}  completed`), 0, 0));
+        container.addChild(new Text(
+          `${TOOLS_COLOR}${titleText}${ANSI_RESET}${PANEL_DIM_COLOR} ${tc.status}${ANSI_RESET}`,
+          0, 0,
+        ));
       } else if (tc.status === "error") {
-        container.addChild(new Text(theme.fg("error", `  ${SYM_RESULT}  error`), 0, 0));
+        container.addChild(new Text(
+          theme.fg("error", `${titleText} ${tc.status}`),
+          0, 0,
+        ));
+      } else {
+        container.addChild(new Text(
+          `${TOOLS_COLOR}${titleText}${ANSI_RESET}`,
+          0, 0,
+        ));
       }
     }
     container.addChild(new Spacer(1));

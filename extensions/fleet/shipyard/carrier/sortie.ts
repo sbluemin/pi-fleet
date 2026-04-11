@@ -25,7 +25,7 @@ import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 import { runAgentRequest } from "../../operation-runner.js";
 import { composeTier2Request } from "./prompts.js";
 import { getVisibleRun, getRunById } from "../../streaming/stream-store.js";
-import { renderBlockLines, blockLineAnsiColor } from "../../render/block-renderer.js";
+import { renderBlockLines, blockLineToAnsi } from "../../render/block-renderer.js";
 import {
   getRegisteredOrder,
   getSortieEnabledIds,
@@ -68,6 +68,8 @@ interface CarrierSortieResult {
 interface SortieResultDetails {
   sortieKey: string;
   results: CarrierSortieResult[];
+  /** 총 경과시간 (ms) — 히스토리 복원 시 표시용 */
+  elapsedMs?: number;
 }
 
 /** renderCall에서 사용하는 최소 컨텍스트 */
@@ -99,6 +101,24 @@ interface SortieState {
   frame: number;
   /** 프레임 타이머 */
   timer: ReturnType<typeof setInterval> | null;
+  /** 실행 시작 시각 (Date.now()) */
+  startedAt: number;
+  /** 모든 작업 완료 시각 */
+  finishedAt?: number;
+}
+
+// ─── 경과시간 포맷팅 ────────────────────────────────────────
+
+/** 밀리초를 사람이 읽기 쉬운 경과시간 문자열로 변환 */
+function formatElapsed(ms: number): string {
+  const totalSec = Math.floor(ms / 1000);
+  if (totalSec < 60) return `${totalSec}s`;
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  if (min < 60) return `${min}m ${String(sec).padStart(2, "0")}s`;
+  const hr = Math.floor(min / 60);
+  const remMin = min % 60;
+  return `${hr}h ${String(remMin).padStart(2, "0")}m`;
 }
 
 // ─── 상수 ────────────────────────────────────────────────
@@ -154,7 +174,7 @@ export function registerFleetSortie(pi: ExtensionAPI): void {
     renderResult(result: any, _options: { expanded: boolean; isPartial: boolean }, _theme: any) {
       const details = result.details as SortieResultDetails | undefined;
       if (details?.results && details.sortieKey) {
-        setResultCache(details.sortieKey, details.results);
+        setResultCache(details.sortieKey, details.results, details.elapsedMs);
       }
       // 빈 컴포넌트 — renderCall이 모든 상태를 통합 표시
       return { render() { return []; }, invalidate() {} };
@@ -202,7 +222,7 @@ export function registerFleetSortie(pi: ExtensionAPI): void {
           const available = [...enabledIds].join(", ") || "(none)";
           return {
             content: [{ type: "text" as const, text: `Carrier "${a.carrier}" is not available for sortie: ${reason}. Available carriers: ${available}` }],
-            details: { sortieKey: id, results: [] as CarrierSortieResult[] },
+            details: { sortieKey: id, results: [] as CarrierSortieResult[] } as SortieResultDetails,
           };
         }
       }
@@ -280,6 +300,9 @@ export function registerFleetSortie(pi: ExtensionAPI): void {
           }),
         );
 
+        // 완료 시각 기록
+        state.finishedAt = Date.now();
+
         // 결과 수집
         const results: CarrierSortieResult[] = settledResults.map((settled, i) => {
           if (settled.status === "fulfilled") return settled.value;
@@ -297,7 +320,8 @@ export function registerFleetSortie(pi: ExtensionAPI): void {
         });
 
         // 결과 캐시에 저장 (renderCall이 완료 후에도 참조 가능하도록)
-        setResultCache(sortieKey, results);
+        const elapsedMs = state.finishedAt! - state.startedAt;
+        setResultCache(sortieKey, results, elapsedMs);
 
         // LLM에 전달할 텍스트 요약 (연속 빈 줄 압축으로 토큰 절약)
         const contentText = results
@@ -309,7 +333,7 @@ export function registerFleetSortie(pi: ExtensionAPI): void {
 
         return {
           content: [{ type: "text" as const, text: contentText }],
-          details: { sortieKey, results } satisfies SortieResultDetails,
+          details: { sortieKey, results, elapsedMs } satisfies SortieResultDetails,
         };
       } finally {
         clearInterval(updateTimer);
@@ -360,6 +384,7 @@ function initSortieState(sortieKey: string, argsKey: string, carrierIds: string[
     runIds: new Map(),
     frame: 0,
     timer: null,
+    startedAt: Date.now(),
   };
   // 애니메이션 프레임 카운터 (100ms)
   state.timer = setInterval(() => { state.frame++; }, 100);
@@ -377,9 +402,15 @@ function clearSortieState(sortieKey: string): void {
 
 // ─── Result Cache Store (Map<sortieKey, results> + LRU) ──
 
-/** 결과 캐시 스토어 (sortieKey → results) */
-function getResultCacheStore(): Map<string, CarrierSortieResult[]> {
-  let store = (globalThis as any)[SORTIE_RESULT_CACHE_KEY] as Map<string, CarrierSortieResult[]> | undefined;
+/** 결과 캐시 엔트리 (결과 + 경과시간) */
+interface SortieResultCacheEntry {
+  results: CarrierSortieResult[];
+  elapsedMs?: number;
+}
+
+/** 결과 캐시 스토어 (sortieKey → entry) */
+function getResultCacheStore(): Map<string, SortieResultCacheEntry> {
+  let store = (globalThis as any)[SORTIE_RESULT_CACHE_KEY] as Map<string, SortieResultCacheEntry> | undefined;
   if (!store) {
     store = new Map();
     (globalThis as any)[SORTIE_RESULT_CACHE_KEY] = store;
@@ -388,10 +419,10 @@ function getResultCacheStore(): Map<string, CarrierSortieResult[]> {
 }
 
 /** 결과 캐시 저장 (renderResult → renderCall 히스토리 복원용) */
-function setResultCache(sortieKey: string, results: CarrierSortieResult[]): void {
+function setResultCache(sortieKey: string, results: CarrierSortieResult[], elapsedMs?: number): void {
   const store = getResultCacheStore();
   store.delete(sortieKey);
-  store.set(sortieKey, results);
+  store.set(sortieKey, { results, elapsedMs });
   // LRU: 최대 엔트리 초과 시 가장 오래된 항목 제거
   while (store.size > MAX_RESULT_CACHE_ENTRIES) {
     const oldestKey = store.keys().next().value;
@@ -401,7 +432,7 @@ function setResultCache(sortieKey: string, results: CarrierSortieResult[]): void
 }
 
 /** 결과 캐시 읽기 */
-function getResultCache(sortieKey: string): CarrierSortieResult[] | null {
+function getResultCache(sortieKey: string): SortieResultCacheEntry | null {
   return getResultCacheStore().get(sortieKey) ?? null;
 }
 
@@ -495,10 +526,22 @@ class SortieCallComponent {
         state = found;
       }
     }
-    const cachedResults = this.sortieKey ? getResultCache(this.sortieKey) : null;
+    const cachedEntry = this.sortieKey ? getResultCache(this.sortieKey) : null;
+    const cachedResults = cachedEntry?.results ?? null;
     const frame = state?.frame ?? 0;
     const count = this.entries.length;
     const lines: string[] = [];
+
+    // ── 경과시간 계산 ──
+    let elapsedSuffix = "";
+    if (state) {
+      const elapsed = state.finishedAt
+        ? state.finishedAt - state.startedAt
+        : Date.now() - state.startedAt;
+      elapsedSuffix = this.theme.fg("dim", ` · ${formatElapsed(elapsed)}`);
+    } else if (cachedEntry?.elapsedMs != null) {
+      elapsedSuffix = this.theme.fg("dim", ` · ${formatElapsed(cachedEntry.elapsedMs)}`);
+    }
 
     // ── 헤더: 진행 상태 요약 ──
     const headerTitle = this.theme.fg("toolTitle", this.theme.bold("◈ Carriers Sortie"));
@@ -522,7 +565,7 @@ class SortieCallComponent {
     } else {
       headerSuffix = `${count} carriers launched`;
     }
-    lines.push(`${headerTitle} ${this.theme.fg("dim", `· ${headerSuffix}`)}`);
+    lines.push(`${headerTitle} ${this.theme.fg("dim", `· ${headerSuffix}`)}${elapsedSuffix}`);
 
     // ── 각 Carrier 트리 노드 + 하위 콘텐츠 ──
     for (let i = 0; i < this.entries.length; i++) {
@@ -651,10 +694,8 @@ function renderCarrierContentLines(
   const indent = `  ${PANEL_DIM_COLOR}${connector}${ANSI_RESET}    `;
 
   return tail.map((bl) => {
-    const colorPrefix = blockLineAnsiColor(bl.type);
-    const coloredText = colorPrefix ? `${colorPrefix}${bl.text}${ANSI_RESET}` : bl.text;
-    const truncated = truncateToWidth(`${indent}${coloredText}`, contentWidth);
-    return truncated;
+    const coloredText = blockLineToAnsi(bl);
+    return truncateToWidth(`${indent}${coloredText}`, contentWidth);
   });
 }
 

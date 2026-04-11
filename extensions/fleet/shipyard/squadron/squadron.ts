@@ -23,7 +23,7 @@ import {
   updateRunStatus,
   getVisibleRun,
 } from "../../streaming/stream-store.js";
-import { renderBlockLines, blockLineAnsiColor } from "../../render/block-renderer.js";
+import { renderBlockLines, blockLineToAnsi } from "../../render/block-renderer.js";
 import {
   getRegisteredOrder,
   getRegisteredCarrierConfig,
@@ -61,6 +61,8 @@ interface SquadronResultDetails {
   carrierId: string;
   requestKey: string;
   results: SquadronResult[];
+  /** 총 경과시간 (ms) — 히스토리 복원 시 표시용 */
+  elapsedMs?: number;
 }
 
 interface SquadronRenderContext {
@@ -69,6 +71,18 @@ interface SquadronRenderContext {
 }
 
 // ─── 상수 ────────────────────────────────────────────────
+
+/** 밀리초를 사람이 읽기 쉬운 경과시간 문자열로 변환 */
+function formatElapsed(ms: number): string {
+  const totalSec = Math.floor(ms / 1000);
+  if (totalSec < 60) return `${totalSec}s`;
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  if (min < 60) return `${min}m ${String(sec).padStart(2, "0")}s`;
+  const hr = Math.floor(min / 60);
+  const remMin = min % 60;
+  return `${hr}h ${String(remMin).padStart(2, "0")}m`;
+}
 
 /** 서브태스크별 최대 콘텐츠 라인 수 (tail 방식) */
 const MAX_CONTENT_LINES = 5;
@@ -117,7 +131,7 @@ export function registerFleetSquadron(pi: ExtensionAPI): void {
     renderResult(result: any, _options: { expanded: boolean; isPartial: boolean }, _theme: any) {
       const details = result.details as SquadronResultDetails | undefined;
       if (details?.carrierId && details.requestKey && details.results) {
-        setResultCache(details.requestKey, details.carrierId, details.results);
+        setResultCache(details.requestKey, details.carrierId, details.results, details.elapsedMs);
       }
       return { render() { return []; }, invalidate() {} };
     },
@@ -182,13 +196,17 @@ export function registerFleetSquadron(pi: ExtensionAPI): void {
           ),
         );
 
+        // 완료 시각 기록
+        state.finishedAt = Date.now();
+
         // 7. 결과 수집 + 캐시
         const results = collectSquadronResults(settledResults, sanitizedSubtasks);
-        setResultCache(requestKey, carrierId, results);
+        const elapsedMs = state.finishedAt - state.startedAt;
+        setResultCache(requestKey, carrierId, results, elapsedMs);
 
         return {
           content: [{ type: "text" as const, text: buildSquadronContentText(results) }],
-          details: { carrierId, requestKey, results } satisfies SquadronResultDetails,
+          details: { carrierId, requestKey, results, elapsedMs } satisfies SquadronResultDetails,
         };
       } finally {
         clearInterval(updateTimer);
@@ -401,6 +419,7 @@ function initSquadronState(
     subtaskTitles: subtasks.map((st) => st.title),
     frame: 0,
     timer: null,
+    startedAt: Date.now(),
   };
   state.timer = setInterval(() => { state.frame++; }, 100);
   store.set(requestKey, state);
@@ -417,9 +436,16 @@ function clearSquadronState(requestKey: string): void {
 
 // ─── 결과 캐시 ───────────────────────────────────────────
 
-function getResultCacheStore(): Map<string, { carrierId: string; results: SquadronResult[] }> {
+/** 결과 캐시 엔트리 */
+interface SquadronResultCacheEntry {
+  carrierId: string;
+  results: SquadronResult[];
+  elapsedMs?: number;
+}
+
+function getResultCacheStore(): Map<string, SquadronResultCacheEntry> {
   let store = (globalThis as any)[SQUADRON_RESULT_CACHE_KEY] as
-    | Map<string, { carrierId: string; results: SquadronResult[] }>
+    | Map<string, SquadronResultCacheEntry>
     | undefined;
   if (!store) {
     store = new Map();
@@ -428,10 +454,10 @@ function getResultCacheStore(): Map<string, { carrierId: string; results: Squadr
   return store;
 }
 
-function setResultCache(requestKey: string, carrierId: string, results: SquadronResult[]): void {
+function setResultCache(requestKey: string, carrierId: string, results: SquadronResult[], elapsedMs?: number): void {
   const store = getResultCacheStore();
   store.delete(requestKey);
-  store.set(requestKey, { carrierId, results });
+  store.set(requestKey, { carrierId, results, elapsedMs });
 
   while (store.size > MAX_RESULT_CACHE_ENTRIES) {
     const oldestKey = store.keys().next().value;
@@ -440,7 +466,7 @@ function setResultCache(requestKey: string, carrierId: string, results: Squadron
   }
 }
 
-function getResultCache(requestKey: string): { carrierId: string; results: SquadronResult[] } | null {
+function getResultCache(requestKey: string): SquadronResultCacheEntry | null {
   return getResultCacheStore().get(requestKey) ?? null;
 }
 
@@ -561,6 +587,17 @@ class SquadronCallComponent {
     const subtaskTitles = state?.subtaskTitles ?? this.subtasks.map((st) => st.title);
     const subtaskCount = subtaskTitles.length || this.subtasks.length;
 
+    // ── 경과시간 계산 ──
+    let elapsedSuffix = "";
+    if (state) {
+      const elapsed = state.finishedAt
+        ? state.finishedAt - state.startedAt
+        : Date.now() - state.startedAt;
+      elapsedSuffix = this.theme.fg("dim", ` · ${formatElapsed(elapsed)}`);
+    } else if (cache?.elapsedMs != null) {
+      elapsedSuffix = this.theme.fg("dim", ` · ${formatElapsed(cache.elapsedMs)}`);
+    }
+
     // ── 헤더 ──
     const carrierDisplay = this.carrierId
       ? resolveCarrierDisplayName(this.carrierId)
@@ -568,7 +605,7 @@ class SquadronCallComponent {
     const headerTitle = this.theme.fg("toolTitle", this.theme.bold("◈ Squadron"));
 
     lines.push(
-      `${headerTitle} ${PANEL_DIM_COLOR}·${ANSI_RESET} ${PANEL_COLOR}${carrierDisplay}${ANSI_RESET} ${this.theme.fg("dim", `· ${buildSquadronHeaderSuffix(state, cachedResults, subtaskCount)}`)}`,
+      `${headerTitle} ${PANEL_DIM_COLOR}·${ANSI_RESET} ${PANEL_COLOR}${carrierDisplay}${ANSI_RESET} ${this.theme.fg("dim", `· ${buildSquadronHeaderSuffix(state, cachedResults, subtaskCount)}`)}${elapsedSuffix}`,
     );
 
     // ── 서브태스크 트리 ──
@@ -696,8 +733,7 @@ function renderSubtaskContentLines(
   const indent = `  ${PANEL_DIM_COLOR}${connector}${ANSI_RESET}    `;
 
   return tail.map((bl) => {
-    const colorPrefix = blockLineAnsiColor(bl.type);
-    const coloredText = colorPrefix ? `${colorPrefix}${bl.text}${ANSI_RESET}` : bl.text;
+    const coloredText = blockLineToAnsi(bl);
     return truncateToWidth(`${indent}${coloredText}`, contentWidth);
   });
 }

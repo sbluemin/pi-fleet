@@ -26,7 +26,7 @@ import {
   updateRunStatus,
   getVisibleRun,
 } from "../../streaming/stream-store.js";
-import { renderBlockLines, blockLineAnsiColor } from "../../render/block-renderer.js";
+import { renderBlockLines, blockLineToAnsi } from "../../render/block-renderer.js";
 import {
   getRegisteredOrder,
   getRegisteredCarrierConfig,
@@ -64,6 +64,8 @@ interface TaskForceResultDetails {
   carrierId: string;
   requestKey: string;
   results: TaskForceResult[];
+  /** 총 경과시간 (ms) — 히스토리 복원 시 표시용 */
+  elapsedMs?: number;
 }
 
 interface TaskForceRenderContext {
@@ -72,6 +74,18 @@ interface TaskForceRenderContext {
 }
 
 // ─── 상수 ────────────────────────────────────────────────
+
+/** 밀리초를 사람이 읽기 쉬운 경과시간 문자열로 변환 */
+function formatElapsed(ms: number): string {
+  const totalSec = Math.floor(ms / 1000);
+  if (totalSec < 60) return `${totalSec}s`;
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  if (min < 60) return `${min}m ${String(sec).padStart(2, "0")}s`;
+  const hr = Math.floor(min / 60);
+  const remMin = min % 60;
+  return `${hr}h ${String(remMin).padStart(2, "0")}m`;
+}
 
 /** 백엔드별 최대 콘텐츠 라인 수 (tail 방식) */
 const MAX_CONTENT_LINES = 5;
@@ -116,7 +130,7 @@ export function registerFleetTaskForce(pi: ExtensionAPI): void {
     renderResult(result: any, _options: { expanded: boolean; isPartial: boolean }, _theme: any) {
       const details = result.details as TaskForceResultDetails | undefined;
       if (details?.carrierId && details.requestKey && details.results) {
-        setResultCache(details.requestKey, details.carrierId, details.results);
+        setResultCache(details.requestKey, details.carrierId, details.results, details.elapsedMs);
       }
       return { render() { return []; }, invalidate() {} };
     },
@@ -153,14 +167,18 @@ export function registerFleetTaskForce(pi: ExtensionAPI): void {
           ),
         );
 
+        // 완료 시각 기록
+        state.finishedAt = Date.now();
+
         const results = collectTaskForceResults(settledResults);
+        const elapsedMs = state.finishedAt - state.startedAt;
 
         // 결과 캐시 저장
-        setResultCache(requestKey, carrierId, results);
+        setResultCache(requestKey, carrierId, results, elapsedMs);
 
         return {
           content: [{ type: "text" as const, text: buildTaskForceContentText(results) }],
-          details: { carrierId, requestKey, results } satisfies TaskForceResultDetails,
+          details: { carrierId, requestKey, results, elapsedMs } satisfies TaskForceResultDetails,
         };
       } finally {
         clearInterval(updateTimer);
@@ -359,6 +377,7 @@ function initTaskForceState(
     ),
     frame: 0,
     timer: null,
+    startedAt: Date.now(),
   };
   state.timer = setInterval(() => { state.frame++; }, 100);
   (globalThis as any)[TASKFORCE_STATE_KEY] = state;
@@ -374,9 +393,16 @@ function clearTaskForceState(requestKey?: string): void {
 
 // ─── 결과 캐시 ───────────────────────────────────────────
 
-function getResultCacheStore(): Map<string, { carrierId: string; results: TaskForceResult[] }> {
+/** 결과 캐시 엔트리 */
+interface TaskForceResultCacheEntry {
+  carrierId: string;
+  results: TaskForceResult[];
+  elapsedMs?: number;
+}
+
+function getResultCacheStore(): Map<string, TaskForceResultCacheEntry> {
   let store = (globalThis as any)[TASKFORCE_RESULT_CACHE_KEY] as
-    | Map<string, { carrierId: string; results: TaskForceResult[] }>
+    | Map<string, TaskForceResultCacheEntry>
     | undefined;
   if (!store) {
     store = new Map();
@@ -385,10 +411,10 @@ function getResultCacheStore(): Map<string, { carrierId: string; results: TaskFo
   return store;
 }
 
-function setResultCache(requestKey: string, carrierId: string, results: TaskForceResult[]): void {
+function setResultCache(requestKey: string, carrierId: string, results: TaskForceResult[], elapsedMs?: number): void {
   const store = getResultCacheStore();
   store.delete(requestKey);
-  store.set(requestKey, { carrierId, results });
+  store.set(requestKey, { carrierId, results, elapsedMs });
 
   while (store.size > MAX_RESULT_CACHE_ENTRIES) {
     const oldestKey = store.keys().next().value;
@@ -397,7 +423,7 @@ function setResultCache(requestKey: string, carrierId: string, results: TaskForc
   }
 }
 
-function getResultCache(requestKey: string): { carrierId: string; results: TaskForceResult[] } | null {
+function getResultCache(requestKey: string): TaskForceResultCacheEntry | null {
   return getResultCacheStore().get(requestKey) ?? null;
 }
 
@@ -514,6 +540,17 @@ class TaskForceCallComponent {
     const cachedResults = cache?.carrierId === this.carrierId ? cache.results : [];
     const lines: string[] = [];
 
+    // ── 경과시간 계산 ──
+    let elapsedSuffix = "";
+    if (state) {
+      const elapsed = state.finishedAt
+        ? state.finishedAt - state.startedAt
+        : Date.now() - state.startedAt;
+      elapsedSuffix = this.theme.fg("dim", ` · ${formatElapsed(elapsed)}`);
+    } else if (cache?.elapsedMs != null) {
+      elapsedSuffix = this.theme.fg("dim", ` · ${formatElapsed(cache.elapsedMs)}`);
+    }
+
     // ── 헤더 ──
     const carrierDisplay = this.carrierId
       ? resolveCarrierDisplayName(this.carrierId)
@@ -521,7 +558,7 @@ class TaskForceCallComponent {
     const headerTitle = this.theme.fg("toolTitle", this.theme.bold("◈ Task Force"));
 
     lines.push(
-      `${headerTitle} ${PANEL_DIM_COLOR}·${ANSI_RESET} ${PANEL_COLOR}${carrierDisplay}${ANSI_RESET} ${this.theme.fg("dim", `· ${buildTaskForceHeaderSuffix(state, cachedResults)}`)}`,
+      `${headerTitle} ${PANEL_DIM_COLOR}·${ANSI_RESET} ${PANEL_COLOR}${carrierDisplay}${ANSI_RESET} ${this.theme.fg("dim", `· ${buildTaskForceHeaderSuffix(state, cachedResults)}`)}${elapsedSuffix}`,
     );
 
     // ── 백엔드 트리 ──
@@ -648,8 +685,7 @@ function renderBackendContentLines(
   const indent = `  ${PANEL_DIM_COLOR}${connector}${ANSI_RESET}    `;
 
   return tail.map((bl) => {
-    const colorPrefix = blockLineAnsiColor(bl.type);
-    const coloredText = colorPrefix ? `${colorPrefix}${bl.text}${ANSI_RESET}` : bl.text;
+    const coloredText = blockLineToAnsi(bl);
     return truncateToWidth(`${indent}${coloredText}`, contentWidth);
   });
 }

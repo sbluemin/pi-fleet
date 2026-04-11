@@ -49,6 +49,10 @@ export interface TaskForceState {
   frame: number;
   /** 프레임 타이머 */
   timer: ReturnType<typeof setInterval> | null;
+  /** 실행 시작 시각 (Date.now()) */
+  startedAt: number;
+  /** 모든 작업 완료 시각 */
+  finishedAt?: number;
 }
 
 // ─── 상수 ───────────────────────────────────────────────

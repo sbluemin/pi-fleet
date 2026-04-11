@@ -17,7 +17,7 @@ import {
   TOOLS_COLOR,
 } from "../constants";
 import type { ColBlock } from "../streaming/types.js";
-import { renderBlockLines, renderBlocksToContainer, renderLegacyToContainer } from "./block-renderer";
+import { renderBlockLines, blockLineToAnsi, renderBlocksToContainer, renderLegacyToContainer } from "./block-renderer";
 import { clampCompletedCompactLines } from "./compact.js";
 /** 렌더러에 필요한 최소 설정 (framework.CarrierConfig에서 추출) */
 interface AgentRenderConfig {
@@ -204,6 +204,8 @@ function renderCompactBodyLines(
   const visibleBlocks = sourceBlocks.filter((block) => block.type !== "tool" && block.type !== "thought");
 
   return renderBlockLines(visibleBlocks).map((line) => {
+    // suffix가 있으면 blockLineToAnsi로 타이틀/상태 색상 분리 적용
+    if (line.suffix) return blockLineToAnsi(line);
     if (line.type === "tool-error") {
       return theme.fg("error", line.text);
     }
