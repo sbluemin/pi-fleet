@@ -38,15 +38,16 @@ const MODELS = MODEL_CATALOG.map((m) => ({
 export default function (pi: ExtensionAPI) {
   // ── 세션 라이프사이클 ──
 
-  pi.on("session_start", (event) => {
+  pi.on("session_start", (event, ctx) => {
     if (event.reason === "new" || event.reason === "resume" || event.reason === "fork") {
-      handleSessionStart(event.reason).catch((err) => {
+      const piSessionId = ctx.sessionManager.getSessionId();
+      handleSessionStart(event.reason, piSessionId).catch((err) => {
         console.error("[fleet-acp] session_start 처리 실패:", err);
       });
     }
   });
 
-  pi.on("session_shutdown", () => {
+  pi.on("session_shutdown", (_event, ctx) => {
     cleanupAll().catch((err) => {
       console.error("[fleet-acp] session_shutdown 정리 실패:", err);
     });

@@ -15,6 +15,9 @@ import { cleanEnvironment } from '../utils/env.js';
 /** ACP 기본 인자 */
 const DEFAULT_ACP_ARGS = ['--acp'];
 
+/** Codex ACP 기본 인라인 설정 인자 */
+const CODEX_DEFAULT_CONFIG_OVERRIDES = ['service_tier="fast"'];
+
 /** CLI 백엔드 설정 전체 맵 */
 export const CLI_BACKENDS: Record<CliType, CliBackendConfig> = {
   gemini: {
@@ -76,10 +79,13 @@ export function createSpawnConfig(
     const cleanEnv = cleanEnvironment(process.env, options.env);
     const npxPath = resolveNpxPath(cleanEnv);
     const npxArgs = buildNpxArgs(backend.npxPackage);
+    const args = cli === 'codex'
+      ? [...npxArgs, ...buildConfigArgs(CODEX_DEFAULT_CONFIG_OVERRIDES, options.configOverrides)]
+      : npxArgs;
 
     return {
       command: npxPath,
-      args: npxArgs,
+      args,
       useNpx: true,
     };
   }
@@ -152,10 +158,13 @@ export function createPreSpawnConfig(
     const cleanEnv = cleanEnvironment(process.env, opts.env);
     const npxPath = resolveNpxPath(cleanEnv);
     const npxArgs = buildNpxArgs(backend.npxPackage);
+    const args = cli === 'codex'
+      ? [...npxArgs, ...buildConfigArgs(CODEX_DEFAULT_CONFIG_OVERRIDES, opts.configOverrides)]
+      : npxArgs;
 
     return {
       command: npxPath,
-      args: npxArgs,
+      args,
       useNpx: true,
     };
   }
@@ -176,4 +185,16 @@ export function createPreSpawnConfig(
  */
 export function getAllBackendConfigs(): CliBackendConfig[] {
   return Object.values(CLI_BACKENDS);
+}
+
+/**
+ * 기본 설정과 외부 오버라이드를 병합하여 `-c key=value` 인자 배열을 생성합니다.
+ *
+ * @param defaults - 기본 설정 값 배열 (e.g., ['service_tier="fast"'])
+ * @param overrides - 외부에서 추가할 설정 값 배열 (선택)
+ * @returns `-c` 플래그가 포함된 인자 배열
+ */
+function buildConfigArgs(defaults: string[], overrides?: string[]): string[] {
+  const merged = [...defaults, ...(overrides ?? [])];
+  return merged.flatMap((v) => ['-c', v]);
 }

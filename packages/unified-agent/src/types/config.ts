@@ -71,6 +71,8 @@ export interface ConnectionOptions {
   };
   /** 모델 지정 */
   model?: string;
+  /** CLI 설정 오버라이드 — Codex `-c key=value` 형태로 전달 */
+  configOverrides?: string[];
 }
 
 // ─── Pre-Spawn Handle ────────────────────────────────────

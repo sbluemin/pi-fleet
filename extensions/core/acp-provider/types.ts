@@ -39,6 +39,8 @@ export interface AcpSessionState {
   mcpSessionToken?: string;
   /** tool 목록 해시 — 변경 감지용 */
   toolHash?: string;
+  /** sendPrompt idle timeout 등으로 reject된 경우 true — activeSessionKey 보존을 위한 플래그 */
+  sendPromptError?: boolean;
 }
 
 /** preSpawn 핸들 엔트리 */

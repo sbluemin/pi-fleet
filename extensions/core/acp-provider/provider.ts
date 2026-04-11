@@ -17,8 +17,7 @@ import type {
 } from "@mariozechner/pi-ai";
 import { spawn } from "child_process";
 import crypto from "crypto";
-import { readFileSync, writeFileSync, mkdirSync } from "fs";
-import { join } from "path";
+import { getSessionStore } from "../agent/runtime.js";
 import { Readable, Writable } from "stream";
 import {
   AcpConnection,
@@ -50,6 +49,7 @@ import {
   stopMcpServer,
   resolveNextToolCall,
   clearPendingForSession,
+  hasPendingToolCall,
   setOnToolCallArrived,
   type McpCallToolResult,
 } from "./mcp-server.js";
@@ -62,24 +62,13 @@ import {
 } from "./tool-registry.js";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Types / Interfaces
-// ═══════════════════════════════════════════════════════════════════════════
-
-/** 영속화할 세션 정보 형식 */
-interface PersistedSession {
-  sessionId: string;
-  cli: string;
-  currentModel: string;
-  lastSystemPromptHash: string;
-  cwd: string;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
 // Constants
 // ═══════════════════════════════════════════════════════════════════════════
 
-/** 영속화 파일 경로 */
-const SESSION_FILE = join(process.cwd(), ".fleet", "acp-sessions.json");
+/** Codex CLI에 전달할 MCP 도구 타임아웃 설정 오버라이드 */
+const MCP_TOOL_TIMEOUT_CONFIG_OVERRIDES = [
+  'mcp_servers.pi-tools.tool_timeout_sec=1800', // 30분
+];
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Internal helpers
@@ -137,13 +126,16 @@ function createAcpConnection(
     cwd,
     model: backendModel,
     yoloMode: true, // 자동 승인 — pi가 직접 permission 관리하지 않음
+    configOverrides: MCP_TOOL_TIMEOUT_CONFIG_OVERRIDES,
   });
 
   return new AcpConnection({
     command: spawnConfig.command,
     args: spawnConfig.args,
     cwd,
-    env: cleanEnvironment(process.env),
+    env: cleanEnvironment(process.env, {
+      MCP_TOOL_TIMEOUT: '1800000', // 30분 — CLI의 MCP 도구 실행 타임아웃 확장
+    }),
     requestTimeout: DEFAULT_REQUEST_TIMEOUT,
     initTimeout: DEFAULT_INIT_TIMEOUT,
     promptIdleTimeout: DEFAULT_PROMPT_IDLE_TIMEOUT,
@@ -399,8 +391,12 @@ function replenishPreSpawn(cli: CliType): void {
 
 /** 실제 preSpawn 수행 — UnifiedAgentClient.preSpawn() 패턴 참조 */
 async function doPreSpawn(cli: CliType): Promise<PreSpawnEntry | null> {
-  const spawnConfig = createPreSpawnConfig(cli);
-  const cleanEnv = cleanEnvironment(process.env);
+  const spawnConfig = createPreSpawnConfig(cli, {
+    configOverrides: MCP_TOOL_TIMEOUT_CONFIG_OVERRIDES,
+  });
+  const cleanEnv = cleanEnvironment(process.env, {
+    MCP_TOOL_TIMEOUT: '1800000', // 30분 — CLI의 MCP 도구 실행 타임아웃 확장
+  });
 
   const env: Record<string, string | undefined> = { ...cleanEnv };
   if (cli === "gemini" && isWindows() && env.GEMINI_CLI_NO_RELAUNCH === undefined) {
@@ -482,7 +478,25 @@ export function streamAcp(
 
   // ── Case 감지: 마지막 메시지가 toolResult이고 activeSessionKey가 있으면 Case 2 ──
   const lastMsg = context.messages[context.messages.length - 1];
-  const isToolResultDelivery = lastMsg?.role === "toolResult" && state.activeSessionKey === key;
+  const isLastMsgToolResult = lastMsg?.role === "toolResult";
+  let isToolResultDelivery = isLastMsgToolResult && state.activeSessionKey === key;
+
+  // fallback: sendPrompt idle timeout으로 activeSessionKey가 소실된 경우에만 복원.
+  // 조건: (1) activeSessionKey가 null, (2) sendPromptError 플래그 설정됨,
+  // (3) 세션이 유효, (4) 실제 pending MCP tool call이 FIFO 큐에 존재
+  if (!isToolResultDelivery && isLastMsgToolResult && state.activeSessionKey === null) {
+    const session = state.sessions.get(key);
+    if (
+      session?.connection && session.sessionId && session.mcpSessionToken &&
+      session.sendPromptError === true &&
+      hasPendingToolCall(session.mcpSessionToken)
+    ) {
+      debug("Case 2 fallback: sendPromptError + pending FIFO 확인 → activeSessionKey 복원");
+      session.sendPromptError = false; // 플래그 소비
+      state.activeSessionKey = key; // 복원
+      isToolResultDelivery = true;
+    }
+  }
 
   const mapper = createEventMapper(model.id);
 
@@ -523,11 +537,27 @@ async function runFreshQuery(
   // 이전 activeQuery 정리
   state.activeSessionKey = null;
 
+  // 새 prompt 시작 시 sendPromptError 플래그 초기화
+  const existingSession = state.sessions.get(key);
+  if (existingSession?.sendPromptError) {
+    existingSession.sendPromptError = false;
+    debug("sendPromptError 플래그 초기화 (새 prompt 시작)");
+  }
+
   // ── 프롬프트 추출 ──
   let promptText = extractLatestUserMessage(context);
   if (!promptText) {
-    debug("WARNING: empty prompt — fallback to [continue]");
-    promptText = "[continue]";
+    // 마지막 메시지가 toolResult인데 Case 1로 온 경우 — 분기 오류
+    const lastCtxMsg = context.messages[context.messages.length - 1];
+    if (lastCtxMsg?.role === "toolResult") {
+      throw new Error(
+        "toolResult 메시지가 Case 1(fresh query)로 라우팅됨 — " +
+        "Case 2(tool result delivery)로 분기되어야 합니다. " +
+        "세션 상태를 확인하세요.",
+      );
+    }
+    debug("WARNING: empty prompt — fallback to Continue.");
+    promptText = "Continue.";
   }
 
   // ── 세션 확보 ──
@@ -582,7 +612,12 @@ async function runFreshQuery(
     if (wasAborted.value) return;
     const msg = errorMessage(err);
     debug(`sendPrompt 에러: ${msg}`);
-    state.activeSessionKey = null;
+    // activeSessionKey를 보존 — pi agent-loop이 tool 실행 중이면
+    // sendPrompt reject을 인지하지 못하고 toolResult로 재호출하므로,
+    // Case 2 분기가 정상 동작하려면 activeSessionKey가 유지되어야 함.
+    // 대신 에러 플래그를 설정하여 Case 2에서 세션 상태 검증에 활용.
+    session.sendPromptError = true;
+    debug(`sendPromptError 플래그 설정: key=${key}`);
     // mapper가 아직 finished가 아니면 에러 발행
     mapper.finishWithError("error", `ACP 요청 실패: ${msg}`);
   }).finally(() => {
@@ -671,9 +706,10 @@ async function runToolResultDelivery(
   const cleanup = (): void => {
     removeListeners();
     cleanupAbort();
-    // done="stop"이면 activeSessionKey 정리
+    // done="stop"이면 activeSessionKey + sendPromptError 정리
     if (mapper.output.stopReason !== "toolUse") {
       state.activeSessionKey = null;
+      session.sendPromptError = false;
     }
   };
 
@@ -805,7 +841,7 @@ export async function cleanupAll(): Promise<void> {
   const state = getOrInitState();
 
   // sessionId 영속화 (disconnect 전에 저장)
-  saveSessionState(state);
+  saveAcpSessions(state);
 
   await clearSessionsAndPreSpawn(state);
 
@@ -823,6 +859,7 @@ export async function cleanupAll(): Promise<void> {
  */
 export async function handleSessionStart(
   reason: "new" | "resume" | "fork",
+  piSessionId?: string,
 ): Promise<void> {
   const state = getOrInitState();
 
@@ -830,7 +867,7 @@ export async function handleSessionStart(
     await clearSessionsAndPreSpawn(state);
     debug(`session_start(${reason}): 세션 + preSpawn + MCP 초기화`);
   } else if (reason === "resume") {
-    restoreSessionState(state);
+    restoreAcpSessions(state, piSessionId);
     debug("session_start(resume): 세션 상태 복원 완료");
   }
 }
@@ -850,57 +887,82 @@ async function clearSessionsAndPreSpawn(state: AcpProviderState): Promise<void> 
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 세션 영속화 — .fleet/acp-sessions.json
+// 세션 영속화 — SessionMapStore (네임스페이스 키: acp:{cli}:{field})
 // ═══════════════════════════════════════════════════════════════════════════
 
-/** 세션 상태를 파일에 저장 — shutdown 시 호출 */
-function saveSessionState(state: AcpProviderState): void {
+/** 세션 상태를 SessionMapStore에 저장 — shutdown 시 호출 */
+function saveAcpSessions(state: AcpProviderState): void {
   try {
-    const data: Record<string, PersistedSession> = {};
-    for (const [key, session] of state.sessions) {
-      if (session.sessionId) {
-        data[key] = {
-          sessionId: session.sessionId,
-          cli: session.cli,
-          currentModel: session.currentModel,
-          lastSystemPromptHash: session.lastSystemPromptHash,
-          cwd: session.cwd,
-        };
+    const store = getSessionStore();
+    // 기존 acp: 키 정리 — 현재 state에 없는 CLI의 잔여 키 제거
+    const allEntries = store.getAll();
+    for (const key of Object.keys(allEntries)) {
+      if (key.startsWith("acp:")) {
+        store.clear(key);
       }
     }
-    if (Object.keys(data).length === 0) return;
-    mkdirSync(join(process.cwd(), ".fleet"), { recursive: true });
-    writeFileSync(SESSION_FILE, JSON.stringify(data, null, 2), "utf-8");
-    debug(`세션 상태 저장: ${Object.keys(data).length}개`);
+    // 현재 세션 저장
+    let count = 0;
+    for (const [_key, session] of state.sessions) {
+      if (!session.sessionId) continue;
+      const prefix = `acp:${session.cli}`;
+      store.set(`${prefix}:sessionId`, session.sessionId);
+      store.set(`${prefix}:cli`, session.cli);
+      store.set(`${prefix}:currentModel`, session.currentModel);
+      store.set(`${prefix}:lastSystemPromptHash`, session.lastSystemPromptHash);
+      store.set(`${prefix}:cwd`, session.cwd);
+      count++;
+    }
+    if (count > 0) debug(`세션 상태 저장: ${count}개`);
   } catch (err) {
     debug("세션 상태 저장 실패 (silent):", errorMessage(err));
   }
 }
 
-/** 파일에서 세션 상태 복원 — resume 시 호출 */
-function restoreSessionState(state: AcpProviderState): void {
+/** SessionMapStore에서 세션 상태 복원 — resume 시 호출 */
+function restoreAcpSessions(state: AcpProviderState, piSessionId?: string): void {
   try {
-    const raw = readFileSync(SESSION_FILE, "utf-8");
-    const data = JSON.parse(raw) as Record<string, PersistedSession>;
+    // 방어적 restore — fleet/index.ts보다 먼저 로드될 경우 대비
+    if (piSessionId) {
+      getSessionStore().restore(piSessionId);
+    }
 
-    for (const [key, persisted] of Object.entries(data)) {
-      // 이미 Map에 있으면 skip (cleanupAll 후 resume라 없을 것이지만 방어)
-      if (state.sessions.has(key)) continue;
+    const store = getSessionStore();
+    const allEntries = store.getAll();
+
+    // acp: 접두사 키에서 CLI별 그룹화
+    const cliGroups = new Map<string, Record<string, string>>();
+    for (const [key, value] of Object.entries(allEntries)) {
+      if (!key.startsWith("acp:")) continue;
+      // acp:{cli}:{field} 파싱
+      const parts = key.split(":");
+      if (parts.length !== 3) continue;
+      const cli = parts[1];
+      const field = parts[2];
+      if (!cliGroups.has(cli)) cliGroups.set(cli, {});
+      cliGroups.get(cli)![field] = value;
+    }
+
+    for (const [cli, fields] of cliGroups) {
+      if (!fields.sessionId) continue;
+      // 세션 키는 기존 형식 유지: acp:{cwd}
+      const sessionKey = `acp:${fields.cwd || ""}`;
+      if (state.sessions.has(sessionKey)) continue;
 
       const session: AcpSessionState = {
         connection: null, // 프로세스 죽었으므로 null
-        sessionId: persisted.sessionId, // session/load에 사용
-        cwd: persisted.cwd,
-        lastSystemPromptHash: persisted.lastSystemPromptHash,
-        cli: persisted.cli as CliType,
+        sessionId: fields.sessionId, // session/load에 사용
+        cwd: fields.cwd || "",
+        lastSystemPromptHash: fields.lastSystemPromptHash || "",
+        cli: cli as CliType,
         firstPromptSent: true, // 이전 대화가 있었으므로
-        currentModel: persisted.currentModel,
+        currentModel: fields.currentModel || "",
       };
-      state.sessions.set(key, session);
-      debug(`세션 복원: ${key} → ${persisted.sessionId.slice(0, 8)}`);
+      state.sessions.set(sessionKey, session);
+      debug(`세션 복원: ${sessionKey} → ${fields.sessionId.slice(0, 8)}`);
     }
   } catch {
-    // 파일 없거나 파싱 실패 — 새 세션으로 시작
+    // 파싱 실패 — 새 세션으로 시작
     debug("세션 상태 복원 실패 (silent) — 새 세션으로 시작");
   }
 }

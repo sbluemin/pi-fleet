@@ -47,7 +47,19 @@ describe('CliConfigs', () => {
       expect(config.command).toContain('npx');
       expect(config.args).toContain('--package=@zed-industries/codex-acp@^0.11.0');
       expect(config.args).toContain('codex-acp');
+      expect(config.args).toContain('-c');
+      expect(config.args).toContain('service_tier="fast"');
       expect(config.useNpx).toBe(true);
+    });
+
+    it('Codex configOverrides가 -c 인자로 병합된다', () => {
+      const config = createSpawnConfig('codex', {
+        cwd: '/tmp/workspace',
+        configOverrides: ['mcp_servers.pi-tools.tool_timeout_sec=1800'],
+      });
+
+      expect(config.args).toContain('service_tier="fast"');
+      expect(config.args).toContain('mcp_servers.pi-tools.tool_timeout_sec=1800');
     });
   });
 
@@ -78,10 +90,21 @@ describe('CliConfigs', () => {
       expect(preConfig.useNpx).toBe(spawnConfig.useNpx);
     });
 
-    it('Codex pre-spawn: npx 브릿지 무변화', () => {
+    it('Codex pre-spawn: 기본 -c 인자 포함', () => {
       const config = createPreSpawnConfig('codex');
 
       expect(config.useNpx).toBe(true);
+      expect(config.args).toContain('-c');
+      expect(config.args).toContain('service_tier="fast"');
+    });
+
+    it('Codex pre-spawn: configOverrides 병합', () => {
+      const config = createPreSpawnConfig('codex', {
+        configOverrides: ['mcp_servers.pi-tools.tool_timeout_sec=1800'],
+      });
+
+      expect(config.args).toContain('service_tier="fast"');
+      expect(config.args).toContain('mcp_servers.pi-tools.tool_timeout_sec=1800');
     });
   });
 

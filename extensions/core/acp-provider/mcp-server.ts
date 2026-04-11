@@ -185,6 +185,12 @@ export function resolveNextToolCall(
   }
 }
 
+/** 세션의 FIFO 큐에 대기 중인 tool call이 있는지 확인 */
+export function hasPendingToolCall(token: string): boolean {
+  const queue = pendingToolCalls.get(token);
+  return !!queue && queue.length > 0;
+}
+
 /** 세션의 모든 pending tool call 에러로 resolve + pre-queued 결과 정리 */
 export function clearPendingForSession(token: string): void {
   const queue = pendingToolCalls.get(token);

@@ -68,8 +68,8 @@ CLI 프로세스가 사용하는 도구는 두 종류로 나뉜다:
 | **동일 CLI 모델 변경** | `connection.setModel()` 호출 (프로세스 유지) |
 | **다른 CLI 모델 변경** | 기존 세션 종료 → 새 CLI 프로세스 spawn |
 | **pi `/new`** | 전체 세션/프로세스 정리 → preSpawn 풀 초기화 → 재생성 |
-| **pi 종료** | 세션 상태를 `.fleet/acp-sessions.json`에 영속화 |
-| **pi 재시작** | 영속화된 세션 복원 시도 (Claude: `session/load`, Codex: `session/load`, Gemini: fallback) |
+| **pi 종료** | 세션 상태를 `~/.pi/fleet/session-maps/{piSessionId}.json`에 네임스페이스 키(`acp:{cli}:{field}`)로 영속화 |
+| **pi 재시작** | SessionMapStore에서 영속화된 세션 복원 시도 (Claude: `session/load`, Codex: `session/load`, Gemini: fallback) |
 
 ### Provider ↔ EventMapper Contract
 
