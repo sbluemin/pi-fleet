@@ -98,58 +98,7 @@ In plan mode, use ${"`"}request_directive${"`"} to clarify requirements or choos
  *  3순위 fleet/shipyard/: carriers_sortie, carrier_taskforce, carrier_squadron 가이드라인
  */
 export function buildAcpSystemPrompt(): string {
-  const parts: string[] = [];
-  const protocol = getActiveProtocol();
-
-  // ── 1순위: Admiral 지침 ──
-
-  // [토글] 세계관 프롬프트
-  if (isWorldviewEnabled()) {
-    parts.push(FLEET_WORLDVIEW_PROMPT.trim());
-  }
-
-  // Standing Orders — 프로토콜 설정에 따라 주입 여부 결정
-  if (protocol.injectStandingOrders) {
-    const orders = getAllStandingOrders();
-    if (orders.length > 0) {
-      const ordersBody = orders.map((o) => o.prompt.trim()).join("\n\n---\n\n");
-      parts.push(`# Admiral Directives\n\n${ordersBody}`);
-    }
-  }
-
-  // 활성 프로토콜 서문 + 프롬프트
-  const preamble = protocol.preamble ?? PROTOCOL_PREAMBLE;
-  parts.push(
-    `# Protocols\n\n${preamble.trim()}\n\n${protocol.prompt.trim()}`,
-  );
-
-  // request_directive 가이드라인
-  parts.push(REQUEST_DIRECTIVE_PROMPT.trim());
-
-  // ── 2순위: Carrier 로스터 (sortie guidelines에 포함) ──
-
-  const sortieEnabledIds = getSortieEnabledIds();
-  const sortieGuidelines = buildSortieToolPromptGuidelines(sortieEnabledIds);
-  if (sortieGuidelines.length > 0) {
-    parts.push(`# Carrier Deployment\n\n${sortieGuidelines.join("\n")}`);
-  }
-
-  // ── 3순위: Shipyard 도구 가이드라인 ──
-
-  const registeredIds = getRegisteredOrder();
-  const taskforceIds = getConfiguredTaskForceCarrierIds(registeredIds);
-  const squadronIds = getSquadronEnabledIds();
-
-  if (taskforceIds.length > 0) {
-    const tfGuidelines = buildTaskForcePromptGuidelines(taskforceIds);
-    parts.push(`# Task Force\n\n${tfGuidelines.join("\n")}`);
-  }
-
-  if (squadronIds.length > 0) {
-    const sqGuidelines = buildSquadronPromptGuidelines(squadronIds);
-    parts.push(`# Squadron\n\n${sqGuidelines.join("\n")}`);
-  }
-
+  const parts = buildAdmiralDirectives();
   return parts.join("\n\n");
 }
 
@@ -178,15 +127,18 @@ export function setWorldviewEnabled(enabled: boolean): void {
  * - Active Protocol: 활성 프로토콜의 PROTOCOL_PREAMBLE + prompt 주입
  */
 export function appendAdmiralSystemPrompt(systemPrompt: string): string {
-  const parts: string[] = [systemPrompt];
+  const parts: string[] = [systemPrompt, ...buildAdmiralDirectives()];
+  return parts.join("\n\n");
+}
+
+function buildAdmiralDirectives(): string[] {
+  const parts: string[] = [];
   const protocol = getActiveProtocol();
 
-  // [토글] 세계관 프롬프트
   if (isWorldviewEnabled()) {
     parts.push(FLEET_WORLDVIEW_PROMPT.trim());
   }
 
-  // [분기] Standing Orders — 프로토콜 설정에 따라 주입 여부 결정
   if (protocol.injectStandingOrders) {
     const orders = getAllStandingOrders();
     if (orders.length > 0) {
@@ -195,11 +147,11 @@ export function appendAdmiralSystemPrompt(systemPrompt: string): string {
     }
   }
 
-  // [항상] 활성 프로토콜 서문 + 프롬프트 주입
   const preamble = protocol.preamble ?? PROTOCOL_PREAMBLE;
   parts.push(
     `# Protocols\n\n${preamble.trim()}\n\n${protocol.prompt.trim()}`,
   );
+  parts.push(REQUEST_DIRECTIVE_PROMPT.trim());
 
-  return parts.join("\n\n");
+  return parts;
 }
