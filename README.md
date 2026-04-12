@@ -37,6 +37,12 @@ This project treats individual LLM agents as **Carriers** within a **Fleet**.
 |-----------|--------|-------------|
 | `admiral/` | `admiral` | **Host-Agent Prompt Policy** — Admiral system prompt injection, worldview toggle, and settings section ownership |
 
+### Bridge (`extensions/bridge/`)
+
+| Extension | Domain | Description |
+|-----------|--------|-------------|
+| `bridge/` | `bridge` | **ACP Overlay Bridge** — Launches the active ACP provider session in the interactive shell overlay |
+
 ### Agent Framework (`extensions/fleet/`)
 
 | Extension | Domain | Description |
@@ -105,7 +111,7 @@ Once all three backends are configured for a carrier, it becomes available as a 
 | `Alt+K` | Shrink Agent Panel height |
 | `Alt+S` | Stash / restore the current editor content |
 | `Alt+O` | Fleet Status & Model Config Overlay |
-| `Alt+T` | Open Carrier Native Terminal Bridge (PTY) |
+| `Alt+T` | Launch active ACP provider in overlay shell |
 | `Alt+X` | Cancel execution of the active Carrier |
 | `Alt+Shift+M` | Change Model and Reasoning settings for the active Carrier |
 

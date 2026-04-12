@@ -109,23 +109,26 @@ export function setWorldviewEnabled(enabled: boolean): void {
  */
 export function appendAdmiralSystemPrompt(systemPrompt: string): string {
   const parts: string[] = [systemPrompt];
+  const protocol = getActiveProtocol();
 
   // [토글] 세계관 프롬프트
   if (isWorldviewEnabled()) {
     parts.push(FLEET_WORLDVIEW_PROMPT.trim());
   }
 
-  // [항상] Standing Orders 전체 주입
-  const orders = getAllStandingOrders();
-  if (orders.length > 0) {
-    const ordersBody = orders.map((o) => o.prompt.trim()).join("\n\n---\n\n");
-    parts.push(`# Admiral Directives\n\n${ordersBody}`);
+  // [분기] Standing Orders — 프로토콜 설정에 따라 주입 여부 결정
+  if (protocol.injectStandingOrders) {
+    const orders = getAllStandingOrders();
+    if (orders.length > 0) {
+      const ordersBody = orders.map((o) => o.prompt.trim()).join("\n\n---\n\n");
+      parts.push(`# Admiral Directives\n\n${ordersBody}`);
+    }
   }
 
   // [항상] 활성 프로토콜 서문 + 프롬프트 주입
-  const protocol = getActiveProtocol();
+  const preamble = protocol.preamble ?? PROTOCOL_PREAMBLE;
   parts.push(
-    `# Protocols\n\n${PROTOCOL_PREAMBLE.trim()}\n\n${protocol.prompt.trim()}`,
+    `# Protocols\n\n${preamble.trim()}\n\n${protocol.prompt.trim()}`,
   );
 
   return parts.join("\n\n");

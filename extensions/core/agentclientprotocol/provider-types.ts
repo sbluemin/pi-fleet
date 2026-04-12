@@ -61,6 +61,10 @@ export interface AcpProviderState {
   sessionKeysByScope: Map<string, Set<string>>;
   /** toolCallId → provider 세션 키 역참조 */
   toolCallToSessionKey: Map<string, string>;
+  /** bridge scope 이름 → 현재 활성 sessionKey */
+  bridgeScopeSessionKeys: Map<string, string>;
+  /** sessionKey → bridge launch 메타 */
+  sessionLaunchConfigs: Map<string, AcpSessionLaunchConfig>;
 }
 
 /** session 내부 MCP tool call FIFO 항목 */
@@ -73,6 +77,16 @@ export interface PendingToolCallState {
   args: Record<string, unknown>;
   /** 현재 turn에서 이미 pi로 emit되었는지 여부 */
   emitted: boolean;
+}
+
+/** bridge 팝업 재실행에 필요한 최소 launch 메타 */
+export interface AcpSessionLaunchConfig {
+  /** `acp:<cli>:<backend-model>` 형식 모델 ID */
+  modelId: string;
+  /** 마지막으로 적용된 reasoning effort */
+  effort?: string;
+  /** 마지막으로 적용된 Claude budget tokens */
+  budgetTokens?: number;
 }
 
 /** CLI별 capability 차이를 명시하는 매트릭스 */
@@ -114,6 +128,9 @@ export const DEFAULT_INIT_TIMEOUT = 60_000; // 60초
 
 /** ACP 프롬프트 유휴 타임아웃 (ms) */
 export const DEFAULT_PROMPT_IDLE_TIMEOUT = 600_000; // 10분
+
+/** bridge 확장이 읽는 기본 scope 이름 */
+export const DEFAULT_BRIDGE_SCOPE = "default";
 
 /** CLI별 capability 매트릭스 */
 export const CLI_CAPABILITIES: Record<"gemini" | "codex" | "claude", CliCapability> = {
@@ -291,6 +308,11 @@ export function parseModelId(modelId: string): ParsedModelId | null {
   return { cli, backendModel };
 }
 
+/** CLI + backend model을 `acp:<cli>:<backend-model>` 형식으로 조립 */
+export function buildModelId(cli: CliType, backendModel: string): string {
+  return `${MODEL_ID_PREFIX}${MODEL_ID_SEPARATOR}${cli}${MODEL_ID_SEPARATOR}${backendModel}`;
+}
+
 /**
  * systemPrompt 해시 생성 — drift 감지용.
  * djb2 해시 알고리즘 사용.
@@ -319,5 +341,54 @@ function createInitialState(): AcpProviderState {
     sessions: new Map(),
     sessionKeysByScope: new Map(),
     toolCallToSessionKey: new Map(),
+    bridgeScopeSessionKeys: new Map(),
+    sessionLaunchConfigs: new Map(),
   };
+}
+
+/** bridge scope의 현재 활성 sessionKey를 기록 */
+export function setBridgeScopeSession(scopeName: string, sessionKey: string): void {
+  const state = getOrInitState();
+  state.bridgeScopeSessionKeys.set(scopeName, sessionKey);
+}
+
+/** bridge scope에서 현재 활성 sessionKey 조회 */
+export function getBridgeScopeSession(scopeName: string): string | undefined {
+  const state = getOrInitState();
+  return state.bridgeScopeSessionKeys.get(scopeName);
+}
+
+/** 특정 sessionKey를 가리키는 bridge scope alias를 모두 제거 */
+export function clearBridgeScopeSessionBySessionKey(sessionKey: string): void {
+  const state = getOrInitState();
+  for (const [scopeName, mappedSessionKey] of state.bridgeScopeSessionKeys.entries()) {
+    if (mappedSessionKey === sessionKey) {
+      state.bridgeScopeSessionKeys.delete(scopeName);
+    }
+  }
+}
+
+/** sessionKey별 launch 메타를 저장/갱신 */
+export function setSessionLaunchConfig(
+  sessionKey: string,
+  config: AcpSessionLaunchConfig,
+): void {
+  const state = getOrInitState();
+  const previous = state.sessionLaunchConfigs.get(sessionKey);
+  state.sessionLaunchConfigs.set(sessionKey, {
+    ...previous,
+    ...config,
+  });
+}
+
+/** sessionKey별 launch 메타 조회 */
+export function getSessionLaunchConfig(sessionKey: string): AcpSessionLaunchConfig | undefined {
+  const state = getOrInitState();
+  return state.sessionLaunchConfigs.get(sessionKey);
+}
+
+/** sessionKey별 launch 메타 제거 */
+export function clearSessionLaunchConfig(sessionKey: string): void {
+  const state = getOrInitState();
+  state.sessionLaunchConfigs.delete(sessionKey);
 }

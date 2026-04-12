@@ -54,10 +54,11 @@ Add the `extensions` field to your pi settings file, pointing to the extension d
 > - `extensions/` — unified extension root. pi discovers the nested extension entry points under this directory.
 > - `extensions/core/` — single infrastructure extension whose root `index.ts` wires keybind, settings, log, welcome, hud, shell, improve-prompt, summarize, thinking-timer, provider-guard, and acp-provider modules
 > - `extensions/admiral/` — Admiral prompt policy (system prompt injection, worldview toggle, settings section)
+> - `extensions/bridge/` — active ACP provider bridge (Alt+T overlay shell launcher)
 > - `extensions/fleet/` — agent orchestration extension (carrier framework SDK, Agent Panel, unified pipeline)
 > - `extensions/carriers/` — default carrier registrations (genesis, athena, oracle, sentinel, vanguard, echelon, chronicle)
 >
-> With `extensions/` registered, `core/`, `admiral/`, `fleet/`, and `carriers/` are discovered from that root automatically.
+> With `extensions/` registered, `core/`, `admiral/`, `bridge/`, `fleet/`, and `carriers/` are discovered from that root automatically.
 
 ## 4. Verify
 

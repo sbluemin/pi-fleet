@@ -16,6 +16,7 @@ import type {
   ConnectionInfo,
 } from "./types.js";
 import { disconnectClient, getClientPool, isClientAlive, type PooledClient } from "./pool.js";
+import { buildModelId, setSessionLaunchConfig } from "./provider-types.js";
 import { getSessionStore } from "./runtime.js";
 
 type ToolCallLike = {
@@ -625,6 +626,14 @@ export async function acquireSession(opts: AcquireOptions): Promise<AcquiredSess
       if (connectionInfo.sessionId) {
         store.set(key, connectionInfo.sessionId);
       }
+    }
+
+    if (opts.model) {
+      setSessionLaunchConfig(key, {
+        modelId: buildModelId(cliType, opts.model),
+        effort: opts.effort,
+        budgetTokens: opts.budgetTokens,
+      });
     }
   } catch (err) {
     poolEntry.busy = false;

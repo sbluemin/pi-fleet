@@ -24,6 +24,12 @@ import {
   type AcpProviderState,
   type PendingToolCallState,
   DEFAULT_PROMPT_IDLE_TIMEOUT,
+  DEFAULT_BRIDGE_SCOPE,
+  buildModelId,
+  clearBridgeScopeSessionBySessionKey,
+  clearSessionLaunchConfig,
+  setBridgeScopeSession,
+  setSessionLaunchConfig,
   parseModelId,
   hashSystemPrompt,
   getOrInitState,
@@ -222,6 +228,8 @@ function removeSession(
   session: AcpSessionState,
 ): void {
   clearSessionRoutingState(state, session);
+  clearBridgeScopeSessionBySessionKey(session.sessionKey);
+  clearSessionLaunchConfig(session.sessionKey);
   const scopeSessions = state.sessionKeysByScope.get(session.scopeKey);
   scopeSessions?.delete(session.sessionKey);
   if (scopeSessions && scopeSessions.size === 0) {
@@ -398,6 +406,9 @@ async function ensureSession(
     }
     if (session) {
       installToolCallRouter(state, session);
+      setSessionLaunchConfig(session.sessionKey, {
+        modelId: buildModelId(cli, session.currentModel),
+      });
       debug(`기존 세션 재사용: ${session.sessionId!.slice(0, 8)}`);
       return session;
     }
@@ -459,6 +470,9 @@ async function ensureSession(
     newSession.sessionId = acquired.sessionId || acquired.connectionInfo.sessionId || null;
     registerSession(state, newSession);
     installToolCallRouter(state, newSession);
+    setSessionLaunchConfig(newSession.sessionKey, {
+      modelId: buildModelId(cli, backendModel),
+    });
     acquired.release();
     if (newSession.sessionId) {
       debug(`세션 생성 완료: ${newSession.sessionId.slice(0, 8)}`);
@@ -690,6 +704,8 @@ async function runFreshQuery(
     mapper.finishWithError("error", "ACP 세션이 유효하지 않습니다");
     return;
   }
+
+  setBridgeScopeSession(DEFAULT_BRIDGE_SCOPE, session.sessionKey);
 
   // ── 프롬프트 구성 ──
   let finalPrompt = promptText;
@@ -974,9 +990,13 @@ async function clearSessionsAndPreSpawn(state: AcpProviderState): Promise<void> 
     clearSessionRoutingState(state, session);
     await disconnectSession(session);
     releaseSession(session.sessionKey);
+    clearBridgeScopeSessionBySessionKey(session.sessionKey);
+    clearSessionLaunchConfig(session.sessionKey);
   }
   state.sessions.clear();
   state.sessionKeysByScope.clear();
   state.toolCallToSessionKey.clear();
+  state.bridgeScopeSessionKeys.clear();
+  state.sessionLaunchConfigs.clear();
   clearAllTools();
 }

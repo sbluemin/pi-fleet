@@ -17,8 +17,10 @@
     "panel-grow": "alt+j",
     "panel-shrink": "alt+k",
     "model-change": "alt+shift+m",
-    "agent-popup": "alt+t",
     "carrier-status": "alt+o"
+  },
+  "bridge": {
+    "launch": "alt+t"
   },
   "core-improve-prompt": {
     "meta-prompt": "alt+m",

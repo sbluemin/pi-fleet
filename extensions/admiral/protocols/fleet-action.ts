@@ -16,6 +16,8 @@ export const FLEET_ACTION: AdmiralProtocol = {
   shortLabel: "Fleet Action Protocol",
   slot: 1,
   color: "\x1b[38;2;100;180;255m",  // 밝은 파랑
+  controlMode: "autonomous",
+  injectStandingOrders: true,
   prompt: String.raw`## Fleet Action Protocol
 
 Every task progresses through the following phases **in order**. Phases marked *conditional* may be skipped when the task is trivially small or the condition is not met.

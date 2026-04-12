@@ -146,6 +146,8 @@ describe("provider-stream", () => {
         ["call-1", session.sessionKey],
         ["call-2", session.sessionKey],
       ]),
+      bridgeScopeSessionKeys: new Map(),
+      sessionLaunchConfigs: new Map(),
     };
     (globalThis as Record<symbol, unknown>)[GLOBAL_STATE_KEY] = providerState;
 
