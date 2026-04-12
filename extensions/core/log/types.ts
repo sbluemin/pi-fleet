@@ -20,6 +20,14 @@ export interface LogEntry {
   source: string;
   /** 로그 메시지 */
   message: string;
+  /** Footer 표시 제외 여부 */
+  hideFromFooter?: boolean;
+}
+
+/** 로그 기록 옵션 */
+export interface LogOptions {
+  /** Footer 표시 제외 여부 */
+  hideFromFooter?: boolean;
 }
 
 /** 로그 설정 (settings.json 저장용) */
@@ -37,15 +45,15 @@ export interface LogSettings {
 /** core-log가 globalThis를 통해 제공하는 API */
 export interface CoreLogAPI {
   /** 디버그 로그 기록 */
-  debug(source: string, message: string): void;
+  debug(source: string, message: string, options?: LogOptions): void;
   /** 정보 로그 기록 */
-  info(source: string, message: string): void;
+  info(source: string, message: string, options?: LogOptions): void;
   /** 경고 로그 기록 */
-  warn(source: string, message: string): void;
+  warn(source: string, message: string, options?: LogOptions): void;
   /** 에러 로그 기록 */
-  error(source: string, message: string): void;
+  error(source: string, message: string, options?: LogOptions): void;
   /** 범용 로그 기록 */
-  log(level: LogLevel, source: string, message: string): void;
+  log(level: LogLevel, source: string, message: string, options?: LogOptions): void;
   /** 현재 활성화 여부 */
   isEnabled(): boolean;
   /** 활성화/비활성화 토글 */

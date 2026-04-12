@@ -113,7 +113,10 @@ export function getRecentLogs(count: number = 10): LogEntry[] {
 export function getLatestVisibleLog(minLevel: LogLevel): LogEntry | null {
   const threshold = LOG_LEVEL_PRIORITY[minLevel];
   for (let i = ringBuffer.length - 1; i >= 0; i--) {
-    if (LOG_LEVEL_PRIORITY[ringBuffer[i]!.level] >= threshold) {
+    if (
+      !ringBuffer[i]!.hideFromFooter &&
+      LOG_LEVEL_PRIORITY[ringBuffer[i]!.level] >= threshold
+    ) {
       return ringBuffer[i]!;
     }
   }
@@ -125,7 +128,10 @@ export function getLatestVisibleLogs(minLevel: LogLevel, count: number): LogEntr
   const threshold = LOG_LEVEL_PRIORITY[minLevel];
   const result: LogEntry[] = [];
   for (let i = ringBuffer.length - 1; i >= 0 && result.length < count; i--) {
-    if (LOG_LEVEL_PRIORITY[ringBuffer[i]!.level] >= threshold) {
+    if (
+      !ringBuffer[i]!.hideFromFooter &&
+      LOG_LEVEL_PRIORITY[ringBuffer[i]!.level] >= threshold
+    ) {
       result.push(ringBuffer[i]!);
     }
   }

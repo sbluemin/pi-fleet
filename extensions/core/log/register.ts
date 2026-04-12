@@ -15,7 +15,7 @@
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import type { CoreLogAPI, LogFooterBridge, LogEntry, LogLevel } from "./types.js";
+import type { CoreLogAPI, LogFooterBridge, LogEntry, LogLevel, LogOptions } from "./types.js";
 import { CORE_LOG_FOOTER_KEY } from "./types.js";
 import { _bootstrapLog } from "./bridge.js";
 import { loadSettings, saveSettings, appendLog, getRecentLogs, getLatestVisibleLog, getLatestVisibleLogs, clearLogs, clearFileLogs } from "./store.js";
@@ -34,19 +34,19 @@ const LOG_LEVEL_COLORS: Record<LogLevel, string> = {
 
 function createAPI(): CoreLogAPI {
   const api: CoreLogAPI = {
-    debug(source, message) {
-      api.log("debug", source, message);
+    debug(source, message, options) {
+      api.log("debug", source, message, options);
     },
-    info(source, message) {
-      api.log("info", source, message);
+    info(source, message, options) {
+      api.log("info", source, message, options);
     },
-    warn(source, message) {
-      api.log("warn", source, message);
+    warn(source, message, options) {
+      api.log("warn", source, message, options);
     },
-    error(source, message) {
-      api.log("error", source, message);
+    error(source, message, options) {
+      api.log("error", source, message, options);
     },
-    log(level, source, message) {
+    log(level, source, message, options?: LogOptions) {
       const settings = loadSettings();
       if (!settings.enabled) return;
 
@@ -55,6 +55,7 @@ function createAPI(): CoreLogAPI {
         level,
         source,
         message,
+        hideFromFooter: options?.hideFromFooter === true,
       };
 
       appendLog(entry, settings);

@@ -88,6 +88,28 @@ function debug(...args: unknown[]): void {
   log.debug("acp-provider", args.map(String).join(" "));
 }
 
+/** finalPrompt 원문을 파일 로그에 남긴다. Footer에는 노출하지 않는다. */
+function logFinalPrompt(
+  cli: CliType,
+  backendModel: string,
+  session: AcpSessionState,
+  prompt: string,
+): void {
+  const log = getLogAPI();
+  const phase = session.firstPromptSent ? "follow-up" : "initial";
+  const sessionId = session.sessionId ?? "unknown";
+  log.debug(
+    "acp-provider",
+    [
+      `ACP finalPrompt [${phase}] cli=${cli} model=${backendModel} session=${sessionId} scope=${session.scopeKey}`,
+      "----- BEGIN FINAL PROMPT -----",
+      prompt,
+      "----- END FINAL PROMPT -----",
+    ].join("\n"),
+    { hideFromFooter: true },
+  );
+}
+
 /** 에러 메시지 추출 */
 function errorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
@@ -738,6 +760,7 @@ async function runFreshQuery(
   // sendMessage는 promptComplete까지 resolve되지 않음.
   // MCP tool call 시 event-mapper가 done="toolUse"로 스트림 종료.
   // sendMessage는 계속 pending — ACP CLI가 MCP 응답 대기 중이므로 이벤트 없음.
+  logFinalPrompt(cli, backendModel, session, finalPrompt);
   debug(`sendMessage: cli=${cli} model=${backendModel} prompt=${finalPrompt.slice(0, 60)}...`);
 
   client.sendMessage(finalPrompt).then(() => {
