@@ -64,6 +64,12 @@ export type ToolCallArrivedCallback = (
   args: Record<string, unknown>,
 ) => string;
 
+type JsonRpcPayload = JsonRpcResponse | JsonRpcResponse[] | null;
+
+interface ProcessJsonRpcOptions {
+  immediateResponse?: http.ServerResponse;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Module state — singleton
 // ═══════════════════════════════════════════════════════════════════════════
@@ -88,6 +94,8 @@ const toolCallArrivedCallbacks = new Map<string, ToolCallArrivedCallback>();
 
 /** 현재 turn에서 tools/call을 받을 수 있는 세션 token */
 const acceptingToolCalls = new Set<string>();
+
+const JSON_CONTENT_TYPE = { "Content-Type": "application/json" } as const;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Functions — 서버 lifecycle
@@ -274,6 +282,12 @@ function handleRequest(
     try {
       const body = Buffer.concat(chunks).toString("utf-8");
       const parsed = JSON.parse(body);
+      const shouldFlushHeaders = hasToolsCallRequest(parsed);
+
+      if (shouldFlushHeaders) {
+        res.writeHead(200, JSON_CONTENT_TYPE);
+        res.flushHeaders();
+      }
 
       if (Array.isArray(parsed)) {
         const results: (JsonRpcResponse | null)[] = [];
@@ -285,26 +299,30 @@ function handleRequest(
             }),
           );
         }
-        Promise.all(promises).then(() => {
-          const filtered = results.filter((r): r is JsonRpcResponse => r !== null);
-          if (filtered.length === 0) {
-            res.writeHead(204);
-            res.end();
-          } else {
-            res.writeHead(200, { "Content-Type": "application/json" });
-            res.end(JSON.stringify(filtered));
-          }
-        });
+        Promise.all(promises)
+          .then(() => {
+            const filtered = results.filter((r): r is JsonRpcResponse => r !== null);
+            sendJsonRpcPayload(res, filtered.length === 0 ? null : filtered, shouldFlushHeaders);
+          })
+          .catch((err) => {
+            log.error("acp-provider", `MCP 배치 처리 실패: ${(err as Error).message}`);
+            sendJsonRpcPayload(res, makeError(null, -32603, "Internal error"), shouldFlushHeaders);
+          });
       } else {
-        processJsonRpc(parsed, token).then((result) => {
-          if (result === null) {
-            res.writeHead(204);
-            res.end();
-          } else {
-            res.writeHead(200, { "Content-Type": "application/json" });
-            res.end(JSON.stringify(result));
-          }
-        });
+        const options = shouldFlushHeaders && isToolsCallMethod(parsed)
+          ? { immediateResponse: res }
+          : undefined;
+
+        processJsonRpc(parsed, token, options)
+          .then((result) => {
+            if (res.writableEnded) return;
+            sendJsonRpcPayload(res, result, shouldFlushHeaders);
+          })
+          .catch((err) => {
+            log.error("acp-provider", `MCP 요청 처리 실패: ${(err as Error).message}`);
+            if (res.writableEnded) return;
+            sendJsonRpcPayload(res, makeError(null, -32603, "Internal error"), shouldFlushHeaders);
+          });
       }
     } catch (err) {
       log.error("acp-provider", `MCP 요청 파싱 실패: ${(err as Error).message}`);
@@ -326,6 +344,7 @@ function handleRequest(
 async function processJsonRpc(
   req: JsonRpcRequest,
   token: string,
+  options?: ProcessJsonRpcOptions,
 ): Promise<JsonRpcResponse | null> {
   const log = getLogAPI();
   const { method, id, params } = req;
@@ -406,7 +425,11 @@ async function processJsonRpc(
           toolCallId,
           resolve: (result) => {
             // JSON-RPC id를 올바르게 설정
-            resolve({ ...result, id: id ?? null });
+            const payload = { ...result, id: id ?? null };
+            if (options?.immediateResponse && !options.immediateResponse.writableEnded) {
+              options.immediateResponse.end(JSON.stringify(payload));
+            }
+            resolve(payload);
           },
         });
       });
@@ -433,4 +456,39 @@ function makeError(
   message: string,
 ): JsonRpcResponse {
   return { jsonrpc: "2.0", id: id ?? null, error: { code, message } };
+}
+
+function hasToolsCallRequest(value: unknown): boolean {
+  if (Array.isArray(value)) {
+    return value.some((item) => isToolsCallMethod(item));
+  }
+  return isToolsCallMethod(value);
+}
+
+function isToolsCallMethod(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  return (value as JsonRpcRequest).method === "tools/call";
+}
+
+function sendJsonRpcPayload(
+  res: http.ServerResponse,
+  payload: JsonRpcPayload,
+  headersFlushed: boolean,
+): void {
+  if (res.writableEnded) return;
+
+  if (payload === null) {
+    if (headersFlushed) {
+      res.end();
+      return;
+    }
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+
+  if (!headersFlushed) {
+    res.writeHead(200, JSON_CONTENT_TYPE);
+  }
+  res.end(JSON.stringify(payload));
 }
