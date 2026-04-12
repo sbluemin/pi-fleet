@@ -33,6 +33,7 @@ import {
   parseModelId,
   hashSystemPrompt,
   getOrInitState,
+  getCliSystemPrompt,
 } from "./provider-types.js";
 import { acquireSession, releaseSession } from "./executor.js";
 import { createEventMapper } from "./provider-events.js";
@@ -152,15 +153,19 @@ function extractMessageText(content: unknown): string {
 
 /**
  * 신규 세션의 첫 프롬프트용 XML 구조화 프롬프트 생성.
- * systemPrompt + 대화 히스토리(user/assistant) + 현재 사용자 요청을 XML 태그로 구조화.
+ * CLI 시스템 지침 + 대화 히스토리(user/assistant) + 현재 사용자 요청을 XML 태그로 구조화.
  * 사용자 요청은 항상 마지막에 위치.
+ *
+ * context.systemPrompt(pi의 시스템 프롬프트)는 사용하지 않는다.
+ * 외부 확장이 setCliSystemPrompt()로 설정한 CLI 전용 지침만 포함한다.
  */
 function buildInitialPrompt(context: Context, currentUserMessage: string): string {
   const parts: string[] = [];
 
-  // systemPrompt
-  if (context.systemPrompt) {
-    parts.push(`<system-instructions>\n${context.systemPrompt}\n</system-instructions>`);
+  // CLI 전용 시스템 지침 — 외부에서 setCliSystemPrompt()로 설정된 값
+  const cliSystemPrompt = getCliSystemPrompt();
+  if (cliSystemPrompt) {
+    parts.push(`<system-instructions>\n${cliSystemPrompt}\n</system-instructions>`);
   }
 
   // 대화 히스토리 — 마지막 user 메시지 제외, user/assistant만 포함
@@ -640,7 +645,8 @@ export function streamAcp(
     });
     return mapper.stream;
   }
-  const systemPromptHash = hashSystemPrompt(context.systemPrompt);
+  // drift 감지: context.systemPrompt(pi 전체) 대신 CLI 전용 지침 해시 사용
+  const systemPromptHash = hashSystemPrompt(getCliSystemPrompt() ?? undefined);
   const state = getOrInitState();
   const toolResults = extractAllToolResults(context);
   const isToolResultDelivery = toolResults.length > 0;

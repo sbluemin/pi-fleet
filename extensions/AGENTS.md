@@ -13,7 +13,7 @@ Do not create intermediate layers that simply wrap official TUI APIs (e.g., `set
 | Extension | Role | Main Files |
 |-----------|------|------------|
 | `fleet/` | Agent orchestration framework — carrier SDK (`shipyard/carrier/`), unified pipeline, Agent Panel, model selection. Provides the carrier framework that `carriers/` depends on. | `index.ts` (wiring), `shipyard/carrier/` (framework), `internal/` (implementation) |
-| `admiral/` | Admiral prompt policy — system prompt injection (`before_agent_start`), worldview toggle, settings section. + Standing Orders/Protocols module management, protocol transition keybinds, protocol status widget, editor border color control. Independent of `fleet/` and `carriers/`. | `index.ts` (wiring), `prompts.ts` (prompts), `protocols/` (Fleet Action, etc.), `standing-orders/` (Deep Dive, etc.) |
+| `admiral/` | Admiral prompt policy — system prompt injection (`before_agent_start`), ACP CLI system prompt composition (`session_start`), worldview toggle, settings section. + Standing Orders/Protocols module management, protocol transition keybinds, protocol status widget, editor border color control. Top-level orchestrator with has-a relationship to `fleet/` and `carriers/`. | `index.ts` (wiring), `prompts.ts` (prompts + ACP prompt composition), `protocols/` (Fleet Action, etc.), `standing-orders/` (Deep Dive, etc.) |
 | `carriers/` | Carrier registrations — independent extension defining individual carriers (genesis, sentinel, vanguard, etc.). Depends only on `shipyard/carrier` package, not on `fleet/` extension. Optional — users may omit from `settings.json`. | `index.ts` (wiring), individual carrier files |
 | `core/` | Unified infrastructure extension — root entry point that wires keybind, settings, log, welcome, hud, shell, improve-prompt, summarize, thinking-timer, provider-guard, and the unified `agentclientprotocol/` module | `index.ts` (root wiring), `<module>/register.ts` (module wiring), `agentclientprotocol/` (shared ACP infra + provider boundary) |
 
@@ -312,8 +312,8 @@ carriers/ (feature)
 - **Allowed**: A layer may import from any layer below it (direct or transitive).
 - **Forbidden**: A layer must never import from a layer above it (no reverse dependencies).
 - **`carriers/`** is a **feature-layer** extension at the same tier as `fleet/`. It depends only on `fleet/shipyard/carrier/` (the carrier framework SDK) — NOT on `fleet/index.ts`, `fleet/internal/`, or `fleet/operation-runner.ts`.
-- **`admiral/`** is a **feature-layer** extension at the same tier as `fleet/`. It depends only on `core/settings` — NOT on `fleet/` or `carriers/`.
-- **`fleet/`, `admiral/`, and `carriers/` are independent** — none may import from another's extension entry point (`index.ts`). The only shared surface between `fleet/` and `carriers/` is `shipyard/carrier/` (framework SDK).
+- **`admiral/`** is the **top-level orchestrator** with a has-a relationship to `fleet/` and `carriers/`. It may import from `fleet/shipyard/` (carrier framework, store, tool prompts) and `core/agentclientprotocol/` (CLI system prompt setter) to compose ACP CLI system instructions. It must NOT import from `fleet/index.ts`, `fleet/internal/`, or `carriers/index.ts`.
+- **`fleet/` and `carriers/` are independent peers** — neither may import from the other's extension entry point (`index.ts`). The only shared surface between `fleet/` and `carriers/` is `shipyard/carrier/` (framework SDK).
 
 ### Layer Rules
 
@@ -321,12 +321,12 @@ carriers/ (feature)
 |-------|----------------|----------------------|
 | `core/` | external packages only | `fleet/`, `admiral/`, `carriers/` |
 | `fleet/` (feature) | `core/` | `admiral/`, `carriers/` |
-| `admiral/` (feature) | `core/settings`, `core/keybind` (Editor border via `globalThis` indirect communication) | `fleet/`, `carriers/` |
+| `admiral/` (top-level) | `core/settings`, `core/keybind`, `core/agentclientprotocol/provider-types` (CLI prompt setter), `fleet/shipyard/` (carrier framework, store, tool prompts) | `fleet/index.ts`, `fleet/internal/`, `carriers/index.ts` |
 | `carriers/` (feature) | `fleet/shipyard/carrier/` (framework SDK only) | `fleet/index.ts`, `fleet/internal/`, `admiral/`, `core/` |
 
 > **Skipping layers is allowed** — e.g., `core/` utility extensions may import from `core/` infrastructure modules directly.
 
-### Verification (as of 2026-04-09)
+### Verification (as of 2026-04-12)
 
 All cross-domain imports verified — **no reverse dependency violations found**.
 
@@ -334,6 +334,8 @@ All cross-domain imports verified — **no reverse dependency violations found**
 |--------|-----------|--------|
 | `fleet/` → `core/keybind` | fleet → core | ✅ |
 | `admiral/` → `core/keybind`, `core/settings` | admiral → core | ✅ |
+| `admiral/` → `core/agentclientprotocol/provider-types` | admiral → core | ✅ |
+| `admiral/` → `fleet/shipyard/carrier/`, `fleet/shipyard/store`, `fleet/shipyard/*/prompts` | admiral → fleet (has-a) | ✅ |
 | `core/summarize` → `core/settings` | core internal | ✅ |
 | `core/improve-prompt` → `core/settings`, `core/keybind` | core internal | ✅ |
 

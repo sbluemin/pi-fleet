@@ -49,9 +49,9 @@ Unified ACP infrastructure for pi-fleet, providing both the carrier execution en
 | `runtime.ts` | Shared | Runtime initialization, `.data/` ownership, session store lifecycle. |
 | `pool.ts` | Shared | `UnifiedAgentClient` connection pooling and disconnect helpers. |
 | `executor.ts` | Shared | Execution engine for pooled session acquisition and command routing. |
-| `provider-types.ts` | Provider | Provider constants, ACP session state, model catalog, provider IDs. |
+| `provider-types.ts` | Provider | Provider constants, ACP session state, model catalog, provider IDs, CLI system prompt setter/getter (`setCliSystemPrompt`/`getCliSystemPrompt`). |
 | `provider-register.ts` | Provider | Core entry point that registers the ACP provider and session lifecycle hooks. |
-| `provider-stream.ts` | Provider | `streamSimple` implementation, session reuse, model switching, abort handling, persistence handoff. |
+| `provider-stream.ts` | Provider | `streamSimple` implementation, session reuse, model switching, abort handling, persistence handoff. Uses `getCliSystemPrompt()` (not `context.systemPrompt`) for CLI system instructions — only on first prompt per session. |
 | `provider-events.ts` | Provider | ACP event to pi `EventStream` mapper, including MCP tool-call and CLI built-in tool rendering. |
 | `provider-mcp.ts` | Provider | In-process MCP HTTP JSON-RPC server with FIFO tool-call queue and session token isolation. |
 | `provider-tools.ts` | Provider | Tool registry plus schema adaptation from pi tools to MCP input schemas. |
@@ -61,7 +61,7 @@ Unified ACP infrastructure for pi-fleet, providing both the carrier execution en
 
 | Trigger | Behavior |
 |---------|----------|
-| **First request** | Spawn CLI process, establish ACP session, inject MCP server URL and per-session auth token. |
+| **First request** | Spawn CLI process, establish ACP session, inject MCP server URL and per-session auth token. CLI system instructions (set externally via `setCliSystemPrompt()`) are included in the first prompt only. |
 | **Model change within same CLI family** | Reuse the current process and switch backend model without recreating the whole session when the backend supports it. |
 | **Model change across CLI families** | Dispose the old session/process pair and create a fresh CLI session. |
 | **pi `/new`** | Clear live sessions and processes, reset pre-spawn state, then lazily recreate on the next request. |

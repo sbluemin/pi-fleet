@@ -120,6 +120,9 @@ export const GLOBAL_STATE_KEY = Symbol.for("__pi_fleet_acp_state__");
 /** globalThis 키 — 활성 streamSimple 함수 참조 (subagent 중복 등록 방지) */
 export const ACTIVE_STREAM_KEY = Symbol.for("__pi_fleet_acp_stream__");
 
+/** globalThis 키 — 외부에서 설정한 CLI 전용 시스템 지침 */
+const CLI_SYSTEM_PROMPT_KEY = Symbol.for("__pi_fleet_acp_cli_system_prompt__");
+
 /** ACP 연결 기본 타임아웃 (ms) */
 export const DEFAULT_REQUEST_TIMEOUT = 600_000; // 10분
 
@@ -391,4 +394,22 @@ export function getSessionLaunchConfig(sessionKey: string): AcpSessionLaunchConf
 export function clearSessionLaunchConfig(sessionKey: string): void {
   const state = getOrInitState();
   state.sessionLaunchConfigs.delete(sessionKey);
+}
+
+/**
+ * CLI 백엔드에 전달할 시스템 지침을 설정한다.
+ * 외부 확장(admiral 등)이 호출하며, provider-stream.ts가
+ * 첫 프롬프트 전송 시 context.systemPrompt 대신 이 값을 사용한다.
+ * null이면 시스템 지침을 전달하지 않는다.
+ */
+export function setCliSystemPrompt(prompt: string | null): void {
+  (globalThis as Record<symbol, unknown>)[CLI_SYSTEM_PROMPT_KEY] = prompt;
+}
+
+/**
+ * 현재 설정된 CLI 전용 시스템 지침을 반환한다.
+ * 설정되지 않았으면 null을 반환한다.
+ */
+export function getCliSystemPrompt(): string | null {
+  return ((globalThis as Record<symbol, unknown>)[CLI_SYSTEM_PROMPT_KEY] as string | null) ?? null;
 }

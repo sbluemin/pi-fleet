@@ -10,6 +10,12 @@
 import { getSettingsAPI } from "../core/settings/bridge.js";
 import { getActiveProtocol } from "./protocols/index.js";
 import { getAllStandingOrders } from "./standing-orders/index.js";
+import { getSortieEnabledIds, getSquadronEnabledIds } from "../fleet/shipyard/carrier/framework.js";
+import { getConfiguredTaskForceCarrierIds } from "../fleet/shipyard/store.js";
+import { buildSortieToolPromptGuidelines } from "../fleet/shipyard/carrier/prompts.js";
+import { buildTaskForcePromptGuidelines } from "../fleet/shipyard/taskforce/prompts.js";
+import { buildSquadronPromptGuidelines } from "../fleet/shipyard/squadron/prompts.js";
+import { getRegisteredOrder } from "../fleet/shipyard/carrier/framework.js";
 
 // ─────────────────────────────────────────────────────────
 // 타입
@@ -82,6 +88,70 @@ In plan mode, use ${"`"}request_directive${"`"} to clarify requirements or choos
 // ─────────────────────────────────────────────────────────
 // 함수
 // ─────────────────────────────────────────────────────────
+
+/**
+ * ACP 프로바이더용 CLI 시스템 지침을 합성한다.
+ *
+ * 3계층 우선순위로 구성:
+ *  1순위 admiral/: worldview, Standing Orders, Active Protocol, request_directive 가이드
+ *  2순위 carriers/: Available Carriers 로스터
+ *  3순위 fleet/shipyard/: carriers_sortie, carrier_taskforce, carrier_squadron 가이드라인
+ */
+export function buildAcpSystemPrompt(): string {
+  const parts: string[] = [];
+  const protocol = getActiveProtocol();
+
+  // ── 1순위: Admiral 지침 ──
+
+  // [토글] 세계관 프롬프트
+  if (isWorldviewEnabled()) {
+    parts.push(FLEET_WORLDVIEW_PROMPT.trim());
+  }
+
+  // Standing Orders — 프로토콜 설정에 따라 주입 여부 결정
+  if (protocol.injectStandingOrders) {
+    const orders = getAllStandingOrders();
+    if (orders.length > 0) {
+      const ordersBody = orders.map((o) => o.prompt.trim()).join("\n\n---\n\n");
+      parts.push(`# Admiral Directives\n\n${ordersBody}`);
+    }
+  }
+
+  // 활성 프로토콜 서문 + 프롬프트
+  const preamble = protocol.preamble ?? PROTOCOL_PREAMBLE;
+  parts.push(
+    `# Protocols\n\n${preamble.trim()}\n\n${protocol.prompt.trim()}`,
+  );
+
+  // request_directive 가이드라인
+  parts.push(REQUEST_DIRECTIVE_PROMPT.trim());
+
+  // ── 2순위: Carrier 로스터 (sortie guidelines에 포함) ──
+
+  const sortieEnabledIds = getSortieEnabledIds();
+  const sortieGuidelines = buildSortieToolPromptGuidelines(sortieEnabledIds);
+  if (sortieGuidelines.length > 0) {
+    parts.push(`# Carrier Deployment\n\n${sortieGuidelines.join("\n")}`);
+  }
+
+  // ── 3순위: Shipyard 도구 가이드라인 ──
+
+  const registeredIds = getRegisteredOrder();
+  const taskforceIds = getConfiguredTaskForceCarrierIds(registeredIds);
+  const squadronIds = getSquadronEnabledIds();
+
+  if (taskforceIds.length > 0) {
+    const tfGuidelines = buildTaskForcePromptGuidelines(taskforceIds);
+    parts.push(`# Task Force\n\n${tfGuidelines.join("\n")}`);
+  }
+
+  if (squadronIds.length > 0) {
+    const sqGuidelines = buildSquadronPromptGuidelines(squadronIds);
+    parts.push(`# Squadron\n\n${sqGuidelines.join("\n")}`);
+  }
+
+  return parts.join("\n\n");
+}
 
 /** admiral 섹션에서 worldview 활성 여부를 읽는다 (기본: false). */
 export function isWorldviewEnabled(): boolean {

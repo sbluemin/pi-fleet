@@ -9,7 +9,9 @@
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import { appendAdmiralSystemPrompt, isWorldviewEnabled, setWorldviewEnabled, REQUEST_DIRECTIVE_PROMPT } from "./prompts.js";
+import { appendAdmiralSystemPrompt, buildAcpSystemPrompt, isWorldviewEnabled, setWorldviewEnabled, REQUEST_DIRECTIVE_PROMPT } from "./prompts.js";
+import { setCliSystemPrompt } from "../core/agentclientprotocol/provider-types.js";
+import { PROVIDER_ID } from "../core/agentclientprotocol/provider-types.js";
 import { getSettingsAPI } from "../core/settings/bridge.js";
 import { getKeybindAPI } from "../core/keybind/bridge.js";
 import { getAllProtocols, getActiveProtocol, setActiveProtocol } from "./protocols/index.js";
@@ -65,11 +67,15 @@ export default function admiralExtension(pi: ExtensionAPI) {
     syncProtocolToHud(sessionProtocol);
     registerAdmiralSettingsSection();
     registerProtocolWidget(ctx);
+
+    // ACP 프로바이더 사용 시 CLI 전용 시스템 지침 설정
+    syncAcpSystemPrompt(ctx);
   });
   pi.on("session_tree", () => {
     registerAdmiralSettingsSection();
   });
   pi.on("session_shutdown", () => {
+    setCliSystemPrompt(null);
     delete (globalThis as any)[ADMIRAL_EXTENSION_LOADED_KEY];
   });
 }
@@ -110,6 +116,16 @@ function syncProtocolToHud(protocol: { color: string; shortLabel: string }): voi
 }
 
 // ── 설정 섹션 등록 ──
+
+/** ACP 프로바이더 사용 시 CLI 전용 시스템 지침을 합성·설정한다. */
+function syncAcpSystemPrompt(ctx: any): void {
+  const isAcp = ctx.model?.provider === PROVIDER_ID;
+  if (isAcp) {
+    setCliSystemPrompt(buildAcpSystemPrompt());
+  } else {
+    setCliSystemPrompt(null);
+  }
+}
 
 function registerAdmiralSettingsSection(): void {
   const settingsApi = getSettingsAPI();
