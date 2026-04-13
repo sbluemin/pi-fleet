@@ -25,13 +25,15 @@ cd pi-fleet
 cd packages/unified-agent && npm install && npm link && cd ../..
 
 # Install extension dependencies
-cd extensions/fleet && npm install && cd ../..
-cd extensions/core/agent && npm install && cd ../../..
+cd extensions/core && npm install && cd ../..
 cd extensions/core/shell && npm install && cd ../../..
+cd extensions/fleet && npm install && cd ../..
 ```
 
 > `npm install` automatically builds via the `prepare` script, and `npm link` registers the `unified-agent` CLI globally.
 > To unregister: `npm unlink -g @sbluemin/unified-agent`
+>
+> `extensions/core/` and `extensions/fleet/` declare `@sbluemin/unified-agent` as a `file:` dependency, so `npm install` creates a symlink to `packages/unified-agent` automatically.
 
 ## 3. Register extensions in pi settings
 
