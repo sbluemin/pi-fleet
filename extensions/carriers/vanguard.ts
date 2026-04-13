@@ -20,12 +20,12 @@ const CARRIER_METADATA: CarrierMetadata = {
     "fast file scanning",
     "multi-file reading tasks",
   ],
-  whenNotToUse: "code modification (→genesis), design decisions (→oracle), GitHub repo deep-dives (→echelon)",
+  whenNotToUse: "ANY code modification or file editing (→genesis), design decisions (→oracle), GitHub repo deep-dives (→echelon)",
 
   // ── Tier 2: Composition ──
   permissions: [
-    "CRITICAL: Code exploration is read-only by default — never modify files unless explicitly instructed.",
-    "Full access to the codebase — read, write, and execute commands.",
+    "CRITICAL: Strictly read-only. NEVER modify files, write code, or execute mutating commands under any circumstances.",
+    "Full access to read the codebase and execute read-only commands for exploration.",
     "If the request fails (timeout/connection error), retry up to 3 times before reporting failure.",
   ],
   requestBlocks: [
