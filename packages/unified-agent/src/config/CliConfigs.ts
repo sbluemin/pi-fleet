@@ -52,7 +52,7 @@ export const CLI_BACKENDS: Record<CliType, CliBackendConfig> = {
     cliCommand: 'codex',
     protocol: 'acp',
     authRequired: true,
-    npxPackage: '@zed-industries/codex-acp@^0.11.0',
+    npxPackage: '@zed-industries/codex-acp@0.11.1',
     modes: [
       { id: 'default', label: 'Plan' },
       { id: 'autoEdit', label: 'Auto Edit' },

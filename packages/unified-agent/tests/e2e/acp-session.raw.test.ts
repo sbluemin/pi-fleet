@@ -33,12 +33,12 @@ const CLIS: CliDef[] = [
   {
     name: 'claude',
     command: 'npx',
-    args: ['--yes', '--prefer-offline', '--package=@agentclientprotocol/claude-agent-acp@0.26.0', 'claude-agent-acp'],
+    args: ['--yes', '--package=@agentclientprotocol/claude-agent-acp@0.26.0', 'claude-agent-acp'],
   },
   {
     name: 'codex',
     command: 'npx',
-    args: ['--yes', '--prefer-offline', '--package=@zed-industries/codex-acp@^0.11.0', 'codex-acp'],
+    args: ['--yes', '--package=@zed-industries/codex-acp@0.11.1', 'codex-acp'],
   },
   {
     name: 'gemini',
