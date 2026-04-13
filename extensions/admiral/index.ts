@@ -9,8 +9,8 @@
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import { appendAdmiralSystemPrompt, buildAcpSystemPrompt, isWorldviewEnabled, setWorldviewEnabled } from "./prompts.js";
-import { setCliSystemPrompt } from "../core/agentclientprotocol/provider-types.js";
+import { appendAdmiralSystemPrompt, buildAcpSystemPrompt, buildAcpRuntimeContext, isWorldviewEnabled, setWorldviewEnabled } from "./prompts.js";
+import { setCliSystemPrompt, setCliRuntimeContext } from "../core/agentclientprotocol/provider-types.js";
 import { PROVIDER_ID } from "../core/agentclientprotocol/provider-types.js";
 import { getSettingsAPI } from "../core/settings/bridge.js";
 import { getKeybindAPI } from "../core/keybind/bridge.js";
@@ -35,6 +35,8 @@ export default function admiralExtension(pi: ExtensionAPI) {
   // ── 시스템 프롬프트 주입 ──
 
   pi.on("before_agent_start", (event, _ctx) => {
+    // ACP 런타임 컨텍스트 갱신 — 매 턴 현재 프로토콜 상태 반영
+    syncAcpRuntimeContext();
     return { systemPrompt: appendAdmiralSystemPrompt(event.systemPrompt) };
   });
 
@@ -70,6 +72,7 @@ export default function admiralExtension(pi: ExtensionAPI) {
   });
   pi.on("session_shutdown", () => {
     setCliSystemPrompt(null);
+    setCliRuntimeContext(null);
     delete (globalThis as any)[ADMIRAL_EXTENSION_LOADED_KEY];
   });
 }
@@ -94,6 +97,7 @@ function registerProtocolKeybinds(_pi: ExtensionAPI): void {
         }
         setActiveProtocol(protocol.id);
         syncProtocolToHud(protocol); // [Fix-Low2] setter 경유
+        syncAcpRuntimeContext(); // ACP 런타임 컨텍스트 즉시 갱신
         ctx.ui.notify(`Protocol → ${protocol.name}`, "info");
         updateProtocolWidget(ctx);
       },
@@ -116,9 +120,16 @@ function syncAcpSystemPrompt(ctx: any): void {
   const isAcp = ctx.model?.provider === PROVIDER_ID;
   if (isAcp) {
     setCliSystemPrompt(buildAcpSystemPrompt());
+    syncAcpRuntimeContext();
   } else {
     setCliSystemPrompt(null);
+    setCliRuntimeContext(null);
   }
+}
+
+/** ACP 런타임 컨텍스트를 현재 활성 프로토콜 기준으로 갱신한다. */
+function syncAcpRuntimeContext(): void {
+  setCliRuntimeContext(buildAcpRuntimeContext());
 }
 
 function registerAdmiralSettingsSection(): void {

@@ -8,7 +8,7 @@
  */
 
 import { getSettingsAPI } from "../core/settings/bridge.js";
-import { getActiveProtocol } from "./protocols/index.js";
+import { getActiveProtocol, getAllProtocols } from "./protocols/index.js";
 import { getAllStandingOrders } from "./standing-orders/index.js";
 import { getSortieEnabledIds, getSquadronEnabledIds } from "../fleet/shipyard/carrier/framework.js";
 import { getConfiguredTaskForceCarrierIds } from "../fleet/shipyard/store.js";
@@ -54,6 +54,21 @@ export const PROTOCOL_PREAMBLE = String.raw`All task execution follows the activ
 
 **Parallel execution default:** When multiple Carriers can be dispatched for the same phase or step, bundle them into a single ${"``"}carriers_sortie${"``"} call with all Carriers in the array. Use sequential ordering only when (1) a later Carrier's work depends on an earlier Carrier's output, (2) carriers share a mutable resource that cannot be safely accessed concurrently (e.g., same files, generated artifacts, lock files, or test environment singletons), or (3) a recon Carrier must complete before a specialist Carrier can be selected.`;
 
+/** 런타임 프로토콜 전환 메타 지시 — ACP 초기 프롬프트에만 포함 */
+export const RUNTIME_PROTOCOL_SWITCHING_PROMPT = String.raw`
+## Runtime Protocol Switching
+
+Each user message is prefixed with a ${"`"}<current_protocol>${"`"} tag indicating the currently active protocol.
+
+**Rules:**
+1. Always check the ${"`"}<current_protocol>${"`"} tag at the start of every user message.
+2. Apply ONLY the protocol whose ID matches the tag value.
+3. If the matched protocol has **Standing Orders: suspended**, do NOT apply Standing Orders for that turn.
+4. If the matched protocol has **Standing Orders: active**, apply all Standing Orders as defined above.
+5. When the protocol changes between turns, immediately switch your behavior — do not carry over rules from the previous protocol.
+6. If the tag is missing, continue using the last known protocol.
+`;
+
 /** request_directive tool 시스템 프롬프트 가이드라인 — 항상 주입 */
 export const REQUEST_DIRECTIVE_PROMPT = String.raw`
 ## request_directive Tool Guidelines
@@ -93,13 +108,26 @@ In plan mode, use ${"`"}request_directive${"`"} to clarify requirements or choos
  * ACP 프로바이더용 CLI 시스템 지침을 합성한다.
  *
  * 3계층 우선순위로 구성:
- *  1순위 admiral/: worldview, Standing Orders, Active Protocol, request_directive 가이드
+ *  1순위 admiral/: worldview, Standing Orders, 프로토콜 카탈로그, 런타임 전환 메타 지시, request_directive 가이드
  *  2순위 carriers/: Available Carriers 로스터
  *  3순위 fleet/shipyard/: carriers_sortie, carrier_taskforce, carrier_squadron 가이드라인
+ *
+ * pi 내부 주입(appendAdmiralSystemPrompt)과 달리, ACP에서는 시스템 프롬프트가
+ * 최초 1회만 전달되므로 모든 프로토콜 정의를 카탈로그로 포함하고,
+ * 런타임 전환은 매 턴 `<current_protocol>` 태그로 제어한다.
  */
 export function buildAcpSystemPrompt(): string {
-  const parts = buildAdmiralDirectives();
+  const parts = buildAcpAdmiralDirectives();
   return parts.join("\n\n");
+}
+
+/**
+ * 매 턴 사용자 메시지 앞에 주입할 런타임 컨텍스트를 생성한다.
+ * 현재 활성 프로토콜 ID를 `<current_protocol>` 태그로 반환한다.
+ */
+export function buildAcpRuntimeContext(): string {
+  const protocol = getActiveProtocol();
+  return `<current_protocol>${protocol.id}</current_protocol>`;
 }
 
 /** admiral 섹션에서 worldview 활성 여부를 읽는다 (기본: false). */
@@ -129,6 +157,62 @@ export function setWorldviewEnabled(enabled: boolean): void {
 export function appendAdmiralSystemPrompt(systemPrompt: string): string {
   const parts: string[] = [systemPrompt, ...buildAdmiralDirectives()];
   return parts.join("\n\n");
+}
+
+/**
+ * ACP용 Admiral 지침을 합성한다.
+ *
+ * pi 내부용(buildAdmiralDirectives)과 달리:
+ * - 활성 프로토콜 하나만이 아닌 **전체 프로토콜 카탈로그**를 포함
+ * - 런타임 전환 메타 지시를 포함
+ */
+function buildAcpAdmiralDirectives(): string[] {
+  const parts: string[] = [];
+
+  if (isWorldviewEnabled()) {
+    parts.push(FLEET_WORLDVIEW_PROMPT.trim());
+  }
+
+  // Standing Orders — 카탈로그에서 항상 포함 (런타임에 프로토콜별로 활성/비활성 전환)
+  const orders = getAllStandingOrders();
+  if (orders.length > 0) {
+    const ordersBody = orders.map((o) => o.prompt.trim()).join("\n\n---\n\n");
+    parts.push(`# Admiral Directives\n\n${ordersBody}`);
+  }
+
+  // 프로토콜 카탈로그 — 모든 프로토콜 정의를 포함
+  parts.push(buildProtocolCatalog());
+
+  parts.push(REQUEST_DIRECTIVE_PROMPT.trim());
+
+  return parts;
+}
+
+/** 모든 프로토콜을 카탈로그 형태로 합성한다. */
+function buildProtocolCatalog(): string {
+  const protocols = getAllProtocols();
+  const sections: string[] = [];
+
+  sections.push(`# Protocols\n\n${PROTOCOL_PREAMBLE.trim()}`);
+
+  // 각 프로토콜 정의
+  const catalogEntries = protocols.map((p) => {
+    const meta = [
+      `- **ID**: \`${p.id}\``,
+      `- **Control Mode**: ${p.controlMode}`,
+      `- **Standing Orders**: ${p.injectStandingOrders ? "active" : "suspended"}`,
+    ].join("\n");
+
+    const preamble = p.preamble ? `\n\n${p.preamble.trim()}` : "";
+    return `### ${p.name}\n\n${meta}${preamble}\n\n${p.prompt.trim()}`;
+  });
+
+  sections.push(`## Available Protocols\n\n${catalogEntries.join("\n\n---\n\n")}`);
+
+  // 런타임 전환 메타 지시
+  sections.push(RUNTIME_PROTOCOL_SWITCHING_PROMPT.trim());
+
+  return sections.join("\n\n");
 }
 
 function buildAdmiralDirectives(): string[] {

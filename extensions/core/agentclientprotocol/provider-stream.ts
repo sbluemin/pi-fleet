@@ -34,6 +34,7 @@ import {
   hashSystemPrompt,
   getOrInitState,
   getCliSystemPrompt,
+  getCliRuntimeContext,
 } from "./provider-types.js";
 import { acquireSession, releaseSession } from "./executor.js";
 import { createEventMapper } from "./provider-events.js";
@@ -740,6 +741,12 @@ async function runFreshQuery(
   if (!session.firstPromptSent) {
     finalPrompt = buildInitialPrompt(context, promptText);
     debug("XML 구조화 초기 프롬프트 주입 (첫 프롬프트)");
+  } else {
+    // follow-up 턴: 런타임 컨텍스트(프로토콜 전환 태그 등)를 사용자 메시지 앞에 주입
+    const runtimeContext = getCliRuntimeContext();
+    if (runtimeContext) {
+      finalPrompt = `${runtimeContext}\n\n${promptText}`;
+    }
   }
 
   // 매퍼 설정

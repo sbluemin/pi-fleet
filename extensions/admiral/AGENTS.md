@@ -14,17 +14,22 @@ This extension is the **top-level orchestrator** with a has-a relationship to `f
 
 **상호 배타적**으로 전환되는 워크플로우. 한 번에 하나의 프로토콜만 활성화되며, `Alt+N`으로 전환한다.
 
+### ACP Runtime Protocol Switching
+
+ACP 모드에서는 시스템 프롬프트가 최초 1회만 전달되므로, 초기 프롬프트에 **전체 프로토콜 카탈로그**를 포함하고, 매 턴 `<current_protocol>` 태그로 활성 프로토콜을 지정한다. `setCliRuntimeContext()` / `getCliRuntimeContext()` globalThis getter 쌍을 통해 admiral과 provider-stream 간 결합 없이 상태를 전달한다.
+
 ## Responsibilities
 
 | Responsibility | Implementation |
 |----------------|----------------|
-| System prompt injection (`before_agent_start`) | `index.ts` — Standing Orders + 활성 Protocol 프롬프트 주입 (pi 자체 프롬프트) |
-| ACP CLI system prompt composition (`session_start`) | `index.ts` — ACP 프로바이더 감지 시 `buildAcpSystemPrompt()` → `setCliSystemPrompt()` |
+| System prompt injection (`before_agent_start`) | `index.ts` — Standing Orders + 활성 Protocol 프롬프트 주입 (pi 자체 프롬프트) + ACP 런타임 컨텍스트 갱신 |
+| ACP CLI system prompt composition (`session_start`) | `index.ts` — ACP 프로바이더 감지 시 `buildAcpSystemPrompt()` → `setCliSystemPrompt()` (프로토콜 카탈로그 포함) |
+| ACP runtime context (`before_agent_start`, protocol switch) | `index.ts` — `buildAcpRuntimeContext()` → `setCliRuntimeContext()` (매 턴 `<current_protocol>` 태그 갱신) |
 | Worldview toggle command | `index.ts` — `fleet:admiral:worldview` command |
 | Protocol 전환 | `index.ts` — `Alt+N` 키바인드, `fleet:admiral:protocol` 커맨드 (향후 추가 가능) |
 | Settings section ("Admiral") | `index.ts` — registers in Alt+/ popup, owns `admiral` settings key |
 | 활성 프로토콜 상태 표시 | `widget.ts` — aboveEditor 위젯 |
-| Prompt constants & settings logic | `prompts.ts` — worldview/system append + `PROTOCOL_PREAMBLE` + settings 함수 |
+| Prompt constants & settings logic | `prompts.ts` — worldview/system append + `PROTOCOL_PREAMBLE` + `RUNTIME_PROTOCOL_SWITCHING_PROMPT` + settings 함수 + `buildAcpRuntimeContext()` |
 | 에디터 테두리 색상 | globalThis `"__pi_hud_editor_border_color__"` 키로 `core/hud`에 간접 통신 |
 
 ## Settings

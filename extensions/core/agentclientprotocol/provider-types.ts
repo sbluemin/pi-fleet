@@ -123,6 +123,9 @@ export const ACTIVE_STREAM_KEY = Symbol.for("__pi_fleet_acp_stream__");
 /** globalThis 키 — 외부에서 설정한 CLI 전용 시스템 지침 */
 const CLI_SYSTEM_PROMPT_KEY = Symbol.for("__pi_fleet_acp_cli_system_prompt__");
 
+/** globalThis 키 — 매 턴 주입할 런타임 컨텍스트 (프로토콜 전환 태그 등) */
+const CLI_RUNTIME_CONTEXT_KEY = Symbol.for("__pi_fleet_acp_cli_runtime_context__");
+
 /** ACP 연결 기본 타임아웃 (ms) */
 export const DEFAULT_REQUEST_TIMEOUT = 600_000; // 10분
 
@@ -412,4 +415,21 @@ export function setCliSystemPrompt(prompt: string | null): void {
  */
 export function getCliSystemPrompt(): string | null {
   return ((globalThis as Record<symbol, unknown>)[CLI_SYSTEM_PROMPT_KEY] as string | null) ?? null;
+}
+
+/**
+ * 매 턴 사용자 메시지 앞에 주입할 런타임 컨텍스트를 설정한다.
+ * 외부 확장(admiral 등)이 프로토콜 전환 등 동적 상태를 전달할 때 사용.
+ * null이면 런타임 컨텍스트를 주입하지 않는다.
+ */
+export function setCliRuntimeContext(context: string | null): void {
+  (globalThis as Record<symbol, unknown>)[CLI_RUNTIME_CONTEXT_KEY] = context;
+}
+
+/**
+ * 현재 설정된 런타임 컨텍스트를 반환한다.
+ * 설정되지 않았으면 null을 반환한다.
+ */
+export function getCliRuntimeContext(): string | null {
+  return ((globalThis as Record<symbol, unknown>)[CLI_RUNTIME_CONTEXT_KEY] as string | null) ?? null;
 }
