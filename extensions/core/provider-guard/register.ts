@@ -16,11 +16,8 @@ import { getGuardState } from "./types.js";
 import { saveSettings } from "./settings.js";
 import { getSettingsAPI } from "../settings/bridge.js";
 
-// /model 목록에 표시할 프로바이더 화이트리스트
-const ALLOWED_PROVIDERS = new Set([
-	"openai-codex",
-	"Fleet ACP",
-]);
+// Provider Guard 활성 시 유지할 허용 프로바이더
+const GUARDED_ALLOWED_PROVIDERS = new Set(["Fleet ACP"]);
 
 export default function providerGuard(pi: ExtensionAPI) {
 	// ── 팝업 섹션 등록 ──
@@ -112,7 +109,7 @@ function patchModelRegistry(ctx: ExtensionContext) {
 /** 허용되지 않은 프로바이더의 모델을 models 배열에서 제거 */
 function filterModels(registry: any) {
 	registry.models = registry.models.filter(
-		(m: any) => ALLOWED_PROVIDERS.has(m.provider),
+		(m: any) => GUARDED_ALLOWED_PROVIDERS.has(m.provider),
 	);
 }
 
@@ -121,11 +118,11 @@ function filterModels(registry: any) {
 /** 현재 모델이 허용 목록 외이면 허용된 모델로 자동 전환 */
 function enforceAllowedModel(pi: ExtensionAPI, ctx: ExtensionContext) {
 	const current = ctx.model;
-	if (!current || ALLOWED_PROVIDERS.has(current.provider)) return;
+	if (!current || GUARDED_ALLOWED_PROVIDERS.has(current.provider)) return;
 
 	const fallback = ctx.modelRegistry
 		.getAvailable()
-		.find((m) => ALLOWED_PROVIDERS.has(m.provider));
+		.find((m) => GUARDED_ALLOWED_PROVIDERS.has(m.provider));
 
 	if (fallback) {
 		pi.setModel(fallback);
