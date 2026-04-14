@@ -11,6 +11,7 @@ import type {
   ConnectionOptions,
   CliDetectionResult,
   AgentMode,
+  McpServerConfig,
   PreSpawnedHandle,
 } from '../types/config.js';
 import type {
@@ -41,6 +42,8 @@ import {
   createPreSpawnConfig,
   getBackendConfig,
   getYoloModeId,
+  mcpServerConfigsToCodexArgs,
+  mcpServerConfigsToAcp,
 } from '../config/CliConfigs.js';
 import { cleanEnvironment, isWindows } from '../utils/env.js';
 import { getProviderModels } from '../models/ModelRegistry.js';
@@ -149,6 +152,9 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
     cli: CliType,
     options: UnifiedClientOptions,
   ): Promise<ConnectResult> {
+    // MCP 서버 설정을 CLI별로 분기 변환
+    const { acpMcpServers, effectiveOptions } = this.resolveMcpServers(cli, options);
+
     // Pool에서 acquire 시도
     const pool = getProcessPool();
     const pooled = pool.acquire(cli);
@@ -160,19 +166,19 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
 
       let session: AcpSessionNewResult;
       try {
-        session = await pooled.createSession(options.cwd, options.sessionId, options.mcpServers);
+        session = await pooled.createSession(effectiveOptions.cwd, effectiveOptions.sessionId, acpMcpServers);
       } catch (error) {
         const connectionError = this.buildConnectionError(cli, error, []);
         await this.cleanupFailedAcpConnection();
         throw connectionError;
       }
 
-      return this.finalizeConnect(cli, options, session);
+      return this.finalizeConnect(cli, effectiveOptions, session);
     }
 
     // Pool에 없으면 새로 spawn
-    const spawnConfig = createSpawnConfig(cli, options);
-    const cleanEnv = cleanEnvironment(process.env, options.env);
+    const spawnConfig = createSpawnConfig(cli, effectiveOptions);
+    const cleanEnv = cleanEnvironment(process.env, effectiveOptions.env);
 
     const env: Record<string, string | undefined> = { ...cleanEnv };
 
@@ -183,13 +189,13 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
     this.acpConnection = new AcpConnection({
       command: spawnConfig.command,
       args: spawnConfig.args,
-      cwd: options.cwd,
+      cwd: effectiveOptions.cwd,
       env,
-      requestTimeout: options.timeout,
-      initTimeout: options.timeout,
-      promptIdleTimeout: options.promptIdleTimeout,
-      clientInfo: options.clientInfo,
-      autoApprove: options.autoApprove,
+      requestTimeout: effectiveOptions.timeout,
+      initTimeout: effectiveOptions.timeout,
+      promptIdleTimeout: effectiveOptions.promptIdleTimeout,
+      clientInfo: effectiveOptions.clientInfo,
+      autoApprove: effectiveOptions.autoApprove,
     });
 
     this.setupAcpEventForwarding();
@@ -205,7 +211,7 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
 
     let session: AcpSessionNewResult;
     try {
-      session = await this.acpConnection.connect(options.cwd, options.sessionId, options.mcpServers);
+      session = await this.acpConnection.connect(effectiveOptions.cwd, effectiveOptions.sessionId, acpMcpServers);
     } catch (error) {
       const connectionError = this.buildConnectionError(cli, error, recentLogs);
       await this.cleanupFailedAcpConnection();
@@ -214,7 +220,39 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
       this.acpConnection?.off('log', collectLog);
     }
 
-    return this.finalizeConnect(cli, options, session);
+    return this.finalizeConnect(cli, effectiveOptions, session);
+  }
+
+  /**
+   * McpServerConfig[]를 CLI별로 분기 처리합니다.
+   * - codex: MCP 설정을 `-c` 옵션으로 변환, ACP mcpServers는 빈 배열
+   * - claude/gemini: MCP 설정을 ACP McpServer로 변환
+   */
+  private resolveMcpServers(
+    cli: CliType,
+    options: UnifiedClientOptions,
+  ): { acpMcpServers: McpServer[]; effectiveOptions: UnifiedClientOptions } {
+    const servers = options.mcpServers;
+
+    if (!servers || servers.length === 0) {
+      return { acpMcpServers: [], effectiveOptions: options };
+    }
+
+    if (cli === 'codex') {
+      // Codex: MCP 설정을 -c 옵션으로 변환하여 configOverrides에 병합
+      const mcpArgs = mcpServerConfigsToCodexArgs(servers);
+      const mergedOverrides = [...(options.configOverrides ?? []), ...mcpArgs];
+      return {
+        acpMcpServers: [],
+        effectiveOptions: { ...options, configOverrides: mergedOverrides, mcpServers: undefined },
+      };
+    }
+
+    // Claude/Gemini: ACP McpServer로 변환
+    return {
+      acpMcpServers: mcpServerConfigsToAcp(servers),
+      effectiveOptions: options,
+    };
   }
 
   /**
@@ -349,6 +387,9 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
     handle: PreSpawnedHandle,
     options: UnifiedClientOptions,
   ): Promise<ConnectResult> {
+    // MCP 서버 설정을 CLI별로 분기 변환
+    const { acpMcpServers, effectiveOptions } = this.resolveMcpServers(handle.cli, options);
+
     // Pool에서 생성된 connection이 있으면 재사용
     const pooledConn = handle._pooledConnection as AcpConnection | undefined;
     if (pooledConn) {
@@ -357,19 +398,19 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
 
       let session: AcpSessionNewResult;
       try {
-        session = await pooledConn.createSession(options.cwd, options.sessionId, options.mcpServers);
+        session = await pooledConn.createSession(effectiveOptions.cwd, effectiveOptions.sessionId, acpMcpServers);
       } catch (error) {
         const connectionError = this.buildConnectionError(handle.cli, error, []);
         await this.cleanupFailedAcpConnection();
         throw connectionError;
       }
 
-      return this.finalizeConnect(handle.cli, options, session);
+      return this.finalizeConnect(handle.cli, effectiveOptions, session);
     }
 
     // Pool connection 없으면 기존 connectWithExternalProcess 경로
-    const spawnConfig = createPreSpawnConfig(handle.cli, options);
-    const cleanEnv = cleanEnvironment(process.env, options.env);
+    const spawnConfig = createPreSpawnConfig(handle.cli, effectiveOptions);
+    const cleanEnv = cleanEnvironment(process.env, effectiveOptions.env);
 
     const env: Record<string, string | undefined> = { ...cleanEnv };
 
@@ -380,13 +421,13 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
     this.acpConnection = new AcpConnection({
       command: spawnConfig.command,
       args: spawnConfig.args,
-      cwd: options.cwd,
+      cwd: effectiveOptions.cwd,
       env,
-      requestTimeout: options.timeout,
-      initTimeout: options.timeout,
-      promptIdleTimeout: options.promptIdleTimeout,
-      clientInfo: options.clientInfo,
-      autoApprove: options.autoApprove,
+      requestTimeout: effectiveOptions.timeout,
+      initTimeout: effectiveOptions.timeout,
+      promptIdleTimeout: effectiveOptions.promptIdleTimeout,
+      clientInfo: effectiveOptions.clientInfo,
+      autoApprove: effectiveOptions.autoApprove,
     });
 
     this.setupAcpEventForwarding();
@@ -405,9 +446,9 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
       session = await this.acpConnection.connectWithExternalProcess(
         handle.child,
         handle.stream,
-        options.cwd,
-        options.sessionId,
-        options.mcpServers,
+        effectiveOptions.cwd,
+        effectiveOptions.sessionId,
+        acpMcpServers,
       );
     } catch (error) {
       const connectionError = this.buildConnectionError(handle.cli, error, recentLogs);
@@ -417,7 +458,7 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
       this.acpConnection?.off('log', collectLog);
     }
 
-    return this.finalizeConnect(handle.cli, options, session);
+    return this.finalizeConnect(handle.cli, effectiveOptions, session);
   }
 
   /**
@@ -527,15 +568,17 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
    * @param sessionId - 로드할 세션 ID
    * @param mcpServers - 에이전트에 연결할 MCP 서버 목록 (선택, 기본: [])
    */
-  async loadSession(sessionId: string, mcpServers?: McpServer[]): Promise<void> {
+  async loadSession(sessionId: string, mcpServers?: McpServerConfig[]): Promise<void> {
     if (!this.acpConnection) {
       throw new Error('연결되어 있지 않습니다');
     }
 
+    const acpServers = mcpServers ? mcpServerConfigsToAcp(mcpServers) : [];
+
     await this.acpConnection.loadSession({
       sessionId,
       cwd: this.sessionCwd ?? process.cwd(),
-      mcpServers: mcpServers ?? [],
+      mcpServers: acpServers,
     });
 
     this.sessionId = sessionId;

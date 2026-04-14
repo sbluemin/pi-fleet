@@ -3,11 +3,13 @@
  * 각 CLI의 spawn 파라미터와 백엔드 구성을 관리합니다.
  */
 
+import type { McpServer } from '@agentclientprotocol/sdk';
 import type {
   CliBackendConfig,
   CliSpawnConfig,
   CliType,
   ConnectionOptions,
+  McpServerConfig,
 } from '../types/config.js';
 import { resolveNpxPath, buildNpxArgs } from '../utils/npx.js';
 import { cleanEnvironment } from '../utils/env.js';
@@ -197,4 +199,49 @@ export function getAllBackendConfigs(): CliBackendConfig[] {
 function buildConfigArgs(defaults: string[], overrides?: string[]): string[] {
   const merged = [...defaults, ...(overrides ?? [])];
   return merged.flatMap((v) => ['-c', v]);
+}
+
+// ─── MCP 서버 설정 변환 ──────────────────────────────
+
+/**
+ * McpServerConfig 배열을 Codex용 `-c` 인자 배열로 변환합니다.
+ * Codex는 ACP mcpServers 대신 config.toml 오버라이드로 MCP 서버를 등록하여
+ * tool_timeout_sec를 제어합니다.
+ *
+ * @param servers - 통합 MCP 서버 설정 배열
+ * @returns `-c key=value` 형태의 문자열 배열 (buildConfigArgs에 전달용)
+ */
+export function mcpServerConfigsToCodexArgs(servers: McpServerConfig[]): string[] {
+  const args: string[] = [];
+  for (const server of servers) {
+    const prefix = `mcp_servers.${server.name}`;
+    args.push(`${prefix}.url="${server.url}"`);
+    if (server.headers && server.headers.length > 0) {
+      // Codex streamable_http은 http_headers (HashMap<String, String>) 필드 사용
+      const headerEntries = server.headers
+        .map((h) => `"${h.name}" = "${h.value}"`)
+        .join(', ');
+      args.push(`${prefix}.http_headers={${headerEntries}}`);
+    }
+    if (server.toolTimeout != null) {
+      args.push(`${prefix}.tool_timeout_sec=${server.toolTimeout}`);
+    }
+  }
+  return args;
+}
+
+/**
+ * McpServerConfig 배열을 ACP McpServer 배열로 변환합니다.
+ * Claude/Gemini는 ACP session/new에 mcpServers로 전달합니다.
+ *
+ * @param servers - 통합 MCP 서버 설정 배열
+ * @returns ACP SDK McpServer 배열
+ */
+export function mcpServerConfigsToAcp(servers: McpServerConfig[]): McpServer[] {
+  return servers.map((server) => ({
+    type: server.type,
+    name: server.name,
+    url: server.url,
+    headers: server.headers ?? [],
+  })) as McpServer[];
 }

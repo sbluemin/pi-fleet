@@ -17,7 +17,7 @@ import type {
 } from "@mariozechner/pi-ai";
 import crypto from "crypto";
 import { UnifiedAgentClient } from "@sbluemin/unified-agent";
-import type { CliType, AcpMcpServer } from "@sbluemin/unified-agent";
+import type { CliType, McpServerConfig } from "@sbluemin/unified-agent";
 
 import {
   type AcpSessionState,
@@ -444,7 +444,7 @@ async function ensureSession(
 
   // ── MCP 서버 기동 + tool 등록 ──
   const sessionToken = crypto.randomUUID();
-  let mcpServers: AcpMcpServer[] | undefined;
+  let mcpServers: McpServerConfig[] | undefined;
   let mcpActive = false;
 
   if (tools && tools.length > 0) {
@@ -456,7 +456,8 @@ async function ensureSession(
         url: mcpUrl,
         headers: [{ name: "Authorization", value: `Bearer ${sessionToken}` }],
         name: "pi-tools",
-      } as unknown as AcpMcpServer];
+        toolTimeout: 1800,
+      }];
       mcpActive = true;
       debug(`MCP 활성화: ${tools.length}개 tool, token=${sessionToken.slice(0, 8)}`);
     } catch (err) {

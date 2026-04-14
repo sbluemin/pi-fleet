@@ -7,7 +7,7 @@
  */
 
 import { UnifiedAgentClient } from "@sbluemin/unified-agent";
-import type { CliType, AcpMcpServer } from "@sbluemin/unified-agent";
+import type { CliType, McpServerConfig } from "@sbluemin/unified-agent";
 import type {
   ExecuteOptions,
   ExecuteResult,
@@ -36,7 +36,7 @@ export interface AcquireOptions {
   /** 명시적 모델 ID */
   model?: string;
   /** connect 시 주입할 MCP 서버 목록 */
-  mcpServers?: AcpMcpServer[];
+  mcpServers?: McpServerConfig[];
   /** Abort 시그널 */
   signal?: AbortSignal;
   /** reasoning effort */

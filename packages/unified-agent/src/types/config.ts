@@ -48,6 +48,22 @@ export interface CliBackendConfig {
   modes?: AgentMode[];
 }
 
+/** 통합 MCP 서버 설정 (백엔드 무관 공통 타입) */
+export interface McpServerConfig {
+  /** 전송 방식 */
+  type: 'http';
+  /** MCP 서버 이름 */
+  name: string;
+  /** MCP 서버 URL */
+  url: string;
+  /** HTTP 헤더 (인증 등) */
+  headers?: { name: string; value: string }[];
+  /** MCP tool call 타임아웃 (초).
+   *  Codex: `-c mcp_servers.{name}.tool_timeout_sec` 으로 전달.
+   *  Claude/Gemini: 현재 ACP에서 미지원, 향후 `_meta` 확장 예정. */
+  toolTimeout?: number;
+}
+
 /** 연결 옵션 */
 export interface ConnectionOptions {
   /** 작업 디렉토리 */
@@ -123,7 +139,7 @@ export interface UnifiedClientOptions extends ConnectionOptions {
   /** 재개할 기존 세션 ID */
   sessionId?: string;
   /** 에이전트에 연결할 MCP 서버 목록 (선택) */
-  mcpServers?: import('@agentclientprotocol/sdk').McpServer[];
+  mcpServers?: McpServerConfig[];
   /** 미리 스폰된 프로세스 핸들 (preSpawn()으로 생성) */
   preSpawned?: PreSpawnedHandle;
 }

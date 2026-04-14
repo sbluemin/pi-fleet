@@ -5,12 +5,13 @@
  * 이벤트 맵, 연결 결과, public 메서드 시그니처를 포함합니다.
  */
 
-import type { PromptResponse, McpServer } from '@agentclientprotocol/sdk';
+import type { PromptResponse } from '@agentclientprotocol/sdk';
 
 import type {
   CliType,
   ProtocolType,
   ConnectionOptions,
+  McpServerConfig,
   UnifiedClientOptions,
   CliDetectionResult,
   AgentMode,
@@ -239,7 +240,7 @@ export interface IUnifiedAgentClient {
    *
    * @param sessionId - 로드할 세션 ID
    */
-  loadSession(sessionId: string, mcpServers?: McpServer[]): Promise<void>;
+  loadSession(sessionId: string, mcpServers?: McpServerConfig[]): Promise<void>;
 
   // ─── Pre-Spawn & 세션 교체 ─────────────────────────────
 

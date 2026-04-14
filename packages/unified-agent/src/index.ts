@@ -132,6 +132,7 @@ export type {
   CliSpawnConfig,
   CliBackendConfig,
   ConnectionOptions,
+  McpServerConfig,
   CliDetectionResult,
   UnifiedClientOptions,
   PreSpawnedHandle,
