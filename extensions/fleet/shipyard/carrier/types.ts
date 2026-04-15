@@ -198,6 +198,8 @@ export interface CarrierFrameworkState {
   sortieRegisterTimer: ReturnType<typeof setTimeout> | null;
   /** Task Force 설정 변경 시 호출되는 콜백 */
   taskforceConfigChangeCallbacks: Array<() => void>;
+  /** Task Force 설정이 완료된 carrier ID 집합 */
+  taskforceConfiguredCarriers: Set<string>;
   /** squadron 활성화된 carrier ID 집합 */
   squadronEnabledCarriers: Set<string>;
   /** squadron 가용 상태 변경 시 호출되는 콜백 */

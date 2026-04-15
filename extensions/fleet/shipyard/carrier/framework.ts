@@ -260,6 +260,23 @@ export function onTaskForceConfigChange(callback: () => void): void {
 }
 
 /**
+ * Task Force 설정이 완료된 carrier ID 목록을 반환합니다.
+ */
+export function getTaskForceConfiguredIds(): string[] {
+  return [...getState().taskforceConfiguredCarriers];
+}
+
+/**
+ * Task Force 설정 완료 carrier ID 목록을 일괄 설정합니다.
+ * @param silent true면 콜백을 호출하지 않음 (부팅 시 복원용)
+ */
+export function setTaskForceConfiguredCarriers(ids: string[], silent = false): void {
+  const gs = getState();
+  gs.taskforceConfiguredCarriers = new Set(ids);
+  if (!silent) notifyTaskForceConfigChange();
+}
+
+/**
  * Task Force 설정 변경 콜백을 모두 호출합니다.
  * taskforce-config-overlay에서 설정 저장/리셋 성공 시 호출합니다.
  */
@@ -400,6 +417,7 @@ function getState(): CarrierFrameworkState {
       sortieStateChangeCallbacks: [],
       sortieRegisterTimer: null,
       taskforceConfigChangeCallbacks: [],
+      taskforceConfiguredCarriers: new Set(),
       squadronEnabledCarriers: new Set(),
       squadronStateChangeCallbacks: [],
       pendingCliTypeOverrides: new Map(),
@@ -410,6 +428,7 @@ function getState(): CarrierFrameworkState {
   if (!s.pendingCliTypeOverrides) s.pendingCliTypeOverrides = new Map();
   if (!s.squadronEnabledCarriers) s.squadronEnabledCarriers = new Set();
   if (!s.squadronStateChangeCallbacks) s.squadronStateChangeCallbacks = [];
+  if (!s.taskforceConfiguredCarriers) s.taskforceConfiguredCarriers = new Set();
   return s;
 }
 

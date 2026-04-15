@@ -14,9 +14,9 @@ import {
   getRegisteredOrder,
   getSortieEnabledIds,
   getSquadronEnabledIds,
+  getTaskForceConfiguredIds,
 } from "../fleet/shipyard/carrier/framework.js";
 import { buildCarrierRoster } from "../fleet/shipyard/carrier/prompts.js";
-import { getConfiguredTaskForceCarrierIds } from "../fleet/shipyard/store.js";
 
 // ─────────────────────────────────────────────────────────
 // 타입
@@ -159,7 +159,9 @@ export function buildAcpRuntimeContext(): string {
   const squadronIds = registeredIds.filter(
     (id) => getSquadronEnabledIds().includes(id),
   );
-  const taskforceIds = getConfiguredTaskForceCarrierIds(registeredIds);
+  const taskforceIds = registeredIds.filter(
+    (id) => getTaskForceConfiguredIds().includes(id),
+  );
 
   const fmt = (ids: string[]) => ids.length > 0 ? ids.join(",") : "-";
 

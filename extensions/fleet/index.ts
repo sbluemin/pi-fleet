@@ -32,6 +32,7 @@ import {
   setSortieDisabledCarriers,
   onSortieStateChange,
   onTaskForceConfigChange,
+  setTaskForceConfiguredCarriers,
   updateCarrierCliType,
   setPendingCliTypeOverrides,
   enableSquadronCarrier,
@@ -65,6 +66,7 @@ import {
   saveSquadronEnabled,
   loadCliTypeOverrides,
   saveCliTypeOverrides,
+  getConfiguredTaskForceCarrierIds,
 } from "./shipyard/store.js";
 import { cleanIdleClients } from "../core/agentclientprotocol/pool.js";
 import { registerModelCommands, syncModelConfig } from "./shipyard/carrier/model-ui.js";
@@ -194,6 +196,9 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
   registerFleetTaskForce(pi);
   registerFleetSquadron(pi);
   const refreshTaskForceState = () => {
+    // globalThis 캐시를 먼저 갱신해 크로스 번들에서 동일 상태를 읽게 합니다.
+    const tfIds = getConfiguredTaskForceCarrierIds(getRegisteredOrder());
+    setTaskForceConfiguredCarriers(tfIds, true);
     registerFleetTaskForce(pi);
     notifyStatusUpdate();
   };
