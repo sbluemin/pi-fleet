@@ -19,7 +19,7 @@ Infrastructure extension for pi-fleet. `core/index.ts` is the only extension ent
 | `shell/` | Interactive shell session inside pi |
 | `keybind/` | Centralized keybinding management + overlay (Alt+.) |
 | `settings/` | Centralized settings API + overlay popup (Alt+/) |
-| `welcome/` | Welcome overlay displayed on session start |
+| `welcome/` | Welcome overlay displayed on session start (Detects and displays Git remote update status) |
 | `log/` | Reusable logging — file log + footer display + globalThis API for other extensions |
 | `improve-prompt/` | Meta-prompting and reasoning level controls |
 | `summarize/` | Auto one-line session summary widget |

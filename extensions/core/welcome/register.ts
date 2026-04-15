@@ -14,7 +14,13 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 
 import { WELCOME_GLOBAL_KEY, type WelcomeBridge } from "./types.js";
-import { WelcomeComponent, WelcomeHeader, discoverLoadedCounts, getRecentSessions } from "./welcome.js";
+import {
+  WelcomeComponent,
+  WelcomeHeader,
+  checkGitUpdateStatus,
+  discoverLoadedCounts,
+  getRecentSessions,
+} from "./welcome.js";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 내부 상태
@@ -108,8 +114,9 @@ function setupWelcomeHeader(ctx: any, state: WelcomeState): void {
   const providerName = ctx.model?.provider || "Unknown";
   const loadedCounts = discoverLoadedCounts();
   const recentSessions = getRecentSessions(3);
+  const gitUpdate = checkGitUpdateStatus();
 
-  const header = new WelcomeHeader(modelName, providerName, recentSessions, loadedCounts);
+  const header = new WelcomeHeader(modelName, providerName, recentSessions, loadedCounts, gitUpdate);
   state.headerActive = true;
 
   ctx.ui.setHeader(() => {
@@ -133,6 +140,7 @@ function setupWelcomeOverlay(ctx: any, state: WelcomeState): void {
   const providerName = ctx.model?.provider || "Unknown";
   const loadedCounts = discoverLoadedCounts();
   const recentSessions = getRecentSessions(3);
+  const gitUpdate = checkGitUpdateStatus();
 
   // pi 초기화 완료를 기다리는 짧은 지연
   setTimeout(() => {
@@ -160,6 +168,7 @@ function setupWelcomeOverlay(ctx: any, state: WelcomeState): void {
           providerName,
           recentSessions,
           loadedCounts,
+          gitUpdate,
         );
 
         let countdown = 30;

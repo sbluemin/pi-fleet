@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 - **Breaking**: Completely removed `Alt+1~9` individual carrier shortcuts
+- **Feature**: Added Git remote update detection to `welcome` extension
+  - Automatically checks if the current branch is behind its remote tracking branch
+  - Displays `✓ Up to date (branch)` in green (#A8D08D) when synchronized
+  - Displays `⚠ Update available` in orange (#FFB347) with commit count when behind
 - **Feature**: Introduced inline slot navigation
   - `Alt+H / Alt+L`: Move cursor to left/right slots within the Fleet Bridge panel
   - `Ctrl+Enter`: Immediately activate the carrier at the current cursor position in Exclusive mode

@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import { readdirSync, existsSync, statSync } from "node:fs";
 import { join, basename } from "node:path";
 import type { Component } from "@mariozechner/pi-tui";
@@ -13,6 +14,7 @@ const WELCOME_COLORS: Record<string, string> = {
   path: "\x1b[38;2;0;175;175m",
   gitClean: "\x1b[38;2;95;175;95m",
   accent: "\x1b[38;2;254;188;56m",
+  warn: "\x1b[38;2;255;179;71m",
 };
 
 const ansi = {
@@ -42,11 +44,18 @@ export interface LoadedCounts {
   promptTemplates: number;
 }
 
+export interface GitUpdateStatus {
+  behind: number;
+  branch: string;
+  hasRemote: boolean;
+}
+
 interface WelcomeData {
   modelName: string;
   providerName: string;
   recentSessions: RecentSession[];
   loadedCounts: LoadedCounts;
+  gitUpdate?: GitUpdateStatus;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -89,8 +98,9 @@ export class WelcomeComponent implements Component {
     providerName: string,
     recentSessions: RecentSession[] = [],
     loadedCounts: LoadedCounts = { contextFiles: 0, extensions: 0, skills: 0, promptTemplates: 0 },
+    gitUpdate?: GitUpdateStatus,
   ) {
-    this.data = { modelName, providerName, recentSessions, loadedCounts };
+    this.data = { modelName, providerName, recentSessions, loadedCounts, gitUpdate };
   }
 
   setCountdown(seconds: number): void {
@@ -139,8 +149,9 @@ export class WelcomeHeader implements Component {
     providerName: string,
     recentSessions: RecentSession[] = [],
     loadedCounts: LoadedCounts = { contextFiles: 0, extensions: 0, skills: 0, promptTemplates: 0 },
+    gitUpdate?: GitUpdateStatus,
   ) {
-    this.data = { modelName, providerName, recentSessions, loadedCounts };
+    this.data = { modelName, providerName, recentSessions, loadedCounts, gitUpdate };
   }
 
   invalidate(): void {}
@@ -295,6 +306,32 @@ export function discoverLoadedCounts(): LoadedCounts {
   }
 
   return { contextFiles, extensions, skills, promptTemplates };
+}
+
+export function checkGitUpdateStatus(): GitUpdateStatus {
+  try {
+    const branch = execSync("git rev-parse --abbrev-ref HEAD", {
+      cwd: process.cwd(),
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+
+    const behindRaw = execSync("git rev-list HEAD..@{u} --count", {
+      cwd: process.cwd(),
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+
+    const behind = Number.parseInt(behindRaw, 10);
+
+    return {
+      behind: Number.isFinite(behind) ? behind : 0,
+      branch,
+      hasRemote: true,
+    };
+  } catch {
+    return { behind: 0, branch: "", hasRemote: false };
+  }
 }
 
 /**
@@ -477,6 +514,18 @@ function buildFleetInfo(data: WelcomeData, colWidth: number): string[] {
     countLines.push(` ${dim("Nothing loaded")}`);
   }
 
+  const updateLines: string[] = [];
+  if (data.gitUpdate && data.gitUpdate.hasRemote) {
+    updateLines.push(separator);
+    if (data.gitUpdate.behind > 0) {
+      const remoteBranch = data.gitUpdate.branch ? `origin/${data.gitUpdate.branch}` : "remote";
+      updateLines.push(` ${bold(fgOnly("warn", "⚠ Update available"))}`);
+      updateLines.push(` ${dim(`${data.gitUpdate.behind} commits behind ${remoteBranch}`)}`);
+    } else {
+      updateLines.push(` ${checkmark()} ${fgOnly("gitClean", `Up to date (${data.gitUpdate.branch})`)}`);
+    }
+  }
+
   return [
     ` ${bold(fgOnly("accent", "Shortcuts"))}`,
     ` ${dim("/")} commands  ${dim("·")} ${dim("!")} shell`,
@@ -488,6 +537,7 @@ function buildFleetInfo(data: WelcomeData, colWidth: number): string[] {
     separator,
     ` ${bold(fgOnly("accent", "Recent"))}`,
     ...sessionLines,
+    ...updateLines,
     "",
   ];
 }
