@@ -337,7 +337,7 @@ All cross-domain imports verified — **no reverse dependency violations found**
 | `admiral/` → `core/agentclientprotocol/provider-types` | admiral → core | ✅ |
 | `admiral/` → `fleet/shipyard/carrier/`, `fleet/shipyard/store`, `fleet/shipyard/*/prompts` | admiral → fleet (has-a) | ✅ |
 | `core/summarize` → `core/settings` | core internal | ✅ |
-| `core/improve-prompt` → `core/settings`, `core/keybind` | core internal | ✅ |
+| `core/improve-prompt` → `core/settings`, `core/keybind`, `core/agentclientprotocol/provider-types` | core internal | ✅ |
 
 ### Enforcement
 

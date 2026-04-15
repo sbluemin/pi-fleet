@@ -55,6 +55,7 @@ import {
   isTaskForceFullyConfigured,
   getPerCliSettings,
   savePerCliSettings,
+  reconcileActiveModelSelections,
   getAvailableModels,
   getEffortLevels,
   getDefaultBudgetTokens,
@@ -196,6 +197,7 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
     registerFleetTaskForce(pi);
     notifyStatusUpdate();
   };
+  let hasReconciledInitialModelSelections = false;
 
   // sortie 상태 변경 시 → 도구 재등록 + 영속화 + 상태바 갱신
   // carrier 등록 완료 후 debounce를 통해 최초 1회 발화됨 → stale squadron ID도 이 시점에 정리
@@ -204,6 +206,20 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
     registerFleetSquadron(pi);
     refreshTaskForceState();
     saveSortieDisabled(getSortieDisabledIds());
+    if (!hasReconciledInitialModelSelections) {
+      const cliTypesByCarrier = Object.fromEntries(
+        getRegisteredOrder()
+          .map((carrierId) => {
+            const config = getRegisteredCarrierConfig(carrierId);
+            return config ? [carrierId, config.cliType] : null;
+          })
+          .filter((entry): entry is [string, CliType] => entry !== null),
+      );
+      hasReconciledInitialModelSelections = true;
+      if (Object.keys(cliTypesByCarrier).length > 0 && reconcileActiveModelSelections(cliTypesByCarrier)) {
+        syncModelConfig();
+      }
+    }
     // 부팅 시 복원된 stale squadron ID 정리 (등록된 carrier와 교집합만 유지)
     const registeredSet = new Set(getRegisteredOrder());
     const validSquadronIds = getSquadronEnabledIds().filter((id) => registeredSet.has(id));

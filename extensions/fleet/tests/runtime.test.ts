@@ -24,6 +24,7 @@ import {
   initStore,
   loadModels as getModelConfig,
   saveModels as saveSelectedModels,
+  reconcileActiveModelSelections,
   updateModelSelection,
   updateAllModelSelections,
 } from "../shipyard/store.js";
@@ -136,6 +137,58 @@ describe("getModelConfig / saveSelectedModels", () => {
     expect(loaded.sentinel?.model).toBe("gpt-5");
     expect(store.get("vanguard")).toBeUndefined();
     expect(store.get("sentinel")).toBeUndefined();
+  });
+
+  it("reconcileActiveModelSelections는 현재 cliType 기준으로 top-level 선택을 재수화한다", () => {
+    initRuntime(tmpDir);
+    initStore(tmpDir);
+    saveSelectedModels({
+      vanguard: {
+        model: "gpt-5.4-mini",
+        effort: "xhigh",
+        perCliSettings: {
+          codex: {
+            model: "gpt-5.4-mini",
+            effort: "xhigh",
+          },
+          gemini: {
+            model: "gemini-3.1-pro-preview",
+          },
+        },
+      },
+    });
+
+    const changed = reconcileActiveModelSelections({ vanguard: "gemini" as any });
+    const loaded = getModelConfig();
+
+    expect(changed).toBe(true);
+    expect(loaded.vanguard?.model).toBe("gemini-3.1-pro-preview");
+    expect(loaded.vanguard?.effort).toBeUndefined();
+    expect(loaded.vanguard?.perCliSettings?.gemini?.model).toBe("gemini-3.1-pro-preview");
+  });
+
+  it("reconcileActiveModelSelections는 현재 top-level 선택이 유효하면 유지한다", () => {
+    initRuntime(tmpDir);
+    initStore(tmpDir);
+    saveSelectedModels({
+      genesis: {
+        model: "gpt-5.4",
+        effort: "high",
+        perCliSettings: {
+          codex: {
+            model: "gpt-5.4-mini",
+            effort: "medium",
+          },
+        },
+      },
+    });
+
+    const changed = reconcileActiveModelSelections({ genesis: "codex" as any });
+    const loaded = getModelConfig();
+
+    expect(changed).toBe(false);
+    expect(loaded.genesis?.model).toBe("gpt-5.4");
+    expect(loaded.genesis?.effort).toBe("high");
   });
 });
 

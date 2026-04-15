@@ -287,4 +287,16 @@ describe("StatusOverlayController", () => {
     expect(spies.updateCarrierCliType).toHaveBeenCalledTimes(1);
     expect(state.configs.get("gamma")?.cliType).toBe("claude");
   });
+
+  it("changeCliType 실패 시 framework cliType을 롤백하고 override를 재저장한다", async () => {
+    const { controller, spies } = createController(state);
+    spies.updateModelSelection.mockRejectedValueOnce(new Error("boom"));
+
+    await expect(controller.changeCliType("alpha", "codex")).rejects.toThrow("boom");
+
+    expect(state.configs.get("alpha")?.cliType).toBe("claude");
+    expect(spies.updateCarrierCliType).toHaveBeenNthCalledWith(1, "alpha", "codex");
+    expect(spies.updateCarrierCliType).toHaveBeenNthCalledWith(2, "alpha", "claude");
+    expect(spies.saveCliTypeOverrides).toHaveBeenCalledTimes(2);
+  });
 });

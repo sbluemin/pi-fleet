@@ -100,6 +100,7 @@ export class StatusOverlayController implements Pick<
 
     this.deps.updateCarrierCliType(carrierId, newCliType);
     this.deps.refreshAgentPanel();
+    this.persistCliOverrides();
 
     const resolved = this.resolveCliSelection(carrierId, newCliType);
 
@@ -110,12 +111,17 @@ export class StatusOverlayController implements Pick<
         budgetTokens: resolved.budgetTokens ?? undefined,
         direct: this.deps.getPerCliSettings(carrierId, newCliType)?.direct,
       });
+    } catch (error) {
+      if (currentCliType && currentCliType !== newCliType) {
+        this.deps.updateCarrierCliType(carrierId, currentCliType);
+        this.deps.refreshAgentPanel();
+        this.persistCliOverrides();
+      }
+      throw error;
     } finally {
       this.deps.syncModelConfig();
       this.deps.notifyStatusUpdate();
     }
-
-    this.persistCliOverrides();
 
     return {
       carrierId,
