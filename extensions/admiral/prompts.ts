@@ -10,12 +10,13 @@
 import { getSettingsAPI } from "../core/settings/bridge.js";
 import { getActiveProtocol, getAllProtocols } from "./protocols/index.js";
 import { getAllStandingOrders } from "./standing-orders/index.js";
-import { getSortieEnabledIds, getSquadronEnabledIds } from "../fleet/shipyard/carrier/framework.js";
+import {
+  getRegisteredOrder,
+  getSortieEnabledIds,
+  getSquadronEnabledIds,
+} from "../fleet/shipyard/carrier/framework.js";
+import { buildCarrierRoster } from "../fleet/shipyard/carrier/prompts.js";
 import { getConfiguredTaskForceCarrierIds } from "../fleet/shipyard/store.js";
-import { buildSortieToolPromptGuidelines } from "../fleet/shipyard/carrier/prompts.js";
-import { buildTaskForcePromptGuidelines } from "../fleet/shipyard/taskforce/prompts.js";
-import { buildSquadronPromptGuidelines } from "../fleet/shipyard/squadron/prompts.js";
-import { getRegisteredOrder } from "../fleet/shipyard/carrier/framework.js";
 
 // ─────────────────────────────────────────────────────────
 // 타입
@@ -67,6 +68,24 @@ Each user message is prefixed with a ${"`"}<current_protocol>${"`"} tag indicati
 4. If the matched protocol has **Standing Orders: active**, apply all Standing Orders as defined above.
 5. When the protocol changes between turns, immediately switch your behavior — do not carry over rules from the previous protocol.
 6. If the tag is missing, continue using the last known protocol.
+`;
+
+/** 런타임 캐리어 편제 상태 해석 규칙 — ACP 초기 프롬프트에만 포함 */
+export const RUNTIME_CARRIER_FORMATION_PROMPT = String.raw`
+## Runtime Carrier Formation
+
+Each user message includes formation tags indicating the current carrier availability:
+
+- ${"`"}<sortie_carriers>${"`"} — Carrier IDs available for ${"`"}carriers_sortie${"`"}. Only these carriers can be dispatched via sortie.
+- ${"`"}<squadron_carriers>${"`"} — Carrier IDs assigned to squadron mode. These are excluded from sortie and operate independently.
+- ${"`"}<taskforce_configured_carriers>${"`"} — Carrier IDs with Task Force configuration completed. These carriers can be dispatched via ${"`"}carrier_taskforce${"`"} for cross-model validation.
+
+**Rules:**
+1. Always check formation tags at the start of every user message.
+2. These tags are **authoritative** — they override any carrier availability stated in the initial system prompt or tool schema.
+3. A value of ${"`"}-${"`"} means no carriers are assigned to that formation.
+4. ${"`"}sortie_carriers${"`"} and ${"`"}squadron_carriers${"`"} are mutually exclusive — a carrier cannot appear in both.
+5. ${"`"}taskforce_configured_carriers${"`"} indicates capability, not exclusivity — a carrier may appear in both sortie and taskforce tags.
 `;
 
 /** request_directive tool 시스템 프롬프트 가이드라인 — 항상 주입 */
@@ -123,11 +142,33 @@ export function buildAcpSystemPrompt(): string {
 
 /**
  * 매 턴 사용자 메시지 앞에 주입할 런타임 컨텍스트를 생성한다.
- * 현재 활성 프로토콜 ID를 `<current_protocol>` 태그로 반환한다.
+ *
+ * - `<current_protocol>`: 활성 프로토콜 ID
+ * - `<sortie_carriers>`: sortie 가용 캐리어 ID 목록
+ * - `<squadron_carriers>`: squadron 모드 캐리어 ID 목록
+ * - `<taskforce_configured_carriers>`: Task Force 설정 완료 캐리어 ID 목록
+ *
+ * 빈 목록은 `-` sentinel로 표기하여 모델의 상태 추론을 방지한다.
  */
 export function buildAcpRuntimeContext(): string {
   const protocol = getActiveProtocol();
-  return `<current_protocol>${protocol.id}</current_protocol>`;
+  const registeredIds = getRegisteredOrder();
+
+  // 순서 정규화: 모두 registeredOrder 기준으로 필터
+  const sortieIds = getSortieEnabledIds();
+  const squadronIds = registeredIds.filter(
+    (id) => getSquadronEnabledIds().includes(id),
+  );
+  const taskforceIds = getConfiguredTaskForceCarrierIds(registeredIds);
+
+  const fmt = (ids: string[]) => ids.length > 0 ? ids.join(",") : "-";
+
+  return [
+    `<current_protocol>${protocol.id}</current_protocol>`,
+    `<sortie_carriers>${fmt(sortieIds)}</sortie_carriers>`,
+    `<squadron_carriers>${fmt(squadronIds)}</squadron_carriers>`,
+    `<taskforce_configured_carriers>${fmt(taskforceIds)}</taskforce_configured_carriers>`,
+  ].join("\n");
 }
 
 /** admiral 섹션에서 worldview 활성 여부를 읽는다 (기본: false). */
@@ -180,6 +221,12 @@ function buildAcpAdmiralDirectives(): string[] {
     parts.push(`# Admiral Directives\n\n${ordersBody}`);
   }
 
+  // 캐리어 로스터 — 등록된 모든 캐리어의 Tier 1 메타데이터 (라우팅용)
+  const carrierIds = getRegisteredOrder();
+  if (carrierIds.length > 0) {
+    parts.push(buildCarrierRoster(carrierIds));
+  }
+
   // 프로토콜 카탈로그 — 모든 프로토콜 정의를 포함
   parts.push(buildProtocolCatalog());
 
@@ -211,6 +258,9 @@ function buildProtocolCatalog(): string {
 
   // 런타임 전환 메타 지시
   sections.push(RUNTIME_PROTOCOL_SWITCHING_PROMPT.trim());
+
+  // 런타임 캐리어 편제 해석 규칙
+  sections.push(RUNTIME_CARRIER_FORMATION_PROMPT.trim());
 
   return sections.join("\n\n");
 }

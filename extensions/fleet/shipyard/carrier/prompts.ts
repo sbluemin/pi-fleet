@@ -169,13 +169,15 @@ export function buildSortieToolSchema(enabledIds: string[]): TObject {
 // ─────────────────────────────────────────────────────────
 
 /**
- * 등록된 carrier들의 CarrierMetadata를 읽어
- * "## Available Carriers" compact roster를 생성합니다.
+ * 등록된 carrier들의 CarrierMetadata Tier 1 정보를 읽어
+ * "## Available Carriers" compact roster 문자열을 생성합니다.
  *
  * carrier당 ~4줄로 압축하여 시스템 프롬프트 토큰을 절약합니다.
- * (기존 ~180줄 → ~36줄)
+ *
+ * admiral/prompts.ts (ACP 시스템 프롬프트)와
+ * carriers_sortie promptGuidelines 양쪽에서 공유됩니다.
  */
-function buildCarrierGuidelines(carrierIds: string[]): string[] {
+export function buildCarrierRoster(carrierIds: string[]): string {
   const lines: string[] = [];
   lines.push(`## Available Carriers`);
 
@@ -206,8 +208,12 @@ function buildCarrierGuidelines(carrierIds: string[]): string[] {
     }
   }
 
-  // 전체를 하나의 문자열로 합침 (PI가 guidelines를 배열로 렌더링)
-  return [lines.join("\n")];
+  return lines.join("\n");
+}
+
+/** carriers_sortie promptGuidelines용 래퍼 — 배열 형태로 반환 */
+function buildCarrierGuidelines(carrierIds: string[]): string[] {
+  return [buildCarrierRoster(carrierIds)];
 }
 
 // ═════════════════════════════════════════════════════════
