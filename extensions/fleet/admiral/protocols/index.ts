@@ -7,7 +7,7 @@
 
 import type { AdmiralProtocol } from "./types.js";
 
-import { getSettingsAPI } from "../../core/settings/bridge.js";
+import { getSettingsAPI } from "../../../core/settings/bridge.js";
 import { FLEET_ACTION } from "./fleet-action.js";
 import { POSITIVE_CONTROL } from "./positive-control.js";
 

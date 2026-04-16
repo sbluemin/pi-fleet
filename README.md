@@ -31,27 +31,27 @@ This project treats individual LLM agents as **Carriers** within a **Fleet**.
 | `provider-guard/` | `guard` | Provider allowlist guard and blocked-model fallback |
 | `acp-provider/` | `acp` | ACP-native provider that integrates Claude, Codex, and Gemini CLI backends |
 
-### Admiral Policy (`extensions/admiral/`)
+### Admiral Policy (`extensions/fleet/admiral/`)
 
 | Extension | Domain | Description |
 |-----------|--------|-------------|
-| `admiral/` | `admiral` | **Host-Agent Prompt Policy** — Admiral system prompt injection, worldview toggle, and settings section ownership |
+| `fleet/admiral/` | `admiral` | **Host-Agent Prompt Policy Library** — `fleet/index.ts`가 사용하는 Admiral system prompt injection, worldview toggle, settings helpers |
 
-### Bridge (`extensions/bridge/`)
+### Bridge (`extensions/fleet/bridge/`)
 
 | Extension | Domain | Description |
 |-----------|--------|-------------|
-| `bridge/` | `bridge` | **ACP Overlay Bridge** — Launches the active ACP provider session in the interactive shell overlay |
+| `fleet/bridge/` | `bridge` | **ACP Overlay Bridge Library** — `fleet/index.ts`가 사용하는 active ACP provider overlay shell launcher |
 
 ### Agent Framework (`extensions/fleet/`)
 
 | Extension | Domain | Description |
 |-----------|--------|-------------|
-| `fleet/` | `agent` | **Core Orchestrator** — Carrier framework SDK, Agent Panel (streaming UI), unified execution pipeline, model selection, session/model persistence |
+| `fleet/` | `agent` | **Core Orchestrator** — Carrier framework SDK, Admiral/Bridge/Carrier wiring, Agent Panel (streaming UI), unified execution pipeline, model selection, session/model persistence |
 
-### Carriers (`extensions/carriers/`)
+### Carriers (`extensions/fleet/carriers/`)
 
-Independent carrier registrations defining unique personas for each CLI instance. Each carrier occupies an independent **Slot** for inline navigation and side-by-side execution.
+`fleet/index.ts`가 부팅 시 등록하는 기본 carrier 정의들이다. 각 carrier는 고유한 **Slot**을 차지하며 인라인 내비게이션과 병렬 실행 순서를 결정한다.
 
 | Carrier | CLI | Role | Slot |
 |---------|-----|------|------|

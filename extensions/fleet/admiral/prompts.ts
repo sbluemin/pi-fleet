@@ -7,7 +7,7 @@
  * - REQUEST_DIRECTIVE_PROMPT: request_directive tool 가이드라인 (항상 주입)
  */
 
-import { getSettingsAPI } from "../core/settings/bridge.js";
+import { getSettingsAPI } from "../../core/settings/bridge.js";
 import { getActiveProtocol, getAllProtocols } from "./protocols/index.js";
 import { getAllStandingOrders } from "./standing-orders/index.js";
 import {
@@ -15,8 +15,8 @@ import {
   getSortieEnabledIds,
   getSquadronEnabledIds,
   getTaskForceConfiguredIds,
-} from "../fleet/shipyard/carrier/framework.js";
-import { buildCarrierRoster } from "../fleet/shipyard/carrier/prompts.js";
+} from "../shipyard/carrier/framework.js";
+import { buildCarrierRoster } from "../shipyard/carrier/prompts.js";
 
 // ─────────────────────────────────────────────────────────
 // 타입

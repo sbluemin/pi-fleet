@@ -17,7 +17,7 @@ import { saveSettings } from "./settings.js";
 import { getSettingsAPI } from "../settings/bridge.js";
 
 // Provider Guard 활성 시 유지할 허용 프로바이더
-const GUARDED_ALLOWED_PROVIDERS = new Set(["Fleet ACP"]);
+const GUARDED_ALLOWED_PROVIDERS = new Set(["Fleet ACP", "openai-codex"]);
 
 export default function providerGuard(pi: ExtensionAPI) {
 	// ── 팝업 섹션 등록 ──

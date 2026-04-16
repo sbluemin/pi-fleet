@@ -34,7 +34,7 @@ Unified ACP infrastructure for pi-fleet, providing both the carrier execution en
 
 ## Core Rules
 
-- **Zero-Dependency on Fleet**: `extensions/fleet/` or `extensions/carriers/` imports are forbidden.
+- **Zero-Dependency on Fleet**: `extensions/fleet/` imports, including `extensions/fleet/carriers/`, are forbidden.
 - **One-Way Dependency**: Only fleet or carriers may depend on `core/agentclientprotocol`.
 - **Provider-Agnostic Shared Infra**: `pool.ts`, `executor.ts`, `runtime.ts`, `session-store.ts`, and `service-status/` stay generic across CLI providers.
 - **Provider Stream Boundary**: `provider-stream.ts` MUST NOT import `AcpConnection` directly. ACP process/session primitives stay behind shared runtime and executor boundaries.

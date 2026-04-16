@@ -7,8 +7,8 @@
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import type { CarrierMetadata } from "../fleet/shipyard/carrier/types.js";
-import { registerSingleCarrier } from "../fleet/shipyard/carrier/register.js";
+import type { CarrierMetadata } from "../shipyard/carrier/types.js";
+import { registerSingleCarrier } from "../shipyard/carrier/register.js";
 
 const CARRIER_METADATA: CarrierMetadata = {
   // ── Tier 1: Routing ──

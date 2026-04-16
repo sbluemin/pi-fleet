@@ -6,8 +6,8 @@ import {
   getOrInitState,
   getSessionLaunchConfig,
   parseModelId,
-} from "../core/agentclientprotocol/provider-types.js";
-import { SHELL_POPUP_BRIDGE_KEY, type ShellPopupBridge } from "../core/shell/types.js";
+} from "../../core/agentclientprotocol/provider-types.js";
+import { SHELL_POPUP_BRIDGE_KEY, type ShellPopupBridge } from "../../core/shell/types.js";
 import { buildBridgeCommand } from "./command.js";
 import type { ActiveBridgeSession, InteractiveShellBridge } from "./types.js";
 

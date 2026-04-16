@@ -92,8 +92,35 @@ import type {
   CliModelInfo,
   ModelSelection as OverlayModelSelection,
 } from "./shipyard/carrier/types.js";
-
+import {
+  appendAdmiralSystemPrompt,
+  buildAcpSystemPrompt,
+  buildAcpRuntimeContext,
+  isWorldviewEnabled,
+  setWorldviewEnabled,
+} from "./admiral/prompts.js";
+import { getAllProtocols, getActiveProtocol, setActiveProtocol } from "./admiral/protocols/index.js";
+import { registerProtocolWidget, updateProtocolWidget } from "./admiral/widget.js";
+import registerRequestDirective from "./admiral/request-directive.js";
+import { launchBridgeShell } from "./bridge/handler.js";
+import {
+  BRIDGE_ACTION_ID,
+  BRIDGE_COMMAND_ID,
+  BRIDGE_DEFAULT_KEY,
+  BRIDGE_EXTENSION_ID,
+  BRIDGE_KEYBIND_CATEGORY,
+} from "./bridge/types.js";
+import { registerGenesisCarrier } from "./carriers/genesis.js";
+import { registerAthenaCarrier } from "./carriers/athena.js";
+import { registerSentinelCarrier } from "./carriers/sentinel.js";
+import { registerVanguardCarrier } from "./carriers/vanguard.js";
+import { registerEchelonCarrier } from "./carriers/echelon.js";
+import { registerChronicleCarrier } from "./carriers/chronicle.js";
+import { registerOracleCarrier } from "./carriers/oracle.js";
 import { getKeybindAPI } from "../core/keybind/bridge.js";
+import { getSettingsAPI } from "../core/settings/bridge.js";
+import { PROVIDER_ID, setCliRuntimeContext, setCliSystemPrompt } from "../core/agentclientprotocol/provider-types.js";
+import { setEditorBorderColor, setEditorRightLabel } from "../core/hud/border-bridge.js";
 export type { CollectedStreamData } from "./streaming/types.js";
 
 export { runAgentRequest, abortCarrierRun } from "./operation-runner.js";
@@ -191,6 +218,22 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
   if (Object.keys(restoredCliTypeOverrides).length > 0) {
     setPendingCliTypeOverrides(restoredCliTypeOverrides as Record<string, CliType>);
   }
+
+  const bootProtocol = getActiveProtocol();
+  syncProtocolToHud(bootProtocol);
+  registerAdmiralSettingsSection();
+  registerRequestDirective(pi);
+  registerProtocolKeybinds();
+
+  registerBridgeKeybind();
+
+  registerGenesisCarrier(pi);
+  registerAthenaCarrier(pi);
+  registerOracleCarrier(pi);
+  registerSentinelCarrier(pi);
+  registerVanguardCarrier(pi);
+  registerEchelonCarrier(pi);
+  registerChronicleCarrier(pi);
 
   registerFleetSortie(pi);
   registerFleetTaskForce(pi);
@@ -473,21 +516,32 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
     cleanIdleClients();
     refreshAgentPanel(ctx);
     attachStatusContext(ctx);
-
-    if (!(globalThis as any).__pi_admiral_extension_loaded__ && !(globalThis as any).__pi_admiral_missing_warned__) {
-      (globalThis as any).__pi_admiral_missing_warned__ = true;
-      ctx.ui.notify(
-        "Admiral extension is not loaded. Add extensions/admiral to restore Admiral prompts and worldview controls.",
-        "warning",
-      );
-    }
   };
 
-  pi.on("session_start", (_event, ctx) => { onSessionChange(ctx); syncModelConfig(); });
-  pi.on("session_tree", (_event, ctx) => { onSessionChange(ctx); syncModelConfig(); });
+  pi.on("before_agent_start", (event) => {
+    syncAcpRuntimeContext();
+    return { systemPrompt: appendAdmiralSystemPrompt(event.systemPrompt) };
+  });
+
+  pi.on("session_start", (_event, ctx) => {
+    onSessionChange(ctx);
+    syncModelConfig();
+    syncProtocolToHud(getActiveProtocol());
+    registerAdmiralSettingsSection();
+    registerProtocolWidget(ctx);
+    syncAcpSystemPrompt(ctx);
+    registerBridgeKeybind();
+  });
+
+  pi.on("session_tree", (_event, ctx) => {
+    onSessionChange(ctx);
+    syncModelConfig();
+    registerAdmiralSettingsSection();
+  });
 
   pi.on("session_shutdown", async (_event, ctx) => {
-    delete (globalThis as any).__pi_admiral_missing_warned__;
+    setCliSystemPrompt(null);
+    setCliRuntimeContext(null);
 
     const sessionFile = ctx.sessionManager.getSessionFile();
     if (!sessionFile) return;
@@ -523,4 +577,99 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
     },
   });
 
+  pi.registerCommand("fleet:admiral:worldview", {
+    description: "세계관(fleet metaphor) 프롬프트 토글 (on/off)",
+    handler: async (_args, ctx) => {
+      const current = isWorldviewEnabled();
+      const next = !current;
+      setWorldviewEnabled(next);
+      ctx.ui.notify(
+        `Fleet Worldview → ${next ? "ON" : "OFF"} (다음 턴부터 적용)`,
+        "info",
+      );
+    },
+  });
+
+  pi.registerCommand(BRIDGE_COMMAND_ID, {
+    description: "활성 ACP Model Provider를 오버레이 쉘로 실행",
+    handler: async (_args, ctx) => {
+      await launchBridgeShell(ctx);
+    },
+  });
+}
+
+function registerProtocolKeybinds(): void {
+  const keybind = getKeybindAPI();
+
+  for (const protocol of getAllProtocols()) {
+    keybind.register({
+      extension: "admiral",
+      action: `protocol:${protocol.id}`,
+      defaultKey: `alt+${protocol.slot}`,
+      description: `프로토콜 전환: ${protocol.name}`,
+      category: "Admiral Protocol",
+      handler: (ctx: any) => {
+        const current = getActiveProtocol();
+        if (current.id === protocol.id) {
+          return;
+        }
+        setActiveProtocol(protocol.id);
+        syncProtocolToHud(protocol);
+        syncAcpRuntimeContext();
+        ctx.ui.notify(`Protocol → ${protocol.name}`, "info");
+        updateProtocolWidget(ctx);
+      },
+    });
+  }
+}
+
+function syncProtocolToHud(protocol: { color: string; shortLabel: string }): void {
+  setEditorBorderColor(protocol.color);
+  setEditorRightLabel(`${protocol.color}⚓ ${protocol.shortLabel}\x1b[0m`);
+}
+
+function syncAcpSystemPrompt(ctx: ExtensionContext): void {
+  const isAcp = ctx.model?.provider === PROVIDER_ID;
+  if (isAcp) {
+    setCliSystemPrompt(buildAcpSystemPrompt());
+    syncAcpRuntimeContext();
+    return;
+  }
+
+  setCliSystemPrompt(null);
+  setCliRuntimeContext(null);
+}
+
+function syncAcpRuntimeContext(): void {
+  setCliRuntimeContext(buildAcpRuntimeContext());
+}
+
+function registerAdmiralSettingsSection(): void {
+  const settingsApi = getSettingsAPI();
+  settingsApi?.registerSection({
+    key: "admiral",
+    displayName: "Admiral",
+    getDisplayFields() {
+      const enabled = isWorldviewEnabled();
+      const activeProtocol = getActiveProtocol();
+      return [
+        { label: "Worldview", value: enabled ? "ON" : "OFF", color: enabled ? "accent" : "dim" },
+        { label: "Protocol", value: activeProtocol.shortLabel, color: "accent" },
+      ];
+    },
+  });
+}
+
+function registerBridgeKeybind(): void {
+  const keybind = getKeybindAPI();
+  keybind.register({
+    extension: BRIDGE_EXTENSION_ID,
+    action: BRIDGE_ACTION_ID,
+    defaultKey: BRIDGE_DEFAULT_KEY,
+    description: "활성 ACP Model Provider bridge 실행",
+    category: BRIDGE_KEYBIND_CATEGORY,
+    handler: async (ctx) => {
+      await launchBridgeShell(ctx);
+    },
+  });
 }

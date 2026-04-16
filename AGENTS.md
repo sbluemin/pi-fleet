@@ -11,8 +11,10 @@
 |------|-------------|
 | `packages/` | Embedded first-party libraries (e.g., `unified-agent`) |
 | `extensions/` | All extensions consolidated here (refer to its own `AGENTS.md`) |
-| `extensions/fleet/` | Agent orchestration extension — carrier framework, unified pipeline, Agent Panel (refer to its own `AGENTS.md`) |
-| `extensions/carriers/` | Carrier registrations — independent extension that defines individual carriers (refer to its own `AGENTS.md`) |
+| `extensions/fleet/` | Agent orchestration extension — carrier framework, admiral/bridge/carriers wiring, unified pipeline, Agent Panel (refer to its own `AGENTS.md`) |
+| `extensions/fleet/admiral/` | Admiral prompt-policy library — prompts, protocols, standing orders, request directive, widget |
+| `extensions/fleet/bridge/` | Bridge library — active ACP provider overlay shell launcher |
+| `extensions/fleet/carriers/` | Carrier registration library — default carrier definitions (refer to its own `AGENTS.md`) |
 | `extensions/core/` | Infrastructure + utility extensions — agent infra, hud, keybind, settings, welcome, shell, improve-prompt, summarize, thinking-timer, provider-guard (refer to its own `AGENTS.md`) |
 
 > Currently, there is no `pi/` directory — symlink setup is not required.
@@ -177,8 +179,8 @@ Each extension maps to exactly one domain. Use the domain below for all commands
 | Extension | Domain | Rationale |
 |-----------|--------|-----------|
 | `fleet/` | `agent` | Sub-agent orchestration features |
-| `admiral/` | `admiral` | Host-agent prompt policy, worldview, and operational doctrine |
-| `carriers/` | `carrier` | Individual carrier registration and configuration |
+| `fleet/admiral/` | `admiral` | Host-agent prompt policy, worldview, and operational doctrine |
+| `fleet/carriers/` | `carrier` | Individual carrier registration and configuration |
 | `core/hud/` | `hud` | HUD / editor display features |
 | `core/improve-prompt/` | `prompt` | Meta-prompt model and reasoning settings |
 | `core/summarize/` | `summary` | Session summarization settings |
