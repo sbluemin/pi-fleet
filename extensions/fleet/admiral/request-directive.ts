@@ -626,7 +626,11 @@ export default function registerRequestDirective(pi: ExtensionAPI) {
       };
     },
 
-    renderCall(args, theme, _context) {
+    renderCall(
+      args: { questions: DirectiveQuestion[] },
+      theme: any,
+      _context?: unknown,
+    ) {
       const qs = (args.questions as DirectiveQuestion[]) || [];
       const count = qs.length;
       const headers = qs.map((q) => q.header || "?").join(", ");
@@ -638,7 +642,12 @@ export default function registerRequestDirective(pi: ExtensionAPI) {
       return new Text(text, 0, 0);
     },
 
-    renderResult(result, _options, theme, _context) {
+    renderResult(
+      result: { content: Array<{ type: string; text?: string }>; details?: unknown },
+      _options: { expanded: boolean; isPartial: boolean },
+      theme: any,
+      _context?: unknown,
+    ) {
       const details = result.details as DirectiveResult | undefined;
       if (!details) {
         const text = result.content[0];

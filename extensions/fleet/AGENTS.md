@@ -2,7 +2,7 @@
 
 Carrier **framework SDK** (`shipyard/carrier/`) + Admiral/Bridge/Carrier wiring + integrated carrier modes and agent tools + model selection + Status Bar + Agent Panel.
 
-The number of carriers is determined at runtime by the carrier modules registered from `fleet/carriers/` inside `fleet/index.ts`. Each carrier specifies a `slot` number which determines its panel column position and inline navigation order automatically.
+The number of carriers is determined at runtime by the carrier modules registered from `fleet/carriers/index.ts`, which is booted by `fleet/index.ts`. Each carrier specifies a `slot` number which determines its panel column position and inline navigation order automatically.
 
 ## Core Rules
 
@@ -35,8 +35,8 @@ The number of carriers is determined at runtime by the carrier modules registere
 index.ts               ← extension entry point + public Facade re-exports + admiral/bridge/carrier wiring
 operation-runner.ts    ← unified execution entry point (internal — exposed via index.ts)
 admiral/               ← Admiral prompt-policy library (prompts, protocols, standing-orders, widget, request-directive)
-bridge/                ← ACP overlay bridge library (command/handler/types; wiring lives in index.ts)
-carriers/              ← default carrier definitions registered by index.ts
+bridge/                ← ACP overlay bridge library (command/handler/types + internal boot module in `bridge/index.ts`)
+carriers/              ← default carrier definitions registered by `carriers/index.ts`, booted from `fleet/index.ts`
 shipyard/carrier/      ← Carrier framework SDK + carrier visual representation (registration, status rendering, metadata)
   ├── types.ts         ← CarrierConfig(defaultCliType), internal state types(pendingCliTypeOverrides)
   ├── framework.ts     ← registerCarrier, updateCarrierCliType, setPendingCliTypeOverrides
@@ -55,8 +55,8 @@ render/            ← panel rendering engine (panel layout, block transform, me
 
 - **Shared domain types** are distributed to their owning subpackages: `streaming/types.ts` owns `ColBlock`, `ColStatus`, `CollectedStreamData`; `panel/types.ts` owns `AgentCol`. Common types (`ProviderKey`, `HealthStatus`, `ServiceSnapshot`) are imported directly from **`core/agentclientprotocol/types.ts`**.
 - **One-way dependency**: The **`core`** layer (including `core/agentclientprotocol/`) must never reference the **`fleet`** layer. `fleet` → `core` is the only allowed direction.
-- **Carrier definitions live under `fleet/carriers/`** and are wired only from `fleet/index.ts`. Framework internals (`shipyard/*`, `panel/*`, `render/*`, `streaming/*`) must remain unaware of carrier persona modules.
-- **Only `fleet/index.ts` may import from `fleet/carriers/`, `fleet/admiral/`, and `fleet/bridge/` for top-level wiring.**
+- **Carrier definitions live under `fleet/carriers/`** and are wired only through `fleet/carriers/index.ts`, which is booted from `fleet/index.ts`. Framework internals (`shipyard/*`, `panel/*`, `render/*`, `streaming/*`) must remain unaware of carrier persona modules.
+- **Only `fleet/index.ts` may import from `fleet/carriers/index.ts`, `fleet/admiral/index.ts`, and `fleet/bridge/index.ts` for top-level wiring.**
 - **Subpackage modules reference siblings directly** — e.g., `panel/config.ts` imports from `shipyard/carrier/framework.ts` without going through the facade.
 - **`index.ts` is the only public facade**: It owns extension wiring plus export-only public re-exports. Keep business logic in `shipyard/carrier/`, `panel/`, `render/`, `streaming/`, `shipyard/squadron/`, and `operation-runner.ts`.
 - **Service status lives in core**: Service status monitoring (polling, rendering) lives in **`core/agentclientprotocol/service-status/`**. During the Wave 4 transition, `fleet/index.ts` continues to inject the callback into the current core service-status store implementation so UI refreshes remain decoupled from core.
@@ -114,4 +114,4 @@ Consumer (carriers, external extensions)
 | `streaming/*` | Stream store/widget modules |
 | `render/*` | Renderer modules |
 | **core/agentclientprotocol/** | **(Core Infrastructure)** — See `extensions/core/agentclientprotocol/AGENTS.md` for details |
-| **carriers/** | Default carrier definition library consumed by `fleet/index.ts` |
+| **carriers/** | Default carrier definition library consumed by `fleet/carriers/index.ts` and booted by `fleet/index.ts` |
