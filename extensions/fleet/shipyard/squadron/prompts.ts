@@ -47,6 +47,13 @@ const SQUADRON_BASE_GUIDELINES: string[] = [
   ` All instances inherit the base carrier's persona, model, and settings.`,
   `expected_subtask_count must exactly match the subtasks array length — mismatches cause a hard error.` +
   ` Maximum ${SQUADRON_MAX_INSTANCES} subtasks allowed.`,
+  `Each subtask request must still follow the selected carrier's request-tag contract.` +
+  ` Preserve ordinary direct request composition when no optional planning artifact is available.`,
+  `If Athena has already produced a plan file for Genesis, pass that path via Genesis's optional <plan_file> tag inside the relevant subtask request instead of re-describing the full plan inline.` +
+  ` That path must stay repo-relative and must point only to a Markdown plan under .fleet/plans/*.md.` +
+  ` If no such file exists, preserve ordinary Genesis subtask request composition by sending only the normal objective/scope/constraints context.`,
+  `Do not pass absolute paths, general repo-relative files, or non-Markdown files via Genesis's <plan_file> tag in carrier_squadron subtasks.` +
+  ` If a provided <plan_file> is missing, unreadable, or invalid, Genesis must report the issue and request re-direction rather than guessing or silently re-planning.`,
   `PI splits the task into subtasks — the tool only fans out execution.` +
   ` Results are returned in structured format; final interpretation is PI's responsibility.`,
 ];

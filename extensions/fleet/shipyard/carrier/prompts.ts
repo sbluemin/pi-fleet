@@ -92,6 +92,11 @@ const SORTIE_BASE_GUIDELINES: string[] = [
   `When composing a carrier request, provide only background, context, objective, and constraints.` +
   ` Do NOT prescribe implementation details or step-by-step instructions — trust the carrier's own reasoning.` +
   ` Use the Tags listed for each carrier to structure your request.`,
+  `If Athena has already produced a plan file for Genesis, pass that path via Genesis's optional <plan_file> tag instead of re-describing the full plan inline.` +
+  ` That path must stay repo-relative and must point only to a Markdown plan under .fleet/plans/*.md.` +
+  ` If no such file exists, preserve direct Admiral->Genesis execution by sending only the normal objective/scope/constraints context.`,
+  `Do not pass absolute paths, general repo-relative files, or non-Markdown files via Genesis's <plan_file> tag.` +
+  ` If a provided <plan_file> is missing, unreadable, or invalid, Genesis must report the issue and request re-direction rather than guessing or silently re-planning.`,
   SORTIE_DEDUP_GUIDELINE,
   SORTIE_PARALLEL_WORK_GUIDELINE,
 ];
