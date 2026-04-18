@@ -43,7 +43,7 @@ export function resolveNpxPath(
  * 패키지 스펙을 실행 파일 이름으로 잘못 해석할 수 있으므로,
  * 항상 `npx --package=<pkg> <bin>` 형태로 고정합니다.
  *
- * @param packageName - 실행할 npm 패키지 (e.g., '@agentclientprotocol/claude-agent-acp@0.26.0')
+ * @param packageName - 실행할 npm 패키지 (e.g., '@agentclientprotocol/claude-agent-acp@0.29.2')
  * @param preferOffline - npm 캐시 우선 사용 여부 (기본: false)
  * @returns npx 실행 인자 배열
  */
@@ -64,7 +64,7 @@ export function buildNpxArgs(
  * npm 패키지 스펙에서 실행 바이너리 이름을 추론합니다.
  *
  * 예:
- * - @agentclientprotocol/claude-agent-acp@0.26.0 -> claude-agent-acp
+ * - @agentclientprotocol/claude-agent-acp@0.29.2 -> claude-agent-acp
  * - @zed-industries/codex-acp@0.11.1 -> codex-acp
  */
 function inferBinName(packageName: string): string {

@@ -35,7 +35,7 @@ describe('CliConfigs', () => {
 
       expect(config.command).toContain('npx');
       expect(config.args).not.toContain('--prefer-offline');
-      expect(config.args).toContain('--package=@agentclientprotocol/claude-agent-acp@0.26.0');
+      expect(config.args).toContain('--package=@agentclientprotocol/claude-agent-acp@0.29.2');
       expect(config.args).toContain('claude-agent-acp');
       expect(config.useNpx).toBe(true);
     });
