@@ -16,7 +16,7 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 import type { CoreLogAPI, LogFooterBridge, LogEntry, LogLevel, LogOptions } from "./types.js";
-import { CORE_LOG_FOOTER_KEY } from "./types.js";
+import { CORE_LOG_FOOTER_KEY, DEFAULT_LOG_CATEGORY } from "./types.js";
 import { _bootstrapLog } from "./bridge.js";
 import { loadSettings, saveSettings, appendLog, getRecentLogs, getLatestVisibleLog, getLatestVisibleLogs, clearLogs, clearFileLogs } from "./store.js";
 import { getSettingsAPI } from "../settings/bridge.js";
@@ -53,6 +53,7 @@ function createAPI(): CoreLogAPI {
       const entry: LogEntry = {
         timestamp: new Date().toISOString(),
         level,
+        category: options?.category ?? DEFAULT_LOG_CATEGORY,
         source,
         message,
         hideFromFooter: options?.hideFromFooter === true,

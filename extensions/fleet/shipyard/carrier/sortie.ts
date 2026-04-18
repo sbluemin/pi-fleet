@@ -22,6 +22,7 @@ import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-age
 import type { CliType } from "@sbluemin/unified-agent";
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
+import { getLogAPI } from "../../../core/log/bridge.js";
 import { runAgentRequest } from "../../operation-runner.js";
 import { composeTier2Request } from "./prompts.js";
 import { getVisibleRun, getRunById } from "../../streaming/stream-store.js";
@@ -261,6 +262,16 @@ export function registerFleetSortie(pi: ExtensionAPI): void {
             const composedRequest = carrierConfig?.carrierMetadata
               ? composeTier2Request(carrierConfig.carrierMetadata, a.request)
               : a.request;
+            getLogAPI().debug(
+              "fleet-sortie",
+              [
+                `carriers_sortie [carrier=${a.carrier}] run=${sortieKey}`,
+                "----- BEGIN REQUEST -----",
+                composedRequest,
+                "----- END REQUEST -----",
+              ].join("\n"),
+              { hideFromFooter: true, category: "prompt" },
+            );
             const result = await runAgentRequest({
               cli: cliType as CliType,
               carrierId: a.carrier,

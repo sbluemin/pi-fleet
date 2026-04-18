@@ -9,6 +9,12 @@ Core logic for carrier management and fleet persistence. This subpackage contain
 - **Atomic Operations**: All state modifications in `store.ts` use a temporary file + rename pattern to ensure file integrity.
 - **Migration Ownership**: The shipyard store is responsible for migrating legacy configuration files (e.g., `selected-models.json`) to the unified `states.json`.
 
+## Logging & Observability
+
+- **Prompt Logging**: `sortie.ts`, `taskforce.ts`, `squadron.ts`는 전송 직전의 요청 원문을 `core/log`의 `"prompt"` 카테고리로 기록한다. 
+- **Boundary**: ACP provider의 final prompt 로깅은 shipyard 범위가 아니며 `core/agentclientprotocol/provider-stream.ts`에서 `"final-prompt"` 카테고리로 기록한다.
+- **Source Identification**: 로그 소스는 `fleet-sortie`, `fleet-taskforce`, `fleet-squadron`으로 명명하여 추적성을 확보한다.
+
 ## Module Structure
 
 | File | Role |

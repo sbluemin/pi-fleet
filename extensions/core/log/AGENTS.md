@@ -39,4 +39,22 @@ import { getLogAPI } from "../log/bridge.js";
 const log = getLogAPI();
 log.info("my-extension", "초기화 완료");
 log.debug("my-extension", `처리된 항목: ${count}`);
+log.info("my-ext", "MCP 연결 완료", { category: "mcp" });
 ```
+
+## 예약 카테고리 (Reserved Categories)
+
+| Category | Description |
+|----------|-------------|
+| `"general"` | 기본값. 일반적인 애플리케이션 로그 기록용 |
+| `"prompt"` | `sortie.ts`, `taskforce.ts`, `squadron.ts`의 요청 원문 기록 전용. 파일 로그 `prompt-YYYY-MM-DD.log`에 저장됨 |
+| `"final-prompt"` | ACP provider가 LLM에 전달하는 final prompt 원문 기록 전용. 파일 로그 `final-prompt-YYYY-MM-DD.log`에 저장됨 |
+
+- category를 생략하면 `DEFAULT_LOG_CATEGORY = "general"` 로 수렴한다.
+- 파일 로그는 `~/.pi/fleet/logs/{sanitized-category}-{date}.log` 레이아웃을 사용한다.
+- 파일명 category 정규화 규칙:
+  - 허용 문자는 `[A-Za-z0-9_-]` 이며, 그 외 문자는 `_` 로 치환한다.
+  - 원본 category가 비어 있거나 `.` 으로 시작하면 `"general"` 로 폴백한다.
+  - 길이는 최대 64자로 절단한다.
+- 신규 로그는 더 이상 `debug-*.log` 규칙으로 생성되지 않는다.
+- 기존 `debug-*.log` 파일은 자동 마이그레이션하거나 삭제하지 않는다.

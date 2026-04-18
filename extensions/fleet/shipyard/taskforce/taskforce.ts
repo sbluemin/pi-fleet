@@ -12,6 +12,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
+import { getLogAPI } from "../../../core/log/bridge.js";
 import { executeOneShot } from "../../../core/agentclientprotocol/executor.js";
 import {
   getTaskForceModelConfig,
@@ -252,6 +253,16 @@ async function runTaskForceBackend(
 
   // synthetic run은 동일 키로 재사용하여 반복 실행 누적을 방지합니다.
   prepareTaskForceRun(syntheticId);
+  getLogAPI().debug(
+    "fleet-taskforce",
+    [
+      `carrier_taskforce [backend=${cliType}] carrier=${carrierId} run=${syntheticId}`,
+      "----- BEGIN REQUEST -----",
+      request,
+      "----- END REQUEST -----",
+    ].join("\n"),
+    { hideFromFooter: true, category: "prompt" },
+  );
 
   const result = await executeOneShot({
     carrierId: syntheticId,

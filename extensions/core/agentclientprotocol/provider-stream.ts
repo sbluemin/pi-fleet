@@ -107,7 +107,7 @@ function logFinalPrompt(
       prompt,
       "----- END FINAL PROMPT -----",
     ].join("\n"),
-    { hideFromFooter: true },
+    { hideFromFooter: true, category: "final-prompt" },
   );
 }
 

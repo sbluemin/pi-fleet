@@ -51,7 +51,7 @@ Unified ACP infrastructure for pi-fleet, providing both the carrier execution en
 | `executor.ts` | Shared | Execution engine for pooled session acquisition and command routing. |
 | `provider-types.ts` | Provider | Provider constants, ACP session state, model catalog, provider IDs, CLI system prompt setter/getter (`setCliSystemPrompt`/`getCliSystemPrompt`). |
 | `provider-register.ts` | Provider | Core entry point that registers the ACP provider and session lifecycle hooks. |
-| `provider-stream.ts` | Provider | `streamSimple` implementation, session reuse, model switching, abort handling, persistence handoff. Uses `getCliSystemPrompt()` (not `context.systemPrompt`) for CLI system instructions — only on first prompt per session. |
+| `provider-stream.ts` | Provider | `streamSimple` 구현, 세션 재사용, 모델 전환, Persistence 연계. CLI 시스템 프롬프트 주입 주체. **`logFinalPrompt`를 통해 전송 직전의 프롬프트를 `"final-prompt"` 카테고리로 로깅함.** |
 | `provider-events.ts` | Provider | ACP event to pi `EventStream` mapper, including MCP tool-call and CLI built-in tool rendering. |
 | `provider-mcp.ts` | Provider | In-process MCP HTTP JSON-RPC server with FIFO tool-call queue and session token isolation. |
 | `provider-tools.ts` | Provider | Tool registry plus schema adaptation from pi tools to MCP input schemas. |

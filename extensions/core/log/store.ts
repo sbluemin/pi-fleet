@@ -168,17 +168,40 @@ function writeToFile(entry: LogEntry): void {
     }
 
     const date = entry.timestamp.slice(0, 10); // YYYY-MM-DD
-    const filePath = path.join(LOGS_DIR, `debug-${date}.log`);
+    const category = sanitizeCategory(entry.category);
+    const filePath = path.join(LOGS_DIR, `${category}-${date}.log`);
     const time = entry.timestamp.slice(11, 23); // HH:mm:ss.SSS
     const line = `[${time}] [${entry.level.toUpperCase().padEnd(5)}] [${entry.source}] ${entry.message}\n`;
-
-    fs.appendFileSync(filePath, line, "utf-8");
+    const flags =
+      fs.constants.O_WRONLY |
+      fs.constants.O_CREAT |
+      fs.constants.O_APPEND |
+      fs.constants.O_NOFOLLOW;
+    const fd = fs.openSync(filePath, flags, 0o600);
+    try {
+      fs.writeSync(fd, line);
+    } finally {
+      fs.closeSync(fd);
+    }
   } catch {
     // 파일 쓰기 실패 시 무시 — 로거가 크래시를 유발해서는 안 된다
   }
 }
 
 // ── 내부 헬퍼 ──
+
+/** category를 안전한 단일 파일명 세그먼트로 정규화한다 */
+function sanitizeCategory(raw: string): string {
+  if (raw.length === 0 || raw.startsWith(".")) {
+    return "general";
+  }
+
+  const sanitized = raw.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 64);
+  if (sanitized.length === 0 || sanitized.startsWith(".")) {
+    return "general";
+  }
+  return sanitized;
+}
 
 function getAPI(): CoreSettingsAPI {
   const api = getSettingsAPI();

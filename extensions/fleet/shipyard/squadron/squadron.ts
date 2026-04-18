@@ -12,6 +12,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
+import { getLogAPI } from "../../../core/log/bridge.js";
 import { executeOneShot } from "../../../core/agentclientprotocol/executor.js";
 import { loadModels } from "../store.js";
 import {
@@ -192,6 +193,7 @@ export function registerFleetSquadron(pi: ExtensionAPI): void {
               signal,
               ctx,
               requestKey,
+              totalSubtasks: sanitizedSubtasks.length,
             }),
           ),
         );
@@ -273,6 +275,7 @@ async function runSquadronInstance(
     signal: AbortSignal | undefined;
     ctx: ExtensionContext;
     requestKey: string;
+    totalSubtasks: number;
   },
 ): Promise<SquadronResult> {
   const progress = opts.state.subtasks.get(index)!;
@@ -283,6 +286,16 @@ async function runSquadronInstance(
 
   // synthetic run 생성/재사용 (taskforce 패턴)
   prepareSquadronRun(syntheticId);
+  getLogAPI().debug(
+    "fleet-squadron",
+    [
+      `carrier_squadron [carrier=${opts.carrierId}] subtask=${index + 1}/${opts.totalSubtasks} title=${title} run=${syntheticId}`,
+      "----- BEGIN REQUEST -----",
+      request,
+      "----- END REQUEST -----",
+    ].join("\n"),
+    { hideFromFooter: true, category: "prompt" },
+  );
 
   const result = await executeOneShot({
     carrierId: syntheticId,

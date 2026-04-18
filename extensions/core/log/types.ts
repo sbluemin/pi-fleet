@@ -16,6 +16,8 @@ export interface LogEntry {
   timestamp: string;
   /** 로그 레벨 */
   level: LogLevel;
+  /** 로그 카테고리 */
+  category: string;
   /** 로그 소스 (확장명 등) */
   source: string;
   /** 로그 메시지 */
@@ -26,6 +28,8 @@ export interface LogEntry {
 
 /** 로그 기록 옵션 */
 export interface LogOptions {
+  /** 로그 카테고리 */
+  category?: string;
   /** Footer 표시 제외 여부 */
   hideFromFooter?: boolean;
 }
@@ -63,6 +67,9 @@ export interface CoreLogAPI {
 }
 
 // ── 상수 ──
+
+/** category 미지정 시 사용하는 기본값 */
+export const DEFAULT_LOG_CATEGORY = "general";
 
 /** globalThis 브릿지 키 (AGENTS.md: globalThis key는 types.ts에 정의) */
 export const CORE_LOG_KEY = "__core_log__";
