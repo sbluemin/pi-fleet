@@ -1,4 +1,15 @@
 {
+  "private": true,
+  "workspaces": [
+    "packages/unified-agent",
+    "extensions/core",
+    "extensions/core/agentclientprotocol",
+    "extensions/core/shell",
+    "extensions/fleet"
+  ],
+  "scripts": {
+    "postinstall": "npm run build -w packages/unified-agent"
+  },
   "devDependencies": {
     "typescript": "^6.0.2"
   }

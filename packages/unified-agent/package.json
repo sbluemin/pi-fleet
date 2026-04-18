@@ -28,7 +28,7 @@
     "test:coverage": "vitest run --coverage",
     "lint": "tsc --noEmit",
     "typecheck:test": "tsc --project tsconfig.test.json",
-    "prepare": "npm run build"
+    "prepare": ""
   },
   "keywords": [
     "unified-agent",
