@@ -236,7 +236,9 @@ export class CarrierStatusOverlay implements Component, Focusable {
         const sortieTag = entry.isSquadronEnabled
           ? `  \x1b[38;2;180;140;255m→SQ${ANSI_RESET}`
           : isDisabled ? `  \x1b[38;2;255;80;80m✕ sortie off${ANSI_RESET}` : "";
-        const tfTag = entry.hasTaskForceConfig ? `  \x1b[38;2;100;180;255m[TF]${ANSI_RESET}` : "";
+        const tfTag = entry.taskForceBackendCount >= 2
+          ? `  \x1b[38;2;100;180;255m[TF:${entry.taskForceBackendCount}]${ANSI_RESET}`
+          : "";
         const sqTag = entry.isSquadronEnabled ? `  \x1b[38;2;180;140;255m[SQ]${ANSI_RESET}` : "";
         const roleStr = entry.role ? dim(`  (${entry.role})`) : "";
         const selectedPrefix = isSelected

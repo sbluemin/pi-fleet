@@ -53,7 +53,6 @@ import {
   getTaskForceModelConfig,
   updateTaskForceModelSelection,
   resetTaskForceModelSelection,
-  isTaskForceFullyConfigured,
   getPerCliSettings,
   savePerCliSettings,
   reconcileActiveModelSelections,
@@ -67,6 +66,7 @@ import {
   loadCliTypeOverrides,
   saveCliTypeOverrides,
   getConfiguredTaskForceCarrierIds,
+  getConfiguredTaskForceBackends,
 } from "./shipyard/store.js";
 import { cleanIdleClients } from "../core/agentclientprotocol/pool.js";
 import { setCliRuntimeContext, setCliSystemPrompt } from "../core/agentclientprotocol/provider-types.js";
@@ -110,8 +110,9 @@ export {
   getTaskForceModelConfig,
   updateTaskForceModelSelection,
   resetTaskForceModelSelection,
-  isTaskForceFullyConfigured,
+  isTaskForceFormable,
   getConfiguredTaskForceCarrierIds,
+  getConfiguredTaskForceBackends,
   getAvailableModels,
   getEffortLevels,
   getDefaultBudgetTokens,
@@ -315,7 +316,7 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
           roleDescription: meta ? `${meta.title} — ${meta.summary}` : null,
           isSortieEnabled: isSortieCarrierEnabled(id),
           isSquadronEnabled: isSquadronCarrierEnabled(id),
-          hasTaskForceConfig: isTaskForceFullyConfigured(id),
+          taskForceBackendCount: getConfiguredTaskForceBackends(id).length,
         });
       }
 

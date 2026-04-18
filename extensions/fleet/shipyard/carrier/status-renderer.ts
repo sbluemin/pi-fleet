@@ -19,7 +19,7 @@ import {
   isSortieCarrierEnabled,
   isSquadronCarrierEnabled,
 } from "./framework.js";
-import { isTaskForceFullyConfigured } from "../store.js";
+import { getConfiguredTaskForceBackends } from "../store.js";
 import { waveText } from "../../render/panel-renderer";
 import type { AgentCol } from "../../panel/types.js";
 
@@ -35,9 +35,6 @@ const DISABLED_COLOR = "\x1b[38;2;100;100;100m";
 
 /** TF 구성 완료 배지 색상 */
 const TF_BADGE_COLOR = "\x1b[38;2;100;180;255m";
-
-/** TF 구성 완료 배지 문자열 */
-const TF_BADGE = `${TF_BADGE_COLOR}[TF]${ANSI_RESET}`;
 
 /** Squadron 편제 배지 색상 (보라 계열 — status-overlay와 동일) */
 const SQ_BADGE_COLOR = "\x1b[38;2;180;140;255m";
@@ -64,7 +61,10 @@ export function renderCarrierStatus(input: CarrierStatusRenderInput): string | u
 
     const cliColor = resolveCarrierColor(col.cli) || PANEL_COLOR;
     const isStreaming = footerCol.status === "conn" || footerCol.status === "stream";
-    const tfBadge = isTaskForceFullyConfigured(col.cli) ? ` ${TF_BADGE}` : "";
+    const taskForceBackendCount = getConfiguredTaskForceBackends(col.cli).length;
+    const tfBadge = taskForceBackendCount >= 2
+      ? ` ${TF_BADGE_COLOR}[TF:${taskForceBackendCount}]${ANSI_RESET}`
+      : "";
     const sqBadge = isSquadronCarrierEnabled(col.cli) ? ` ${SQ_BADGE}` : "";
     const badges = `${tfBadge}${sqBadge}`;
     // 스트리밍 중: 아이콘 유지 + 이름에 파도 그라데이션

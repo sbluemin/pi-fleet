@@ -35,7 +35,7 @@ Match Carrier count and review depth to actual task complexity:
 - **Medium feature** (cross-module, new API surface): Genesis + Sentinel + Chronicle. Full Phase 1-7.
 - **Large initiative** (multi-Carrier coordination, architectural change): Full fleet engagement justified.
 
-Do NOT deploy Task Force (3× cost) or Squadron (up to 10× cost) for tasks where a single Carrier sortie suffices.
+Do NOT deploy Task Force (up to 3× cost) or Squadron (up to 10× cost) for tasks where a single Carrier sortie suffices.
 
 ### Oracle vs Athena Decision Flow
 When the task involves both **judgment** and **planning**, apply this sequence:

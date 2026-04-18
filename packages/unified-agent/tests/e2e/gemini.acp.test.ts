@@ -130,6 +130,18 @@ describe.skipIf(!installed)('E2E: Gemini ACP', () => {
     );
   });
 
+  describe('Gemini capability', () => {
+    it('CLI: effort를 줘도 Gemini는 안내 후 무시하고 프롬프트 응답은 계속 동작한다', async () => {
+      const { stdout, stderr, exitCode } = await runCli(
+        ['-c', 'gemini', '-m', DEFAULT_MODEL, '-e', 'high', SIMPLE_PROMPT],
+      );
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('2');
+      expect(stderr).toContain('gemini CLI는 reasoning effort를 지원하지 않아 --effort=high 를 무시합니다');
+    }, 180_000);
+  });
+
   // ═══════════════════════════════════════════════
   // 세션 재개
   // ═══════════════════════════════════════════════

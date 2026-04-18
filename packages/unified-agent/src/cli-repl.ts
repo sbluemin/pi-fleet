@@ -70,17 +70,24 @@ export async function startRepl(options: ReplOptions): Promise<void> {
   }
 
   // reasoning effort 초기 설정
-  if (effortOpt) {
+  const effortLevels = getReasoningEffortLevels(connectedCli);
+  const requestedEffort = effortLevels ? effortOpt ?? null : null;
+
+  if (requestedEffort) {
     try {
-      await client.setConfigOption('reasoning_effort', effortOpt);
+      await client.setConfigOption('reasoning_effort', requestedEffort);
     } catch {
       process.stderr.write(`${ce.dim('⚠ reasoning effort 설정 미지원 (이 CLI에서는 사용할 수 없습니다)')}\n`);
     }
+  } else if (effortOpt && !effortLevels) {
+    process.stderr.write(
+      `${ce.dim(`⚠ ${connectedCli} CLI는 reasoning effort를 지원하지 않아 --effort=${effortOpt} 를 무시합니다`)}\n`,
+    );
   }
 
   // 로컬 상태 추적 (API getter 없으므로)
   let currentModel: string = modelOpt ?? connectedCli;
-  let currentEffort: string | null = effortOpt ?? null;
+  let currentEffort: string | null = requestedEffort;
   let isStreaming = false;
   let pendingPermissionResolve: PendingPermissionResolve = null;
   let cleanupPromise: Promise<void> | null = null;
@@ -266,6 +273,16 @@ interface ReplState {
   setEffort: (e: string | null) => void;
 }
 
+interface EffortCommandContext {
+  cli: CliType;
+  arg: string;
+  ce: Colors;
+  currentEffort: string | null;
+  setEffort: (effort: string | null) => void;
+  setConfigOption: (configId: string, value: string) => Promise<void>;
+  writeLine: (text: string) => void;
+}
+
 /**
  * 슬래시 커맨드를 처리합니다.
  * @returns true면 REPL 종료
@@ -306,26 +323,19 @@ async function handleSlashCommand(
     case '/effort': {
       if (!arg) {
         // 인자 없으면 레벨 목록 출력
-        const levels = getReasoningEffortLevels(cli);
-        if (!levels) {
-          process.stderr.write(`${ce.dim('이 CLI는 reasoning effort를 지원하지 않습니다.')}\n`);
-          return false;
-        }
-        process.stderr.write(`${ce.bold('사용 가능한 레벨:')}\n`);
-        for (const level of levels) {
-          const marker = level === state.currentEffort ? ce.green('*') : ' ';
-          process.stderr.write(`  ${marker} ${ce.cyan(level)}\n`);
-        }
+        handleEffortLevelsSlashCommand(cli, ce, state.currentEffort, (text) => { process.stderr.write(text); });
         return false;
       }
 
-      try {
-        await client.setConfigOption('reasoning_effort', arg);
-        state.setEffort(arg);
-        process.stderr.write(`${ce.dim(`reasoning effort 변경: ${arg}`)}\n`);
-      } catch {
-        process.stderr.write(`${ce.red('오류')}: reasoning effort 설정 실패 (이 CLI에서는 지원되지 않을 수 있습니다)\n`);
-      }
+      await handleEffortSlashCommand({
+        cli,
+        arg,
+        ce,
+        currentEffort: state.currentEffort,
+        setEffort: state.setEffort,
+        setConfigOption: (configId, value) => client.setConfigOption(configId, value),
+        writeLine: (text) => { process.stderr.write(text); },
+      });
       return false;
     }
 
@@ -349,7 +359,7 @@ async function handleSlashCommand(
     case '/help': {
       process.stderr.write(`${ce.bold('슬래시 커맨드:')}\n`);
       process.stderr.write(`  ${ce.cyan('/model <id>')}    모델 변경 (인자 없으면 목록 출력)\n`);
-      process.stderr.write(`  ${ce.cyan('/effort <lv>')}   reasoning effort 변경 (인자 없으면 목록 출력)\n`);
+      process.stderr.write(`  ${ce.cyan('/effort <lv>')}   reasoning effort 변경 (지원 CLI만, 인자 없으면 목록 출력)\n`);
       process.stderr.write(`  ${ce.cyan('/status')}        현재 연결 상태 표시\n`);
       process.stderr.write(`  ${ce.cyan('/clear')}         화면 클리어\n`);
       process.stderr.write(`  ${ce.cyan('/help')}          이 도움말 표시\n`);
@@ -365,6 +375,44 @@ async function handleSlashCommand(
       process.stderr.write(`${ce.red('알 수 없는 명령어')}. ${ce.dim('/help를 입력하세요')}\n`);
       return false;
     }
+  }
+}
+
+export async function handleEffortSlashCommand(context: EffortCommandContext): Promise<void> {
+  const { cli, arg, ce, setEffort, setConfigOption, writeLine } = context;
+  const levels = getReasoningEffortLevels(cli);
+
+  if (!levels) {
+    writeLine(`${ce.dim(`${cli} CLI는 reasoning effort를 지원하지 않아 /effort ${arg} 를 무시합니다`)}\n`);
+    return;
+  }
+
+  try {
+    await setConfigOption('reasoning_effort', arg);
+    setEffort(arg);
+    writeLine(`${ce.dim(`reasoning effort 변경: ${arg}`)}\n`);
+  } catch {
+    writeLine(`${ce.red('오류')}: reasoning effort 설정 실패 (이 CLI에서는 지원되지 않을 수 있습니다)\n`);
+  }
+}
+
+function handleEffortLevelsSlashCommand(
+  cli: CliType,
+  ce: Colors,
+  currentEffort: string | null,
+  writeLine: (text: string) => void,
+): void {
+  const levels = getReasoningEffortLevels(cli);
+
+  if (!levels) {
+    writeLine(`${ce.dim(`이 CLI는 reasoning effort를 지원하지 않아 /effort 명령을 무시합니다.`)}\n`);
+    return;
+  }
+
+  writeLine(`${ce.bold('사용 가능한 레벨:')}\n`);
+  for (const level of levels) {
+    const marker = level === currentEffort ? ce.green('*') : ' ';
+    writeLine(`  ${marker} ${ce.cyan(level)}\n`);
   }
 }
 

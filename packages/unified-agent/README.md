@@ -59,14 +59,14 @@ ait
 ```
 
 #### REPL Prompt
-The prompt displays the current model and reasoning effort:
+The prompt displays the current model, and shows reasoning effort only for CLIs that support it:
 `ait (model) (effort) ❯`
 
 #### Slash Commands
 | Command | Description |
 |---------|-------------|
 | `/model <name>` | Change the current model |
-| `/effort <level>` | Change reasoning effort (`low` \| `medium` \| `high` \| `xhigh`) |
+| `/effort <level>` | Change reasoning effort when supported; Claude/Gemini ignore it with a notice |
 | `/status` | Show connection status and session info |
 | `/clear` | Clear the terminal screen |
 | `/help` | Show available commands |
@@ -92,6 +92,10 @@ ait -c claude -m opus "Find bugs"
 # Set reasoning effort (Codex)
 ait -c codex -e high "Refactor this module"
 
+# Claude ACP ignores `-e` because `claude-agent-acp` does not expose
+# a `reasoning_effort` session config option on the ACP path
+ait -c claude -e high "Review this code"
+
 # Pipe from stdin
 cat error.log | ait -c gemini "Explain this error"
 
@@ -109,7 +113,7 @@ ait --json -c claude "Summarize" | jq .response
 | `--cli <name>` | `-c` | CLI selection (`gemini` \| `claude` \| `codex`) |
 | `--session <id>` | `-s` | Resume a previous session (requires `--cli`) |
 | `--model <name>` | `-m` | Model override |
-| `--effort <level>` | `-e` | Reasoning effort (`low` \| `medium` \| `high` \| `xhigh`) |
+| `--effort <level>` | `-e` | Reasoning effort when supported by the selected CLI |
 | `--cwd <path>` | `-d` | Working directory (default: current directory) |
 | `--yolo` | | Auto-approve all permissions (mapped to `--approval-mode=yolo` for Gemini internally) |
 | `--json` | | JSON output mode |
@@ -141,6 +145,17 @@ On error:
 ```json
 {"error":"No available CLI found"}
 ```
+
+### Reasoning Effort Support
+
+- **Codex**: supported
+- **Claude (ACP via `claude-agent-acp`)**: unsupported, `ait -c claude -e high ...` is ignored with a notice
+- **Gemini**: unsupported, `ait -c gemini -e high ...` is ignored with a notice
+
+Claude is marked as unsupported because the official `claude-agent-acp` implementation does not expose a `reasoning_effort` session config option on the ACP path. Its agent implementation resolves config options from the session's advertised option list and throws on unknown option IDs, while the upstream source contains no `reasoning_effort` option in that path. See the official sources:
+
+- `src/index.ts`: https://github.com/agentclientprotocol/claude-agent-acp/blob/main/src/index.ts
+- `src/acp-agent.ts`: https://github.com/agentclientprotocol/claude-agent-acp/blob/main/src/acp-agent.ts
 
 ---
 

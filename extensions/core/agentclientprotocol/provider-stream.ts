@@ -14,6 +14,7 @@ import type {
   Context,
   Model,
   SimpleStreamOptions,
+  ThinkingBudgets,
   Tool,
 } from "@mariozechner/pi-ai";
 import crypto from "crypto";
@@ -37,7 +38,7 @@ import {
   getCliSystemPrompt,
   getCliRuntimeContext,
 } from "./provider-types.js";
-import { acquireSession, releaseSession } from "./executor.js";
+import { acquireSession, releaseSession, applyPostConnectConfig } from "./executor.js";
 import { createEventMapper } from "./provider-events.js";
 import { getLogAPI } from "../log/bridge.js";
 import {
@@ -150,6 +151,27 @@ function extractMessageText(content: unknown): string {
     return texts.join("\n");
   }
   return "";
+}
+
+/**
+ * PI SimpleStreamOptions의 reasoning/thinkingBudgets를 ACP effort/budgetTokens로 변환.
+ * PI "minimal" → ACP "none" 매핑. ThinkingBudgets에 "xhigh" 키가 없으므로 "high"로 폴백.
+ */
+function resolveEffortFromOptions(
+  options?: SimpleStreamOptions,
+): { effort?: string; budgetTokens?: number } | undefined {
+  const reasoning = options?.reasoning;
+  if (!reasoning) return undefined;
+
+  const effort = reasoning === "minimal" ? "none" : reasoning;
+
+  let budgetTokens: number | undefined;
+  if (options?.thinkingBudgets) {
+    const budgetKey: keyof ThinkingBudgets = reasoning === "xhigh" ? "high" : reasoning;
+    budgetTokens = options.thinkingBudgets[budgetKey];
+  }
+
+  return { effort, budgetTokens };
 }
 
 /**
@@ -393,6 +415,7 @@ async function ensureSession(
   cwd: string,
   systemPromptHash: string,
   tools?: Tool[],
+  effortOverrides?: { effort?: string; budgetTokens?: number },
 ): Promise<AcpSessionState> {
   const state = getOrInitState();
   const key = getSessionKey(cli, scopeKey);
@@ -450,9 +473,14 @@ async function ensureSession(
       }
     }
     if (session) {
+      if (effortOverrides?.effort || effortOverrides?.budgetTokens) {
+        await applyPostConnectConfig(session.client!, session.cli, effortOverrides);
+      }
       installToolCallRouter(state, session);
       setSessionLaunchConfig(session.sessionKey, {
         modelId: buildModelId(cli, session.currentModel),
+        ...(effortOverrides?.effort ? { effort: effortOverrides.effort } : {}),
+        ...(effortOverrides?.budgetTokens ? { budgetTokens: effortOverrides.budgetTokens } : {}),
       });
       debug(`기존 세션 재사용: ${session.sessionId!.slice(0, 8)}`);
       return session;
@@ -511,6 +539,8 @@ async function ensureSession(
       yoloMode: true,
       env: { MCP_TOOL_TIMEOUT: '1800000' },
       promptIdleTimeout: DEFAULT_PROMPT_IDLE_TIMEOUT,
+      effort: effortOverrides?.effort,
+      budgetTokens: effortOverrides?.budgetTokens,
     });
     newSession.client = acquired.client;
     newSession.sessionId = acquired.sessionId || acquired.connectionInfo.sessionId || null;
@@ -518,6 +548,8 @@ async function ensureSession(
     installToolCallRouter(state, newSession);
     setSessionLaunchConfig(newSession.sessionKey, {
       modelId: buildModelId(cli, backendModel),
+      ...(effortOverrides?.effort ? { effort: effortOverrides.effort } : {}),
+      ...(effortOverrides?.budgetTokens ? { budgetTokens: effortOverrides.budgetTokens } : {}),
     });
     acquired.release();
     if (newSession.sessionId) {
@@ -531,7 +563,7 @@ async function ensureSession(
     if (session?.sessionId) {
       debug(`session/load 실패, 새 세션으로 fallback: ${errorMessage(err)}`);
       session.sessionId = null;
-      return ensureSession(cli, backendModel, scopeKey, cwd, systemPromptHash, tools);
+      return ensureSession(cli, backendModel, scopeKey, cwd, systemPromptHash, tools, effortOverrides);
     }
     throw err;
   }
@@ -737,9 +769,10 @@ async function runFreshQuery(
   }
 
   // ── 세션 확보 ──
+  const effortOverrides = resolveEffortFromOptions(options);
   let session: AcpSessionState;
   try {
-    session = await ensureSession(cli, backendModel, scopeKey, cwd, systemPromptHash, context.tools);
+    session = await ensureSession(cli, backendModel, scopeKey, cwd, systemPromptHash, context.tools, effortOverrides);
   } catch (err) {
     mapper.finishWithError("error", `ACP 연결 실패: ${errorMessage(err)}`);
     return;

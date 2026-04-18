@@ -48,7 +48,17 @@ export interface ExecuteOptions {
   cwd: string;
   /** 명시적 모델 ID */
   model?: string;
-  /** 명시적 reasoning effort */
+  /**
+   * Reasoning effort 레벨 (예: "low" | "medium" | "high").
+   *
+   * 시맨틱 (sticky):
+   * - 명시 시: setConfigOption("reasoning_effort", value)로 세션에 적용하고 launch metadata에 저장.
+   * - 미지정 시: 기존 세션/풀 엔트리의 값이 유지됨 (호출이 발생하지 않음).
+   * - fresh reconnect 시: 명시 값이 없으면 보존된 launch metadata effort로 자동 폴백되어 재적용.
+   * - 리셋이 필요하면 호출자가 명시적 레벨을 전달해야 함.
+   * - CLI 지원 여부는 unified-agent의 getReasoningEffortLevels(cli)로 사전 검사되며,
+   *   미지원 CLI에서는 호출 자체가 스킵됨.
+   */
   effort?: string;
   /** 명시적 Claude thinking budget tokens */
   budgetTokens?: number;

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-04-08T00:00:00Z",
+  "updatedAt": "2026-04-19T00:00:00Z",
   "providers": {
     "claude": {
       "name": "Anthropic Claude Code",
@@ -9,12 +9,11 @@
         { "modelId": "haiku", "name": "Claude Haiku" },
         { "modelId": "sonnet", "name": "Claude Sonnet" },
         { "modelId": "opus", "name": "Claude Opus" },
-        { "modelId": "opus[1m]", "name": "Claude Opus [1M]" }
+        { "modelId": "opus[1m]", "name": "Claude Opus [1M]" },
+        { "modelId": "claude-opus-4-6[1m]", "name": "Claude Opus 4.6 [1M]" }
       ],
       "reasoningEffort": {
-        "supported": true,
-        "levels": ["none", "low", "medium", "high"],
-        "default": "high"
+        "supported": false
       }
     },
     "codex": {

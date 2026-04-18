@@ -39,7 +39,7 @@ function makeEntry(): CarrierStatusEntry {
     roleDescription: null,
     isSortieEnabled: true,
     isSquadronEnabled: false,
-    hasTaskForceConfig: false,
+    taskForceBackendCount: 0,
   };
 }
 

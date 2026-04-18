@@ -70,7 +70,7 @@ ${c.bold('옵션')}
   -c, --cli <name>      CLI 선택 (gemini | claude | codex)
   -s, --session <id>    이전 세션 재개 (사용 시 -c 필수)
   -m, --model <name>    모델 지정
-  -e, --effort <level>  reasoning effort (none | low | medium | high | xhigh)
+  -e, --effort <level>  reasoning effort (provider별 지원 시에만 적용)
   -d, --cwd <path>      작업 디렉토리 (기본: 현재 디렉토리)
       --yolo             자동 권한 승인 모드
       --json             JSON 출력
@@ -86,6 +86,9 @@ ${c.bold('예시')}
 
   ${c.dim('# Codex로 실행, reasoning effort 설정')}
   ait -c codex -e high "버그를 찾아줘"
+
+  ${c.dim('# Claude ACP 경로는 -e를 줘도 reasoning effort를 무시')}
+  ait -c claude -e high "코드를 리뷰해줘"
 
   ${c.dim('# stdin 파이프')}
   cat error.log | ait -c gemini "이 에러를 분석해줘"

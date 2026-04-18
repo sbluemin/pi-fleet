@@ -51,7 +51,7 @@ function makeEntry(
     roleDescription: null,
     isSortieEnabled: true,
     isSquadronEnabled: false,
-    hasTaskForceConfig: false,
+    taskForceBackendCount: 0,
   };
 }
 

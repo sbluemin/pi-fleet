@@ -27,6 +27,26 @@ vi.mock("@mariozechner/pi-ai", () => ({
 
 vi.mock("@sbluemin/unified-agent", () => ({
   UnifiedAgentClient: class {},
+  getModelsRegistry: () => ({
+    providers: {
+      claude: {
+        models: [{ modelId: "opus", name: "Claude Opus" }],
+        reasoningEffort: { supported: false },
+      },
+      codex: {
+        models: [{ modelId: "gpt-5.4", name: "GPT-5.4" }],
+        reasoningEffort: {
+          supported: true,
+          levels: ["none", "low", "medium", "high", "xhigh"],
+          default: "high",
+        },
+      },
+      gemini: {
+        models: [{ modelId: "gemini-2.5-flash", name: "Gemini 2.5 Flash" }],
+        reasoningEffort: { supported: false },
+      },
+    },
+  }),
 }));
 
 vi.mock("./executor.js", () => ({
@@ -162,7 +182,7 @@ describe("provider-stream", () => {
     (globalThis as Record<symbol, unknown>)[GLOBAL_STATE_KEY] = providerState;
 
     streamAcp(
-      { id: "acp:codex:gpt-5.4" } as any,
+      { id: "gpt-5.4", provider: "Fleet ACP", reasoning: true } as any,
       {
         systemPrompt: "system",
         messages: [
@@ -220,7 +240,7 @@ describe("provider-stream", () => {
     (globalThis as Record<symbol, unknown>)[GLOBAL_STATE_KEY] = providerState;
 
     streamAcp(
-      { id: "acp:codex:gpt-5.4" } as any,
+      { id: "gpt-5.4", provider: "Fleet ACP", reasoning: true } as any,
       {
         systemPrompt: "system",
         messages: [
@@ -254,7 +274,7 @@ describe("provider-stream", () => {
     const controller = new AbortController();
 
     streamAcp(
-      { id: "acp:codex:gpt-5.4" } as any,
+      { id: "gpt-5.4", provider: "Fleet ACP", reasoning: true } as any,
       {
         systemPrompt: "system",
         messages: [

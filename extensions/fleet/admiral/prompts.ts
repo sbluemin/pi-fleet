@@ -88,7 +88,7 @@ Each user message includes formation tags indicating the current carrier availab
 
 - ${"`"}<sortie_carriers>${"`"} — Carrier IDs available for ${"`"}carriers_sortie${"`"}. Only these carriers can be dispatched via sortie.
 - ${"`"}<squadron_carriers>${"`"} — Carrier IDs assigned to squadron mode. These are excluded from sortie and operate independently.
-- ${"`"}<taskforce_configured_carriers>${"`"} — Carrier IDs with Task Force configuration completed. These carriers can be dispatched via ${"`"}carrier_taskforce${"`"} for cross-model validation.
+- ${"`"}<taskforce_configured_carriers>${"`"} — Carrier IDs with Task Force configuration (≥2 backends) completed. These carriers can be dispatched via ${"`"}carrier_taskforce${"`"} for cross-model validation.
 
 **Rules:**
 1. Always check formation tags at the start of every user message.
@@ -204,7 +204,7 @@ export function buildAcpSystemPrompt(): string {
  *  - `<current_protocol>`: 활성 프로토콜 ID
  *  - `<sortie_carriers>`: sortie 가용 캐리어 ID 목록
  *  - `<squadron_carriers>`: squadron 모드 캐리어 ID 목록
- *  - `<taskforce_configured_carriers>`: Task Force 설정 완료 캐리어 ID 목록
+ *  - `<taskforce_configured_carriers>`: Task Force 설정 완료(2개 이상 백엔드) 캐리어 ID 목록
  *
  * 그리고 사용자 요청 본문은 `<user_request>` 블록으로 감싸 마지막에 배치한다.
  * 빈 캐리어 목록은 `-` sentinel로 표기하여 모델의 상태 추론을 방지한다.

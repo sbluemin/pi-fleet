@@ -1,6 +1,6 @@
 /**
  * E2E: Claude ACP 테스트
- * Claude CLI를 ACP 프로토콜로 연결하여 프롬프트, 모델, effort, 세션 재개를 검증합니다.
+ * Claude CLI를 ACP 프로토콜로 연결하여 프롬프트, 모델, 세션 재개를 검증합니다.
  */
 
 import { describe, it, expect, afterEach } from 'vitest';
@@ -22,6 +22,9 @@ import type { CliJsonResult } from './helpers.js';
 const CLI = 'claude';
 const installed = isCliInstalled(CLI);
 const opus1mProbe = installed ? probeCliModelAvailability('claude', 'opus[1m]') : { available: false };
+const explicitOpus46_1mProbe = installed
+  ? probeCliModelAvailability('claude', 'claude-opus-4-6[1m]')
+  : { available: false };
 
 describe.skipIf(!installed)('E2E: Claude ACP', () => {
   let client: UnifiedAgentClient | null = null;
@@ -140,18 +143,12 @@ describe.skipIf(!installed)('E2E: Claude ACP', () => {
       },
       180_000,
     );
-  });
 
-  // ═══════════════════════════════════════════════
-  // Reasoning effort
-  // ═══════════════════════════════════════════════
-
-  describe('Reasoning effort', () => {
-    it.each(['none', 'low', 'medium', 'high'])(
-      'CLI: effort %s → 프롬프트 → 응답 검증',
-      async (effort) => {
+    it.skipIf(!explicitOpus46_1mProbe.available)(
+      'CLI: 모델 claude-opus-4-6[1m] → 프롬프트 → 응답 검증',
+      async () => {
         const { stdout, exitCode } = await runCli(
-          ['--json', '-c', 'claude', '-e', effort, SIMPLE_PROMPT],
+          ['--json', '-c', 'claude', '-m', 'claude-opus-4-6[1m]', SIMPLE_PROMPT],
         );
 
         expect(exitCode).toBe(0);
@@ -161,6 +158,36 @@ describe.skipIf(!installed)('E2E: Claude ACP', () => {
       },
       180_000,
     );
+  });
+
+  // ═══════════════════════════════════════════════
+  // Claude capability
+  // ═══════════════════════════════════════════════
+
+  describe('Claude capability', () => {
+    it('CLI: list-models JSON에서 reasoning effort 미지원으로 노출된다', async () => {
+      const { stdout, exitCode } = await runCli(
+        ['--json', '--list-models', '-c', 'claude'],
+      );
+
+      expect(exitCode).toBe(0);
+      const result = JSON.parse(stdout.trim()) as {
+        claude: {
+          reasoningEffort: { supported: boolean };
+        };
+      };
+      expect(result.claude.reasoningEffort.supported).toBe(false);
+    }, 180_000);
+
+    it('CLI: effort를 줘도 Claude는 안내 후 무시하고 프롬프트 응답은 계속 동작한다', async () => {
+      const { stdout, stderr, exitCode } = await runCli(
+        ['-c', 'claude', '-e', 'high', SIMPLE_PROMPT],
+      );
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('2');
+      expect(stderr).toContain('claude CLI는 reasoning effort를 지원하지 않아 --effort=high 를 무시합니다');
+    }, 180_000);
   });
 
   // ═══════════════════════════════════════════════

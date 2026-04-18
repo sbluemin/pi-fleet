@@ -39,12 +39,10 @@ const modelSegment: StatusLineSegment = {
     const icons = getIcons();
     const opts = ctx.options.model ?? {};
 
-    let modelName = ctx.model?.name || ctx.model?.id || "no-model";
-    // Strip "Claude " prefix for brevity
-    if (modelName.startsWith("Claude ")) {
-      modelName = modelName.slice(7);
-    }
-
+    // 기본은 display name 우선이지만, Fleet ACP는 구분 postfix를 보이기 위해 id를 우선 표시
+    const modelName = ctx.model?.provider === "Fleet ACP"
+      ? (ctx.model?.id || ctx.model?.name || "no-model")
+      : (ctx.model?.name || ctx.model?.id || "no-model");
     let content = withIcon(icons.model, modelName);
 
     // Add thinking level with dot separator

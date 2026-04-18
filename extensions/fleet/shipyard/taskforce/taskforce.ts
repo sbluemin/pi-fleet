@@ -2,7 +2,7 @@
  * fleet/shipyard/taskforce/taskforce.ts — carrier_taskforce 도구 등록
  *
  * 선택된 Carrier의 persona를 유지한 채로
- * 모든 CLI 백엔드(claude, codex, gemini)에 동시 실행하여 교차검증합니다.
+ * 선택된 캐리어에 설정된 CLI 백엔드(2개 이상)에 동시 실행하여 교차검증합니다.
  *
  * - execute(): executeOneShot 기반 비세션 병렬 실행
  * - renderCall(): TaskForceCallComponent 통해 실시간 스트리밍 렌더링
@@ -17,6 +17,7 @@ import { executeOneShot } from "../../../core/agentclientprotocol/executor.js";
 import {
   getTaskForceModelConfig,
   getConfiguredTaskForceCarrierIds,
+  getConfiguredTaskForceBackends,
 } from "../store.js";
 import {
   createRun,
@@ -52,7 +53,6 @@ import {
 import {
   TASKFORCE_STATE_KEY,
   TASKFORCE_RESULT_CACHE_KEY,
-  TASKFORCE_CLI_TYPES,
   type BackendProgress,
   type TaskForceCliType,
   type TaskForceResult,
@@ -109,7 +109,7 @@ export function buildTaskForceToolConfig() {
   const allCarriers = getRegisteredOrder();
   if (allCarriers.length < 1) return null;
 
-  // TF 설정이 완전히 구성된 캐리어만 스키마/가이드라인에 반영
+  // TF 편성이 가능한 캐리어만 스키마/가이드라인에 반영
   const configuredCarriers = getConfiguredTaskForceCarrierIds(allCarriers);
   const guidelines = buildTaskForcePromptGuidelines(configuredCarriers);
 
@@ -139,7 +139,7 @@ export function buildTaskForceToolConfig() {
       return { render() { return []; }, invalidate() {} };
     },
 
-    // ── execute: 모든 CLI 백엔드 병렬 실행 ──
+    // ── execute: 활성 백엔드 병렬 실행 ──
     async execute(
       _id: string,
       params: { carrier: string; request: string },
@@ -151,11 +151,11 @@ export function buildTaskForceToolConfig() {
       const requestKey = buildTaskForceRequestKey(carrierId, request);
 
       assertRegisteredCarrier(carrierId);
-      assertTaskForceConfigured(carrierId);
+      const activeBackends = assertTaskForceFormable(carrierId);
       const composedRequest = buildComposedTaskForceRequest(carrierId, request);
 
       // 진행 상태 초기화
-      const state = initTaskForceState(carrierId, requestKey, TASKFORCE_CLI_TYPES);
+      const state = initTaskForceState(carrierId, requestKey, activeBackends);
 
       // 진행률 업데이트 타이머 (200ms)
       const updateTimer = setInterval(() => {
@@ -164,9 +164,9 @@ export function buildTaskForceToolConfig() {
       }, 200);
 
       try {
-        // 모든 CLI 백엔드 병렬 실행
+        // 활성 백엔드 병렬 실행
         const settledResults = await Promise.allSettled(
-          TASKFORCE_CLI_TYPES.map((cliType) =>
+          activeBackends.map((cliType) =>
             runTaskForceBackend(cliType, carrierId, composedRequest, state, signal, ctx),
           ),
         );
@@ -174,7 +174,7 @@ export function buildTaskForceToolConfig() {
         // 완료 시각 기록
         state.finishedAt = Date.now();
 
-        const results = collectTaskForceResults(settledResults);
+        const results = collectTaskForceResults(settledResults, activeBackends);
         const elapsedMs = state.finishedAt - state.startedAt;
 
         // 결과 캐시 저장
@@ -208,20 +208,13 @@ function assertRegisteredCarrier(carrierId: string): void {
   }
 }
 
-function assertTaskForceConfigured(carrierId: string): void {
-  const missing = getMissingTaskForceBackends(carrierId);
-  if (missing.length === 0) return;
-
-  const missingList = missing.map((cli) => CLI_DISPLAY_NAMES[cli] ?? cli).join(", ");
+function assertTaskForceFormable(carrierId: string): TaskForceCliType[] {
+  const activeBackends = getConfiguredTaskForceBackends(carrierId);
+  if (activeBackends.length >= 2) return activeBackends;
   throw new Error(
-    `Carrier ${formatCarrierIdForMessage(carrierId)} is not fully configured for Task Force.\n` +
-    `Missing backends: ${missingList}\n` +
-    `→ Open Carrier Status (Alt+O), select ${formatCarrierIdForMessage(carrierId)}, press T to configure.`,
+    `Carrier ${formatCarrierIdForMessage(carrierId)} needs ≥2 configured Task Force backends, got ${activeBackends.length}. ` +
+    `Open Carrier Status (Alt+O), select ${formatCarrierIdForMessage(carrierId)}, press T to add a backend.`,
   );
-}
-
-function getMissingTaskForceBackends(carrierId: string): TaskForceCliType[] {
-  return TASKFORCE_CLI_TYPES.filter((cliType) => !getTaskForceModelConfig(carrierId, cliType));
 }
 
 function buildComposedTaskForceRequest(carrierId: string, request: string): string {
@@ -335,11 +328,12 @@ function buildTaskForceResult(
 
 function collectTaskForceResults(
   settledResults: PromiseSettledResult<TaskForceResult>[],
+  activeBackends: readonly TaskForceCliType[],
 ): TaskForceResult[] {
   return settledResults.map((settled, index) => {
     if (settled.status === "fulfilled") return settled.value;
     return buildTaskForceErrorResult(
-      TASKFORCE_CLI_TYPES[index]!,
+      activeBackends[index]!,
       settled.reason,
     );
   });
@@ -475,7 +469,7 @@ function buildPartialUpdate(
   state: TaskForceState,
 ): { content: { type: "text"; text: string }[]; details: any } {
   const { done: doneCount } = countBackendStatuses(state.backends.values());
-  const total = TASKFORCE_CLI_TYPES.length;
+  const total = state.backends.size;
   const carrierDisplay = sanitizeChunk(resolveCarrierDisplayName(carrierId));
   return {
     content: [{
@@ -552,6 +546,14 @@ class TaskForceCallComponent {
     const cache = getResultCache(this.requestKey);
     const frame = state?.frame ?? 0;
     const cachedResults = cache?.carrierId === this.carrierId ? cache.results : [];
+    const renderableCachedResults = state
+      ? cachedResults
+      : getRenderableCachedResults(this.carrierId, cachedResults);
+    const activeCliTypes = state
+      ? [...state.backends.keys()]
+      : renderableCachedResults.length > 0
+        ? renderableCachedResults.map((result) => result.cliType)
+        : [];
     const lines: string[] = [];
 
     // ── 경과시간 계산 ──
@@ -576,16 +578,16 @@ class TaskForceCallComponent {
     );
 
     // ── 백엔드 트리 ──
-    for (let i = 0; i < TASKFORCE_CLI_TYPES.length; i++) {
-      const cliType = TASKFORCE_CLI_TYPES[i]!;
-      const isLast = i === TASKFORCE_CLI_TYPES.length - 1;
+    for (let i = 0; i < activeCliTypes.length; i++) {
+      const cliType = activeCliTypes[i]!;
+      const isLast = i === activeCliTypes.length - 1;
       const treePrefix = isLast ? "└─" : "├─";
       const connector = isLast ? "   " : "│  ";
 
       const displayName = CLI_DISPLAY_NAMES[cliType] ?? cliType;
       const color = CARRIER_COLORS[cliType] ?? PANEL_COLOR;
       const progress = state?.backends.get(cliType);
-      const cachedResult = cachedResults.find((result) => result.cliType === cliType);
+      const cachedResult = renderableCachedResults.find((result) => result.cliType === cliType);
       const icon = resolveBackendIcon(progress, cachedResult, frame, cliType);
 
       const pText = progress ? progressText(progress) : "";
@@ -622,8 +624,9 @@ function buildTaskForceHeaderSuffix(
 ): string {
   if (state) {
     const { done, error } = countBackendStatuses(state.backends.values());
-    const running = TASKFORCE_CLI_TYPES.length - done - error;
-    const parts: string[] = [`${TASKFORCE_CLI_TYPES.length} backends`];
+    const total = state.backends.size;
+    const running = total - done - error;
+    const parts: string[] = [`${total} backends`];
     if (running > 0) parts.push(`${running} running`);
     if (done > 0) parts.push(`${done} done`);
     if (error > 0) parts.push(`${error} err`);
@@ -638,7 +641,17 @@ function buildTaskForceHeaderSuffix(
     return parts.join(", ");
   }
 
-  return `${TASKFORCE_CLI_TYPES.length} backends launched`;
+  return `launching backends`;
+}
+
+function getRenderableCachedResults(
+  carrierId: string,
+  cachedResults: TaskForceResult[],
+): TaskForceResult[] {
+  if (cachedResults.length === 0) return cachedResults;
+  const currentBackends = new Set(getConfiguredTaskForceBackends(carrierId));
+  const isSubset = cachedResults.every((result) => currentBackends.has(result.cliType));
+  return isSubset ? cachedResults : [];
 }
 
 function resolveBackendIcon(

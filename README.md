@@ -65,9 +65,9 @@ This project treats individual LLM agents as **Carriers** within a **Fleet**.
 
 ## Task Force
 
-**Task Force** runs a single carrier's persona simultaneously across all three CLI backends (Claude, Codex, Gemini) and returns a consolidated cross-validation comparison.
+**Task Force** runs a single carrier's persona simultaneously across its **configured CLI backends (≥2)** and returns a consolidated cross-validation comparison.
 
-Use it when you need to compare approaches, detect model-specific blind spots, or build consensus across backends. Results are returned as `[Claude] (status)`, `[Codex] (status)`, `[Gemini] (status)` — each backend runs independently, so a failure in one does not abort the others.
+Use it when you need to compare approaches, detect model-specific blind spots, or build consensus across backends. The Status Bar displays `[TF:n]` (where n is the number of configured backends) when active — each backend runs independently, so a failure in one does not abort the others.
 
 ### When to use
 - Comparing solution approaches across models
@@ -85,9 +85,9 @@ Task Force requires per-carrier model configuration for each CLI backend before 
 
 1. Open the Fleet Status Overlay: `Alt+O`
 2. Select a carrier and press `T` to open Task Force model config
-3. Configure the model/reasoning for each of the three backends (Claude, Codex, Gemini)
+3. Configure the model/reasoning for at least two backends (Claude, Codex, or Gemini)
 
-Once all three backends are configured for a carrier, it becomes available as a `carrier_taskforce` parameter.
+Once **two or more** backends are configured for a carrier, it becomes available for `carrier_taskforce` delegation.
 
 ## Keybindings
 

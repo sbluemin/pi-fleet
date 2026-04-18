@@ -7,6 +7,7 @@ import type { Colors } from 'picocolors/types';
 
 import { CliRenderer } from './cli-renderer.js';
 import { UnifiedAgentClient } from './client/UnifiedAgentClient.js';
+import { getReasoningEffortLevels } from './models/ModelRegistry.js';
 import type { CliType } from './types/config.js';
 
 // ─── 타입 ───────────────────────────────────────────────
@@ -95,13 +96,19 @@ export async function runOneShot(options: OneShotOptions): Promise<void> {
       sessionId: sessionOpt,
     });
 
+    const effortLevels = getReasoningEffortLevels(result.cli);
+
     // reasoning effort 설정
-    if (effortOpt) {
+    if (effortOpt && effortLevels) {
       try {
         await client.setConfigOption('reasoning_effort', effortOpt);
       } catch {
         // reasoning_effort 미지원 CLI인 경우 무시
       }
+    } else if (effortOpt && !effortLevels && !jsonMode) {
+      process.stderr.write(
+        `${ce.dim(`⚠ ${result.cli} CLI는 reasoning effort를 지원하지 않아 --effort=${effortOpt} 를 무시합니다`)}\n`,
+      );
     }
 
     if (!jsonMode) {

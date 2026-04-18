@@ -336,19 +336,25 @@ export function resetTaskForceModelSelection(
 }
 
 /**
- * 지정 캐리어가 모든 CLI 백엔드(claude/codex/gemini)에 대해
- * Task Force 설정을 완료했는지 확인합니다.
+ * 지정 캐리어가 Task Force를 편성할 수 있는지 확인합니다.
  */
-export function isTaskForceFullyConfigured(carrierId: string): boolean {
-  return isTaskForceFullyConfiguredInConfig(loadModels(), carrierId);
+export function isTaskForceFormable(carrierId: string): boolean {
+  return isTaskForceFormableInConfig(loadModels(), carrierId);
 }
 
 /**
- * 등록된 전체 캐리어 중 Task Force 설정이 완전히 구성된 캐리어 ID 목록을 반환합니다.
+ * 지정 캐리어에 대해 Task Force 실행 가능한 백엔드 목록을 반환합니다.
+ */
+export function getConfiguredTaskForceBackends(carrierId: string): TaskForceCliType[] {
+  return getConfiguredTaskForceBackendsInConfig(loadModels(), carrierId);
+}
+
+/**
+ * 등록된 전체 캐리어 중 Task Force 편성이 가능한 캐리어 ID 목록을 반환합니다.
  */
 export function getConfiguredTaskForceCarrierIds(registeredIds: string[]): string[] {
   const config = loadModels();
-  return registeredIds.filter((id) => isTaskForceFullyConfiguredInConfig(config, id));
+  return registeredIds.filter((id) => isTaskForceFormableInConfig(config, id));
 }
 
 // ─── Sortie 상태 ───────────────────────────────────────
@@ -630,13 +636,20 @@ function getSanitizedTaskForceConfig(
   return sanitizeTaskforceConfig(config[carrierId]?.taskforce);
 }
 
-function isTaskForceFullyConfiguredInConfig(
+function getConfiguredTaskForceBackendsInConfig(
+  config: SelectedModelsConfig,
+  carrierId: string,
+): TaskForceCliType[] {
+  const taskforceConfig = getSanitizedTaskForceConfig(config, carrierId);
+  if (!taskforceConfig) return [];
+  return TASKFORCE_CLI_TYPES.filter((cli) => taskforceConfig[cli as TaskForceCliType] != null) as TaskForceCliType[];
+}
+
+function isTaskForceFormableInConfig(
   config: SelectedModelsConfig,
   carrierId: string,
 ): boolean {
-  const taskforceConfig = getSanitizedTaskForceConfig(config, carrierId);
-  if (!taskforceConfig) return false;
-  return TASKFORCE_CLI_TYPES.every((cli) => taskforceConfig[cli as TaskForceCliType] != null);
+  return getConfiguredTaskForceBackendsInConfig(config, carrierId).length >= 2;
 }
 
 function sanitizeTaskForceSelection(cliType: CliType, value: unknown): TaskForceSelection | null {

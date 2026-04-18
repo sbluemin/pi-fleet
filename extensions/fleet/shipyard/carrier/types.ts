@@ -127,7 +127,7 @@ export interface CarrierStatusEntry {
   roleDescription: string | null;
   isSortieEnabled: boolean;
   isSquadronEnabled: boolean;
-  hasTaskForceConfig: boolean;
+  taskForceBackendCount: number;
 }
 
 export interface CarrierStatusGroup {

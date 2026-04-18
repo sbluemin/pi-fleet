@@ -57,7 +57,7 @@ export interface TaskForceState {
 
 // ─── 상수 ───────────────────────────────────────────────
 
-/** Task Force가 실행하는 CLI 백엔드 목록 (고정) */
+/** Task Force가 지원하는 전체 CLI 백엔드 후보군 (이 중 2개 이상 설정 시 편성 가능) */
 export const TASKFORCE_CLI_TYPES = ["claude", "codex", "gemini"] as const satisfies readonly CliType[];
 
 /** globalThis 진행 상태 키 */

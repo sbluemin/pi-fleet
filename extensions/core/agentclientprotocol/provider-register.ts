@@ -1,50 +1,81 @@
 /**
  * core/acp-provider — Extension 진입점 (wiring only)
  *
- * 역할: Gemini/Codex 모델군 등록, subagent 중복 방지, 세션 라이프사이클 핸들링.
+ * 역할: Gemini/Codex/Claude 모델군 등록, subagent 중복 방지, 세션 라이프사이클 핸들링.
+ * 모델 목록과 이름은 packages/unified-agent/models.json을 단일 소스로 사용한다.
  * 비즈니스 로직은 provider.ts / event-mapper.ts에 위임.
  *
  * imports → types/interfaces → constants → functions 순서 준수.
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import { getModelsRegistry, type CliType } from "@sbluemin/unified-agent";
 
 import {
   PROVIDER_ID,
   ACTIVE_STREAM_KEY,
-  MODEL_CATALOG,
+  CLI_DEFAULTS,
+  buildModelId,
 } from "./provider-types.js";
 import { streamAcp, cleanupAll, handleSessionStart } from "./provider-stream.js";
+import {
+  installAcpThinkingLevelPatch,
+  reconcileAcpThinkingLevel,
+} from "./thinking-level-patch.js";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Constants
 // ═══════════════════════════════════════════════════════════════════════════
 
-/** 모델 카탈로그를 pi registerProvider 형식으로 변환 */
-const MODELS = MODEL_CATALOG.map((m) => ({
-  id: m.id,
-  name: m.name,
-  reasoning: m.reasoning,
-  input: ["text", "image"] as string[],
-  cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-  contextWindow: m.contextWindow,
-  maxTokens: m.maxTokens,
-}));
+/**
+ * models.json을 순회하여 pi registerProvider 형식의 모델 목록을 동적 생성.
+ * Model.id는 models.json의 display name(name)에 ` (ACP)` postfix를 붙여 등록한다.
+ * provider 내부 cli/backendModel 복원은 provider-types의 parseModelId /
+ * buildModelId가 담당하며, thinking level UI 보정은 thinking-level-patch.ts가 맡는다.
+ */
+const MODELS = Object.entries(getModelsRegistry().providers).flatMap(
+  ([cliKey, provider]) => {
+    const cli = cliKey as CliType;
+    const defaults = CLI_DEFAULTS[cli];
+    if (!defaults) return [];
+
+    // reasoning boolean은 models.json의 reasoningEffort.supported에서 유도
+    const reasoning = provider.reasoningEffort.supported;
+
+    return provider.models.map((m) => ({
+      id: buildModelId(cli, m.modelId),
+      name: m.name,
+      reasoning,
+      input: ["text", "image"] as ("text" | "image")[],
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      contextWindow: defaults.contextWindow,
+      maxTokens: defaults.maxTokens,
+    }));
+  },
+);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Extension Entry Point
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default function (pi: ExtensionAPI) {
+  installAcpThinkingLevelPatch();
+
   // ── 세션 라이프사이클 ──
 
   pi.on("session_start", (event, ctx) => {
+    reconcileAcpThinkingLevel(pi, ctx.model);
+
     if (event.reason === "new" || event.reason === "resume" || event.reason === "fork") {
       const piSessionId = ctx.sessionManager.getSessionId();
       handleSessionStart(event.reason, piSessionId).catch((err) => {
         console.error("[fleet-acp] session_start 처리 실패:", err);
       });
     }
+  });
+
+  pi.on("model_select", (event) => {
+    reconcileAcpThinkingLevel(pi, event.model);
   });
 
   pi.on("session_shutdown", (_event, ctx) => {

@@ -6,7 +6,7 @@
  * PI API 타입을 사용하지 않습니다.
  */
 
-import { UnifiedAgentClient } from "@sbluemin/unified-agent";
+import { getReasoningEffortLevels, UnifiedAgentClient } from "@sbluemin/unified-agent";
 import type { CliType, McpServerConfig, UnifiedClientOptions } from "@sbluemin/unified-agent";
 import type {
   ExecuteOptions,
@@ -16,7 +16,12 @@ import type {
   ConnectionInfo,
 } from "./types.js";
 import { disconnectClient, getClientPool, isClientAlive, type PooledClient } from "./pool.js";
-import { buildModelId, getCliSystemPrompt, setSessionLaunchConfig } from "./provider-types.js";
+import {
+  buildModelId,
+  getCliSystemPrompt,
+  getSessionLaunchConfig,
+  setSessionLaunchConfig,
+} from "./provider-types.js";
 import { getSessionStore } from "./runtime.js";
 
 type ToolCallLike = {
@@ -41,7 +46,17 @@ export interface AcquireOptions {
   mcpServers?: McpServerConfig[];
   /** Abort 시그널 */
   signal?: AbortSignal;
-  /** reasoning effort */
+  /**
+   * Reasoning effort 레벨 (예: "low" | "medium" | "high").
+   *
+   * 시맨틱 (sticky):
+   * - 명시 시: setConfigOption("reasoning_effort", value)로 세션에 적용하고 launch metadata에 저장.
+   * - 미지정 시: 기존 세션/풀 엔트리의 값이 유지됨 (호출이 발생하지 않음).
+   * - fresh reconnect 시: 명시 값이 없으면 보존된 launch metadata effort로 자동 폴백되어 재적용.
+   * - 리셋이 필요하면 호출자가 명시적 레벨을 전달해야 함.
+   * - CLI 지원 여부는 unified-agent의 getReasoningEffortLevels(cli)로 사전 검사되며,
+   *   미지원 CLI에서는 호출 자체가 스킵됨.
+   */
   effort?: string;
   /** Claude thinking budget tokens */
   budgetTokens?: number;
@@ -307,10 +322,10 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
         store.set(carrierId, connectionInfo.sessionId);
       }
 
-      await applyPostConnectConfig(client, cliType, {
+      await applyPostConnectConfig(client, cliType, resolveLaunchOverrides(carrierId, {
         effort: opts.effort,
         budgetTokens: opts.budgetTokens,
-      });
+      }));
     } else {
       // 이미 연결됨 — 기존 연결 정보 사용
       // model은 connect 시점에만 지정 가능하므로 재연결 없이는 변경 불가
@@ -632,10 +647,10 @@ export async function acquireSession(opts: AcquireOptions): Promise<AcquiredSess
         store.set(key, connectionInfo.sessionId);
       }
 
-      await applyPostConnectConfig(client, cliType, {
+      await applyPostConnectConfig(client, cliType, resolveLaunchOverrides(key, {
         effort: opts.effort,
         budgetTokens: opts.budgetTokens,
-      });
+      }));
     } else {
       const info = client.getConnectionInfo();
       connectionInfo.protocol = info.protocol ?? undefined;
@@ -647,13 +662,20 @@ export async function acquireSession(opts: AcquireOptions): Promise<AcquiredSess
       if (connectionInfo.sessionId) {
         store.set(key, connectionInfo.sessionId);
       }
+
+      if (opts.effort || opts.budgetTokens) {
+        await applyPostConnectConfig(client, cliType, {
+          effort: opts.effort,
+          budgetTokens: opts.budgetTokens,
+        });
+      }
     }
 
     if (opts.model) {
       setSessionLaunchConfig(key, {
         modelId: buildModelId(cliType, opts.model),
-        effort: opts.effort,
-        budgetTokens: opts.budgetTokens,
+        ...(opts.effort ? { effort: opts.effort } : {}),
+        ...(opts.budgetTokens ? { budgetTokens: opts.budgetTokens } : {}),
       });
     }
   } catch (err) {
@@ -816,24 +838,49 @@ function debugSystemPromptDrift(scope: string, key: string, cliType: CliType): v
  * 연결 후 추론 설정을 세션에 적용합니다.
  * 호출자가 주입한 effort/budgetTokens 값을 그대로 사용합니다.
  */
-async function applyPostConnectConfig(
+export async function applyPostConnectConfig(
   client: UnifiedAgentClient,
   cli: CliType,
   overrides?: { effort?: string; budgetTokens?: number },
 ): Promise<void> {
   if (overrides?.effort) {
-    try {
-      await client.setConfigOption("reasoning_effort", overrides.effort);
-    } catch {
-      // reasoning_effort 미지원 CLI는 조용히 무시합니다.
+    if (supportsReasoningEffort(cli)) {
+      try {
+        await client.setConfigOption("reasoning_effort", overrides.effort);
+      } catch (err) {
+        console.warn(`[acp] setConfigOption 실패 (cli=${cli}, option=reasoning_effort)`, err);
+      }
     }
   }
 
   if (cli === "claude" && overrides?.budgetTokens) {
     try {
       await client.setConfigOption("budget_tokens", String(overrides.budgetTokens));
-    } catch {
-      // budget_tokens 미지원 세션은 조용히 무시합니다.
+    } catch (err) {
+      console.warn(`[acp] setConfigOption 실패 (cli=${cli}, option=budget_tokens)`, err);
     }
   }
+}
+
+function supportsReasoningEffort(cli: CliType): boolean {
+  const levels = getReasoningEffortLevels(cli);
+  return Array.isArray(levels) && levels.length > 0;
+}
+
+function resolveLaunchOverrides(
+  key: string,
+  overrides?: { effort?: string; budgetTokens?: number },
+): { effort?: string; budgetTokens?: number } | undefined {
+  const launchConfig = getSessionLaunchConfig(key);
+  const effort = overrides?.effort ?? launchConfig?.effort;
+  const budgetTokens = overrides?.budgetTokens ?? launchConfig?.budgetTokens;
+
+  if (!effort && !budgetTokens) {
+    return overrides;
+  }
+
+  return {
+    effort,
+    budgetTokens,
+  };
 }

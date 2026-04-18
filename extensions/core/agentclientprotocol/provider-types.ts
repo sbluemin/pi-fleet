@@ -6,6 +6,7 @@
 
 import type { CliType } from "@sbluemin/unified-agent";
 import type { UnifiedAgentClient } from "@sbluemin/unified-agent";
+import { getModelsRegistry } from "@sbluemin/unified-agent";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types / Interfaces
@@ -106,12 +107,6 @@ export interface CliCapability {
 /** Provider 식별자 */
 export const PROVIDER_ID = "Fleet ACP";
 
-/** model ID 접두사 — `acp:<cli>:<model>` 형식 */
-export const MODEL_ID_PREFIX = "acp";
-
-/** model ID 구분자 */
-export const MODEL_ID_SEPARATOR = ":";
-
 /** globalThis 키 — module reload 시 상태 보존 */
 export const GLOBAL_STATE_KEY = Symbol.for("__pi_fleet_acp_state__");
 
@@ -159,162 +154,68 @@ export const CLI_CAPABILITIES: Record<"gemini" | "codex" | "claude", CliCapabili
 };
 
 /**
- * 모델 카탈로그 — pi registerProvider에 등록할 모델 목록.
- * model ID는 `acp:<cli>:<backend-model-id>` 형식.
+ * CLI별 contextWindow / maxTokens 기본값.
+ * pi registerProvider 스키마가 이 두 필드를 필수로 요구하지만,
+ * Fleet ACP 모델은 백엔드 서브에이전트가 컨텍스트를 관리하므로
+ * HUD에서도 context 표시가 숨겨진다. 실질적으로는 스키마 충족 목적.
  */
+export const CLI_DEFAULTS: Record<CliType, { contextWindow: number; maxTokens: number }> = {
+  claude: { contextWindow: 200_000, maxTokens: 16_384 },
+  gemini: { contextWindow: 1_048_576, maxTokens: 65_536 },
+  codex: { contextWindow: 200_000, maxTokens: 100_000 },
+};
+
+/** Fleet ACP 등록 모델 ID postfix */
+const ACP_MODEL_ID_POSTFIX = " (ACP)";
+
 /**
- * 모델 카탈로그 — pi registerProvider에 등록할 모델 목록.
- * models.json(packages/unified-agent)의 레지스트리와 반드시 일치해야 한다.
- * model ID는 `acp:<cli>:<backend-model-id>` 형식.
- *
+ * 등록 모델 ID ↔ (cli, backendModel) 양방향 매핑.
+ * Fleet ACP는 pi Model.id를 models.json의 display name(name)에
+ * ` (ACP)` postfix를 붙인 값으로 등록한다.
+ * 다만 내부 해석과 기존/신규 상태 호환을 위해 plain name/modelId도
+ * 함께 역파싱 fallback으로 유지한다.
  */
-export const MODEL_CATALOG: Array<{
-  id: string;
-  name: string;
-  cli: CliType;
-  backendModel: string;
-  reasoning: boolean;
-  contextWindow: number;
-  maxTokens: number;
-}> = [
-  // ── Claude 모델군 (models.json providers.claude 기준) ──
-  {
-    id: "acp:claude:haiku",
-    name: "Claude Haiku (ACP)",
-    cli: "claude",
-    backendModel: "haiku",
-    reasoning: true,
-    contextWindow: 200_000,
-    maxTokens: 16_384,
-  },
-  {
-    id: "acp:claude:sonnet",
-    name: "Claude Sonnet (ACP)",
-    cli: "claude",
-    backendModel: "sonnet",
-    reasoning: true,
-    contextWindow: 200_000,
-    maxTokens: 16_384,
-  },
-  {
-    id: "acp:claude:opus",
-    name: "Claude Opus (ACP)",
-    cli: "claude",
-    backendModel: "opus",
-    reasoning: true,
-    contextWindow: 200_000,
-    maxTokens: 16_384,
-  },
-  {
-    id: "acp:claude:opus[1m]",
-    name: "Claude Opus [1M] (ACP)",
-    cli: "claude",
-    backendModel: "opus[1m]",
-    reasoning: true,
-    contextWindow: 1_000_000,
-    maxTokens: 16_384,
-  },
-  // ── Gemini 모델군 (models.json providers.gemini 기준) ──
-  {
-    id: "acp:gemini:gemini-2.5-flash",
-    name: "Gemini 2.5 Flash (ACP)",
-    cli: "gemini",
-    backendModel: "gemini-2.5-flash",
-    reasoning: false,
-    contextWindow: 1_048_576,
-    maxTokens: 65_536,
-  },
-  {
-    id: "acp:gemini:gemini-3-flash-preview",
-    name: "Gemini 3 Flash Preview (ACP)",
-    cli: "gemini",
-    backendModel: "gemini-3-flash-preview",
-    reasoning: false,
-    contextWindow: 1_048_576,
-    maxTokens: 65_536,
-  },
-  {
-    id: "acp:gemini:gemini-3.1-pro-preview",
-    name: "Gemini 3.1 Pro Preview (ACP)",
-    cli: "gemini",
-    backendModel: "gemini-3.1-pro-preview",
-    reasoning: false,
-    contextWindow: 1_048_576,
-    maxTokens: 65_536,
-  },
-  {
-    id: "acp:gemini:gemini-3.1-flash-lite-preview",
-    name: "Gemini 3.1 Flash Lite Preview (ACP)",
-    cli: "gemini",
-    backendModel: "gemini-3.1-flash-lite-preview",
-    reasoning: false,
-    contextWindow: 1_048_576,
-    maxTokens: 65_536,
-  },
-  // ── Codex 모델군 (models.json providers.codex 기준) ──
-  {
-    id: "acp:codex:gpt-5.3-codex",
-    name: "GPT-5.3 Codex (ACP)",
-    cli: "codex",
-    backendModel: "gpt-5.3-codex",
-    reasoning: true,
-    contextWindow: 200_000,
-    maxTokens: 100_000,
-  },
-  {
-    id: "acp:codex:gpt-5.3-codex-spark",
-    name: "GPT-5.3 Codex Spark (ACP)",
-    cli: "codex",
-    backendModel: "gpt-5.3-codex-spark",
-    reasoning: true,
-    contextWindow: 200_000,
-    maxTokens: 100_000,
-  },
-  {
-    id: "acp:codex:gpt-5.4",
-    name: "GPT-5.4 (ACP)",
-    cli: "codex",
-    backendModel: "gpt-5.4",
-    reasoning: true,
-    contextWindow: 200_000,
-    maxTokens: 100_000,
-  },
-  {
-    id: "acp:codex:gpt-5.4-mini",
-    name: "GPT-5.4 Mini (ACP)",
-    cli: "codex",
-    backendModel: "gpt-5.4-mini",
-    reasoning: true,
-    contextWindow: 200_000,
-    maxTokens: 100_000,
-  },
-];
+const MODEL_LOOKUP: {
+  byRegisteredId: Map<string, { cli: CliType; backendModel: string }>;
+  byCliModel: Map<string, string>;
+} = (() => {
+  const byRegisteredId = new Map<string, { cli: CliType; backendModel: string }>();
+  const byCliModel = new Map<string, string>();
+  const registry = getModelsRegistry();
+  for (const [cliKey, provider] of Object.entries(registry.providers)) {
+    const cli = cliKey as CliType;
+    if (!CLI_DEFAULTS[cli]) continue;
+    for (const m of provider.models) {
+      byRegisteredId.set(`${m.name}${ACP_MODEL_ID_POSTFIX}`, { cli, backendModel: m.modelId });
+      byRegisteredId.set(m.name, { cli, backendModel: m.modelId });
+      byRegisteredId.set(m.modelId, { cli, backendModel: m.modelId });
+      byCliModel.set(`${cli}\u0000${m.modelId}`, `${m.name}${ACP_MODEL_ID_POSTFIX}`);
+    }
+  }
+  return { byRegisteredId, byCliModel };
+})();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Functions
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * `acp:<cli>:<backend-model>` 형식의 model ID를 파싱.
- * 유효하지 않으면 null 반환.
+ * Fleet ACP Model ID(현재는 `display name + " (ACP)"`, plain name/modelId도 fallback 지원)를
+ * cli / backendModel로 역매핑한다. 등록되지 않은 값이면 null 반환.
  */
 export function parseModelId(modelId: string): ParsedModelId | null {
-  const parts = modelId.split(MODEL_ID_SEPARATOR);
-  if (parts.length < 3 || parts[0] !== MODEL_ID_PREFIX) return null;
-
-  const cli = parts[1] as CliType;
-  if (cli !== "gemini" && cli !== "codex" && cli !== "claude") return null;
-
-  // backend model ID에 ':'가 포함될 수 있으므로 나머지를 합침
-  const backendModel = parts.slice(2).join(MODEL_ID_SEPARATOR);
-  if (!backendModel) return null;
-
-  return { cli, backendModel };
+  const lookup = MODEL_LOOKUP.byRegisteredId.get(modelId);
+  if (!lookup) return null;
+  return { cli: lookup.cli, backendModel: lookup.backendModel };
 }
 
-/** CLI + backend model을 `acp:<cli>:<backend-model>` 형식으로 조립 */
+/**
+ * cli + backendModel을 Fleet ACP Model ID(= models.json display name + ` (ACP)`)로 변환.
+ * 등록되지 않은 조합은 `cli/backendModel` 폴백을 돌려준다.
+ */
 export function buildModelId(cli: CliType, backendModel: string): string {
-  return `${MODEL_ID_PREFIX}${MODEL_ID_SEPARATOR}${cli}${MODEL_ID_SEPARATOR}${backendModel}`;
+  const registeredId = MODEL_LOOKUP.byCliModel.get(`${cli}\u0000${backendModel}`);
+  return registeredId ?? `${cli}/${backendModel}`;
 }
 
 /**
