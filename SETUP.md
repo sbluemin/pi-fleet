@@ -21,19 +21,15 @@ cd pi-fleet
 ## 2. Install dependencies
 
 ```bash
-# Build core SDK and register CLI globally
-cd packages/unified-agent && npm install && npm link && cd ../..
-
-# Install extension dependencies
-cd extensions/core && npm install && cd ../..
-cd extensions/core/shell && npm install && cd ../../..
-cd extensions/fleet && npm install && cd ../..
+# Install all workspace dependencies from the repository root
+npm install
 ```
 
-> `npm install` automatically builds via the `prepare` script, and `npm link` registers the `unified-agent` CLI globally.
-> To unregister: `npm unlink -g @sbluemin/unified-agent`
+> The repository uses npm workspaces, so a single root `npm install` installs dependencies for `packages/unified-agent`, `extensions/core`, `extensions/core/agentclientprotocol`, `extensions/core/shell`, and `extensions/fleet` together.
 >
-> `extensions/core/` and `extensions/fleet/` declare `@sbluemin/unified-agent` as a `file:` dependency, so `npm install` creates a symlink to `packages/unified-agent` automatically.
+> The root `postinstall` script runs `npm run build -w packages/unified-agent`, so `packages/unified-agent` is built automatically after install. The bootstrap flow no longer relies on the package-local `prepare` script.
+>
+> `extensions/core/` and `extensions/fleet/` consume `@sbluemin/unified-agent` from the workspace during root install, so no per-package `npm install` step is required.
 
 ## 3. Register extensions in pi settings
 
