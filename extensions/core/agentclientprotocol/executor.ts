@@ -7,7 +7,7 @@
  */
 
 import { UnifiedAgentClient } from "@sbluemin/unified-agent";
-import type { CliType, McpServerConfig } from "@sbluemin/unified-agent";
+import type { CliType, McpServerConfig, UnifiedClientOptions } from "@sbluemin/unified-agent";
 import type {
   ExecuteOptions,
   ExecuteResult,
@@ -16,7 +16,7 @@ import type {
   ConnectionInfo,
 } from "./types.js";
 import { disconnectClient, getClientPool, isClientAlive, type PooledClient } from "./pool.js";
-import { buildModelId, setSessionLaunchConfig } from "./provider-types.js";
+import { buildModelId, getCliSystemPrompt, setSessionLaunchConfig } from "./provider-types.js";
 import { getSessionStore } from "./runtime.js";
 
 type ToolCallLike = {
@@ -24,6 +24,8 @@ type ToolCallLike = {
   rawOutput?: unknown;
   toolCallId?: string;
 };
+
+type SystemPromptPolicy = "inherit-global" | "none";
 
 /** acquireSession 옵션 */
 export interface AcquireOptions {
@@ -228,14 +230,25 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
   attachListeners();
 
   try {
-    const needsConnect = !isClientAlive(client);
+    let needsConnect = !isClientAlive(client);
+
+    if (!needsConnect && hasSystemPromptDrift(client, "none")) {
+      debugSystemPromptDrift("executeWithPool", carrierId, cliType);
+      store.clear(carrierId);
+      if (poolEntry) {
+        delete poolEntry.sessionId;
+      }
+      await client.disconnect();
+      needsConnect = true;
+    }
 
     if (needsConnect) {
       // ── 연결 옵션 구성 ──
+      // Carrier 실행 경로 — 전역 systemPrompt 미주입 (persona는 composeTier2Request가 user request에 주입)
       const connectOpts = buildConnectOptions(cliType, cwd, {
         model: opts.model,
         promptIdleTimeout: opts.promptIdleTimeout,
-      });
+      }, "none");
 
       // 세션 매핑에서 저장된 sessionId를 우선 사용
       const savedSessionId = store.get(carrierId) ?? poolEntry?.sessionId;
@@ -245,7 +258,7 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
 
       let connectResult;
       try {
-        connectResult = await raceAbort(client.connect(connectOpts as any), signal);
+        connectResult = await raceAbort(client.connect(connectOpts), signal);
       } catch (connectError) {
         // abort로 인한 reject이면 재시도하지 않고 즉시 전파
         if (aborted) throw connectError;
@@ -274,7 +287,7 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
           });
         }
         attachListeners();
-        connectResult = await raceAbort(client.connect(connectOpts as any), signal);
+        connectResult = await raceAbort(client.connect(connectOpts), signal);
       }
 
       connectionInfo.protocol = connectResult.protocol;
@@ -422,12 +435,13 @@ export async function executeOneShot(opts: ExecuteOptions): Promise<ExecuteResul
     }
 
     // 연결 옵션 구성
+    // Carrier 실행 경로 — 전역 systemPrompt 미주입 (persona는 composeTier2Request가 user request에 주입)
     const connectOpts = buildConnectOptions(cliType, cwd, {
       model: opts.model,
       promptIdleTimeout: opts.promptIdleTimeout,
-    });
+    }, "none");
 
-    await raceAbort(client.connect(connectOpts as any), signal);
+    await raceAbort(client.connect(connectOpts), signal);
     await applyPostConnectConfig(client, cliType, {
       effort: opts.effort,
       budgetTokens: opts.budgetTokens,
@@ -545,19 +559,26 @@ export async function acquireSession(opts: AcquireOptions): Promise<AcquiredSess
   const connectionInfo: ConnectionInfo = {};
 
   try {
-    const needsConnect = !isClientAlive(client);
+    let needsConnect = !isClientAlive(client);
+
+    if (!needsConnect && hasSystemPromptDrift(client, "inherit-global")) {
+      debugSystemPromptDrift("acquireSession", key, cliType);
+      store.clear(key);
+      if (poolEntry) {
+        delete poolEntry.sessionId;
+      }
+      await client.disconnect();
+      needsConnect = true;
+    }
 
     if (needsConnect) {
-      const connectOpts: Record<string, unknown> = {
-        cwd,
-        cli: cliType,
-        autoApprove: true,
-        clientInfo: CLIENT_INFO,
-        timeout: 0,
-        yoloMode: opts.yoloMode !== false,
-      };
+      // Admiral host 경로 — 전역 systemPrompt 상속
+      const connectOpts = buildConnectOptions(cliType, cwd, {
+        model: opts.model,
+        promptIdleTimeout: opts.promptIdleTimeout,
+      }, "inherit-global");
 
-      if (opts.model) connectOpts.model = opts.model;
+      connectOpts.yoloMode = opts.yoloMode !== false;
       if (opts.promptIdleTimeout !== undefined) {
         connectOpts.promptIdleTimeout = opts.promptIdleTimeout;
       }
@@ -572,7 +593,7 @@ export async function acquireSession(opts: AcquireOptions): Promise<AcquiredSess
 
       let connectResult;
       try {
-        connectResult = await client.connect(connectOpts as any);
+        connectResult = await client.connect(connectOpts);
       } catch (connectError) {
         if (signal?.aborted) throw connectError;
         if (!savedSessionId) throw connectError;
@@ -593,7 +614,7 @@ export async function acquireSession(opts: AcquireOptions): Promise<AcquiredSess
           if (current?.client === client) clientPool.delete(key);
         });
 
-        connectResult = await client.connect(connectOpts as any);
+        connectResult = await client.connect(connectOpts);
       }
 
       connectionInfo.protocol = connectResult.protocol;
@@ -746,9 +767,10 @@ function raceAbort<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
 function buildConnectOptions(
   cli: CliType,
   cwd: string,
-  overrides?: { model?: string; promptIdleTimeout?: number },
-): Record<string, unknown> {
-  const opts: Record<string, unknown> = {
+  overrides: { model?: string; promptIdleTimeout?: number } | undefined,
+  policy: SystemPromptPolicy,
+): UnifiedClientOptions {
+  const opts: UnifiedClientOptions = {
     cwd,
     cli,
     autoApprove: true,
@@ -764,7 +786,30 @@ function buildConnectOptions(
     opts.promptIdleTimeout = overrides.promptIdleTimeout;
   }
 
+  if (policy === "inherit-global") {
+    const systemPrompt = getCliSystemPrompt();
+    if (systemPrompt) {
+      opts.systemPrompt = systemPrompt;
+    }
+  }
+
   return opts;
+}
+
+function hasSystemPromptDrift(
+  client: UnifiedAgentClient,
+  policy: SystemPromptPolicy,
+): boolean {
+  const expected = policy === "inherit-global" ? getCliSystemPrompt() : null;
+  return normalizeSystemPrompt(client.getCurrentSystemPrompt()) !== normalizeSystemPrompt(expected);
+}
+
+function normalizeSystemPrompt(systemPrompt: string | null | undefined): string {
+  return systemPrompt?.trim() ?? "";
+}
+
+function debugSystemPromptDrift(scope: string, key: string, cliType: CliType): void {
+  console.warn(`[unified-agent] systemPrompt drift 감지 (${scope}, key=${key}, cli=${cliType})`);
 }
 
 /**

@@ -10,8 +10,9 @@
  * router.ts + streaming-widget.ts의 로직을 흡수한 통합 계층입니다.
  */
 
-import { executeWithPool } from "../core/agentclientprotocol/executor";
-import type { AgentStatus } from "../core/agentclientprotocol/types";
+import { executeWithPool } from "../core/agentclientprotocol/executor.js";
+import type { AgentStatus } from "../core/agentclientprotocol/types.js";
+import type { ToolCallInfo } from "../core/agentclientprotocol/types.js";
 import { loadModels as getModelConfig } from "./shipyard/store.js";
 import {
   createRun,
@@ -96,23 +97,28 @@ export async function runAgentRequest(options: RunAgentRequestOptions): Promise<
       effort: cliConfig?.effort,
       budgetTokens: cliConfig?.budgetTokens,
       signal: effectiveSignal,
-      onMessageChunk: (text) => {
+      onMessageChunk: (text: string) => {
         appendTextBlock(carrierId, sanitizeChunk(text));
         syncColFromStore(carrierId, colIndex);
         onMessageChunk?.(text);
       },
-      onThoughtChunk: (text) => {
+      onThoughtChunk: (text: string) => {
         appendThoughtBlock(carrierId, sanitizeChunk(text));
         syncColFromStore(carrierId, colIndex);
         onThoughtChunk?.(text);
       },
-      onToolCall: (title, status, rawOutput, toolCallId) => {
+      onToolCall: (
+        title: string,
+        status: string,
+        rawOutput?: string,
+        toolCallId?: string,
+      ) => {
         upsertToolBlock(carrierId, title, status, toolCallId);
         syncColFromStore(carrierId, colIndex);
         onToolCall?.(title, status, rawOutput, toolCallId);
       },
       // onStatusChange는 의도적으로 외부 미노출 — 패널이 자동 관리
-      onStatusChange: (status) => {
+      onStatusChange: (status: AgentStatus) => {
         updateRunStatus(carrierId, status);
         syncColFromStore(carrierId, colIndex);
       },
@@ -149,7 +155,13 @@ export async function runAgentRequest(options: RunAgentRequestOptions): Promise<
     const run = getRunById(runId);
     const collected = run
       ? run.toCollectedData()
-      : { text: "", thinking: "", toolCalls: [] as { title: string; status: string }[], blocks: [] as any[], lastStatus: "connecting" as const };
+      : {
+        text: "",
+        thinking: "",
+        toolCalls: [] as ToolCallInfo[],
+        blocks: [],
+        lastStatus: "connecting" as const,
+      };
 
     return {
       status: finalStatus,

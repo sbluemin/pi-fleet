@@ -399,8 +399,11 @@ export function clearSessionLaunchConfig(sessionKey: string): void {
 
 /**
  * CLI 백엔드에 전달할 시스템 지침을 설정한다.
- * 외부 확장(admiral 등)이 호출하며, provider-stream.ts가
- * 첫 프롬프트 전송 시 context.systemPrompt 대신 이 값을 사용한다.
+ * 외부 확장(admiral 등)이 호출하며, executor.buildConnectOptions가 이 값을 읽어
+ * unified-agent connect의 systemPrompt 옵션으로 전달한다.
+ * host/provider 경로 전용 전역 단일 소스이며,
+ * Carrier 도구 실행 경로(executeWithPool/executeOneShot)에는 상속되지 않는다.
+ * 공개 API에서는 별도 override를 허용하지 않으며, 이 값이 단일 소스다.
  * null이면 시스템 지침을 전달하지 않는다.
  */
 export function setCliSystemPrompt(prompt: string | null): void {
@@ -409,6 +412,11 @@ export function setCliSystemPrompt(prompt: string | null): void {
 
 /**
  * 현재 설정된 CLI 전용 시스템 지침을 반환한다.
+ * 이전에는 provider-stream.buildInitialPrompt가 user-turn text로 주입했으나
+ * 이제는 executor.buildConnectOptions가 connect 시점에 사용한다.
+ * host/provider 경로 전용 전역 단일 소스이며,
+ * Carrier 도구 실행 경로(executeWithPool/executeOneShot)에는 상속되지 않는다.
+ * 공개 API에서는 override가 불가능하므로 항상 전역 단일 소스를 조회한다.
  * 설정되지 않았으면 null을 반환한다.
  */
 export function getCliSystemPrompt(): string | null {

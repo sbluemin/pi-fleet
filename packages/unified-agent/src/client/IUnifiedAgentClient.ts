@@ -234,6 +234,12 @@ export interface IUnifiedAgentClient {
   getAvailableModels(cli?: CliType): ProviderModelInfo | null;
 
   /**
+   * 현재 세션에 스냅샷된 systemPrompt를 반환합니다.
+   * sessionId 기반 load/resume 세션은 null을 반환할 수 있습니다.
+   */
+  getCurrentSystemPrompt(): string | null;
+
+  /**
    * 기존 세션을 로드합니다.
    *
    * @param sessionId - 로드할 세션 ID

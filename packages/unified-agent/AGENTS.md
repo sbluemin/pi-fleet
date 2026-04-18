@@ -148,3 +148,8 @@ ait (gemini) ❯ {입력}           # effort 미지원 시 생략
    - **프로세스 재사용**: `Codex` 등 기동이 무거운 CLI의 성능을 위해 `ProcessPool`을 사용해 프로세스를 재사용합니다.
    - **Pool Bypass (Codex)**: `mcpServers`나 `configOverrides`와 같이 세션별 고유 설정이 제공되면, 풀링된 프로세스를 사용하지 않고 새 프로세스를 spawn하여 설정 충돌을 방지합니다.
 6. **Graceful Process Management**: 2단계 종료 (SIGTERM → SIGKILL), 환경변수 정제로 자식 프로세스 간섭 방지.
+7. **System Prompt Injection (Hybrid)**:
+   - **Claude**: `AcpConnection`이 `session/new` 호출 시 `_meta.systemPrompt.append`로 native system prompt에 append합니다. `claude-agent-acp` 브릿지가 이를 처리합니다.
+   - **Codex/Gemini**: `UnifiedAgentClient`가 `firstPromptPending` 상태를 관리하며, 새 세션 직후 첫 `sendMessage()` 성공 시 선행 text `ContentBlock` 프리픽싱 후 consume합니다. true system-role 보장은 아닙니다.
+   - **Pool 재사용 및 Drift 감지**: `ProcessPool` 재사용 시 `currentSystemPrompt` 스냅샷과 `getCliSystemPrompt()`를 비교(trim 정규화 포함)하여 다를 경우 `resetSession()`을 강제하여 새 프롬프트가 적용되도록 합니다.
+   - **세션 유지 계약**: `resetSession()` 후 새 세션에는 다시 arm되지만, `sessionId` 기반 **resume/load 경로에서는 자동 재주입이나 drift 감지가 일어나지 않습니다.** 대화의 연속성을 위해 원 세션의 프롬프트를 유지하는 best-effort 정책을 따르며, 의도적인 변경이 필요하면 상위에서 `resetSession()`을 호출해야 합니다.

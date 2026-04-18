@@ -57,7 +57,7 @@ export interface EventMapperHandle {
 /** 디버그 로깅 — log 시스템 사용 */
 function debug(...args: unknown[]): void {
   const log = getLogAPI();
-  log.debug("acp-provider", args.map(String).join(" "));
+  log.debug("acp-provider", args.map(String).join(" "), { category: "acp" });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

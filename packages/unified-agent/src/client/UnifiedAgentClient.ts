@@ -59,6 +59,11 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
   private activeCli: CliType | null = null;
   private sessionId: string | null = null;
   private sessionCwd: string | null = null;
+  /** 현재 세션 정책으로 유지할 systemPrompt 원문입니다. */
+  private currentSystemPrompt: string | null = null;
+  /** firstPromptPending은 Codex·Gemini 전용입니다.
+   * Claude는 _meta.systemPrompt.append로 AcpConnection 계층에서 처리됩니다. */
+  private firstPromptPending: string | null = null;
   private bypassedPool = false;
   private detector = new CliDetector();
 
@@ -150,7 +155,12 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
 
         let session: AcpSessionNewResult;
         try {
-          session = await pooled.createSession(effectiveOptions.cwd, effectiveOptions.sessionId, acpMcpServers);
+          session = await pooled.createSession(
+            effectiveOptions.cwd,
+            effectiveOptions.sessionId,
+            acpMcpServers,
+            effectiveOptions.systemPrompt,
+          );
         } catch (error) {
           const connectionError = this.buildConnectionError(cli, error, []);
           await this.cleanupFailedAcpConnection();
@@ -174,6 +184,7 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
     this.acpConnection = new AcpConnection({
       command: spawnConfig.command,
       args: spawnConfig.args,
+      cliType: cli,
       cwd: effectiveOptions.cwd,
       env,
       requestTimeout: effectiveOptions.timeout,
@@ -197,7 +208,12 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
 
     let session: AcpSessionNewResult;
     try {
-      session = await this.acpConnection.connect(effectiveOptions.cwd, effectiveOptions.sessionId, acpMcpServers);
+      session = await this.acpConnection.connect(
+        effectiveOptions.cwd,
+        effectiveOptions.sessionId,
+        acpMcpServers,
+        effectiveOptions.systemPrompt,
+      );
     } catch (error) {
       const connectionError = this.buildConnectionError(cli, error, recentLogs);
       await this.cleanupFailedAcpConnection();
@@ -253,6 +269,25 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
     return (options.mcpServers?.length ?? 0) > 0 || (options.configOverrides?.length ?? 0) > 0;
   }
 
+  /** Claude는 연결 계층에서 _meta로 처리하고, Codex/Gemini만 첫 user turn 선행 block을 arm합니다. */
+  private armFirstPromptPending(
+    cli: CliType | null,
+    systemPrompt: string | null,
+    isResume: boolean,
+  ): void {
+    if (!cli || isResume || !systemPrompt) {
+      this.firstPromptPending = null;
+      return;
+    }
+
+    if (cli === 'claude') {
+      this.firstPromptPending = null;
+      return;
+    }
+
+    this.firstPromptPending = systemPrompt;
+  }
+
   /**
    * 연결 완료 후 공통 후처리 (YOLO 모드, 모델 설정, 상태 저장).
    */
@@ -282,6 +317,8 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
     this.activeCli = cli;
     this.sessionId = session.sessionId;
     this.sessionCwd = options.cwd;
+    this.currentSystemPrompt = options.systemPrompt ?? null;
+    this.armFirstPromptPending(cli, this.currentSystemPrompt, Boolean(options.sessionId));
 
     return {
       cli,
@@ -313,10 +350,16 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
     await this.acpConnection.endSession(this.sessionId);
     this.sessionId = null;
 
-    const session = await this.acpConnection.reconnectSession(targetCwd);
+    const session = await this.acpConnection.reconnectSession(
+      targetCwd,
+      undefined,
+      undefined,
+      this.currentSystemPrompt ?? undefined,
+    );
 
     this.sessionId = session.sessionId;
     this.sessionCwd = targetCwd;
+    this.armFirstPromptPending(this.activeCli, this.currentSystemPrompt, false);
 
     return {
       cli: this.activeCli!,
@@ -346,7 +389,22 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
    */
   async sendMessage(content: string | AcpContentBlock[]): Promise<PromptResponse> {
     if (this.acpConnection && this.sessionId) {
-      return this.acpConnection.sendPrompt(this.sessionId, content);
+      const systemPrompt = this.firstPromptPending;
+      if (!systemPrompt) {
+        return this.acpConnection.sendPrompt(this.sessionId, content);
+      }
+
+      const userBlocks: AcpContentBlock[] = typeof content === 'string'
+        ? [{ type: 'text', text: content }]
+        : content;
+
+      const response = await this.acpConnection.sendPrompt(this.sessionId, [
+        { type: 'text', text: systemPrompt },
+        ...userBlocks,
+      ]);
+
+      this.firstPromptPending = null;
+      return response;
     }
 
     throw new Error('연결되어 있지 않습니다');
@@ -439,6 +497,11 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
     return getProviderModels(target);
   }
 
+  /** 현재 세션에 스냅샷된 systemPrompt를 반환합니다. */
+  getCurrentSystemPrompt(): string | null {
+    return this.currentSystemPrompt;
+  }
+
   /**
    * 기존 세션을 로드합니다.
    *
@@ -459,6 +522,8 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
     });
 
     this.sessionId = sessionId;
+    this.currentSystemPrompt = null;
+    this.firstPromptPending = null;
   }
 
   /**
@@ -526,6 +591,8 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
     this.activeCli = null;
     this.sessionId = null;
     this.sessionCwd = null;
+    this.currentSystemPrompt = null;
+    this.firstPromptPending = null;
     this.bypassedPool = false;
   }
 

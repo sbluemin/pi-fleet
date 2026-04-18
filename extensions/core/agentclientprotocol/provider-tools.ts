@@ -89,6 +89,7 @@ export function registerToolsForSession(
   log.debug(
     "acp-provider",
     `tool registry: ${registered.length}개 등록, ${skipped}개 기본도구 제외 (token=${sessionToken.slice(0, 8)})`,
+    { category: "acp" },
   );
 }
 

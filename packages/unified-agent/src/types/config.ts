@@ -113,6 +113,11 @@ export interface UnifiedClientOptions extends ConnectionOptions {
   autoApprove?: boolean;
   /** 재개할 기존 세션 ID */
   sessionId?: string;
+  /** 세션 초기 시스템 지침.
+   * Claude에서는 native system prompt에 append되며,
+   * Codex·Gemini에서는 세션의 최초 user turn 앞에 선행 text block으로 주입됨
+   * (best-effort initial session instructions). */
+  systemPrompt?: string;
   /** 에이전트에 연결할 MCP 서버 목록 (선택) */
   mcpServers?: McpServerConfig[];
 }

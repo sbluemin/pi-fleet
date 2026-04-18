@@ -44,10 +44,13 @@ import type {
   AcpToolCall,
   AcpToolCallUpdate,
 } from '../types/acp.js';
+import type { CliType } from '../types/config.js';
 import { BaseConnection, type BaseConnectionOptions } from './BaseConnection.js';
 
 /** AcpConnection 생성 옵션 */
 export interface AcpConnectionOptions extends BaseConnectionOptions {
+  /** CLI 종류 */
+  cliType?: CliType;
   /** 클라이언트 정보 */
   clientInfo?: {
     name: string;
@@ -90,6 +93,7 @@ type AcpConnectionEvents = BaseConnectionEventMap & AcpConnectionEventMap;
  * 공식 ACP SDK의 ClientSideConnection을 래핑하여 통합 이벤트 인터페이스를 제공합니다.
  */
 export class AcpConnection extends BaseConnection {
+  private readonly cliType: CliType | null;
   private readonly clientInfo: { name: string; version: string };
   private readonly protocolVersion: number;
   private readonly autoApprove: boolean;
@@ -109,6 +113,7 @@ export class AcpConnection extends BaseConnection {
 
   constructor(options: AcpConnectionOptions) {
     super(options);
+    this.cliType = options.cliType ?? null;
     this.clientInfo = options.clientInfo ?? {
       name: 'UnifiedAgent',
       version: '1.0.0',
@@ -181,7 +186,12 @@ export class AcpConnection extends BaseConnection {
    * @param mcpServers - 에이전트에 연결할 MCP 서버 목록 (선택, 기본: [])
    * @returns 세션 정보
    */
-  async createSession(workspace: string, sessionId?: string, mcpServers?: McpServer[]): Promise<NewSessionResponse> {
+  async createSession(
+    workspace: string,
+    sessionId?: string,
+    mcpServers?: McpServer[],
+    systemPrompt?: string,
+  ): Promise<NewSessionResponse> {
     const agent = this.getAgent();
     const servers = mcpServers ?? [];
 
@@ -197,11 +207,26 @@ export class AcpConnection extends BaseConnection {
       );
       session = { ...loadResult, sessionId } as LoadSessionResponse & NewSessionResponse;
     } else {
+      const newSessionParams: {
+        cwd: string;
+        mcpServers: McpServer[];
+        _meta?: Record<string, unknown>;
+      } = {
+        cwd: workspace,
+        mcpServers: servers,
+      };
+
+      const claudeSystemPrompt = this.getClaudeSystemPrompt(systemPrompt);
+      if (claudeSystemPrompt) {
+        newSessionParams._meta = {
+          systemPrompt: {
+            append: claudeSystemPrompt,
+          },
+        };
+      }
+
       session = await this.withFixedTimeout(
-        agent.newSession({
-          cwd: workspace,
-          mcpServers: servers,
-        }),
+        agent.newSession(newSessionParams),
         this.initTimeout,
         'session/new',
       );
@@ -218,10 +243,15 @@ export class AcpConnection extends BaseConnection {
    * @param workspace - 작업 디렉토리 경로
    * @returns 세션 정보
    */
-  async connect(workspace: string, sessionId?: string, mcpServers?: McpServer[]): Promise<NewSessionResponse> {
+  async connect(
+    workspace: string,
+    sessionId?: string,
+    mcpServers?: McpServer[],
+    systemPrompt?: string,
+  ): Promise<NewSessionResponse> {
     await this.initializeConnection(workspace);
     try {
-      return await this.createSession(workspace, sessionId, mcpServers);
+      return await this.createSession(workspace, sessionId, mcpServers, systemPrompt);
     } catch (error) {
       this.setState('error');
       try {
@@ -291,6 +321,7 @@ export class AcpConnection extends BaseConnection {
     workspace: string,
     sessionId?: string,
     mcpServers?: McpServer[],
+    systemPrompt?: string,
   ): Promise<NewSessionResponse> {
     // close capability가 없는 CLI(Gemini 등)는 newSession 재호출 시 hang됩니다
     if (!sessionId && !this.canResetSession) {
@@ -303,7 +334,20 @@ export class AcpConnection extends BaseConnection {
       throw new Error(`[${this.command}] loadSession을 지원하지 않습니다 (E3)`);
     }
 
-    return this.createSession(workspace, sessionId, mcpServers);
+    return this.createSession(workspace, sessionId, mcpServers, systemPrompt);
+  }
+
+  /** Claude bridge만 native system prompt append를 지원하므로 이 경로만 사용합니다. */
+  private getClaudeSystemPrompt(systemPrompt?: string): string | null {
+    if (this.cliType !== 'claude') {
+      return null;
+    }
+
+    if (!systemPrompt) {
+      return null;
+    }
+
+    return systemPrompt;
   }
 
   override async disconnect(): Promise<void> {

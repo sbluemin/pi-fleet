@@ -49,9 +49,9 @@ Unified ACP infrastructure for pi-fleet, providing both the carrier execution en
 | `runtime.ts` | Shared | Runtime initialization, `.data/` ownership, session store lifecycle. |
 | `pool.ts` | Shared | `UnifiedAgentClient` connection pooling and disconnect helpers. |
 | `executor.ts` | Shared | Execution engine for pooled session acquisition and command routing. |
-| `provider-types.ts` | Provider | Provider constants, ACP session state, model catalog, provider IDs, CLI system prompt setter/getter (`setCliSystemPrompt`/`getCliSystemPrompt`). |
-| `provider-register.ts` | Provider | Core entry point that registers the ACP provider and session lifecycle hooks. |
-| `provider-stream.ts` | Provider | `streamSimple` 구현, 세션 재사용, 모델 전환, Persistence 연계. CLI 시스템 프롬프트 주입 주체. **`logFinalPrompt`를 통해 전송 직전의 프롬프트를 `"final-prompt"` 카테고리로 로깅함.** |
+| `provider-types.ts` | Provider | host/provider 경로 전용 전역 CLI 시스템 프롬프트의 단일 소스(`setCliSystemPrompt`/`getCliSystemPrompt`). `executor.buildConnectOptions`가 host policy에서만 이를 소비하여 `unified-agent`에 전달합니다. |
+| `provider-register.ts` | Provider | Core 엔트리 포인트. ACP 프로바이더와 세션 라이프사이클 훅을 등록합니다. |
+| `provider-stream.ts` | Provider | `streamSimple` 구현, 세션 재사용, 모델 전환, Persistence 연계. **이전의 `<system-instructions>` 직접 XML 주입 로직이 제거되었으며, host/provider 경로는 `unified-agent`의 `connect` 옵션을 통해 시스템 프롬프트를 처리합니다. Carrier 도구 실행 경로는 이를 상속하지 않습니다.** |
 | `provider-events.ts` | Provider | ACP event to pi `EventStream` mapper, including MCP tool-call and CLI built-in tool rendering. |
 | `provider-mcp.ts` | Provider | In-process MCP HTTP JSON-RPC server with FIFO tool-call queue and session token isolation. |
 | `provider-tools.ts` | Provider | Tool registry plus schema adaptation from pi tools to MCP input schemas. |
@@ -61,7 +61,7 @@ Unified ACP infrastructure for pi-fleet, providing both the carrier execution en
 
 | Trigger | Behavior |
 |---------|----------|
-| **First request** | Spawn CLI process, establish ACP session, inject MCP server URL and per-session auth token. CLI system instructions (set externally via `setCliSystemPrompt()`) are included in the first prompt only. |
+| **First request** | host/provider 경로에서는 CLI 프로세스를 생성하고, `connect` 시 `systemPrompt`를 `unified-agent`에 전달합니다 (Claude: native append, Codex/Gemini: 첫 sendMessage prefix). Carrier 도구 실행 경로는 Admiral systemPrompt를 상속하지 않으며, MCP 서버 URL과 세션별 인증 토큰 주입만 수행합니다. |
 | **Model change within same CLI family** | Reuse the current process and switch backend model without recreating the whole session when the backend supports it. |
 | **Model change across CLI families** | Dispose the old session/process pair and create a fresh CLI session. |
 | **pi `/new`** | Clear live sessions and processes, reset pre-spawn state, then lazily recreate on the next request. |

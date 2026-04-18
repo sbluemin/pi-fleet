@@ -125,11 +125,11 @@ export async function startMcpServer(): Promise<string> {
       }
       server = srv;
       serverUrl = `http://127.0.0.1:${addr.port}${opaquePath}`;
-      log.info("acp-provider", `MCP 서버 기동: port=${addr.port}`);
+      log.info("acp-provider", `MCP 서버 기동: port=${addr.port}`, { category: "acp" });
       resolve(serverUrl);
     });
     srv.on("error", (err) => {
-      log.error("acp-provider", `MCP 서버 오류: ${err.message}`);
+      log.error("acp-provider", `MCP 서버 오류: ${err.message}`, { category: "acp" });
       reject(err);
     });
   });
@@ -147,7 +147,7 @@ export async function stopMcpServer(): Promise<void> {
 
   return new Promise<void>((resolve) => {
     server!.close(() => {
-      log.info("acp-provider", "MCP 서버 종료");
+      log.info("acp-provider", "MCP 서버 종료", { category: "acp" });
       server = null;
       serverUrl = null;
       opaquePath = null;
@@ -192,7 +192,7 @@ export function resolveNextToolCall(
     }
     queue.shift();
     if (queue.length === 0) pendingToolCalls.delete(token);
-    log.debug("acp-provider", `FIFO resolve: ${pending.toolName} (${toolCallId})`);
+    log.debug("acp-provider", `FIFO resolve: ${pending.toolName} (${toolCallId})`, { category: "acp" });
     pending.resolve(makeResult(null, result));
   } else {
     // MCP가 아직 도착하지 않음 — toolCallId와 함께 pre-queue
@@ -202,7 +202,7 @@ export function resolveNextToolCall(
       pendingResults.set(token, preQueue);
     }
     preQueue.push({ toolCallId, result });
-    log.debug("acp-provider", `FIFO pre-queue result (${preQueue.length} pending, id=${toolCallId})`);
+    log.debug("acp-provider", `FIFO pre-queue result (${preQueue.length} pending, id=${toolCallId})`, { category: "acp" });
   }
 }
 
@@ -291,7 +291,7 @@ function handleRequest(
             sendJsonRpcPayload(res, filtered.length === 0 ? null : filtered, shouldFlushHeaders);
           })
           .catch((err) => {
-            log.error("acp-provider", `MCP 배치 처리 실패: ${(err as Error).message}`);
+            log.error("acp-provider", `MCP 배치 처리 실패: ${(err as Error).message}`, { category: "acp" });
             sendJsonRpcPayload(res, makeError(null, -32603, "Internal error"), shouldFlushHeaders);
           });
       } else {
@@ -305,13 +305,13 @@ function handleRequest(
             sendJsonRpcPayload(res, result, shouldFlushHeaders);
           })
           .catch((err) => {
-            log.error("acp-provider", `MCP 요청 처리 실패: ${(err as Error).message}`);
+            log.error("acp-provider", `MCP 요청 처리 실패: ${(err as Error).message}`, { category: "acp" });
             if (res.writableEnded) return;
             sendJsonRpcPayload(res, makeError(null, -32603, "Internal error"), shouldFlushHeaders);
           });
       }
     } catch (err) {
-      log.error("acp-provider", `MCP 요청 파싱 실패: ${(err as Error).message}`);
+      log.error("acp-provider", `MCP 요청 파싱 실패: ${(err as Error).message}`, { category: "acp" });
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
         jsonrpc: "2.0",
@@ -370,7 +370,7 @@ async function processJsonRpc(
         return makeError(id, -32602, `tool을 찾을 수 없습니다: ${p.name}`);
       }
 
-      log.debug("acp-provider", `MCP tool call 수신 (FIFO 큐 대기): ${p.name}`);
+      log.debug("acp-provider", `MCP tool call 수신 (FIFO 큐 대기): ${p.name}`, { category: "acp" });
 
       // 콜백으로 event-mapper에 알림 — token 기준으로 올바른 세션에 전달
       const cb = toolCallArrivedCallbacks.get(token);
@@ -386,7 +386,7 @@ async function processJsonRpc(
         if (pendingResult.toolCallId === toolCallId) {
           preQueue.shift();
           if (preQueue.length === 0) pendingResults.delete(token);
-          log.debug("acp-provider", `FIFO pre-queued 결과 반환: ${p.name} (${toolCallId})`);
+          log.debug("acp-provider", `FIFO pre-queued 결과 반환: ${p.name} (${toolCallId})`, { category: "acp" });
           return makeResult(id, pendingResult.result);
         }
         return makeError(

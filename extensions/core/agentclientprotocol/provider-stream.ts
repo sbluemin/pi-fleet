@@ -3,7 +3,8 @@
  *
  * UnifiedAgentClient를 통해 Gemini/Codex/Claude CLI 백엔드를 pi TUI에 통합.
  * Virtual Tool 방식: ACP CLI가 투명 스트리밍 백엔드. pi tool 루프 우회.
- * 신규 세션 시 pi 대화내역을 XML 구조화 히스토리로 첫 프롬프트에 주입.
+ * 신규 세션 시 pi 대화내역을 XML 구조화 히스토리로 첫 프롬프트에 주입한다.
+ * CLI 전용 systemPrompt는 connect options.systemPrompt로 executor에서 직접 주입한다.
  *
  * imports → types/interfaces → constants → functions 순서 준수.
  */
@@ -86,7 +87,7 @@ const SESSION_SCOPE_PREFIX = "session";
 /** 디버그 로깅 — log 시스템 사용 */
 function debug(...args: unknown[]): void {
   const log = getLogAPI();
-  log.debug("acp-provider", args.map(String).join(" "));
+  log.debug("acp-provider", args.map(String).join(" "), { category: "acp" });
 }
 
 /** finalPrompt 원문을 파일 로그에 남긴다. Footer에는 노출하지 않는다. */
@@ -107,7 +108,7 @@ function logFinalPrompt(
       prompt,
       "----- END FINAL PROMPT -----",
     ].join("\n"),
-    { hideFromFooter: true, category: "final-prompt" },
+    { hideFromFooter: true, category: "acp" },
   );
 }
 
@@ -153,20 +154,15 @@ function extractMessageText(content: unknown): string {
 
 /**
  * 신규 세션의 첫 프롬프트용 XML 구조화 프롬프트 생성.
- * CLI 시스템 지침 + 대화 히스토리(user/assistant) + 현재 사용자 요청을 XML 태그로 구조화.
+ * 대화 히스토리(user/assistant) + 런타임 컨텍스트로 래핑된 현재 사용자 요청을 조립한다.
  * 사용자 요청은 항상 마지막에 위치.
  *
  * context.systemPrompt(pi의 시스템 프롬프트)는 사용하지 않는다.
- * 외부 확장이 setCliSystemPrompt()로 설정한 CLI 전용 지침만 포함한다.
+ * CLI 전용 시스템 지침은 executor.buildConnectOptions에서
+ * unified-agent connect options.systemPrompt로 직접 전달한다.
  */
 function buildInitialPrompt(context: Context, currentUserMessage: string): string {
   const parts: string[] = [];
-
-  // CLI 전용 시스템 지침 — 외부에서 setCliSystemPrompt()로 설정된 값
-  const cliSystemPrompt = getCliSystemPrompt();
-  if (cliSystemPrompt) {
-    parts.push(`<system-instructions>\n${cliSystemPrompt}\n</system-instructions>`);
-  }
 
   // 대화 히스토리 — 마지막 user 메시지 제외, user/assistant만 포함
   const historyMessages = context.messages.slice(0, -1);
@@ -182,8 +178,18 @@ function buildInitialPrompt(context: Context, currentUserMessage: string): strin
     parts.push(`<conversation-history>\n${historyParts.join("\n")}\n</conversation-history>`);
   }
 
+  // CLI 전용 시스템 지침은 executor.buildConnectOptions에서 connect 시점에 주입된다.
+  // 이 지점의 user-turn XML 주입은 더 이상 필요하지 않다.
+
+  // initial과 follow-up 두 경로에서 동일한 런타임 컨텍스트가 주입되도록 builder를 경유한다.
+  // builder 미등록 시에는 기존 <user_request> 래핑으로 fallback한다.
+  const builder = getCliRuntimeContext();
+  const userBlock = builder
+    ? builder(currentUserMessage)
+    : `<user_request>\n${currentUserMessage}\n</user_request>`;
+
   // 현재 사용자 요청 — 항상 마지막. 후속 턴의 builder 출력과 태그명 일치.
-  parts.push(`<user_request>\n${currentUserMessage}\n</user_request>`);
+  parts.push(userBlock);
 
   return parts.join("\n\n");
 }
@@ -495,6 +501,7 @@ async function ensureSession(
 
   try {
     debug(session?.sessionId ? `session/load 복원 시도: ${session.sessionId.slice(0, 8)}` : `새 연결 시작: cli=${cli}`);
+    // Admiral host 응답 생성 경로는 executor.acquireSession의 host policy를 통해 전역 systemPrompt를 상속받는다.
     const acquired = await acquireSession({
       key,
       cliType: cli,

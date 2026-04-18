@@ -50,6 +50,8 @@ Any string that is ultimately consumed by an AI model should live in `prompts.ts
 | Tool prompt fields | `description`, `promptSnippet`, `promptGuidelines` | `prompts.ts` by default, or inline in the owning module when a child `AGENTS.md` explicitly allows it |
 | Short UI-only labels | button text, notification messages | `constants.ts` or inline (NOT `prompts.ts`) |
 
+> **Fleet 전역 정책**: `systemPrompt`는 공개 API(`UnifiedAgentRequestOptions`)에서 비노출되며, `admiral` 확장 내 `setCliSystemPrompt()`를 통해 host/provider 경로 전용 전역 단일 소스로 관리됩니다. `unified-agent`는 이를 `connect` 옵션으로 소비하여 하이브리드(native append 또는 첫 user-turn prefix) 방식으로 주입합니다. Carrier 도구 실행 경로는 Admiral systemPrompt를 상속하지 않으며, carrier persona는 각 요청 본문 조립 경로가 담당합니다.
+
 **Why separate?** Prompt text often needs independent review, A/B testing, or iteration without touching business logic. Keeping prompts in a single file per extension makes them easy to locate, audit, and modify.
 
 **Allowed exception:** If a child `AGENTS.md` explicitly states that prompt text is part of the owning module's domain contract and is expected to diverge per module, prompts may live inline in that module instead of a shared `prompts.ts`.
