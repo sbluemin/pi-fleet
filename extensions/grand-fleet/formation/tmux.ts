@@ -6,13 +6,15 @@ import { execFile } from "node:child_process";
 import { getLogAPI } from "../../core/log/bridge.js";
 
 type TmuxWindowInfo = {
+  dead: boolean;
+  currentCommand: string;
   name: string;
   paneId: string;
 };
 
-const LOG_SOURCE = "grand-fleet:formation";
+const LOG_SOURCE = "grand-fleet";
 const TMUX_TIMEOUT_MS = 10_000;
-const TMUX_WINDOW_FORMAT = "#{window_name}\t#{pane_pid}";
+const TMUX_WINDOW_FORMAT = "#{window_name}\t#{pane_pid}\t#{pane_dead}\t#{pane_current_command}";
 
 /** tmux 명령 실행 래퍼 */
 function tmux(...args: string[]): Promise<string> {
@@ -52,6 +54,25 @@ export async function checkTmuxAvailable(): Promise<boolean> {
 export async function createSession(sessionName: string): Promise<void> {
   getLogAPI().debug(LOG_SOURCE, `tmux 세션 생성: ${sessionName}`);
   await tmux("new-session", "-d", "-s", sessionName, "-x", "200", "-y", "50");
+}
+
+/** tmux 세션 존재 여부 확인 */
+export async function hasSession(sessionName: string): Promise<boolean> {
+  try {
+    await tmux("has-session", "-t", sessionName);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** tmux 세션을 보장한다. */
+export async function ensureSession(sessionName: string): Promise<void> {
+  if (await hasSession(sessionName)) {
+    return;
+  }
+
+  await createSession(sessionName);
 }
 
 /** tmux 윈도우 생성 */
@@ -112,12 +133,34 @@ export async function listWindows(
       .split("\n")
       .filter(Boolean)
       .map((line) => {
-        const [name = "", paneId = ""] = line.split("\t");
-        return { name, paneId };
+        const [name = "", paneId = "", dead = "0", currentCommand = ""] = line.split("\t");
+        return {
+          name,
+          paneId,
+          dead: dead === "1",
+          currentCommand,
+        };
       });
   } catch {
     return [];
   }
+}
+
+/** tmux 윈도우 조회 */
+export async function getWindow(
+  sessionName: string,
+  windowName: string,
+): Promise<TmuxWindowInfo | null> {
+  const windows = await listWindows(sessionName);
+  return windows.find((window) => window.name === windowName) ?? null;
+}
+
+/** 세션 내 윈도우 존재 여부 확인 */
+export async function hasWindow(
+  sessionName: string,
+  windowName: string,
+): Promise<boolean> {
+  return (await getWindow(sessionName, windowName)) !== null;
 }
 
 /** 현재 tmux 세션 내부에서 실행 중인지 감지 */
@@ -210,4 +253,14 @@ export async function createWindowInCurrentSession(
   getLogAPI().debug(LOG_SOURCE, `현재 세션에 윈도우 생성: ${windowName}`);
   // -d: 포커스를 새 윈도우로 이동하지 않음
   await tmux("new-window", "-d", "-n", windowName, "bash", "-c", command);
+}
+
+/** 특정 세션에 명령 실행용 윈도우를 생성한다. */
+export async function createCommandWindow(
+  sessionName: string,
+  windowName: string,
+  command: string,
+): Promise<void> {
+  getLogAPI().debug(LOG_SOURCE, `명령 윈도우 생성: ${sessionName}:${windowName}`);
+  await tmux("new-window", "-d", "-t", sessionName, "-n", windowName, "bash", "-lc", command);
 }

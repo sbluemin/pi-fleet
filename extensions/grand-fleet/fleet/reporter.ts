@@ -23,7 +23,7 @@ export interface MissionReportData {
   openIssues?: string[];
 }
 
-const LOG_SOURCE = "grand-fleet:fleet";
+const LOG_SOURCE = "grand-fleet";
 
 /** 작전 보고 전송 */
 export function sendMissionReport(

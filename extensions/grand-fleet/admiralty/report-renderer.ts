@@ -6,68 +6,67 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 import { getLogAPI } from "../../core/log/bridge.js";
-import type { FleetId, ReportType } from "../types.js";
+import type { FleetId, MissionReportParams } from "../types.js";
 
-interface ReportParams {
-  fleetId: FleetId;
-  missionId: string;
-  type: ReportType;
-  summary: string;
-  phases?: { executed: number[]; skipped: Record<string, string> };
-  fileStats?: { modified: number; created: number; deleted: number };
-  openIssues?: string[];
-  timestamp: string;
+interface FleetEventOptions {
+  designation?: string;
 }
 
-const STATUS_ICONS: Record<ReportType, string> = {
+interface ReportRenderOptions {
+  designation?: string;
+}
+
+const STATUS_ICONS: Record<MissionReportParams["type"], string> = {
   progress: "⏳ 진행중",
   complete: "✅ 완료",
   failed: "❌ 실패",
   blocked: "⚠️ 차단",
 };
-const LOG_SOURCE = "grand-fleet:admiralty";
+const LOG_SOURCE = "grand-fleet";
 
-/** 보고서를 Admiralty LLM에 후속 사용자 메시지로 주입한다 */
 export function renderReport(
   pi: ExtensionAPI,
-  params: Record<string, unknown>,
+  params: MissionReportParams,
+  options: ReportRenderOptions = {},
 ): void {
-  const report = params as unknown as ReportParams;
+  const fleetLabel = formatFleetLabel(params.fleetId, options.designation);
   getLogAPI().debug(
     LOG_SOURCE,
-    `보고서 수신: Fleet ${report.fleetId}, type=${report.type}`,
+    `보고서 수신: ${fleetLabel}, type=${params.type}`,
   );
-  const icon = STATUS_ICONS[report.type] ?? report.type;
-  const time = report.timestamp
-    ? new Date(report.timestamp).toLocaleTimeString()
+
+  const icon = STATUS_ICONS[params.type] ?? params.type;
+  const time = params.timestamp
+    ? new Date(params.timestamp).toLocaleTimeString()
     : "";
 
-  // Admiralty LLM이 보고를 수신하여 정리하도록 후속 사용자 메시지로 전달한다.
-  let content = `[Fleet ${report.fleetId} 작전 보고 수신 (${time})]\n`;
+  let content = `[${fleetLabel} 작전 보고 수신 (${time})]\n`;
   content += `Status: ${icon}\n`;
-  content += `\n${report.summary}\n`;
+  content += `\n${params.summary}\n`;
 
-  if (report.phases) {
-    content += `\nPhases: ${report.phases.executed.join(" → ")}\n`;
+  if (params.phases) {
+    content += `\nPhases: ${params.phases.executed.join(" → ")}\n`;
   }
-  if (report.fileStats) {
-    const { modified, created, deleted } = report.fileStats;
+  if (params.fileStats) {
+    const { modified, created, deleted } = params.fileStats;
     content += `Files: 변경 ${modified} | 신규 ${created} | 삭제 ${deleted}\n`;
   }
-  if (report.openIssues && report.openIssues.length > 0) {
-    content += `미해결: ${report.openIssues.join(", ")}\n`;
+  if (params.openIssues && params.openIssues.length > 0) {
+    content += `미해결: ${params.openIssues.join(", ")}\n`;
   }
 
   pi.sendUserMessage(content, { deliverAs: "followUp" });
 }
 
-/** 함대 연결/해제 이벤트 알림 */
 export function renderFleetEvent(
   pi: ExtensionAPI,
   fleetId: FleetId,
   event: "connected" | "disconnected",
+  options: FleetEventOptions = {},
 ): void {
-  getLogAPI().debug(LOG_SOURCE, `이벤트 렌더링: Fleet ${fleetId}, ${event}`);
+  const fleetLabel = formatFleetLabel(fleetId, options.designation);
+  getLogAPI().debug(LOG_SOURCE, `이벤트 렌더링: ${fleetLabel}, ${event}`);
+
   const isConnect = event === "connected";
   const color = isConnect ? "\x1b[38;2;80;220;120m" : "\x1b[38;2;255;100;90m";
   const reset = "\x1b[0m";
@@ -76,7 +75,15 @@ export function renderFleetEvent(
 
   pi.sendMessage({
     customType: "grand-fleet-event",
-    content: `${color}${icon}${reset} Fleet ${fleetId} ${color}${label}${reset}`,
+    content: `${color}${icon}${reset} ${fleetLabel} ${color}${label}${reset}`,
     display: true,
   });
+}
+
+function formatFleetLabel(fleetId: FleetId, designation?: string): string {
+  if (designation && designation.trim()) {
+    return `${designation} (${fleetId})`;
+  }
+
+  return `Fleet ${fleetId}`;
 }

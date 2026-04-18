@@ -50,6 +50,38 @@ export type ReportType = "progress" | "complete" | "failed" | "blocked";
 export type DeregisterReason = "shutdown" | "user_request" | "error";
 export type GrandFleetRole = "admiralty" | "fleet";
 
+export interface MissionReportParams {
+  fleetId: FleetId;
+  missionId: string;
+  type: ReportType;
+  summary: string;
+  phases?: { executed: number[]; skipped: Record<string, string> };
+  fileStats?: { modified: number; created: number; deleted: number };
+  openIssues?: string[];
+  timestamp: string;
+}
+
+export interface AdmiraltyPresenter {
+  onFleetConnected(fleetId: string): void;
+  onFleetDisconnected(fleetId: string): void;
+  onMissionReport(params: MissionReportParams): void;
+}
+
+export interface AdmiraltyRuntimeState {
+  presenter?: AdmiraltyPresenter;
+  registry: {
+    getConnectedFleet?(fleetId: FleetId): ConnectedFleet | undefined;
+    getSocket(fleetId: FleetId): unknown;
+    getRoster(): Array<{ id: FleetId; designation: string; zone: string; status: string }>;
+    shutdown(): void;
+  };
+  server: {
+    start(): Promise<void>;
+    close(): Promise<void>;
+  };
+  socketPath: string;
+}
+
 export interface CarrierInfo {
   status: CarrierStatus;
   cli?: CliBackend;
@@ -78,6 +110,7 @@ export interface FileStats {
 
 export interface ConnectedFleet {
   id: FleetId;
+  designation: string;
   operationalZone: string;
   sessionId: SessionId;
   protocolVersion: string;
@@ -96,6 +129,7 @@ export interface FormationConfig {
 
 export interface FleetEntry {
   id: FleetId;
+  designation: string;
   directory: string;
   status: "active" | "stopped" | "error";
   pid?: number;
@@ -119,6 +153,7 @@ export interface GrandFleetConfig {
 export interface GrandFleetState {
   role: GrandFleetRole | null;
   fleetId: FleetId | null;
+  designation: string | null;
   socketPath: string | null;
   connectedFleets: Map<FleetId, ConnectedFleet>;
   totalCost: number;
@@ -127,6 +162,7 @@ export interface GrandFleetState {
 }
 
 export const GRAND_FLEET_STATE_KEY = "__grand_fleet_state__";
+export const GRAND_FLEET_ADMIRALTY_RUNTIME_KEY = "__grand_fleet_admiralty_runtime__";
 
 export const GRAND_FLEET_ERRORS = {
   FLEET_ALREADY_REGISTERED: {

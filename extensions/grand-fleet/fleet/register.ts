@@ -24,6 +24,7 @@ import {
 
 interface FleetRegisterPayload {
   fleetId: FleetId;
+  designation: string;
   operationalZone: string;
   sessionId: string;
   protocolVersion: string;
@@ -45,6 +46,7 @@ interface FleetOverlayRuntimeState {
   activeMissionObjective: string | null;
   carriers: CarrierMap;
   connectionState: "disconnected" | "connecting" | "connected";
+  designation: string | null;
   fleetStatus: FleetStatus;
   heartbeatAgeMs: number | null;
   socketPath: string | null;
@@ -78,7 +80,7 @@ interface StreamStoreLikeState {
   visibleRunIdByCli?: Map<string, string>;
 }
 
-const LOG_SOURCE = "grand-fleet:fleet";
+const LOG_SOURCE = "grand-fleet";
 const CARRIER_FRAMEWORK_KEY = "__pi_bridge_framework__";
 const STREAM_STORE_KEY = "__pi_stream_store__";
 const STATUS_SYNC_INTERVAL_MS = 1_000;
@@ -99,7 +101,11 @@ export default function registerFleet(pi: ExtensionAPI): void {
 
   pi.on("before_agent_start", (event) => {
     if (!client || client.getState() !== "connected") return;
-    const context = buildFleetContextPrompt(fleetId, process.cwd());
+    const context = buildFleetContextPrompt(
+      fleetId,
+      state.designation ?? fleetId,
+      process.cwd(),
+    );
     return { systemPrompt: `${event.systemPrompt}\n\n${context}` };
   });
 
@@ -129,10 +135,20 @@ export default function registerFleet(pi: ExtensionAPI): void {
         return;
       }
 
+      const inputDesignation = await ctx.ui.input(
+        "함대 표시명 (Designation):",
+        state.designation ?? inputFleetId.trim(),
+      );
+      if (inputDesignation === undefined || !inputDesignation.trim()) {
+        ctx.ui.notify("접속이 취소되었습니다.", "warning");
+        return;
+      }
+
       const effectiveFleetId = inputFleetId.trim();
       if (state) {
         state.socketPath = inputPath.trim();
         state.fleetId = effectiveFleetId;
+        state.designation = inputDesignation.trim();
       }
 
       connectToAdmiralty(inputPath.trim(), effectiveFleetId, pi, ctx);
@@ -241,6 +257,7 @@ export function getFleetOverlayRuntimeState(): FleetOverlayRuntimeState {
     activeMissionObjective: ping.activeMissionObjective,
     carriers: ping.carriers,
     connectionState: client?.getState() ?? "disconnected",
+    designation: state.designation,
     fleetStatus: ping.fleetStatus,
     heartbeatAgeMs: lastHeartbeatAt === null ? null : Date.now() - lastHeartbeatAt,
     socketPath: state.socketPath,
@@ -335,8 +352,10 @@ function connectToAdmiralty(
 }
 
 function buildFleetRegisterPayload(fleetId: FleetId): FleetRegisterPayload {
+  const state = getState();
   return {
     fleetId,
+    designation: state.designation ?? fleetId,
     operationalZone: process.cwd(),
     sessionId: `session-${Date.now()}`,
     protocolVersion: PROTOCOL_VERSION,

@@ -10,14 +10,17 @@ import {
   createFramer,
   sendMessage,
   isRequest,
+  isResponse,
   isNotification,
   createJsonRpcResponse,
   createJsonRpcErrorResponse,
+  createJsonRpcRequest,
 } from "./protocol.js";
 import type {
   JsonRpcMessage,
   JsonRpcNotification,
   JsonRpcRequest,
+  JsonRpcResponse,
 } from "../types.js";
 import { getLogAPI } from "../../core/log/bridge.js";
 
@@ -33,12 +36,23 @@ type NotificationHandler = (
   fleetSocket: net.Socket,
 ) => void;
 
+type DisconnectHandler = (fleetSocket: net.Socket, reason: string) => void;
+
+interface PendingRequest {
+  reject: (error: Error) => void;
+  resolve: (value: unknown) => void;
+  timeout: ReturnType<typeof setTimeout>;
+}
+
 const SOCKET_PERMISSION = 0o600;
 const REQUEST_TIMEOUT_MS = 30_000;
+const LOG_SOURCE = "grand-fleet-ipc";
 
 export class AdmiraltyServer {
   private server: net.Server | null = null;
   private connections = new Set<net.Socket>();
+  private disconnectHandler: DisconnectHandler | null = null;
+  private pendingRequests = new Map<net.Socket, Map<number | string, PendingRequest>>();
   private requestHandlers = new Map<string, RequestHandler>();
   private notificationHandlers = new Map<string, NotificationHandler>();
   private socketPath: string;
@@ -57,39 +71,47 @@ export class AdmiraltyServer {
     this.notificationHandlers.set(method, handler);
   }
 
+  onDisconnect(handler: DisconnectHandler): void {
+    this.disconnectHandler = handler;
+  }
+
   /** 서버 시작 */
   async start(): Promise<void> {
     const log = getLogAPI();
+    if (this.server?.listening) {
+      log.debug(LOG_SOURCE, `이미 리스닝 중인 서버 재사용: ${this.socketPath}`);
+      return;
+    }
     removeSocketFileIfExists(this.socketPath);
     ensureSocketDirectory(this.socketPath);
-    log.debug("grand-fleet:ipc", `서버 시작: ${this.socketPath}`);
+    log.debug(LOG_SOURCE, `서버 시작: ${this.socketPath}`);
 
     return new Promise((resolve, reject) => {
       this.server = net.createServer((socket) => {
         this.connections.add(socket);
-        log.info("grand-fleet:ipc", `Fleet 연결 수립 (활성 연결: ${this.connections.size})`);
+        this.pendingRequests.set(socket, new Map());
+        log.info(LOG_SOURCE, `Fleet 연결 수립 (활성 연결: ${this.connections.size})`);
 
         createFramer(
           socket,
           (msg) => this.handleMessage(msg, socket),
-          (err) => log.error("grand-fleet:ipc", `프레이밍 오류: ${err.message}`),
+          (err) => log.error(LOG_SOURCE, `프레이밍 오류: ${err.message}`),
         );
 
         socket.on("close", () => {
-          this.connections.delete(socket);
-          log.info("grand-fleet:ipc", `Fleet 연결 종료 (활성 연결: ${this.connections.size})`);
+          this.handleSocketTermination(socket, "close");
         });
 
         socket.on("error", (err) => {
-          log.error("grand-fleet:ipc", `소켓 오류: ${err.message}`);
-          this.connections.delete(socket);
+          log.error(LOG_SOURCE, `소켓 오류: ${err.message}`);
+          this.handleSocketTermination(socket, `error:${err.message}`);
         });
       });
 
       this.server.on("error", reject);
       this.server.listen(this.socketPath, () => {
         fs.chmodSync(this.socketPath, SOCKET_PERMISSION);
-        log.info("grand-fleet:ipc", `Admiralty 서버 리스닝: ${this.socketPath}`);
+        log.info(LOG_SOURCE, `Admiralty 서버 리스닝: ${this.socketPath}`);
         resolve();
       });
     });
@@ -103,43 +125,26 @@ export class AdmiraltyServer {
     id: number,
   ): Promise<unknown> {
     return new Promise((resolve, reject) => {
+      const pendingBySocket = this.pendingRequests.get(socket);
+      if (!pendingBySocket) {
+        reject(new Error(`연결되지 않은 Fleet 소켓입니다: ${method}`));
+        return;
+      }
+
       const timeout = setTimeout(() => {
-        socket.removeListener("data", onData);
+        pendingBySocket.delete(id);
         reject(new Error(`Request 타임아웃: ${method}`));
       }, REQUEST_TIMEOUT_MS);
 
-      const onData = (chunk: Buffer) => {
-        try {
-          const lines = chunk.toString("utf-8").split("\n").filter(Boolean);
-          for (const line of lines) {
-            const response = parseResponseLine(line);
-            if (!response || response.id !== id) continue;
-
-            clearTimeout(timeout);
-            socket.removeListener("data", onData);
-
-            if (response.error) {
-              reject(new Error(response.error.message));
-              return;
-            }
-
-            resolve(response.result);
-            return;
-          }
-        } catch {
-          // createFramer가 정상 파싱 경로를 담당하므로 여기서는 무시한다.
-        }
-      };
-
-      socket.on("data", onData);
-      sendMessage(socket, { jsonrpc: "2.0", method, params, id });
+      pendingBySocket.set(id, { resolve, reject, timeout });
+      sendMessage(socket, createJsonRpcRequest(method, params, id));
     });
   }
 
   /** 서버 종료 */
   async close(): Promise<void> {
     const log = getLogAPI();
-    log.info("grand-fleet:ipc", `서버 종료 (활성 연결 ${this.connections.size}개 해제)`);
+    log.info(LOG_SOURCE, `서버 종료 (활성 연결 ${this.connections.size}개 해제)`);
     for (const socket of this.connections) {
       socket.destroy();
     }
@@ -170,6 +175,11 @@ export class AdmiraltyServer {
       return;
     }
 
+    if (isResponse(msg)) {
+      this.handleResponseMessage(msg, socket);
+      return;
+    }
+
     if (isNotification(msg)) {
       this.handleNotificationMessage(msg, socket);
     }
@@ -183,7 +193,7 @@ export class AdmiraltyServer {
     const log = getLogAPI();
     const handler = this.requestHandlers.get(msg.method);
     if (!handler) {
-      log.warn("grand-fleet:ipc", `알 수 없는 메서드: ${msg.method}`);
+      log.warn(LOG_SOURCE, `알 수 없는 메서드: ${msg.method}`);
       sendMessage(
         socket,
         createJsonRpcErrorResponse(
@@ -195,13 +205,13 @@ export class AdmiraltyServer {
       return;
     }
 
-    log.debug("grand-fleet:ipc", `Request 수신: ${msg.method} (id=${msg.id})`);
+    log.debug(LOG_SOURCE, `Request 수신: ${msg.method} (id=${msg.id})`);
     try {
       const result = await handler(msg.params ?? {}, socket);
       sendMessage(socket, createJsonRpcResponse(msg.id, result));
-      log.debug("grand-fleet:ipc", `Request 완료: ${msg.method} (id=${msg.id})`);
+      log.debug(LOG_SOURCE, `Request 완료: ${msg.method} (id=${msg.id})`);
     } catch (err) {
-      log.error("grand-fleet:ipc", `Request 실패: ${msg.method} — ${toErrorMessage(err)}`);
+      log.error(LOG_SOURCE, `Request 실패: ${msg.method} — ${toErrorMessage(err)}`);
       sendMessage(
         socket,
         createJsonRpcErrorResponse(msg.id, -32603, toErrorMessage(err)),
@@ -216,8 +226,48 @@ export class AdmiraltyServer {
   ): void {
     const handler = this.notificationHandlers.get(msg.method);
     if (!handler) return;
-    getLogAPI().debug("grand-fleet:ipc", `Notification 수신: ${msg.method}`);
+    getLogAPI().debug(LOG_SOURCE, `Notification 수신: ${msg.method}`);
     handler(msg.params ?? {}, socket);
+  }
+
+  private handleResponseMessage(msg: JsonRpcResponse, socket: net.Socket): void {
+    const pendingBySocket = this.pendingRequests.get(socket);
+    if (!pendingBySocket) return;
+
+    const pending = pendingBySocket.get(msg.id);
+    if (!pending) return;
+
+    clearTimeout(pending.timeout);
+    pendingBySocket.delete(msg.id);
+
+    if ("error" in msg && msg.error) {
+      pending.reject(new Error(msg.error.message));
+      return;
+    }
+
+    pending.resolve("result" in msg ? msg.result : undefined);
+  }
+
+  private handleSocketTermination(socket: net.Socket, reason: string): void {
+    const log = getLogAPI();
+    const wasTracked = this.connections.delete(socket);
+    this.cancelPendingRequests(socket, reason);
+    this.pendingRequests.delete(socket);
+    this.disconnectHandler?.(socket, reason);
+    if (wasTracked) {
+      log.info(LOG_SOURCE, `Fleet 연결 종료 (활성 연결: ${this.connections.size})`);
+    }
+  }
+
+  private cancelPendingRequests(socket: net.Socket, reason: string): void {
+    const pendingBySocket = this.pendingRequests.get(socket);
+    if (!pendingBySocket) return;
+
+    for (const [requestId, pending] of pendingBySocket.entries()) {
+      clearTimeout(pending.timeout);
+      pending.reject(new Error(`Fleet 연결 종료로 요청 취소: ${String(requestId)} (${reason})`));
+    }
+    pendingBySocket.clear();
   }
 }
 
@@ -231,18 +281,6 @@ function ensureSocketDirectory(socketPath: string): void {
 function removeSocketFileIfExists(socketPath: string): void {
   if (!fs.existsSync(socketPath)) return;
   fs.unlinkSync(socketPath);
-}
-
-function parseResponseLine(line: string): {
-  id?: number | string;
-  result?: unknown;
-  error?: { message: string };
-} | null {
-  return JSON.parse(line) as {
-    id?: number | string;
-    result?: unknown;
-    error?: { message: string };
-  };
 }
 
 function toErrorMessage(err: unknown): string {

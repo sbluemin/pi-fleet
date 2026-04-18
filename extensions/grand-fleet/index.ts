@@ -15,7 +15,6 @@ import registerAdmiralty from "./admiralty/register.js";
 import { registerAdmiraltyTools } from "./admiralty/tools.js";
 import { openFleetStatusOverlay } from "./fleet/status-overlay.js";
 import registerFleet from "./fleet/register.js";
-import { registerFormationCommands } from "./formation/auto-subdirs.js";
 
 let activeStatusPopup: Promise<void> | null = null;
 
@@ -39,7 +38,6 @@ export default function registerGrandFleet(pi: ExtensionAPI) {
   if (role === "admiralty") {
     log.info("grand-fleet", "Admiralty 모드 초기화");
     registerAdmiraltyTools(pi);
-    registerFormationCommands(pi);
     registerAdmiralty(pi);
   } else {
     log.info("grand-fleet", `Fleet 모드 초기화 — fleetId=${process.env.PI_FLEET_ID}`);
@@ -65,6 +63,7 @@ function initState(role: GrandFleetRole): void {
   (globalThis as any)[GRAND_FLEET_STATE_KEY] = {
     role,
     fleetId: role === "fleet" ? (process.env.PI_FLEET_ID ?? null) : null,
+    designation: role === "fleet" ? (process.env.PI_FLEET_DESIGNATION ?? null) : null,
     socketPath: process.env.PI_GRAND_FLEET_SOCK ?? null,
     connectedFleets: new Map(),
     totalCost: 0,

@@ -1,19 +1,41 @@
+import * as crypto from "node:crypto";
+import * as fs from "node:fs";
 import type { Socket } from "node:net";
+import * as path from "node:path";
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 
 import { getLogAPI } from "../../core/log/bridge.js";
+import * as tmux from "../formation/tmux.js";
 import { getState } from "../index.js";
 import type { AdmiraltyServer } from "../ipc/server.js";
 import type { CarrierMap, ConnectedFleet, FleetStatus, MissionId } from "../types.js";
 import type { FleetRegistry } from "./fleet-registry.js";
 import { syncRosterWidget } from "./roster-widget.js";
 
+interface DeployParams {
+  designation: string;
+  directory: string;
+}
+
+interface DeployResult {
+  designation: string;
+  directory: string;
+  fleetId: string;
+  reused: boolean;
+  sessionName: string;
+  windowName: string;
+}
+
 interface DispatchParams {
   fleetId: string;
   directive: string;
   priority?: string;
+}
+
+interface RecallParams {
+  fleetId: string;
 }
 
 interface BroadcastParams {
@@ -26,13 +48,15 @@ interface StatusParams {
 }
 
 interface RegistryFleetRecord {
-  id: string;
-  status: FleetStatus | string;
-  carriers: CarrierMap;
   cost: number;
+  carriers: CarrierMap;
+  connected: boolean;
+  designation: string;
+  directory: string;
+  id: string;
   activeMissionId: MissionId | null;
   socket?: Socket;
-  connected: boolean;
+  status: FleetStatus | string;
 }
 
 interface RegistryLike {
@@ -40,23 +64,47 @@ interface RegistryLike {
 }
 
 interface MissionAck {
+  acknowledgement: unknown;
+  designation: string;
   fleetId: string;
   missionId: string;
   priority: string;
-  acknowledgement: unknown;
 }
 
 interface FleetStatusView {
+  activeMissionId: string | null;
+  connected: boolean;
+  cost: number;
+  designation: string;
+  directory: string;
+  fleetId: string;
+  carrierStatus: CarrierMap;
+  status: string;
+}
+
+interface RecallSnapshot {
+  activeMissionId: string | null;
+  activeMissionObjective: string | null;
+  designation: string;
+  directory: string;
   fleetId: string;
   status: string;
-  connected: boolean;
-  activeMissionId: string | null;
-  carrierStatus: CarrierMap;
-  cost: number;
 }
 
 const DEFAULT_PRIORITY = "normal";
-const LOG_SOURCE = "grand-fleet:admiralty";
+const LOG_SOURCE = "grand-fleet";
+const DEPLOY_SESSION_NAME = "grand-fleet-admiralty";
+
+const DeployParamsSchema = Type.Object({
+  directory: Type.String({
+    minLength: 1,
+    description: "함대를 파견할 대상 하위 디렉토리 경로",
+  }),
+  designation: Type.String({
+    minLength: 1,
+    description: "함대 표시명. UI와 프롬프트에 노출되는 식별명",
+  }),
+});
 
 const DispatchParamsSchema = Type.Object({
   fleetId: Type.String({
@@ -91,11 +139,16 @@ const StatusParamsSchema = Type.Object({
   })),
 });
 
-/** Admiralty 런타임 참조 — launchGrandFleet 시점에 주입됨 */
+const RecallParamsSchema = Type.Object({
+  fleetId: Type.String({
+    minLength: 1,
+    description: "철수시킬 함대 식별자",
+  }),
+});
+
 let runtimeRegistry: (() => FleetRegistry) | null = null;
 let runtimeServer: (() => AdmiraltyServer) | null = null;
 
-/** 런타임 참조를 주입한다. (auto-subdirs.ts의 startAdmiraltyServer에서 호출) */
 export function setAdmiraltyRuntime(
   getRegistry: () => FleetRegistry,
   getServer: () => AdmiraltyServer,
@@ -104,21 +157,43 @@ export function setAdmiraltyRuntime(
   runtimeServer = getServer;
 }
 
-function requireRuntime(): { registry: FleetRegistry; server: AdmiraltyServer } {
-  if (!runtimeRegistry || !runtimeServer) {
-    throw new Error("Grand Fleet이 활성화되지 않았습니다. /fleet:grand-fleet:start를 먼저 실행하세요.");
-  }
-  return { registry: runtimeRegistry(), server: runtimeServer() };
-}
-
 export function registerAdmiraltyTools(
   pi: ExtensionAPI,
 ): void {
   pi.registerTool({
+    name: "grand_fleet_deploy",
+    label: "Grand Fleet Deploy",
+    description: "대상 하위 디렉토리에 Fleet PI를 파견하거나 기존 Fleet을 재사용한다.",
+    parameters: DeployParamsSchema as any,
+    async execute(_toolCallId: string, params: DeployParams) {
+      const log = getLogAPI();
+      const { registry } = requireRuntime();
+
+      log.info(
+        LOG_SOURCE,
+        `deploy: ${params.designation} ← ${params.directory}`,
+      );
+
+      const result = await deployFleet(registry, params);
+      syncRosterWidget();
+
+      return {
+        content: [{
+          type: "text" as const,
+          text: result.reused
+            ? `Fleet 재사용: ${result.designation} (${result.fleetId})`
+            : `Fleet 파견 완료: ${result.designation} (${result.fleetId})`,
+        }],
+        details: result,
+      };
+    },
+  });
+
+  pi.registerTool({
     name: "grand_fleet_dispatch",
     label: "Grand Fleet Dispatch",
     description: "특정 함대에 작전을 하달한다.",
-    parameters: DispatchParamsSchema,
+    parameters: DispatchParamsSchema as any,
     async execute(_toolCallId: string, params: DispatchParams) {
       const log = getLogAPI();
       const { registry, server } = requireRuntime();
@@ -154,16 +229,17 @@ export function registerAdmiraltyTools(
         log.debug(LOG_SOURCE, `dispatch 완료: ${missionId}`);
 
         const result: MissionAck = {
+          acknowledgement,
+          designation: fleet.designation,
           fleetId: fleet.id,
           missionId,
           priority,
-          acknowledgement,
         };
 
         return {
           content: [{
             type: "text" as const,
-            text: `작전 수령 확인: ${fleet.id} <- ${missionId} (${priority})`,
+            text: `작전 수령 확인: ${fleet.designation} (${fleet.id}) <- ${missionId} (${priority})`,
           }],
           details: result,
         };
@@ -178,10 +254,49 @@ export function registerAdmiraltyTools(
   });
 
   pi.registerTool({
+    name: "grand_fleet_recall",
+    label: "Grand Fleet Recall",
+    description: "특정 함대를 철수시켜 프로세스를 종료하고 진행 중인 임무를 중단한다.",
+    parameters: RecallParamsSchema as any,
+    async execute(_toolCallId: string, params: RecallParams) {
+      const log = getLogAPI();
+      const { registry } = requireRuntime();
+      const fleet = requireFleetRecord(registry, params.fleetId);
+      const snapshot = createRecallSnapshot(fleet);
+
+      log.warn(
+        LOG_SOURCE,
+        `recall: ${snapshot.designation} (${snapshot.fleetId})`,
+      );
+
+      try {
+        await tmux.killWindow(DEPLOY_SESSION_NAME, params.fleetId);
+      } catch (error) {
+        log.error(
+          LOG_SOURCE,
+          `recall 실패: Fleet ${params.fleetId} — ${toErrorMessage(error)}`,
+        );
+        throw error;
+      }
+
+      return {
+        content: [{
+          type: "text" as const,
+          text: `함대 철수 명령 전송: ${snapshot.designation} (${snapshot.fleetId})`,
+        }],
+        details: {
+          recalled: true,
+          snapshot,
+        },
+      };
+    },
+  });
+
+  pi.registerTool({
     name: "grand_fleet_broadcast",
     label: "Grand Fleet Broadcast",
     description: "연결된 모든 함대에 동일한 작전을 동시에 하달한다.",
-    parameters: BroadcastParamsSchema,
+    parameters: BroadcastParamsSchema as any,
     async execute(_toolCallId: string, params: BroadcastParams) {
       const log = getLogAPI();
       const { registry, server } = requireRuntime();
@@ -206,8 +321,9 @@ export function registerAdmiraltyTools(
           );
 
           return {
-            fleetId: fleet.id,
             acknowledgement,
+            designation: fleet.designation,
+            fleetId: fleet.id,
           };
         }),
       );
@@ -228,9 +344,9 @@ export function registerAdmiraltyTools(
           text: `전 함대 동시 하달 완료: ${acknowledgements.length}개 함대, ${missionId} (${priority})`,
         }],
         details: {
+          acknowledgements,
           missionId,
           priority,
-          acknowledgements,
         },
       };
     },
@@ -240,7 +356,7 @@ export function registerAdmiraltyTools(
     name: "grand_fleet_status",
     label: "Grand Fleet Status",
     description: "함대별 상태, carrier 가동 현황, 비용을 조회한다.",
-    parameters: StatusParamsSchema,
+    parameters: StatusParamsSchema as any,
     async execute(_toolCallId: string, params: StatusParams) {
       const log = getLogAPI();
       const { registry } = requireRuntime();
@@ -267,8 +383,152 @@ export function registerAdmiraltyTools(
   });
 }
 
+function requireRuntime(): { registry: FleetRegistry; server: AdmiraltyServer } {
+  if (!runtimeRegistry || !runtimeServer) {
+    throw new Error("Grand Fleet Admiralty 런타임이 초기화되지 않았습니다.");
+  }
+  return { registry: runtimeRegistry(), server: runtimeServer() };
+}
+
+async function deployFleet(
+  registry: FleetRegistry,
+  params: DeployParams,
+): Promise<DeployResult> {
+  const socketPath = getState().socketPath;
+  if (!socketPath) {
+    throw new Error("Admiralty 소켓 경로가 초기화되지 않았습니다.");
+  }
+
+  if (!(await tmux.checkTmuxAvailable())) {
+    throw new Error("tmux가 설치되어 있지 않습니다.");
+  }
+
+  const designation = normalizeDesignation(params.designation);
+  const directory = resolveFleetDirectory(params.directory);
+  const fleetId = createFleetId(directory);
+  const existingFleet = registry.getFleetByDirectory(directory);
+  const designationConflict = registry.hasDesignationConflict(designation, fleetId);
+
+  if (designationConflict) {
+    throw new Error(
+      `이미 다른 함대가 designation을 사용 중입니다: ${designation} (${designationConflict.id})`,
+    );
+  }
+
+  if (existingFleet && registry.getSocket(existingFleet.id)) {
+    return {
+      designation: existingFleet.designation,
+      directory,
+      fleetId: existingFleet.id,
+      reused: true,
+      sessionName: DEPLOY_SESSION_NAME,
+      windowName: existingFleet.id,
+    };
+  }
+
+  await ensureDeploySession();
+
+  if (await tmux.hasWindow(DEPLOY_SESSION_NAME, fleetId)) {
+    await tmux.killWindow(DEPLOY_SESSION_NAME, fleetId);
+  }
+
+  const command = buildFleetCommand({
+    designation,
+    directory,
+    fleetId,
+    socketPath,
+  });
+
+  try {
+    await tmux.createCommandWindow(DEPLOY_SESSION_NAME, fleetId, command);
+  } catch (error) {
+    throw new Error(`Fleet 파견 실패: ${toErrorMessage(error)}`);
+  }
+
+  return {
+    designation,
+    directory,
+    fleetId,
+    reused: false,
+    sessionName: DEPLOY_SESSION_NAME,
+    windowName: fleetId,
+  };
+}
+
+async function ensureDeploySession(): Promise<void> {
+  const alreadyExists = await tmux.hasSession(DEPLOY_SESSION_NAME);
+  await tmux.ensureSession(DEPLOY_SESSION_NAME);
+
+  if (!alreadyExists && !(await tmux.hasWindow(DEPLOY_SESSION_NAME, "Admiralty"))) {
+    try {
+      await tmux.createWindow(DEPLOY_SESSION_NAME, "Admiralty");
+    } catch {
+      // 초기 세션 생성 시 기본 윈도우가 이미 존재할 수 있다.
+    }
+  }
+}
+
 function normalizePriority(priority?: string): string {
   return priority?.trim() || DEFAULT_PRIORITY;
+}
+
+function normalizeDesignation(designation: string): string {
+  const normalized = designation.trim();
+  if (!normalized) {
+    throw new Error("designation은 비어 있을 수 없습니다.");
+  }
+  return normalized;
+}
+
+function resolveFleetDirectory(inputDirectory: string): string {
+  const projectRoot = fs.realpathSync.native(process.cwd());
+  const candidatePath = path.resolve(projectRoot, inputDirectory);
+
+  let directory: string;
+  try {
+    directory = fs.realpathSync.native(candidatePath);
+  } catch {
+    throw new Error(`대상 디렉토리가 존재하지 않습니다: ${inputDirectory}`);
+  }
+
+  const stat = fs.statSync(directory);
+  if (!stat.isDirectory()) {
+    throw new Error(`대상 경로가 디렉토리가 아닙니다: ${inputDirectory}`);
+  }
+
+  const relative = path.relative(projectRoot, directory);
+  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
+    throw new Error("directory는 현재 프로젝트 루트의 하위 디렉토리여야 합니다.");
+  }
+
+  return directory;
+}
+
+function createFleetId(directory: string): string {
+  const hash = crypto.createHash("sha256").update(directory).digest("hex").slice(0, 12);
+  const base = path.basename(directory).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  const safeBase = base || "fleet";
+  return `${safeBase}-${hash}`;
+}
+
+function buildFleetCommand(args: {
+  designation: string;
+  directory: string;
+  fleetId: string;
+  socketPath: string;
+}): string {
+  const envSegments = [
+    "PI_GRAND_FLEET_ROLE=fleet",
+    `PI_FLEET_ID=${quoteForShell(args.fleetId)}`,
+    `PI_FLEET_DESIGNATION=${quoteForShell(args.designation)}`,
+    `PI_GRAND_FLEET_SOCK=${quoteForShell(args.socketPath)}`,
+  ];
+
+  return `cd ${quoteForShell(args.directory)} && env ${envSegments.join(" ")} pi`;
+}
+
+function quoteForShell(value: string): string {
+  return "'" + value.replace(/'/g, "'\"'\"'") + "'";
 }
 
 function createMissionId(): string {
@@ -284,7 +544,6 @@ function requireFleetRecord(
   registry: FleetRegistry,
   fleetId: string,
 ): RegistryFleetRecord {
-  // 전역 상태를 함대 메타데이터의 기준 저장소로 사용한다.
   const directMatch = getState().connectedFleets.get(fleetId);
   const normalized = normalizeFleetRecord(directMatch, fleetId);
 
@@ -327,19 +586,29 @@ function normalizeFleetRecord(
   const id = typeof candidate.id === "string" && candidate.id.length > 0
     ? candidate.id
     : fallbackId;
+  const designation =
+    typeof candidate.designation === "string" && candidate.designation.trim()
+      ? candidate.designation
+      : id;
+  const directory =
+    typeof candidate.operationalZone === "string" && candidate.operationalZone.length > 0
+      ? candidate.operationalZone
+      : "";
   const connected =
     typeof candidate.connected === "boolean"
       ? candidate.connected
       : socket !== undefined;
 
   return {
+    activeMissionId,
+    carriers,
+    connected,
+    cost,
+    designation,
+    directory,
     id,
     status,
-    carriers,
-    cost,
-    activeMissionId,
     socket,
-    connected,
   };
 }
 
@@ -367,32 +636,45 @@ function isCarrierMap(value: unknown): value is CarrierMap {
 
 function requireFleetSocket(fleet: RegistryFleetRecord): Socket {
   if (fleet.socket) return fleet.socket;
-  throw new Error(`연결되지 않은 함대입니다: ${fleet.id}`);
+  throw new Error(`연결되지 않은 함대입니다: ${fleet.designation} (${fleet.id})`);
 }
 
 function attachFleetSocket(
   registry: FleetRegistry,
   fleet: RegistryFleetRecord,
 ): RegistryFleetRecord {
-  // 실제 연결 소켓은 FleetRegistry가 별도 보관하므로 여기서 합친다.
   const registryLike = registry as unknown as RegistryLike;
   const socket = registryLike.getSocket?.(fleet.id) ?? fleet.socket;
 
   return {
     ...fleet,
-    socket,
     connected: socket !== undefined,
+    socket,
   };
 }
 
 function toFleetStatusView(fleet: RegistryFleetRecord): FleetStatusView {
   return {
+    activeMissionId: fleet.activeMissionId,
+    connected: fleet.connected,
+    cost: fleet.cost,
+    designation: fleet.designation,
+    directory: fleet.directory,
+    fleetId: fleet.id,
+    carrierStatus: fleet.carriers,
+    status: fleet.status,
+  };
+}
+
+function createRecallSnapshot(fleet: RegistryFleetRecord): RecallSnapshot {
+  return {
+    activeMissionId: fleet.activeMissionId,
+    activeMissionObjective:
+      getState().connectedFleets.get(fleet.id)?.activeMissionObjective ?? null,
+    designation: fleet.designation,
+    directory: fleet.directory,
     fleetId: fleet.id,
     status: fleet.status,
-    connected: fleet.connected,
-    activeMissionId: fleet.activeMissionId,
-    carrierStatus: fleet.carriers,
-    cost: fleet.cost,
   };
 }
 
@@ -405,7 +687,7 @@ function formatStatusSummary(fleets: FleetStatusView[]): string {
     .map((fleet) => {
       const carrierCount = Object.keys(fleet.carrierStatus).length;
       const mission = fleet.activeMissionId ?? "-";
-      return `${fleet.fleetId}: status=${fleet.status}, connected=${fleet.connected}, carriers=${carrierCount}, cost=${fleet.cost}, mission=${mission}`;
+      return `${fleet.designation} (${fleet.fleetId}): status=${fleet.status}, connected=${fleet.connected}, carriers=${carrierCount}, cost=${fleet.cost}, mission=${mission}, dir=${fleet.directory}`;
     })
     .join("\n");
 }

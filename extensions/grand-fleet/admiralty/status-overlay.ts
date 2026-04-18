@@ -48,7 +48,7 @@ export async function openAdmiraltyStatusOverlay(ctx: ExtensionContext): Promise
   if (!ctx.hasUI) return;
 
   await ctx.ui.custom<void>(
-    (tui, theme, _keybindings, done) => new AdmiraltyStatusOverlay(tui, theme, done),
+    (tui, theme, _keybindings, done) => new AdmiraltyStatusOverlay(tui as any, theme, done),
     {
       overlay: true,
       overlayOptions: {
@@ -135,7 +135,7 @@ class AdmiraltyStatusOverlay implements Component, Focusable {
       for (const fleet of visibleFleets) {
         const isSelected = fleets[this.selectedIndex]?.id === fleet.id;
         const prefix = isSelected ? `${ANSI_IDLE}▸${ANSI_RESET}` : " ";
-        const fleetId = stripControlChars(fleet.id);
+        const fleetId = stripControlChars(`${fleet.designation} (${fleet.id})`);
         const zone = shortenText(
           stripControlChars(fleet.operationalZone),
           Math.max(16, frame.innerWidth - 24),

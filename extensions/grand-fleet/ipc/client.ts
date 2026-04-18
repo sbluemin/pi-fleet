@@ -32,6 +32,7 @@ interface PendingRequest {
 const REQUEST_TIMEOUT_MS = 30_000;
 const JSON_RPC_METHOD_NOT_FOUND = -32601;
 const JSON_RPC_INTERNAL_ERROR = -32603;
+const LOG_SOURCE = "grand-fleet-ipc";
 
 export class FleetClient {
   private socket: net.Socket | null = null;
@@ -70,7 +71,7 @@ export class FleetClient {
     if (this.state !== "disconnected") return;
     this.intentionalClose = false;
     this.state = "connecting";
-    getLogAPI().debug("grand-fleet:ipc", `Admiralty 접속 시도: ${this.socketPath}`);
+    getLogAPI().debug(LOG_SOURCE, `Admiralty 접속 시도: ${this.socketPath}`);
     this.attemptConnect();
   }
 
@@ -134,13 +135,13 @@ export class FleetClient {
       this.state = "connected";
       this.reconnectDelay = RECONNECT_BASE_MS;
       const log = getLogAPI();
-      log.info("grand-fleet:ipc", `Admiralty 접속 성공: ${this.socketPath}`);
+      log.info(LOG_SOURCE, `Admiralty 접속 성공: ${this.socketPath}`);
       createFramer(
         socket,
         (msg) => {
           void this.handleMessage(msg);
         },
-        (err: Error) => log.error("grand-fleet:ipc", `프레이밍 오류: ${err.message}`),
+        (err: Error) => log.error(LOG_SOURCE, `프레이밍 오류: ${err.message}`),
       );
       this.onConnected?.();
     });
@@ -154,21 +155,21 @@ export class FleetClient {
       }
       if (!this.intentionalClose) {
         if (wasConnected) {
-          getLogAPI().warn("grand-fleet:ipc", "Admiralty 연결 끊김 — 재연결 대기");
+          getLogAPI().warn(LOG_SOURCE, "Admiralty 연결 끊김 — 재연결 대기");
         }
         this.scheduleReconnect();
       }
     });
 
     socket.on("error", (err: Error) => {
-      getLogAPI().error("grand-fleet:ipc", `소켓 오류: ${err.message}`);
+      getLogAPI().error(LOG_SOURCE, `소켓 오류: ${err.message}`);
     });
   }
 
   private scheduleReconnect(): void {
     if (this.reconnectTimer) return;
 
-    getLogAPI().debug("grand-fleet:ipc", `재연결 스케줄: ${this.reconnectDelay}ms 후`);
+    getLogAPI().debug(LOG_SOURCE, `재연결 스케줄: ${this.reconnectDelay}ms 후`);
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       this.state = "connecting";
@@ -198,7 +199,7 @@ export class FleetClient {
     const log = getLogAPI();
     const handler = this.requestHandlers.get(msg.method);
     if (!handler) {
-      log.warn("grand-fleet:ipc", `알 수 없는 메서드: ${msg.method}`);
+      log.warn(LOG_SOURCE, `알 수 없는 메서드: ${msg.method}`);
       sendMessage(
         this.socket,
         createJsonRpcErrorResponse(
@@ -210,14 +211,14 @@ export class FleetClient {
       return;
     }
 
-    log.debug("grand-fleet:ipc", `Admiralty Request 수신: ${msg.method} (id=${msg.id})`);
+    log.debug(LOG_SOURCE, `Admiralty Request 수신: ${msg.method} (id=${msg.id})`);
     try {
       const result = await handler(msg.params ?? {});
       sendMessage(this.socket, createJsonRpcResponse(msg.id, result));
-      log.debug("grand-fleet:ipc", `Admiralty Request 완료: ${msg.method}`);
+      log.debug(LOG_SOURCE, `Admiralty Request 완료: ${msg.method}`);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      log.error("grand-fleet:ipc", `Admiralty Request 실패: ${msg.method} — ${message}`);
+      log.error(LOG_SOURCE, `Admiralty Request 실패: ${msg.method} — ${message}`);
       sendMessage(
         this.socket,
         createJsonRpcErrorResponse(

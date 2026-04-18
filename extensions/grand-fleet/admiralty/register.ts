@@ -17,6 +17,13 @@ import { getState } from "../index.js";
 import { AdmiraltyServer } from "../ipc/server.js";
 import { registerAdmiraltyHandlers } from "../ipc/methods.js";
 import { buildAdmiraltySystemPrompt } from "../prompts.js";
+import {
+  GRAND_FLEET_ADMIRALTY_RUNTIME_KEY,
+  type AdmiraltyPresenter,
+  type AdmiraltyRuntimeState,
+  type MissionReportParams,
+} from "../types.js";
+import { renderFleetEvent, renderReport } from "./report-renderer.js";
 import { FleetRegistry } from "./fleet-registry.js";
 import { initRosterWidget, disposeRosterWidget, syncRosterWidget } from "./roster-widget.js";
 import { setAdmiraltyRuntime } from "./tools.js";
@@ -24,11 +31,10 @@ import { setAdmiraltyRuntime } from "./tools.js";
 const GRAND_FLEET_HOME = path.join(os.homedir(), ".pi", "grand-fleet");
 const DEFAULT_SOCKET_FILE = path.join(GRAND_FLEET_HOME, "admiralty.sock");
 
-let server: AdmiraltyServer | null = null;
-let registry: FleetRegistry | null = null;
-
 export default function registerAdmiralty(pi: ExtensionAPI): void {
-  registry = new FleetRegistry();
+  const runtime = ensureRuntime();
+  getState().socketPath = runtime.socketPath;
+  runtime.presenter = createPresenter(pi, runtime);
 
   // before_agent_start: 시스템 프롬프트 전체 교체
   pi.on("before_agent_start", () => {
@@ -46,37 +52,14 @@ export default function registerAdmiralty(pi: ExtensionAPI): void {
     const state = getState();
     if (!state) return;
 
-    const socketPath = state.socketPath ?? DEFAULT_SOCKET_FILE;
-    state.socketPath = socketPath;
-
-    server = new AdmiraltyServer(socketPath);
-
-    registerAdmiraltyHandlers(server, {
-      onFleetRegister: async (params, socket) => {
-        return getRegistry().register(params, socket);
-      },
-      onFleetDeregister: (params, socket) => {
-        void socket;
-        getRegistry().deregister(params.fleetId as string);
-      },
-      onFleetHeartbeat: (params) => {
-        getRegistry().heartbeat(params);
-      },
-      onFleetStatus: (params) => {
-        getRegistry().updateStatus(params);
-      },
-      onMissionReport: (params, socket) => {
-        void socket;
-        // TODO: report-renderer로 전달
-        getRegistry().handleReport(params);
-      },
-    });
+    state.socketPath = runtime.socketPath;
 
     try {
-      await server.start();
-      notify(ctx, `[Grand Fleet] Admiralty 서버 기동: ${socketPath}`, "info");
+      await runtime.server.start();
+      notify(ctx, `[Grand Fleet] Admiralty 서버 기동: ${runtime.socketPath}`, "info");
       initRosterWidget(ctx);
       getRegistry().onChange(syncRosterWidget);
+      syncRosterWidget();
     } catch (err) {
       notify(
         ctx,
@@ -89,8 +72,10 @@ export default function registerAdmiralty(pi: ExtensionAPI): void {
   // session_shutdown: 서버 종료
   pi.on("session_shutdown", async () => {
     disposeRosterWidget();
-    await server?.close();
-    server = null;
+    runtime.presenter = undefined;
+    getRegistry().shutdown();
+    await getServer().close();
+    delete (globalThis as any)[GRAND_FLEET_ADMIRALTY_RUNTIME_KEY];
   });
 
   // 도구의 런타임 참조 주입 (도구 자체는 index.ts에서 이미 등록됨)
@@ -98,21 +83,23 @@ export default function registerAdmiralty(pi: ExtensionAPI): void {
 }
 
 export function getFleetRegistry(): FleetRegistry | null {
-  return registry;
+  return readRuntime()?.registry as FleetRegistry | null;
 }
 
 function getRegistry(): FleetRegistry {
-  if (!registry) {
+  const runtime = readRuntime();
+  if (!runtime) {
     throw new Error("Admiralty registry가 초기화되지 않았습니다.");
   }
-  return registry;
+  return runtime.registry as FleetRegistry;
 }
 
 function getServer(): AdmiraltyServer {
-  if (!server) {
+  const runtime = readRuntime();
+  if (!runtime) {
     throw new Error("Admiralty server가 초기화되지 않았습니다.");
   }
-  return server;
+  return runtime.server as AdmiraltyServer;
 }
 
 function notify(
@@ -126,4 +113,90 @@ function notify(
 function toErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   return String(err);
+}
+
+function ensureRuntime(): AdmiraltyRuntimeState {
+  const existing = readRuntime();
+  if (existing) {
+    return existing;
+  }
+
+  const socketPath = process.env.PI_GRAND_FLEET_SOCK ?? DEFAULT_SOCKET_FILE;
+  const registry = new FleetRegistry();
+  const server = new AdmiraltyServer(socketPath);
+
+  registerAdmiraltyHandlers(server, {
+    onFleetRegister: async (params, socket) => {
+      const result = await registry.register(params, socket);
+      runtime.presenter?.onFleetConnected(String(params.fleetId ?? ""));
+      return result;
+    },
+    onFleetDeregister: (params) => {
+      const fleetId = String(params.fleetId ?? "");
+      registry.deregister(fleetId);
+      runtime.presenter?.onFleetDisconnected(fleetId);
+    },
+    onFleetHeartbeat: (params) => {
+      registry.heartbeat(params);
+    },
+    onFleetStatus: (params) => {
+      registry.updateStatus(params);
+    },
+    onMissionReport: (params) => {
+      registry.handleReport(params);
+      runtime.presenter?.onMissionReport(toMissionReportParams(params));
+    },
+  });
+  server.onDisconnect((socket, reason) => {
+    const fleetId = registry.deregisterBySocket(socket, reason);
+    if (fleetId) {
+      runtime.presenter?.onFleetDisconnected(fleetId);
+    }
+  });
+
+  const runtime: AdmiraltyRuntimeState = {
+    registry,
+    server,
+    socketPath,
+  };
+  (globalThis as any)[GRAND_FLEET_ADMIRALTY_RUNTIME_KEY] = runtime;
+  return runtime;
+}
+
+function readRuntime(): AdmiraltyRuntimeState | null {
+  return ((globalThis as any)[GRAND_FLEET_ADMIRALTY_RUNTIME_KEY] ?? null) as AdmiraltyRuntimeState | null;
+}
+
+function createPresenter(
+  pi: ExtensionAPI,
+  runtime: AdmiraltyRuntimeState,
+): AdmiraltyPresenter {
+  return {
+    onFleetConnected(fleetId: string): void {
+      renderFleetEvent(pi, fleetId, "connected", {
+        designation: lookupDesignation(runtime, fleetId),
+      });
+    },
+    onFleetDisconnected(fleetId: string): void {
+      renderFleetEvent(pi, fleetId, "disconnected", {
+        designation: lookupDesignation(runtime, fleetId),
+      });
+    },
+    onMissionReport(params: MissionReportParams): void {
+      renderReport(pi, params, {
+        designation: lookupDesignation(runtime, params.fleetId),
+      });
+    },
+  };
+}
+
+function lookupDesignation(
+  runtime: AdmiraltyRuntimeState,
+  fleetId: string,
+): string | undefined {
+  return runtime.registry.getConnectedFleet?.(fleetId)?.designation;
+}
+
+function toMissionReportParams(params: Record<string, unknown>): MissionReportParams {
+  return params as unknown as MissionReportParams;
 }

@@ -18,7 +18,7 @@ export async function openFleetStatusOverlay(ctx: ExtensionContext): Promise<voi
   if (!ctx.hasUI) return;
 
   await ctx.ui.custom<void>(
-    (tui, theme, _keybindings, done) => new FleetStatusOverlay(tui, theme, done),
+    (tui, theme, _keybindings, done) => new FleetStatusOverlay(tui as any, theme, done),
     {
       overlay: true,
       overlayOptions: {
@@ -79,6 +79,7 @@ class FleetStatusOverlay implements Component, Focusable {
     lines.push(frame.row(`  Connection`));
     lines.push(frame.row(`    Role            ${state.role ?? "fleet"}`));
     lines.push(frame.row(`    Fleet ID        ${state.fleetId ?? "(unset)"}`));
+    lines.push(frame.row(`    Designation     ${stripControlChars(runtime.designation ?? "(unset)")}`));
     lines.push(frame.row(`    Admiralty       ${connectionLabel}`));
     lines.push(frame.row(`    Socket Path     ${runtime.socketPath ?? "(unset)"}`));
     lines.push(frame.emptyRow());

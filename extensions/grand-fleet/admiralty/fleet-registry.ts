@@ -18,7 +18,7 @@ type StatusParams = Record<string, unknown>;
 type ReportParams = Record<string, unknown>;
 
 const HEARTBEAT_INTERVAL_SECONDS = 30;
-const LOG_SOURCE = "grand-fleet:admiralty";
+const LOG_SOURCE = "grand-fleet";
 
 export class FleetRegistry {
   /** fleetId → Socket 매핑 (소켓 참조 보관) */
@@ -32,16 +32,15 @@ export class FleetRegistry {
   /** 함대 등록 (fleet.register 핸들러) */
   async register(params: RegisterParams, socket: Socket): Promise<unknown> {
     const fleetId = params.fleetId as FleetId;
+    const designation = normalizeDesignation(params.designation, fleetId);
     const state = getState();
     const log = getLogAPI();
 
     try {
-      if (state.connectedFleets.has(fleetId)) {
-        log.warn(LOG_SOURCE, `Fleet ${fleetId} 중복 등록 검사 실패`);
+      if (!fleetId) {
         throw createRegistryError(
-          GRAND_FLEET_ERRORS.FLEET_ALREADY_REGISTERED.code,
-          GRAND_FLEET_ERRORS.FLEET_ALREADY_REGISTERED.message,
-          { fleetId },
+          GRAND_FLEET_ERRORS.FLEET_NOT_REGISTERED.code,
+          "Fleet ID is required",
         );
       }
 
@@ -56,8 +55,16 @@ export class FleetRegistry {
         );
       }
 
+      const previousSocket = this.sockets.get(fleetId);
+      const wasTakeover = previousSocket !== undefined;
+      if (previousSocket && previousSocket !== socket) {
+        log.warn(LOG_SOURCE, `Fleet ${fleetId} 재연결 감지 — 기존 소켓 교체`);
+        previousSocket.destroy();
+      }
+
       const fleet: ConnectedFleet = {
         id: fleetId,
+        designation,
         operationalZone: params.operationalZone as string,
         sessionId: params.sessionId as string,
         protocolVersion: params.protocolVersion as string,
@@ -75,12 +82,13 @@ export class FleetRegistry {
 
       log.info(
         LOG_SOURCE,
-        `Fleet ${fleetId} 등록 완료 (zone=${fleet.operationalZone})`,
+        `Fleet ${fleetId} 등록 완료 (designation=${designation}, zone=${fleet.operationalZone})`,
       );
 
       this.notifyChange();
       return {
         registered: true,
+        takeover: wasTakeover,
         protocolVersion: PROTOCOL_VERSION,
         heartbeatInterval: HEARTBEAT_INTERVAL_SECONDS,
       };
@@ -93,10 +101,34 @@ export class FleetRegistry {
   /** 함대 해제 */
   deregister(fleetId: FleetId): void {
     const state = getState();
-    state.connectedFleets.delete(fleetId);
+    const hadFleet = state.connectedFleets.delete(fleetId);
+    const socket = this.sockets.get(fleetId);
     this.sockets.delete(fleetId);
     this.clearHeartbeatTimer(fleetId);
+    if (socket && !socket.destroyed) {
+      socket.destroy();
+    }
     getLogAPI().info(LOG_SOURCE, `Fleet ${fleetId} 등록 해제`);
+    if (!hadFleet) {
+      return;
+    }
+    this.notifyChange();
+  }
+
+  deregisterBySocket(socket: Socket, reason = "socket_closed"): FleetId | null {
+    const fleetId = this.findFleetIdBySocket(socket);
+    if (!fleetId) return null;
+    getLogAPI().warn(LOG_SOURCE, `Fleet ${fleetId} 연결 종료 감지 (${reason})`);
+    this.deregister(fleetId);
+    return fleetId;
+  }
+
+  shutdown(): void {
+    for (const fleetId of this.sockets.keys()) {
+      this.clearHeartbeatTimer(fleetId);
+    }
+    this.sockets.clear();
+    getState().connectedFleets.clear();
     this.notifyChange();
   }
 
@@ -174,13 +206,39 @@ export class FleetRegistry {
   }
 
   /** 프롬프트용 로스터 생성 */
-  getRoster(): Array<{ id: FleetId; zone: string; status: string }> {
+  getRoster(): Array<{ id: FleetId; designation: string; zone: string; status: string }> {
     const state = getState();
     return Array.from(state.connectedFleets.values()).map((fleet) => ({
       id: fleet.id,
+      designation: fleet.designation,
       zone: fleet.operationalZone,
       status: fleet.status,
     }));
+  }
+
+  getFleetByDirectory(directory: string): ConnectedFleet | undefined {
+    const state = getState();
+    return Array.from(state.connectedFleets.values()).find(
+      (fleet) => fleet.operationalZone === directory,
+    );
+  }
+
+  getConnectedFleet(fleetId: FleetId): ConnectedFleet | undefined {
+    return getState().connectedFleets.get(fleetId);
+  }
+
+  hasDesignationConflict(designation: string, fleetId?: FleetId): ConnectedFleet | null {
+    const normalized = designation.trim();
+    if (!normalized) return null;
+
+    for (const fleet of getState().connectedFleets.values()) {
+      if (fleet.id === fleetId) continue;
+      if (fleet.designation === normalized) {
+        return fleet;
+      }
+    }
+
+    return null;
   }
 
   /** 상태 변경 리스너 등록 */
@@ -223,6 +281,16 @@ export class FleetRegistry {
     clearTimeout(timer);
     this.heartbeatTimers.delete(fleetId);
   }
+
+  private findFleetIdBySocket(target: Socket): FleetId | null {
+    for (const [fleetId, socket] of this.sockets.entries()) {
+      if (socket === target) {
+        return fleetId;
+      }
+    }
+
+    return null;
+  }
 }
 
 function calculateTotalCost(): number {
@@ -243,4 +311,11 @@ function createRegistryError(
 
 function toErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function normalizeDesignation(value: unknown, fleetId: FleetId): string {
+  if (typeof value === "string" && value.trim()) {
+    return value.trim();
+  }
+  return fleetId;
 }

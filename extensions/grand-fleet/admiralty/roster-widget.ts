@@ -121,7 +121,13 @@ function renderRoster(width: number): string[] {
   const visibleFleets = sorted.slice(0, MAX_FLEET_ROWS);
 
   // 열 폭 계산 — 전체 함대 기준으로 최대 길이에 맞춤
-  const nameCol = Math.min(20, Math.max(8, ...visibleFleets.map((f) => stripControlChars(f.id).length)));
+  const nameCol = Math.min(
+    30,
+    Math.max(
+      8,
+      ...visibleFleets.map((f) => stripControlChars(formatFleetLabel(f)).length),
+    ),
+  );
   const zoneCol = Math.min(
     40,
     Math.max(10, ...visibleFleets.map((f) => shortenPath(stripControlChars(f.operationalZone), home).length)),
@@ -145,7 +151,7 @@ function renderFleetRow(fleet: ConnectedFleet, _width: number, home: string, nam
     ? `${COLOR_ACTIVE}${SPINNER_FRAMES[spinnerFrame]}${RESET}`
     : (STATUS_ICONS[effectiveStatus] ?? `${COLOR_IDLE}⚓${RESET}`);
   const nameColor = STATUS_NAME_COLORS[effectiveStatus] ?? COLOR_IDLE;
-  const name = stripControlChars(fleet.id).slice(0, nameCol).padEnd(nameCol);
+  const name = stripControlChars(formatFleetLabel(fleet)).slice(0, nameCol).padEnd(nameCol);
   const zone = shortenPath(stripControlChars(fleet.operationalZone), home).slice(0, zoneCol).padEnd(zoneCol);
   const mission = fleet.activeMissionObjective
     ? `${ADMIRALTY_COLOR}「${stripControlChars(fleet.activeMissionObjective)}」${RESET}`
@@ -158,4 +164,8 @@ function shortenPath(fullPath: string, home: string): string {
   if (fullPath === home) return "~";
   if (fullPath.startsWith(home + "/")) return "~" + fullPath.slice(home.length);
   return fullPath;
+}
+
+function formatFleetLabel(fleet: ConnectedFleet): string {
+  return `${fleet.designation} (${fleet.id})`;
 }
