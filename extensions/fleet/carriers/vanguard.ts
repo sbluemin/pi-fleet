@@ -35,7 +35,6 @@ const CARRIER_METADATA: CarrierMetadata = {
     { tag: "depth", hint: "'quick' for surface scan, 'thorough' for exhaustive. Default: 'medium'.", required: false },
   ],
   outputFormat:
-    `<output_format>\n` +
     `Report findings as a structured reconnaissance report.\n` +
     `[Required] always include:\n` +
     `  **Thoroughness** — quick / medium / thorough (indicate scan depth performed).\n` +
@@ -45,8 +44,7 @@ const CARRIER_METADATA: CarrierMetadata = {
     `[If applicable] omit if not relevant:\n` +
     `  **Key observations** — 3-5 bullets summarizing patterns, anomalies, or notable discoveries.\n` +
     `  **Next steps** — Suggested follow-up actions for the orchestrator (max 3 bullets).\n` +
-    `Keep the report concise — bullets and short lines only. No narrative paragraphs.\n` +
-    `</output_format>`,
+    `Keep the report concise — bullets and short lines only. No narrative paragraphs.`,
   principles: [
     "When reporting code exploration, always use absolute file paths for direct actionability.",
   ],

@@ -76,9 +76,11 @@ import { refreshAgentPanel } from "./panel/lifecycle.js";
 import { registerAgentPanelShortcut } from "./panel/shortcuts.js";
 import { setAgentPanelServiceLoading, setAgentPanelServiceStatus } from "./panel/config.js";
 import { initServiceStatus, attachStatusContext, refreshStatusNow, getServiceSnapshots, refreshStatusQuiet } from "../core/agentclientprotocol/service-status/store.js";
-import { registerFleetSortie } from "./shipyard/carrier/sortie.js";
-import { registerFleetTaskForce } from "./shipyard/taskforce/index.js";
-import { registerFleetSquadron } from "./shipyard/squadron/index.js";
+import {
+  registerSortieTool,
+  registerTaskForceTool,
+  registerSquadronTool,
+} from "./admiral/prompts.js";
 import {
   TASKFORCE_CLI_TYPES,
   type TaskForceCliType,
@@ -200,14 +202,14 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
 
   registerFleetCarriers(pi);
 
-  registerFleetSortie(pi);
-  registerFleetTaskForce(pi);
-  registerFleetSquadron(pi);
+  registerSortieTool(pi);
+  registerTaskForceTool(pi);
+  registerSquadronTool(pi);
   const refreshTaskForceState = () => {
     // globalThis 캐시를 먼저 갱신해 크로스 번들에서 동일 상태를 읽게 합니다.
     const tfIds = getConfiguredTaskForceCarrierIds(getRegisteredOrder());
     setTaskForceConfiguredCarriers(tfIds, true);
-    registerFleetTaskForce(pi);
+    registerTaskForceTool(pi);
     notifyStatusUpdate();
   };
   let hasReconciledInitialModelSelections = false;
@@ -215,8 +217,8 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
   // sortie 상태 변경 시 → 도구 재등록 + 영속화 + 상태바 갱신
   // carrier 등록 완료 후 debounce를 통해 최초 1회 발화됨 → stale squadron ID도 이 시점에 정리
   onSortieStateChange(() => {
-    registerFleetSortie(pi);
-    registerFleetSquadron(pi);
+    registerSortieTool(pi);
+    registerSquadronTool(pi);
     refreshTaskForceState();
     saveSortieDisabled(getSortieDisabledIds());
     if (!hasReconciledInitialModelSelections) {
@@ -244,8 +246,8 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
 
   // squadron 상태 변경 시 → sortie/squadron 도구 재등록 + 영속화 + 상태바 갱신
   onSquadronStateChange(() => {
-    registerFleetSortie(pi);
-    registerFleetSquadron(pi);
+    registerSortieTool(pi);
+    registerSquadronTool(pi);
     // 등록된 carrier ID와의 교집합만 영속화 (미등록 ID 제거)
     const registeredSet = new Set(getRegisteredOrder());
     saveSquadronEnabled(getSquadronEnabledIds().filter((id) => registeredSet.has(id)));
@@ -483,8 +485,8 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
     attachStatusContext(ctx);
   };
 
-  pi.on("before_agent_start", (event) => {
-    return admiral.onBeforeAgentStart(event.systemPrompt);
+  pi.on("before_agent_start", () => {
+    admiral.onBeforeAgentStart();
   });
 
   pi.on("session_start", (_event, ctx) => {

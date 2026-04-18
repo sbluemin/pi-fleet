@@ -5,7 +5,6 @@ import { getSettingsAPI } from "../../core/settings/bridge.js";
 import { PROVIDER_ID, setCliRuntimeContext, setCliSystemPrompt } from "../../core/agentclientprotocol/provider-types.js";
 import { setEditorBorderColor, setEditorRightLabel } from "../../core/hud/border-bridge.js";
 import {
-  appendAdmiralSystemPrompt,
   buildAcpSystemPrompt,
   buildAcpRuntimeContext,
   isWorldviewEnabled,
@@ -16,7 +15,7 @@ import { registerProtocolWidget, updateProtocolWidget } from "./widget.js";
 import registerRequestDirective from "./request-directive.js";
 
 interface AdmiralBootApi {
-  onBeforeAgentStart(systemPrompt: string): { systemPrompt: string };
+  onBeforeAgentStart(): void;
   onSessionStart(ctx: ExtensionContext): void;
   onSessionTree(): void;
 }
@@ -30,9 +29,8 @@ export function bootAdmiral(pi: ExtensionAPI): AdmiralBootApi {
   registerAdmiralCommands(pi);
 
   return {
-    onBeforeAgentStart(systemPrompt: string) {
+    onBeforeAgentStart() {
       syncAcpRuntimeContext();
-      return { systemPrompt: appendAdmiralSystemPrompt(systemPrompt) };
     },
     onSessionStart(ctx: ExtensionContext) {
       syncProtocolToHud(getActiveProtocol());
@@ -89,7 +87,8 @@ function syncAcpSystemPrompt(ctx: ExtensionContext): void {
 }
 
 function syncAcpRuntimeContext(): void {
-  setCliRuntimeContext(buildAcpRuntimeContext());
+  // builder 함수 자체를 등록 — provider-stream이 매 턴 user request를 인자로 호출
+  setCliRuntimeContext(buildAcpRuntimeContext);
 }
 
 function registerAdmiralSettingsSection(): void {

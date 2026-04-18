@@ -1,22 +1,32 @@
 /**
  * admiral/prompts — Admiral 시스템 프롬프트 및 세계관 관리
  *
- * - FLEET_WORLDVIEW_PROMPT: 세계관 토글이 켜진 경우에만 주입
- * - Standing Orders: 항상 주입 (getAllStandingOrders)
- * - Active Protocol: 활성 프로토콜이 있을 때만 주입 (getActiveProtocol)
- * - REQUEST_DIRECTIVE_PROMPT: request_directive tool 가이드라인 (항상 주입)
+ * ACP 시스템 프롬프트는 `buildAcpSystemPrompt()`로 합성되며, 각 섹션은
+ * XML 태그(`<worldview>`, `<carrier_roster>`, `<protocols>`,
+ * `<standing_orders>`, `<request_directive>`)로 감싸지고 `---` 구분자로
+ * 분리된다. 프로토콜 카탈로그 전체가 포함되며, 활성 프로토콜은 매 턴
+ * `<current_protocol>` 런타임 태그로 지정된다.
+ *
+ * 매 턴 follow-up prefix는 `buildAcpRuntimeContext(userRequest)`가 조립한다.
+ * 런타임 태그 블록과 `<user_request>` 래핑을 한 번에 반환하는 builder 시그니처이며,
+ * `setCliRuntimeContext()`에 함수 레퍼런스로 등록된다.
  */
+
+import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 import { getSettingsAPI } from "../../core/settings/bridge.js";
 import { getActiveProtocol, getAllProtocols } from "./protocols/index.js";
 import { getAllStandingOrders } from "./standing-orders/index.js";
 import {
+  getRegisteredCarrierConfig,
   getRegisteredOrder,
   getSortieEnabledIds,
   getSquadronEnabledIds,
   getTaskForceConfiguredIds,
 } from "../shipyard/carrier/framework.js";
-import { buildCarrierRoster } from "../shipyard/carrier/prompts.js";
+import { buildSortieToolConfig } from "../shipyard/carrier/sortie.js";
+import { buildTaskForceToolConfig } from "../shipyard/taskforce/index.js";
+import { buildSquadronToolConfig } from "../shipyard/squadron/index.js";
 
 // ─────────────────────────────────────────────────────────
 // 타입
@@ -126,31 +136,80 @@ In plan mode, use ${"`"}request_directive${"`"} to clarify requirements or choos
 /**
  * ACP 프로바이더용 CLI 시스템 지침을 합성한다.
  *
- * 3계층 우선순위로 구성:
- *  1순위 admiral/: worldview, Standing Orders, 프로토콜 카탈로그, 런타임 전환 메타 지시, request_directive 가이드
- *  2순위 carriers/: Available Carriers 로스터
- *  3순위 fleet/shipyard/: carriers_sortie, carrier_taskforce, carrier_squadron 가이드라인
+ * 각 섹션은 XML 태그로 감싸지며 `---` 구분자로 분리된다.
+ * 섹션 순서:
+ *  1. `<worldview>` — 세계관 프롬프트 (토글 시에만)
+ *  2. `<carrier_roster>` — 등록 캐리어 Tier 1 메타데이터
+ *  3. `<protocols>` — 프로토콜 카탈로그 + 런타임 전환/편제 메타 지시
+ *  4. `<standing_orders>` — Standing Orders (프로토콜별 활성/비활성은 런타임 결정)
+ *  5. `<request_directive>` — request_directive tool 사용 가이드라인
  *
- * pi 내부 주입(appendAdmiralSystemPrompt)과 달리, ACP에서는 시스템 프롬프트가
- * 최초 1회만 전달되므로 모든 프로토콜 정의를 카탈로그로 포함하고,
- * 런타임 전환은 매 턴 `<current_protocol>` 태그로 제어한다.
+ * ACP에서는 시스템 프롬프트가 최초 1회만 전달되므로 모든 프로토콜 정의를
+ * 카탈로그로 포함하고, 런타임 전환은 매 턴 `<current_protocol>` 태그로 제어한다.
  */
 export function buildAcpSystemPrompt(): string {
-  const parts = buildAcpAdmiralDirectives();
-  return parts.join("\n\n");
+  const parts: string[] = [];
+
+  // ── 1. Worldview (토글 시에만) ──
+  if (isWorldviewEnabled()) {
+    parts.push(`<worldview>\n${FLEET_WORLDVIEW_PROMPT.trim()}\n</worldview>`);
+  }
+
+  // ── 2. 캐리어 로스터 — 등록된 모든 캐리어의 Tier 1 메타데이터 (라우팅용) ──
+  const carrierIds = getRegisteredOrder();
+  if (carrierIds.length > 0) {
+    parts.push(`<carrier_roster>\n${buildCarrierRoster(carrierIds)}\n</carrier_roster>`);
+  }
+
+  // ── 3. 프로토콜 카탈로그 — 모든 프로토콜 정의 + 런타임 전환 메타 지시 ──
+  const protocols = getAllProtocols();
+  const catalogSections: string[] = [];
+
+  catalogSections.push(`# Protocols\n\n${PROTOCOL_PREAMBLE.trim()}`);
+
+  const catalogEntries = protocols.map((p) => {
+    const meta = [
+      `- **ID**: \`${p.id}\``,
+      `- **Control Mode**: ${p.controlMode}`,
+      `- **Standing Orders**: ${p.injectStandingOrders ? "active" : "suspended"}`,
+    ].join("\n");
+
+    const preamble = p.preamble ? `\n\n${p.preamble.trim()}` : "";
+    return `### ${p.name}\n\n${meta}${preamble}\n\n${p.prompt.trim()}`;
+  });
+
+  catalogSections.push(`## Available Protocols\n\n${catalogEntries.join("\n\n---\n\n")}`);
+  catalogSections.push(RUNTIME_PROTOCOL_SWITCHING_PROMPT.trim());
+  catalogSections.push(RUNTIME_CARRIER_FORMATION_PROMPT.trim());
+
+  parts.push(`<protocols>\n${catalogSections.join("\n\n")}\n</protocols>`);
+
+  // ── 4. Standing Orders — 항상 포함 (런타임에 프로토콜별로 활성/비활성 전환) ──
+  const orders = getAllStandingOrders();
+  if (orders.length > 0) {
+    const ordersBody = orders.map((o) => o.prompt.trim()).join("\n\n---\n\n");
+    parts.push(`<standing_orders>\n${ordersBody}\n</standing_orders>`);
+  }
+
+  // ── 5. request_directive 가이드라인 ──
+  parts.push(`<request_directive>\n${REQUEST_DIRECTIVE_PROMPT.trim()}\n</request_directive>`);
+
+  return parts.join("\n\n---\n\n");
 }
 
 /**
- * 매 턴 사용자 메시지 앞에 주입할 런타임 컨텍스트를 생성한다.
+ * 매 턴 follow-up 요청용 prefix를 조립한다 (CliRuntimeContextBuilder 시그니처).
  *
- * - `<current_protocol>`: 활성 프로토콜 ID
- * - `<sortie_carriers>`: sortie 가용 캐리어 ID 목록
- * - `<squadron_carriers>`: squadron 모드 캐리어 ID 목록
- * - `<taskforce_configured_carriers>`: Task Force 설정 완료 캐리어 ID 목록
+ * 런타임 태그:
+ *  - `<current_protocol>`: 활성 프로토콜 ID
+ *  - `<sortie_carriers>`: sortie 가용 캐리어 ID 목록
+ *  - `<squadron_carriers>`: squadron 모드 캐리어 ID 목록
+ *  - `<taskforce_configured_carriers>`: Task Force 설정 완료 캐리어 ID 목록
  *
- * 빈 목록은 `-` sentinel로 표기하여 모델의 상태 추론을 방지한다.
+ * 그리고 사용자 요청 본문은 `<user_request>` 블록으로 감싸 마지막에 배치한다.
+ * 빈 캐리어 목록은 `-` sentinel로 표기하여 모델의 상태 추론을 방지한다.
  */
-export function buildAcpRuntimeContext(): string {
+export function buildAcpRuntimeContext(userRequest: string): string {
   const protocol = getActiveProtocol();
   const registeredIds = getRegisteredOrder();
 
@@ -165,12 +224,14 @@ export function buildAcpRuntimeContext(): string {
 
   const fmt = (ids: string[]) => ids.length > 0 ? ids.join(",") : "-";
 
-  return [
+  const runtimeTags = [
     `<current_protocol>${protocol.id}</current_protocol>`,
     `<sortie_carriers>${fmt(sortieIds)}</sortie_carriers>`,
     `<squadron_carriers>${fmt(squadronIds)}</squadron_carriers>`,
     `<taskforce_configured_carriers>${fmt(taskforceIds)}</taskforce_configured_carriers>`,
   ].join("\n");
+
+  return `${runtimeTags}\n\n<user_request>\n${userRequest}\n</user_request>`;
 }
 
 /** admiral 섹션에서 worldview 활성 여부를 읽는다 (기본: false). */
@@ -190,104 +251,62 @@ export function setWorldviewEnabled(enabled: boolean): void {
   api.save("admiral", { ...cfg, worldview: enabled });
 }
 
-/**
- * 시스템 프롬프트에 Admiral 지침을 추가한다.
- *
- * - FLEET_WORLDVIEW_PROMPT: worldview 토글이 켜진 경우에만 주입
- * - Standing Orders: 항상 주입 (getAllStandingOrders)
- * - Active Protocol: 활성 프로토콜의 PROTOCOL_PREAMBLE + prompt 주입
- */
-export function appendAdmiralSystemPrompt(systemPrompt: string): string {
-  const parts: string[] = [systemPrompt, ...buildAdmiralDirectives()];
-  return parts.join("\n\n");
+// ─────────────────────────────────────────────────────────
+// pi 도구 등록 오너쉽 — Admiral이 pi.registerTool 호출자
+// (shipyard는 도구 기능을 ToolDefinition 팩토리로 제공, 등록 행위는 admiral)
+// ─────────────────────────────────────────────────────────
+
+/** carriers_sortie 도구를 pi에 등록한다 (가용 Carrier가 없으면 no-op). */
+export function registerSortieTool(pi: ExtensionAPI): void {
+  const config = buildSortieToolConfig();
+  if (config) pi.registerTool(config);
+}
+
+/** carrier_taskforce 도구를 pi에 등록한다 (가용 Carrier가 없으면 no-op). */
+export function registerTaskForceTool(pi: ExtensionAPI): void {
+  const config = buildTaskForceToolConfig();
+  if (config) pi.registerTool(config);
+}
+
+/** carrier_squadron 도구를 pi에 등록한다 (가용 Carrier가 없으면 no-op). */
+export function registerSquadronTool(pi: ExtensionAPI): void {
+  const config = buildSquadronToolConfig();
+  if (config) pi.registerTool(config);
 }
 
 /**
- * ACP용 Admiral 지침을 합성한다.
+ * 등록 캐리어의 Tier 1 메타데이터로 compact roster 문자열을 조립한다.
  *
- * pi 내부용(buildAdmiralDirectives)과 달리:
- * - 활성 프로토콜 하나만이 아닌 **전체 프로토콜 카탈로그**를 포함
- * - 런타임 전환 메타 지시를 포함
+ * ACP 시스템 프롬프트의 `<carrier_roster>` 섹션 전용. Admiral이 직접
+ * 조립 주체를 맡아 shipyard의 sortie 로스터 합성과 독립적으로 운영한다
+ * (squadron/taskforce가 각자 자체 로스터를 조립하는 패턴과 동일).
  */
-function buildAcpAdmiralDirectives(): string[] {
-  const parts: string[] = [];
+function buildCarrierRoster(carrierIds: string[]): string {
+  const lines: string[] = [];
+  lines.push(`## Available Carriers`);
 
-  if (isWorldviewEnabled()) {
-    parts.push(FLEET_WORLDVIEW_PROMPT.trim());
-  }
+  for (const carrierId of carrierIds) {
+    const config = getRegisteredCarrierConfig(carrierId);
+    if (!config) continue;
 
-  // Standing Orders — 카탈로그에서 항상 포함 (런타임에 프로토콜별로 활성/비활성 전환)
-  const orders = getAllStandingOrders();
-  if (orders.length > 0) {
-    const ordersBody = orders.map((o) => o.prompt.trim()).join("\n\n---\n\n");
-    parts.push(`# Admiral Directives\n\n${ordersBody}`);
-  }
+    const meta = config.carrierMetadata;
+    if (!meta) {
+      // 메타데이터 없는 carrier는 기본 1줄 표시
+      lines.push(`- **${carrierId}** (${config.displayName}): Delegate tasks to ${config.displayName}.`);
+      continue;
+    }
 
-  // 캐리어 로스터 — 등록된 모든 캐리어의 Tier 1 메타데이터 (라우팅용)
-  const carrierIds = getRegisteredOrder();
-  if (carrierIds.length > 0) {
-    parts.push(buildCarrierRoster(carrierIds));
-  }
-
-  // 프로토콜 카탈로그 — 모든 프로토콜 정의를 포함
-  parts.push(buildProtocolCatalog());
-
-  parts.push(REQUEST_DIRECTIVE_PROMPT.trim());
-
-  return parts;
-}
-
-/** 모든 프로토콜을 카탈로그 형태로 합성한다. */
-function buildProtocolCatalog(): string {
-  const protocols = getAllProtocols();
-  const sections: string[] = [];
-
-  sections.push(`# Protocols\n\n${PROTOCOL_PREAMBLE.trim()}`);
-
-  // 각 프로토콜 정의
-  const catalogEntries = protocols.map((p) => {
-    const meta = [
-      `- **ID**: \`${p.id}\``,
-      `- **Control Mode**: ${p.controlMode}`,
-      `- **Standing Orders**: ${p.injectStandingOrders ? "active" : "suspended"}`,
-    ].join("\n");
-
-    const preamble = p.preamble ? `\n\n${p.preamble.trim()}` : "";
-    return `### ${p.name}\n\n${meta}${preamble}\n\n${p.prompt.trim()}`;
-  });
-
-  sections.push(`## Available Protocols\n\n${catalogEntries.join("\n\n---\n\n")}`);
-
-  // 런타임 전환 메타 지시
-  sections.push(RUNTIME_PROTOCOL_SWITCHING_PROMPT.trim());
-
-  // 런타임 캐리어 편제 해석 규칙
-  sections.push(RUNTIME_CARRIER_FORMATION_PROMPT.trim());
-
-  return sections.join("\n\n");
-}
-
-function buildAdmiralDirectives(): string[] {
-  const parts: string[] = [];
-  const protocol = getActiveProtocol();
-
-  if (isWorldviewEnabled()) {
-    parts.push(FLEET_WORLDVIEW_PROMPT.trim());
-  }
-
-  if (protocol.injectStandingOrders) {
-    const orders = getAllStandingOrders();
-    if (orders.length > 0) {
-      const ordersBody = orders.map((o) => o.prompt.trim()).join("\n\n---\n\n");
-      parts.push(`# Admiral Directives\n\n${ordersBody}`);
+    const name = config.displayName;
+    lines.push(`- **${carrierId}** (${name} · ${meta.title}): ${meta.summary}`);
+    lines.push(`  Use for: ${meta.whenToUse.join(", ")}.`);
+    lines.push(`  NOT for: ${meta.whenNotToUse}`);
+    if (meta.requestBlocks.length > 0) {
+      const tags = meta.requestBlocks
+        .map((b) => b.required ? `<${b.tag}>` : `<${b.tag}?>`)
+        .join(" ");
+      lines.push(`  Required request blocks — wrap content in these (? = optional): ${tags}`);
     }
   }
 
-  const preamble = protocol.preamble ?? PROTOCOL_PREAMBLE;
-  parts.push(
-    `# Protocols\n\n${preamble.trim()}\n\n${protocol.prompt.trim()}`,
-  );
-  parts.push(REQUEST_DIRECTIVE_PROMPT.trim());
-
-  return parts;
+  return lines.join("\n");
 }

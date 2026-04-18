@@ -9,7 +9,7 @@
  * - renderResult(): 완료 후 결과 캐시에서 렌더링
  */
 
-import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
 import { getLogAPI } from "../../../core/log/bridge.js";
@@ -99,18 +99,21 @@ const TASKFORCE_RUN_PREFIX = "taskforce";
 // ─── 공개 API ────────────────────────────────────────────
 
 /**
- * carrier_taskforce 도구를 PI에 등록합니다.
- * index.ts에서 호출됩니다.
+ * carrier_taskforce 도구 정의(ToolDefinition)를 조립해 반환합니다.
+ *
+ * pi.registerTool 호출 오너쉽은 admiral/prompts.ts의 `registerTaskForceTool`이
+ * 소유합니다. 이 팩토리는 등록 시 필요한 schema/guidelines/execute/render 등
+ * 도구 기능 자체만을 제공합니다. 등록 불필요 시 null을 반환합니다.
  */
-export function registerFleetTaskForce(pi: ExtensionAPI): void {
+export function buildTaskForceToolConfig() {
   const allCarriers = getRegisteredOrder();
-  if (allCarriers.length < 1) return;
+  if (allCarriers.length < 1) return null;
 
   // TF 설정이 완전히 구성된 캐리어만 스키마/가이드라인에 반영
   const configuredCarriers = getConfiguredTaskForceCarrierIds(allCarriers);
   const guidelines = buildTaskForcePromptGuidelines(configuredCarriers);
 
-  pi.registerTool({
+  return {
     name: "carrier_taskforce",
     label: "Carrier Task Force",
     description: FLEET_TASKFORCE_DESCRIPTION,
@@ -186,7 +189,7 @@ export function registerFleetTaskForce(pi: ExtensionAPI): void {
         clearTaskForceState(requestKey);
       }
     },
-  });
+  };
 }
 
 // ─── 내부 상태 관리 ──────────────────────────────────────

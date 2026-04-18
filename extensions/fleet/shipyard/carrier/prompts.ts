@@ -174,10 +174,10 @@ export function buildSortieToolSchema(enabledIds: string[]): TObject {
  *
  * carrier당 ~4줄로 압축하여 시스템 프롬프트 토큰을 절약합니다.
  *
- * admiral/prompts.ts (ACP 시스템 프롬프트)와
- * carriers_sortie promptGuidelines 양쪽에서 공유됩니다.
+ * carriers_sortie promptGuidelines 합성 전용. Admiral(ACP 시스템 프롬프트)과
+ * squadron/taskforce는 각자 자체 로스터를 조립하므로 이 함수와는 독립적입니다.
  */
-export function buildCarrierRoster(carrierIds: string[]): string {
+function buildCarrierRoster(carrierIds: string[]): string {
   const lines: string[] = [];
   lines.push(`## Available Carriers`);
 
@@ -199,12 +199,12 @@ export function buildCarrierRoster(carrierIds: string[]): string {
     lines.push(`  Use for: ${meta.whenToUse.join(", ")}.`);
     // 3줄: 부정 조건
     lines.push(`  NOT for: ${meta.whenNotToUse}`);
-    // 4줄: 요청 블록 태그 (required는 그대로, optional은 ?로 표시)
+    // 4줄: 필수 요청 블록 — CLI가 반드시 준수해야 할 구조 (?는 optional)
     if (meta.requestBlocks.length > 0) {
       const tags = meta.requestBlocks
         .map((b) => b.required ? `<${b.tag}>` : `<${b.tag}?>`)
         .join(" ");
-      lines.push(`  Tags: ${tags}`);
+      lines.push(`  Required request blocks — wrap content in these (? = optional): ${tags}`);
     }
   }
 
@@ -221,43 +221,39 @@ function buildCarrierGuidelines(carrierIds: string[]): string[] {
 // ═════════════════════════════════════════════════════════
 
 /**
- * Tier 2 자동 주입: 원본 request를 최상단에, permissions + principles를
- * 보조 컨텍스트로, outputFormat을 최하단에 배치하여 최종 request를 조립합니다.
+ * Tier 2 자동 주입: 각 섹션을 XML 태그로 감싸고 `---` 구분자로 분리한 최종
+ * request를 조립합니다. XML 래핑 책임은 이 함수가 일원적으로 보유하므로
+ * carrier metadata의 `outputFormat`은 순수 내용만 담고 태그 래핑은 여기서 수행합니다.
  *
  * 주입 순서 (LLM의 primacy bias 활용):
- *  1. Original Request (가장 중요 — 최상단)
- *  2. Operational Context: Permissions & Constraints + Principles (보조)
- *  3. Output Format (구조 가이드 — 최하단)
+ *  1. `<request>` — 원본 요청 (최상단, 가장 중요)
+ *  2. `<permissions>` — 운영 권한/제약
+ *  3. `<principles>` — 핵심 원칙
+ *  4. `<output_format>` — 출력 형식 가이드 (최하단)
  */
 export function composeTier2Request(metadata: CarrierMetadata, originalRequest: string): string {
   const parts: string[] = [];
 
-  // 1. 원본 요청을 최상단에 배치 — Carrier가 의도를 먼저 파악
-  parts.push(originalRequest);
+  // 1. 원본 요청 — 최상단
+  parts.push(`<request>\n${originalRequest}\n</request>`);
 
-  // 2. 운영 컨텍스트 (permissions, principles)를 보조 섹션으로
-  const directives = [
-    buildDirectiveSection("## Permissions & Constraints", metadata.permissions),
-    buildDirectiveSection("## Principles", metadata.principles ?? []),
-  ].filter((section) => section.length > 0);
-
-  if (directives.length > 0) {
-    parts.push("\n---\n\n" + directives.map((section) => section.join("\n")).join("\n\n"));
+  // 2. 운영 권한/제약
+  if (metadata.permissions.length > 0) {
+    const body = metadata.permissions.map((item) => `- ${item}`).join("\n");
+    parts.push(`<permissions>\n${body}\n</permissions>`);
   }
 
-  // 3. 출력 형식 가이드를 최하단에
+  // 3. 핵심 원칙
+  const principles = metadata.principles ?? [];
+  if (principles.length > 0) {
+    const body = principles.map((item) => `- ${item}`).join("\n");
+    parts.push(`<principles>\n${body}\n</principles>`);
+  }
+
+  // 4. 출력 형식 — 최하단
   if (metadata.outputFormat) {
-    parts.push("\n" + metadata.outputFormat);
+    parts.push(`<output_format>\n${metadata.outputFormat.trim()}\n</output_format>`);
   }
 
-  return parts.join("\n");
-}
-
-function buildDirectiveSection(title: string, items: string[]): string[] {
-  if (items.length === 0) return [];
-
-  return [
-    title,
-    ...items.map((item) => `- ${item}`),
-  ];
+  return parts.join("\n\n---\n\n");
 }

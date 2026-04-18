@@ -35,7 +35,6 @@ const CARRIER_METADATA: CarrierMetadata = {
     { tag: "artifacts", hint: "Relevant code snippets, file paths, error logs to examine.", required: false },
   ],
   outputFormat:
-    `<output_format>\n` +
     `Verbosity constraints: bottom line max 3 sentences, action plan max 7 steps (2 sentences each), no preamble, no question restatement, no conversational filler. Prefer compact bullets.\n` +
     `Response structure (3-tier):\n` +
     `[Required] always include:\n` +
@@ -48,8 +47,7 @@ const CARRIER_METADATA: CarrierMetadata = {
     `  **Watch out for** — Risks, edge cases, mitigation strategies (max 3 bullets).\n` +
     `[Edge cases] only when genuinely applicable:\n` +
     `  **Escalation triggers** — Conditions that justify a more complex solution.\n` +
-    `  **Alternative sketch** — High-level outline of the backup path only.\n` +
-    `</output_format>`,
+    `  **Alternative sketch** — High-level outline of the backup path only.`,
   principles: [
     "Delivers exactly ONE best-path recommendation — not a menu of options.",
     "Always favors the simplest viable solution. Complexity only when simplicity provably fails constraints.",

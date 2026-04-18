@@ -16,20 +16,20 @@ This extension is the **top-level orchestrator** with a has-a relationship to `f
 
 ### ACP Runtime Protocol Switching
 
-ACP 모드에서는 시스템 프롬프트가 최초 1회만 전달되므로, 초기 프롬프트에 **전체 프로토콜 카탈로그**를 포함하고, 매 턴 `<current_protocol>` 태그로 활성 프로토콜을 지정한다. `setCliRuntimeContext()` / `getCliRuntimeContext()` globalThis getter 쌍을 통해 admiral과 provider-stream 간 결합 없이 상태를 전달한다.
+ACP 모드에서는 시스템 프롬프트가 최초 1회만 전달되므로, 초기 프롬프트에 **전체 프로토콜 카탈로그**를 포함하고, 매 턴 `<current_protocol>` 태그로 활성 프로토콜을 지정한다. admiral은 `setCliRuntimeContext()`에 빌더 함수(`buildAcpRuntimeContext`)를 등록하고, provider-stream이 매 턴 user request 텍스트를 인자로 호출해 런타임 태그 + `<user_request>` 래핑이 포함된 완성 prefix를 얻는다.
 
 ## Responsibilities
 
 | Responsibility | Implementation |
 |----------------|----------------|
-| System prompt injection (`before_agent_start`) | `index.ts` — Standing Orders + 활성 Protocol 프롬프트 주입 (pi 자체 프롬프트) + ACP 런타임 컨텍스트 갱신 |
 | ACP CLI system prompt composition (`session_start`) | `index.ts` — ACP 프로바이더 감지 시 `buildAcpSystemPrompt()` → `setCliSystemPrompt()` (프로토콜 카탈로그 포함) |
-| ACP runtime context (`before_agent_start`, protocol switch) | `index.ts` — `buildAcpRuntimeContext()` → `setCliRuntimeContext()` (매 턴 `<current_protocol>` 태그 갱신) |
+| ACP runtime context (`before_agent_start`, protocol switch) | `index.ts` — `setCliRuntimeContext(buildAcpRuntimeContext)` 빌더 등록. provider-stream이 매 턴 user request를 인자로 호출해 런타임 태그 + `<user_request>` 래핑을 조립 |
 | Worldview toggle command | `index.ts` — `fleet:admiral:worldview` command |
 | Protocol 전환 | `index.ts` — `Alt+N` 키바인드, `fleet:admiral:protocol` 커맨드 (향후 추가 가능) |
 | Settings section ("Admiral") | `index.ts` — registers in Alt+/ popup, owns `admiral` settings key |
 | 활성 프로토콜 상태 표시 | `widget.ts` — aboveEditor 위젯 |
-| Prompt constants & settings logic | `prompts.ts` — worldview/system append + `PROTOCOL_PREAMBLE` + `RUNTIME_PROTOCOL_SWITCHING_PROMPT` + settings 함수 + `buildAcpRuntimeContext()` |
+| Prompt constants & settings logic | `prompts.ts` — worldview/Standing Orders + `PROTOCOL_PREAMBLE` + `RUNTIME_PROTOCOL_SWITCHING_PROMPT` + settings 함수 + `buildAcpSystemPrompt()` + `buildAcpRuntimeContext()` |
+| pi 도구 등록 오너쉽 (carriers_sortie / carrier_taskforce / carrier_squadron) | `prompts.ts` — `registerSortieTool(pi)` / `registerTaskForceTool(pi)` / `registerSquadronTool(pi)`. shipyard는 각 도구의 `build*ToolConfig()` 팩토리로 기능만 제공하고 pi.registerTool 호출은 admiral이 수행 |
 | 에디터 테두리 색상 | globalThis `"__pi_hud_editor_border_color__"` 키로 `core/hud`에 간접 통신 |
 
 ## Settings

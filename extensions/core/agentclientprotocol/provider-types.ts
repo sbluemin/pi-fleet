@@ -416,18 +416,26 @@ export function getCliSystemPrompt(): string | null {
 }
 
 /**
- * 매 턴 사용자 메시지 앞에 주입할 런타임 컨텍스트를 설정한다.
- * 외부 확장(admiral 등)이 프로토콜 전환 등 동적 상태를 전달할 때 사용.
+ * 런타임 컨텍스트 빌더 — 매 턴 사용자 요청 텍스트를 받아
+ * 최종 prefix(런타임 태그 + `<user_request>` 래핑 등)를 조립해 반환한다.
+ *
+ * 외부 확장(admiral 등)이 등록하며, 문자열을 사전 고정하지 않고 매 턴
+ * 동적으로 조립하므로 사용자 요청 본문까지 포함한 완성된 prefix를 제공한다.
+ */
+export type CliRuntimeContextBuilder = (userRequest: string) => string;
+
+/**
+ * 매 턴 사용자 메시지 조립에 사용할 런타임 컨텍스트 빌더를 등록한다.
  * null이면 런타임 컨텍스트를 주입하지 않는다.
  */
-export function setCliRuntimeContext(context: string | null): void {
-  (globalThis as Record<symbol, unknown>)[CLI_RUNTIME_CONTEXT_KEY] = context;
+export function setCliRuntimeContext(builder: CliRuntimeContextBuilder | null): void {
+  (globalThis as Record<symbol, unknown>)[CLI_RUNTIME_CONTEXT_KEY] = builder;
 }
 
 /**
- * 현재 설정된 런타임 컨텍스트를 반환한다.
- * 설정되지 않았으면 null을 반환한다.
+ * 현재 등록된 런타임 컨텍스트 빌더를 반환한다.
+ * 등록되지 않았으면 null을 반환한다.
  */
-export function getCliRuntimeContext(): string | null {
-  return ((globalThis as Record<symbol, unknown>)[CLI_RUNTIME_CONTEXT_KEY] as string | null) ?? null;
+export function getCliRuntimeContext(): CliRuntimeContextBuilder | null {
+  return ((globalThis as Record<symbol, unknown>)[CLI_RUNTIME_CONTEXT_KEY] as CliRuntimeContextBuilder | null) ?? null;
 }

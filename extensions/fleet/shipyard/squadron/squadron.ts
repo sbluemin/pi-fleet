@@ -9,7 +9,7 @@
  * - renderResult(): 완료 후 결과 캐시에서 렌더링
  */
 
-import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
 import { getLogAPI } from "../../../core/log/bridge.js";
@@ -96,18 +96,21 @@ const SQUADRON_RUN_PREFIX = "squadron";
 // ─── 공개 API ────────────────────────────────────────────
 
 /**
- * carrier_squadron 도구를 PI에 등록합니다.
- * index.ts에서 호출됩니다.
+ * carrier_squadron 도구 정의(ToolDefinition)를 조립해 반환합니다.
+ *
+ * pi.registerTool 호출 오너쉽은 admiral/prompts.ts의 `registerSquadronTool`이
+ * 소유합니다. 이 팩토리는 등록 시 필요한 schema/guidelines/execute/render 등
+ * 도구 기능 자체만을 제공합니다. 등록 불필요 시 null을 반환합니다.
  */
-export function registerFleetSquadron(pi: ExtensionAPI): void {
+export function buildSquadronToolConfig() {
   const allCarriers = getRegisteredOrder();
-  if (allCarriers.length < 1) return;
+  if (allCarriers.length < 1) return null;
 
   // squadron 활성 캐리어만 스키마/가이드라인에 반영
   const enabledCarriers = getSquadronEnabledIds();
   const guidelines = buildSquadronPromptGuidelines(enabledCarriers);
 
-  pi.registerTool({
+  return {
     name: "carrier_squadron",
     label: "Carrier Squadron",
     description: FLEET_SQUADRON_DESCRIPTION,
@@ -215,7 +218,7 @@ export function registerFleetSquadron(pi: ExtensionAPI): void {
         clearSquadronState(requestKey);
       }
     },
-  });
+  };
 }
 
 // ─── 내부 상태 관리 ──────────────────────────────────────

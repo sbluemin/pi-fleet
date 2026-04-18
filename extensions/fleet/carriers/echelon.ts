@@ -34,7 +34,6 @@ const CARRIER_METADATA: CarrierMetadata = {
     { tag: "constraints", hint: "Time constraints, specific branches/tags, or areas to exclude.", required: false },
   ],
   outputFormat:
-    `<output_format>\n` +
     `Report findings as a structured intelligence briefing.\n` +
     `[Required] always include:\n` +
     `  **Intelligence findings** — Organized list of discoveries relevant to the objective:\n` +
@@ -45,8 +44,7 @@ const CARRIER_METADATA: CarrierMetadata = {
     `  **Repository overview** — 1-2 sentences on what the repo is and its relevance.\n` +
     `  **Key code paths** — Important files and directories with brief descriptions. Use owner/repo relative paths.\n` +
     `  **Actionable insights** — How these findings apply to our codebase (max 5 bullets).\n` +
-    `Keep the report concise — bullets and short lines only. No narrative paragraphs.\n` +
-    `</output_format>`,
+    `Keep the report concise — bullets and short lines only. No narrative paragraphs.`,
 };
 
 export function registerEchelonCarrier(pi: ExtensionAPI): void {

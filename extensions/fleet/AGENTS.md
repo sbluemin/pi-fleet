@@ -42,7 +42,7 @@ shipyard/carrier/      ← Carrier framework SDK + carrier visual representation
   ├── framework.ts     ← registerCarrier, updateCarrierCliType, setPendingCliTypeOverrides
   ├── register.ts      ← registerSingleCarrier (dynamic cliType reference and defaultCliType auto-configuration)
   ├── prompts.ts       ← carriers_sortie tool base prompt management
-  ├── sortie.ts        ← carriers_sortie (sole carrier delegation PI tool) registration + dynamic prompt synthesis
+  ├── sortie.ts        ← carriers_sortie ToolDefinition factory (sole carrier delegation PI tool) + dynamic prompt synthesis. pi.registerTool 호출 오너쉽은 admiral/prompts.ts
   ├── status-overlay.ts ← Carrier status bar overlay (supports cliType change mode, 'c' key binding, squadron 's' toggle)
 shipyard/squadron/     ← Carrier Squadron logic (parallel one-shot execution)
 shipyard/store.ts      ← Unified fleet persistence store (states.json)
@@ -98,9 +98,10 @@ Consumer (carriers, external extensions)
 | `shipyard/carrier/framework.ts` | Carrier framework SDK — `registerCarrier`, `updateCarrierCliType` (runtime CLI change), `setPendingCliTypeOverrides` (initial override configuration), `onStatusUpdate`, `notifyStatusUpdate`. Manages globalThis shared state, registration order, and message renderer registration. Formation state via globalThis: sortie (`getSortieEnabledIds`), squadron (`getSquadronEnabledIds`), Task Force configured (`getTaskForceConfiguredIds`/`setTaskForceConfiguredCarriers`) |
 | `shipyard/carrier/register.ts` | Single-carrier registration — `registerSingleCarrier` (carrier framework + prompt metadata, no PI tool). Performs dynamic cliType reference and `defaultCliType` auto-configuration during registration. |
 | `shipyard/carrier/prompts.ts` | carriers_sortie prompt / schema management (Tier 1 · Tier 2 request assembly) |
-| `shipyard/carrier/sortie.ts` | Carrier Sortie tool — sole carrier delegation PI tool. Through **call instance isolation (sortieKey)** and **runId-based streaming filtering**, it displays unified progress/results without UI interference even when multiple calls run simultaneously. |
+| `shipyard/carrier/sortie.ts` | Carrier Sortie tool — sole carrier delegation PI tool. Exposes `buildSortieToolConfig()` ToolDefinition factory; pi.registerTool 호출 오너쉽은 admiral. Through **call instance isolation (sortieKey)** and **runId-based streaming filtering**, it displays unified progress/results without UI interference even when multiple calls run simultaneously. |
 | `shipyard/squadron/index.ts` | Squadron module entry point — registration and public API |
-| `shipyard/squadron/squadron.ts` | Squadron execution logic — manages parallel `executeOneShot` calls, prompt synthesis, and result aggregation. |
+| `shipyard/squadron/squadron.ts` | Squadron execution logic — manages parallel `executeOneShot` calls, prompt synthesis, and result aggregation. Exposes `buildSquadronToolConfig()` ToolDefinition factory; pi.registerTool 호출 오너쉽은 admiral. |
+| `shipyard/taskforce/taskforce.ts` | Task Force execution logic — cross-backend parallel `executeOneShot` for configured CLIs, result aggregation per backend. Exposes `buildTaskForceToolConfig()` ToolDefinition factory; pi.registerTool 호출 오너쉽은 admiral. |
 | `shipyard/squadron/prompts.ts` | Squadron-specific tool prompts and JSON schema |
 | `shipyard/squadron/types.ts` | Squadron domain types and interfaces |
 | `shipyard/store.ts` | Unified fleet persistence store — `initStore`, `loadModels`, `saveModels`, `updateModelSelection` (with Task Force/CLI settings preservation), `getPerCliSettings`/`savePerCliSettings` (CLI preference caching), `loadSortieDisabled`, `saveSortieDisabled`, `loadSquadronEnabled`, `saveSquadronEnabled`, `loadCliTypeOverrides`, `saveCliTypeOverrides`. Single source of truth for all fleet persistent state in `states.json`. |

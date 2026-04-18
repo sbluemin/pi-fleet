@@ -182,8 +182,8 @@ function buildInitialPrompt(context: Context, currentUserMessage: string): strin
     parts.push(`<conversation-history>\n${historyParts.join("\n")}\n</conversation-history>`);
   }
 
-  // 현재 사용자 요청 — 항상 마지막
-  parts.push(`<user-request>\n${currentUserMessage}\n</user-request>`);
+  // 현재 사용자 요청 — 항상 마지막. 후속 턴의 builder 출력과 태그명 일치.
+  parts.push(`<user_request>\n${currentUserMessage}\n</user_request>`);
 
   return parts.join("\n\n");
 }
@@ -751,10 +751,11 @@ async function runFreshQuery(
     finalPrompt = buildInitialPrompt(context, promptText);
     debug("XML 구조화 초기 프롬프트 주입 (첫 프롬프트)");
   } else {
-    // follow-up 턴: 런타임 컨텍스트(프로토콜 전환 태그 등)를 사용자 메시지 앞에 주입
-    const runtimeContext = getCliRuntimeContext();
-    if (runtimeContext) {
-      finalPrompt = `${runtimeContext}\n\n${promptText}`;
+    // follow-up 턴: 런타임 컨텍스트 빌더에게 사용자 요청을 전달해 완성된 prefix를 받는다
+    // 빌더는 런타임 태그와 `<user_request>` 래핑 등 최종 조립을 직접 수행한다.
+    const builder = getCliRuntimeContext();
+    if (builder) {
+      finalPrompt = builder(promptText);
     }
   }
 

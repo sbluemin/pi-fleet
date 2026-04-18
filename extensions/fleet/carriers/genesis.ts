@@ -42,7 +42,6 @@ const CARRIER_METADATA: CarrierMetadata = {
     "Escalate missing execution structure for non-trivial work to Athena instead of silently creating a large implicit plan.",
   ],
   outputFormat:
-    `<output_format>\n` +
     `After completing implementation, provide a structured completion report.\n` +
     `[Required] always include:\n` +
     `  **Changes** — List every file created/modified with a 1-line summary each.\n` +
@@ -50,8 +49,7 @@ const CARRIER_METADATA: CarrierMetadata = {
     `[If applicable] omit if not relevant:\n` +
     `  **Design decisions** — Key structural choices and rationale (max 5 bullets).\n` +
     `  **Remaining** — Anything deliberately deferred or out of scope.\n` +
-    `Keep the report concise — bullets and short lines only. No narrative paragraphs.\n` +
-    `</output_format>`,
+    `Keep the report concise — bullets and short lines only. No narrative paragraphs.`,
 };
 
 export function registerGenesisCarrier(pi: ExtensionAPI): void {

@@ -18,7 +18,7 @@
  * renderResult는 빈 컴포넌트를 반환하여 중복 표시를 방지합니다.
  */
 
-import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import type { CliType } from "@sbluemin/unified-agent";
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
@@ -139,12 +139,15 @@ const SORTIE_RESULT_CACHE_KEY = "__pi_carrier_sortie_result_cache__";
 // ─── 공개 API ────────────────────────────────────────────
 
 /**
- * carriers_sortie 도구를 PI에 등록합니다.
- * index.ts에서 호출됩니다.
+ * carriers_sortie 도구 정의(ToolDefinition)를 조립해 반환합니다.
+ *
+ * pi.registerTool 호출 오너쉽은 admiral/prompts.ts의 `registerSortieTool`이
+ * 소유합니다. 이 팩토리는 등록 시 필요한 schema/guidelines/execute/render 등
+ * 도구 기능 자체만을 제공합니다. 등록 불필요 시 null을 반환합니다.
  */
-export function registerFleetSortie(pi: ExtensionAPI): void {
+export function buildSortieToolConfig() {
   const allCarriers = getRegisteredOrder();
-  if (allCarriers.length < 1) return; // Carrier가 없으면 등록 불필요
+  if (allCarriers.length < 1) return null; // Carrier가 없으면 등록 불필요
 
   // sortie 가용 carrier만 프롬프트/파라미터에 반영
   const enabledIds = getSortieEnabledIds();
@@ -152,7 +155,7 @@ export function registerFleetSortie(pi: ExtensionAPI): void {
   // 모든 carrier가 비활성이어도 도구 자체는 등록 (execute guard가 거부)
   const mergedGuidelines = buildSortieToolPromptGuidelines(enabledIds);
 
-  pi.registerTool({
+  return {
     name: "carriers_sortie",
     label: "Carriers Sortie",
     description: FLEET_SORTIE_DESCRIPTION,
@@ -351,7 +354,7 @@ export function registerFleetSortie(pi: ExtensionAPI): void {
         clearSortieState(sortieKey);
       }
     },
-  });
+  };
 }
 
 // ─── 내부 헬퍼 ──────────────────────────────────────────

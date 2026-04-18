@@ -41,7 +41,6 @@ const CARRIER_METADATA: CarrierMetadata = {
     { tag: "fix_mode", hint: "'report' (default) for findings only, or 'fix' to apply corrections.", required: false },
   ],
   outputFormat:
-    `<output_format>\n` +
     `Report findings as a structured defect and security manifest.\n` +
     `[Required] always include:\n` +
     `  **Verdict** — PASS (no critical/high) or FAIL (critical/high found) with brief justification.\n` +
@@ -60,8 +59,7 @@ const CARRIER_METADATA: CarrierMetadata = {
     `  Group all findings by severity (critical first).\n` +
     `[If applicable] omit if not scanned:\n` +
     `  **Dependency risks** — Any vulnerable transitive dependencies found.\n` +
-    `If no issues found, state PASS verdict and omit the findings section.\n` +
-    `</output_format>`,
+    `If no issues found, state PASS verdict and omit the findings section.`,
 };
 
 export function registerSentinelCarrier(pi: ExtensionAPI): void {

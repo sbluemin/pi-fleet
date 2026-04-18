@@ -36,7 +36,6 @@ const CARRIER_METADATA: CarrierMetadata = {
     { tag: "intent_type", hint: "If known: Refactoring | Build from Scratch | Mid-sized | Collaborative | Architecture Follow-through | Research-to-Plan.", required: false },
   ],
   outputFormat:
-    `<output_format>\n` +
     `After completing the plan, provide a structured plan summary.\n` +
     `[Required] always include:\n` +
     `  **Plan file** — Path to the generated .fleet/plans/{name}.md.\n` +
@@ -52,8 +51,7 @@ const CARRIER_METADATA: CarrierMetadata = {
     `  **Defaults Applied** — Overridable assumptions embedded in the plan.\n` +
     `  **Escalate to Oracle** — Architecture or trade-off questions that require Oracle before execution.\n` +
     `  **Decisions Needed** — Open non-architecture questions that block execution.\n` +
-    `Keep the summary concise — bullets and short lines only. No narrative paragraphs.\n` +
-    `</output_format>`,
+    `Keep the summary concise — bullets and short lines only. No narrative paragraphs.`,
   principles: [
     "Clarify only to unlock planning — ask the minimum questions needed to produce a reliable execution plan.",
     "Convert ambiguity into execution structure: tasks, dependencies, assumptions, guardrails, and QA checkpoints.",
