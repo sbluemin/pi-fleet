@@ -92,9 +92,6 @@ const pendingResults = new Map<string, PendingToolResult[]>();
 /** 세션별 MCP tool call 도착 콜백 — token 기준으로 격리 */
 const toolCallArrivedCallbacks = new Map<string, ToolCallArrivedCallback>();
 
-/** 현재 turn에서 tools/call을 받을 수 있는 세션 token */
-const acceptingToolCalls = new Set<string>();
-
 const JSON_CONTENT_TYPE = { "Content-Type": "application/json" } as const;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -167,16 +164,6 @@ export function setOnToolCallArrived(token: string, cb: ToolCallArrivedCallback 
     toolCallArrivedCallbacks.set(token, cb);
   } else {
     toolCallArrivedCallbacks.delete(token);
-    acceptingToolCalls.delete(token);
-  }
-}
-
-/** 세션 token의 tools/call 수락 여부 설정 */
-export function setToolCallAcceptance(token: string, accepting: boolean): void {
-  if (accepting) {
-    acceptingToolCalls.add(token);
-  } else {
-    acceptingToolCalls.delete(token);
   }
 }
 
@@ -238,7 +225,6 @@ export function clearPendingForSession(token: string): void {
     pendingToolCalls.delete(token);
   }
   pendingResults.delete(token);
-  acceptingToolCalls.delete(token);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -389,10 +375,7 @@ async function processJsonRpc(
       // 콜백으로 event-mapper에 알림 — token 기준으로 올바른 세션에 전달
       const cb = toolCallArrivedCallbacks.get(token);
       if (!cb) {
-        return makeError(id, -32000, "tool call router가 연결되지 않았습니다");
-      }
-      if (!acceptingToolCalls.has(token)) {
-        return makeError(id, -32000, "현재 ACP turn이 종료되어 tool call을 받을 수 없습니다");
+        return makeError(id, -32000, "tool call router가 정리되어 더 이상 요청을 받을 수 없습니다");
       }
       const toolCallId = cb(p.name, p.arguments ?? {});
 

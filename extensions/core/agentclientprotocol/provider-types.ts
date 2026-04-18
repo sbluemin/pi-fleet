@@ -43,8 +43,6 @@ export interface AcpSessionState {
   mcpSessionToken?: string;
   /** tool 목록 해시 — 변경 감지용 */
   toolHash?: string;
-  /** 현재 ACP turn이 진행 중인지 여부 */
-  turnActive: boolean;
   /** 아직 toolResult를 기다리거나 다음 재진입을 기다리는 MCP tool call FIFO */
   pendingToolCalls: PendingToolCallState[];
   /** 현재 turn에서 pending MCP call을 flush하는 notifier */

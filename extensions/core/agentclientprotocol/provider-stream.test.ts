@@ -12,7 +12,9 @@ const mockState = vi.hoisted(() => {
 
   return {
     client,
-    acceptanceCalls: [] as Array<[string, boolean]>,
+    lastMapper: null as any,
+    routerCalls: [] as Array<[string, unknown]>,
+    clearPendingCalls: [] as string[],
   };
 });
 
@@ -46,7 +48,7 @@ vi.mock("./provider-events.js", () => ({
       timestamp: Date.now(),
     };
 
-    return {
+    const mapper = {
       stream: { push: vi.fn(), end: vi.fn() },
       output,
       listeners: {
@@ -73,6 +75,9 @@ vi.mock("./provider-events.js", () => ({
         return true;
       }),
     };
+
+    mockState.lastMapper = mapper;
+    return mapper;
   }),
 }));
 
@@ -88,10 +93,11 @@ vi.mock("./provider-mcp.js", () => ({
   startMcpServer: vi.fn(async () => "http://127.0.0.1/test"),
   stopMcpServer: vi.fn(async () => {}),
   resolveNextToolCall: vi.fn(),
-  clearPendingForSession: vi.fn(),
-  setOnToolCallArrived: vi.fn(),
-  setToolCallAcceptance: vi.fn((token: string, accepting: boolean) => {
-    mockState.acceptanceCalls.push([token, accepting]);
+  clearPendingForSession: vi.fn((token: string) => {
+    mockState.clearPendingCalls.push(token);
+  }),
+  setOnToolCallArrived: vi.fn((token: string, cb: unknown) => {
+    mockState.routerCalls.push([token, cb]);
   }),
 }));
 
@@ -111,7 +117,12 @@ describe("provider-stream", () => {
     mockState.client.on.mockClear();
     mockState.client.off.mockClear();
     mockState.client.sendMessage.mockClear();
-    mockState.acceptanceCalls.length = 0;
+    mockState.client.cancelPrompt.mockClear();
+    mockState.client.endSession.mockClear();
+    mockState.client.disconnect.mockClear();
+    mockState.lastMapper = null;
+    mockState.routerCalls.length = 0;
+    mockState.clearPendingCalls.length = 0;
     delete (globalThis as Record<symbol, unknown>)[GLOBAL_STATE_KEY];
   });
 
@@ -131,7 +142,6 @@ describe("provider-stream", () => {
       currentModel: "gpt-5.4",
       mcpSessionToken: "token-1",
       toolHash: "tool-hash",
-      turnActive: true,
       pendingToolCalls: [
         { toolCallId: "call-1", toolName: "custom-tool", args: {}, emitted: true },
         { toolCallId: "call-2", toolName: "custom-tool", args: { next: true }, emitted: false },
@@ -177,7 +187,108 @@ describe("provider-stream", () => {
     expect(mockState.client.off).toHaveBeenCalledTimes(7);
     expect(removeEventListenerSpy).toHaveBeenCalledWith("abort", expect.any(Function));
     expect(session.pendingToolCallNotifier).toBeNull();
-    expect(mockState.acceptanceCalls).toContainEqual(["token-1", true]);
-    expect(mockState.acceptanceCalls).toContainEqual(["token-1", false]);
+    expect(mockState.routerCalls).not.toContainEqual(["token-1", null]);
+    expect(mockState.clearPendingCalls).toEqual([]);
+  });
+
+  it("terminal stop cleanup에서는 router를 분리하고 pending MCP 상태를 정리한다", async () => {
+    const session: AcpSessionState = {
+      sessionKey: "acp:codex:session:pi:terminal",
+      scopeKey: "session:pi:terminal",
+      client: mockState.client as any,
+      sessionId: "acp-session-1",
+      cwd: "/tmp/pi-fleet",
+      lastSystemPromptHash: "hash",
+      cli: "codex",
+      firstPromptSent: true,
+      currentModel: "gpt-5.4",
+      mcpSessionToken: "token-terminal",
+      toolHash: "tool-hash",
+      pendingToolCalls: [
+        { toolCallId: "call-1", toolName: "custom-tool", args: {}, emitted: true },
+      ],
+      pendingToolCallNotifier: null,
+    };
+
+    const providerState: AcpProviderState = {
+      sessions: new Map([[session.sessionKey, session]]),
+      sessionKeysByScope: new Map([[session.scopeKey, new Set([session.sessionKey])]]),
+      toolCallToSessionKey: new Map([["call-1", session.sessionKey]]),
+      bridgeScopeSessionKeys: new Map(),
+      sessionLaunchConfigs: new Map(),
+    };
+    (globalThis as Record<symbol, unknown>)[GLOBAL_STATE_KEY] = providerState;
+
+    streamAcp(
+      { id: "acp:codex:gpt-5.4" } as any,
+      {
+        systemPrompt: "system",
+        messages: [
+          {
+            role: "toolResult",
+            content: "done",
+            toolCallId: "call-1",
+          } as any,
+        ],
+      } as any,
+      {
+        cwd: "/tmp/pi-fleet",
+        sessionId: "terminal",
+      } as any,
+    );
+
+    await vi.waitFor(() => {
+      expect(mockState.client.on).toHaveBeenCalledTimes(7);
+      expect(mockState.lastMapper).toBeTruthy();
+    });
+
+    mockState.lastMapper.finishDone();
+
+    expect(mockState.routerCalls).toContainEqual(["token-terminal", null]);
+    expect(mockState.clearPendingCalls).toEqual(["token-terminal"]);
+    expect(session.pendingToolCalls).toEqual([]);
+    expect(providerState.toolCallToSessionKey.has("call-1")).toBe(false);
+  });
+
+  it("abort cleanup에서는 router를 분리해 늦은 call이 orphan으로 남지 않게 한다", async () => {
+    const controller = new AbortController();
+
+    streamAcp(
+      { id: "acp:codex:gpt-5.4" } as any,
+      {
+        systemPrompt: "system",
+        messages: [
+          {
+            role: "user",
+            content: "hello",
+          } as any,
+        ],
+        tools: [
+          {
+            name: "custom-tool",
+            description: "custom",
+            parameters: { type: "object", properties: {} },
+          },
+        ],
+      } as any,
+      {
+        cwd: "/tmp/pi-fleet",
+        sessionId: "abort-case",
+        signal: controller.signal,
+      } as any,
+    );
+
+    await vi.waitFor(() => {
+      expect(mockState.routerCalls.some(([token, cb]) => token.length > 0 && typeof cb === "function")).toBe(true);
+    });
+
+    controller.abort();
+
+    await vi.waitFor(() => {
+      expect(mockState.routerCalls.some(([token, cb]) => token.length > 0 && cb === null)).toBe(true);
+    });
+
+    expect(mockState.clearPendingCalls.length).toBeGreaterThan(0);
+    expect(mockState.client.cancelPrompt).toHaveBeenCalledTimes(1);
   });
 });

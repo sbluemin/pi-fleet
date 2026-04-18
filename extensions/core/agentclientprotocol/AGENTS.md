@@ -80,15 +80,38 @@ Unified ACP infrastructure for pi-fleet, providing both the carrier execution en
 
 ```
 1. CLI sends an MCP `tools/call` HTTP request with a unique `toolCallId`.
-2. provider-mcp.ts verifies the session token and current turn acceptance gate.
-3. provider-mcp.ts queues the request in per-session FIFO order and keeps the HTTP response open.
-4. provider-stream.ts is notified through the tool-arrived callback.
-5. provider-events.ts emits a toolCall content block and ends the current stream turn with `done="toolUse"`.
-6. pi agent-loop executes the requested tool through ToolExecutionComponent.
-7. pi re-enters `streamSimple` with the tool result and the original `toolCallId`.
-8. provider-stream.ts validates that the result `toolCallId` matches the head of the per-session FIFO queue.
-9. provider-mcp.ts resolves the queued MCP call and returns the HTTP response.
+2. provider-mcp.ts verifies the session token and retrieves the live router callback for that session.
+3. provider-mcp.ts queues the request in per-session FIFO order (`pendingToolCalls`) and keeps the HTTP response open.
+4. The router (callback) stays alive across `done="toolUse"` handoffs within the same logical prompt to handle subsequent tool calls.
+5. provider-stream.ts is notified through the tool-arrived callback and registers the call in the session's pending list.
+6. provider-events.ts emits a toolCall content block and ends the current stream turn with `done="toolUse"`.
+7. pi agent-loop executes the requested tool through ToolExecutionComponent.
+8. pi re-enters `streamSimple` with the tool result and the original `toolCallId`.
+9. provider-stream.ts validates that the result `toolCallId` matches the head of the per-session FIFO queue.
+10. provider-mcp.ts resolves the queued MCP call and returns the HTTP response.
 ```
+
+### Router Lifetime and Cleanup
+
+- **Router Attachment**: A router (callback) is attached to the singleton MCP server using the session's bearer token when a prompt starts or resumes during tool result delivery.
+- **Persistence**: The router remains active as long as the logical prompt is "in-flight," even when the `streamSimple` turn ends with `done="toolUse"`.
+- **Terminal Cleanup**: The router is **explicitly detached** (`detachToolCallRouter`) and all pending calls are cleared when a terminal state is reached:
+  - `done="stop"` (Normal completion)
+  - `error` (Execution failure)
+  - `aborted` (User-initiated abort)
+- **Safety**: Once detached, any late or stale MCP `tools/call` requests from the CLI will fail immediately with a "router cleaned up" error (-32000) instead of hanging or causing cross-prompt side effects.
+
+## MCP Server Architecture
+
+The ACP bridge uses an in-process, singleton HTTP MCP server for efficiency and isolation:
+
+- **Loopback Binding**: Listens on `127.0.0.1` with a random ephemeral port.
+- **Opaque Path**: Uses a UUID-based path (e.g., `http://127.0.0.1:PORT/<opaque-path>`) to prevent unauthorized discovery.
+- **Bearer Token Isolation**: Each ACP session is assigned a unique UUID token. The server uses this token to:
+  - Route tool calls to the correct session's FIFO queue.
+  - Access the correct tool definitions for that specific session.
+  - Authenticate the CLI process.
+- **FIFO Guarantee**: Enforces strict execution order. If a tool result arrives before the corresponding MCP call (due to race conditions), it is pre-queued and resolved immediately when the call arrives.
 
 ## Dual Tool Routing
 
@@ -97,7 +120,7 @@ CLI-visible tools are split into two paths:
 | Category | MCP Tool | CLI Built-in Tool |
 |----------|----------|-------------------|
 | **Path** | MCP HTTP -> pi agent-loop -> ToolExecutionComponent | Executed internally by the CLI |
-| **Routing Evidence** | `toolCallId` (Primary) + session token FIFO order | Implicit (intra-process) |
+| **Routing Evidence** | `toolCallId` (Primary) + session token FIFO order + live router ownership | Implicit (intra-process) |
 | **Rendering** | Native pi tool rendering with expand/collapse support | Inline completion line inside assistant output |
 | **Turn control** | `done="toolUse"` pauses stream for pi execution | Stream keeps running until normal completion |
 

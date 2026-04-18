@@ -1,6 +1,11 @@
 # Changelog
 
 ## [Unreleased]
+- **Refactor**: Redesigned ACP↔MCP bridge with a robust queue/router model
+  - Implemented per-session FIFO tool-call queues and Bearer token isolation for the singleton MCP server.
+  - Extended router lifetime to persist across `done="toolUse"` handoffs within the same logical prompt.
+  - Added explicit terminal cleanup logic to detach routers and fail stale requests on `stop`, `error`, or `abort`.
+  - Switched to a single-instance HTTP server with UUID-based opaque paths for enhanced security and efficiency.
 - **Breaking**: Completely removed `Alt+1~9` individual carrier shortcuts
 - **Feature**: Added Git remote update detection to `welcome` extension
   - Automatically checks if the current branch is behind its remote tracking branch

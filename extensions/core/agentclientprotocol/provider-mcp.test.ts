@@ -11,7 +11,6 @@ vi.mock("../log/bridge.js", () => ({
 import {
   resolveNextToolCall,
   setOnToolCallArrived,
-  setToolCallAcceptance,
   startMcpServer,
   stopMcpServer,
 } from "./provider-mcp.js";
@@ -30,9 +29,8 @@ describe("provider-mcp", () => {
     await stopMcpServer();
   });
 
-  it("turn 종료 후 늦게 도착한 tools/call을 큐에 적재하지 않는다", async () => {
-    const token = "test-token-stale";
-    const callback = vi.fn(() => "call-1");
+  it("router가 정리된 세션의 늦은 tools/call을 즉시 거부한다", async () => {
+    const token = "test-token-router-detached";
     const url = await startMcpServer();
 
     registerToolsForSession(token, [
@@ -42,8 +40,6 @@ describe("provider-mcp", () => {
         parameters: { type: "object", properties: {} },
       } as any,
     ]);
-    setOnToolCallArrived(token, callback);
-    setToolCallAcceptance(token, false);
 
     const response = await fetch(url, {
       method: "POST",
@@ -63,8 +59,7 @@ describe("provider-mcp", () => {
 
     expect(response.status).toBe(200);
     expect(body.error.code).toBe(-32000);
-    expect(String(body.error.message)).toContain("현재 ACP turn이 종료");
-    expect(callback).not.toHaveBeenCalled();
+    expect(String(body.error.message)).toContain("tool call router가 정리");
 
     removeToolsForSession(token);
     setOnToolCallArrived(token, null);
@@ -83,7 +78,6 @@ describe("provider-mcp", () => {
       } as any,
     ]);
     setOnToolCallArrived(token, callback);
-    setToolCallAcceptance(token, true);
 
     const response = await Promise.race([
       fetch(url, {
@@ -135,7 +129,6 @@ describe("provider-mcp", () => {
       } as any,
     ]);
     setOnToolCallArrived(token, callback);
-    setToolCallAcceptance(token, true);
 
     const response = await Promise.race([
       fetch(url, {

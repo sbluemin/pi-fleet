@@ -45,7 +45,6 @@ import {
   resolveNextToolCall,
   clearPendingForSession,
   setOnToolCallArrived,
-  setToolCallAcceptance,
   type McpCallToolResult,
 } from "./provider-mcp.js";
 import {
@@ -244,10 +243,24 @@ function clearSessionRoutingState(
   }
   session.pendingToolCalls = [];
   session.pendingToolCallNotifier = null;
-  session.turnActive = false;
+}
+
+/** 세션 수명 종료 시 MCP router를 분리한다 */
+function detachToolCallRouter(session: AcpSessionState): void {
+  if (!session.mcpSessionToken) return;
+  setOnToolCallArrived(session.mcpSessionToken, null);
+}
+
+/** 논리적 prompt 종료 시 router와 orphaned MCP 상태를 함께 정리한다 */
+function closeLogicalPromptRouting(
+  state: AcpProviderState,
+  session: AcpSessionState,
+): void {
   if (session.mcpSessionToken) {
-    setToolCallAcceptance(session.mcpSessionToken, false);
+    detachToolCallRouter(session);
+    clearPendingForSession(session.mcpSessionToken);
   }
+  clearSessionRoutingState(state, session);
 }
 
 /** session을 provider 상태에서 제거 */
@@ -281,7 +294,6 @@ function registerPendingToolCall(
     emitted: false,
   };
   session.pendingToolCalls.push(pending);
-  session.turnActive = true;
   state.toolCallToSessionKey.set(toolCallId, session.sessionKey);
   return pending;
 }
@@ -332,7 +344,6 @@ function installToolCallRouter(
     session.pendingToolCallNotifier?.();
     return pending.toolCallId;
   });
-  setToolCallAcceptance(session.mcpSessionToken, false);
 }
 
 /** toolResult 묶음이 가리키는 원본 ACP 세션 조회 */
@@ -408,7 +419,7 @@ async function ensureSession(
       if (session.mcpSessionToken) {
         clearPendingForSession(session.mcpSessionToken);
         removeToolsForSession(session.mcpSessionToken);
-        setOnToolCallArrived(session.mcpSessionToken, null);
+        detachToolCallRouter(session);
       }
       removeSession(state, session);
       session = undefined;
@@ -478,7 +489,6 @@ async function ensureSession(
     currentModel: backendModel,
     mcpSessionToken: mcpActive ? sessionToken : undefined,
     toolHash: currentToolHash,
-    turnActive: false,
     pendingToolCalls: [],
     pendingToolCallNotifier: null,
   };
@@ -547,15 +557,15 @@ async function disconnectSession(
   if (session.mcpSessionToken) {
     clearPendingForSession(session.mcpSessionToken);
     removeToolsForSession(session.mcpSessionToken);
-    setOnToolCallArrived(session.mcpSessionToken, null);
+    detachToolCallRouter(session);
     session.mcpSessionToken = undefined;
   }
   session.pendingToolCallNotifier = null;
-  session.turnActive = false;
 }
 
-/** 현재 ACP turn의 listener/abort/toolCall acceptance 수명주기 관리 */
+/** 현재 ACP turn의 listener/abort 수명주기 관리 */
 function createTurnCleanup(
+  state: AcpProviderState,
   session: AcpSessionState,
   mapper: ReturnType<typeof createEventMapper>,
   removeListeners: () => void,
@@ -568,11 +578,8 @@ function createTurnCleanup(
     cleaned = true;
     removeListeners();
     cleanupAbort();
-    if (session.mcpSessionToken) {
-      setToolCallAcceptance(session.mcpSessionToken, false);
-    }
     if (mapper.output.stopReason !== "toolUse") {
-      session.turnActive = false;
+      closeLogicalPromptRouting(state, session);
       session.sendPromptError = false;
     }
   };
@@ -580,12 +587,13 @@ function createTurnCleanup(
 
 /** mapper 종료 지점(toolUse 포함)에 turn cleanup을 연결 */
 function attachTurnCleanup(
+  state: AcpProviderState,
   session: AcpSessionState,
   mapper: ReturnType<typeof createEventMapper>,
   removeListeners: () => void,
   cleanupAbort: () => void,
 ): void {
-  const cleanup = createTurnCleanup(session, mapper, removeListeners, cleanupAbort);
+  const cleanup = createTurnCleanup(state, session, mapper, removeListeners, cleanupAbort);
   const originalFinishDone = mapper.finishDone;
   const originalFinishWithError = mapper.finishWithError;
   const originalEmitMcpToolCall = mapper.emitMcpToolCall;
@@ -764,11 +772,7 @@ async function runFreshQuery(
   const { wasAborted, cleanupAbort } = setupAbortHandling(session, state, mapper, removeListeners, options);
   if (wasAborted.value) return;
 
-  session.turnActive = true;
-  if (session.mcpSessionToken) {
-    setToolCallAcceptance(session.mcpSessionToken, true);
-  }
-  attachTurnCleanup(session, mapper, removeListeners, cleanupAbort);
+  attachTurnCleanup(state, session, mapper, removeListeners, cleanupAbort);
 
   // ── sendMessage — fire-and-forget ──
   // sendMessage는 promptComplete까지 resolve되지 않음.
@@ -780,23 +784,15 @@ async function runFreshQuery(
   client.sendMessage(finalPrompt).then(() => {
     session.firstPromptSent = true;
     session.lastSystemPromptHash = systemPromptHash;
-    if (session.pendingToolCalls.length === 0) {
-      session.turnActive = false;
-    }
     debug("sendMessage 완료 (promptComplete 처리됨)");
   }).catch((err) => {
     if (wasAborted.value) return;
     const msg = errorMessage(err);
     debug(`sendMessage 에러: ${msg}`);
     session.sendPromptError = true;
-    session.turnActive = session.pendingToolCalls.length > 0;
     debug(`sendPromptError 플래그 설정: key=${key}`);
     // mapper가 아직 finished가 아니면 에러 발행
     mapper.finishWithError("error", `ACP 요청 실패: ${msg}`);
-  }).finally(() => {
-    if (session.mcpSessionToken) {
-      setToolCallAcceptance(session.mcpSessionToken, false);
-    }
   });
 
   // 매퍼 스트림이 종료될 때까지 대기 (done="toolUse" 또는 done="stop")
@@ -867,15 +863,12 @@ async function runToolResultDelivery(
   // abort 핸들링
   const { wasAborted, cleanupAbort } = setupAbortHandling(session, state, mapper, removeListeners, options);
   if (wasAborted.value) return;
-  if (session.mcpSessionToken) {
-    setToolCallAcceptance(session.mcpSessionToken, true);
-  }
 
   // 매퍼가 done="toolUse" (다음 tool call) 또는 done="stop" (완료)을 emit할 때까지 대기
   // sendMessage()는 Case 1에서 이미 호출되어 pending — 다시 호출하지 않음
   // mapper의 finishDone/finishWithError를 래핑하여 정리 로직 트리거
   // (EventStream에는 .on("end") 없음 — push/end/[Symbol.asyncIterator]만 지원)
-  attachTurnCleanup(session, mapper, removeListeners, cleanupAbort);
+  attachTurnCleanup(state, session, mapper, removeListeners, cleanupAbort);
 
   emitNextPendingToolCall(mapper, session);
 }
@@ -904,10 +897,7 @@ function setupAbortHandling(
     if (session.client) {
       session.client.cancelPrompt().catch(() => {});
     }
-    if (session.mcpSessionToken) {
-      clearPendingForSession(session.mcpSessionToken);
-    }
-    clearSessionRoutingState(state, session);
+    closeLogicalPromptRouting(state, session);
     mapper.finishWithError("aborted", "Operation aborted");
     removeListeners();
   };
