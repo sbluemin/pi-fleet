@@ -28,6 +28,8 @@ src/
 ├── connection/
 │   ├── BaseConnection.ts       # 추상 기반 (spawn + JSON-RPC stdio)
 │   └── AcpConnection.ts        # ACP 프로토콜 구현 (공식 SDK ClientSideConnection 래핑)
+├── pool/
+│   └── ProcessPool.ts          # 프로세스 재사용 및 웜업 (Codex 성능 최적화)
 ├── client/
 │   └── UnifiedAgentClient.ts   # 통합 클라이언트 (최상위 API)
 ├── detector/
@@ -142,4 +144,7 @@ ait (gemini) ❯ {입력}           # effort 미지원 시 생략
 2. **공식 ACP SDK 기반**: `@agentclientprotocol/sdk`의 `ClientSideConnection`을 래핑하여 프로토콜 통신 위임.
 3. **Config-driven**: CLI 차이는 `CliConfigs.ts`의 설정으로 관리. 코드 분기 최소화.
 4. **Event-driven Streaming**: `EventEmitter` 기반 실시간 응답 처리 (`messageChunk`, `toolCall` 등).
-5. **Graceful Process Management**: 2단계 종료 (SIGTERM → SIGKILL), 환경변수 정제로 자식 프로세스 간섭 방지.
+5. **Process Management (ProcessPool)**:
+   - **프로세스 재사용**: `Codex` 등 기동이 무거운 CLI의 성능을 위해 `ProcessPool`을 사용해 프로세스를 재사용합니다.
+   - **Pool Bypass (Codex)**: `mcpServers`나 `configOverrides`와 같이 세션별 고유 설정이 제공되면, 풀링된 프로세스를 사용하지 않고 새 프로세스를 spawn하여 설정 충돌을 방지합니다.
+6. **Graceful Process Management**: 2단계 종료 (SIGTERM → SIGKILL), 환경변수 정제로 자식 프로세스 간섭 방지.

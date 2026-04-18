@@ -31,13 +31,11 @@ const mockSetMode = vi.fn();
 const mockSetModel = vi.fn();
 const mockRemoveAllListeners = vi.fn();
 const mockCreateSession = vi.fn();
-const mockConnectWithExternalProcess = vi.fn();
 
 function createMockAcpConnection(overrides?: Record<string, unknown>): EventEmitter & Record<string, unknown> {
   const emitter = new EventEmitter();
   Object.assign(emitter, {
     connect: mockConnect,
-    connectWithExternalProcess: mockConnectWithExternalProcess,
     disconnect: mockDisconnect,
     endSession: mockEndSession,
     reconnectSession: mockReconnectSession,
@@ -48,7 +46,6 @@ function createMockAcpConnection(overrides?: Record<string, unknown>): EventEmit
     removeAllListeners: mockRemoveAllListeners,
     canResetSession: true,
     childProcess: { exitCode: null, kill: vi.fn() },
-    stream: {},
     ...overrides,
   });
   return emitter as EventEmitter & Record<string, unknown>;
@@ -80,7 +77,6 @@ describe('Pool 통합', () => {
     vi.clearAllMocks();
     mockConnect.mockResolvedValue(defaultSession);
     mockCreateSession.mockResolvedValue(defaultSession);
-    mockConnectWithExternalProcess.mockResolvedValue(defaultSession);
     mockAcquire.mockReturnValue(null);
     mockRelease.mockResolvedValue(undefined);
     mockDisconnect.mockResolvedValue(undefined);
@@ -96,7 +92,7 @@ describe('Pool 통합', () => {
 
     expect(mockAcquire).toHaveBeenCalledWith('claude');
     // pooled connection의 createSession이 호출됨
-    expect(pooledConn.createSession).toHaveBeenCalledWith('/workspace', undefined);
+    expect(pooledConn.createSession).toHaveBeenCalledWith('/workspace', undefined, []);
     // 새 AcpConnection.connect()는 호출 안 됨
     expect(mockConnect).not.toHaveBeenCalled();
     expect(result.cli).toBe('claude');
@@ -148,19 +144,52 @@ describe('Pool 통합', () => {
     expect(mockRelease).toHaveBeenCalledWith('gemini', expect.anything());
   });
 
-  it('preSpawn: pool.warmUp 호출', async () => {
-    const mockPooledConn = createMockAcpConnection();
-    mockWarmUp.mockResolvedValue(mockPooledConn);
-    mockAcquire.mockReturnValue(mockPooledConn);
+  it('codex + user overrides 있음: pool 우회 후 direct spawn, disconnect도 direct disconnect', async () => {
+    const pooledConn = createMockAcpConnection();
+    mockAcquire.mockReturnValue(pooledConn);
 
     const client = new UnifiedAgentClient();
-    const handle = await client.preSpawn('claude', { timeout: 5000 });
+    const result = await client.connect({
+      cwd: '/workspace',
+      cli: 'codex',
+      configOverrides: ['mcp_servers.pi-tools.tool_timeout_sec=1800'],
+    });
 
-    expect(mockWarmUp).toHaveBeenCalledWith('claude', expect.objectContaining({
-      timeout: 5000,
-    }));
-    expect(handle.cli).toBe('claude');
-    // _pooledConnection이 설정됨
-    expect((handle as unknown as Record<string, unknown>)._pooledConnection).toBe(mockPooledConn);
+    expect(mockAcquire).not.toHaveBeenCalled();
+    expect(mockConnect).toHaveBeenCalledWith('/workspace', undefined, []);
+    expect(pooledConn.createSession).not.toHaveBeenCalled();
+    expect(result.cli).toBe('codex');
+
+    vi.clearAllMocks();
+    mockDisconnect.mockResolvedValue(undefined);
+
+    await client.disconnect();
+
+    expect(mockRelease).not.toHaveBeenCalled();
+    expect(mockDisconnect).toHaveBeenCalled();
+    expect(mockEndSession).not.toHaveBeenCalled();
+  });
+
+  it('codex + overrides 없음: 기존처럼 pooled createSession + pool.release 유지', async () => {
+    const pooledConn = createMockAcpConnection();
+    mockAcquire.mockReturnValue(pooledConn);
+
+    const client = new UnifiedAgentClient();
+    const result = await client.connect({ cwd: '/workspace', cli: 'codex' });
+
+    expect(mockAcquire).toHaveBeenCalledWith('codex');
+    expect(pooledConn.createSession).toHaveBeenCalledWith('/workspace', undefined, []);
+    expect(mockConnect).not.toHaveBeenCalled();
+    expect(result.cli).toBe('codex');
+
+    vi.clearAllMocks();
+    mockEndSession.mockResolvedValue(undefined);
+    mockRelease.mockResolvedValue(undefined);
+
+    await client.disconnect();
+
+    expect(mockEndSession).toHaveBeenCalledWith('test-session');
+    expect(mockRelease).toHaveBeenCalledWith('codex', expect.anything());
+    expect(mockDisconnect).not.toHaveBeenCalled();
   });
 });

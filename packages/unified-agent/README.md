@@ -241,6 +241,21 @@ Returns the list of available models for the connected CLI.
 
 Closes the connection and terminates the child process.
 
+### Process Management (ProcessPool)
+
+Unified Agent uses an internal `ProcessPool` to minimize CLI startup latency, especially for heavy backends like **Codex**.
+
+- **Automatic Pooling**: Connections are automatically pooled when possible. When you call `disconnect()`, the process is returned to the pool instead of being killed.
+- **Warm-up**: Use `getProcessPool().warmUp()` to pre-start instances before the first request.
+- **Pool Bypass (Codex)**: If you provide `mcpServers` or `configOverrides` in `connect()`, the pool is bypassed and a fresh process is spawned to ensure your custom configuration is applied correctly.
+
+```typescript
+import { getProcessPool } from '@sbluemin/unified-agent';
+
+// Pre-start a Codex instance
+await getProcessPool().warmUp({ cli: 'codex', count: 1 });
+```
+
 ### Events
 
 | Event | Parameters | Description |

@@ -5,7 +5,7 @@
 
 import type { CliType, ConnectionOptions } from '../types/config.js';
 import { AcpConnection } from '../connection/AcpConnection.js';
-import { createPreSpawnConfig } from '../config/CliConfigs.js';
+import { createSpawnConfig } from '../config/CliConfigs.js';
 import { cleanEnvironment, isWindows } from '../utils/env.js';
 
 // ─── 타입/인터페이스 ──────────────────────────────────────
@@ -108,7 +108,7 @@ export class ProcessPool {
    * @returns initialized된 AcpConnection
    */
   async warmUp(cli: CliType, options?: WarmUpOptions): Promise<AcpConnection> {
-    const spawnConfig = createPreSpawnConfig(cli, options);
+    const spawnConfig = createSpawnConfig(cli, { cwd: process.cwd(), ...options });
     const cleanEnv = cleanEnvironment(process.env, options?.env);
     const env: Record<string, string | undefined> = { ...cleanEnv };
 

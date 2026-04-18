@@ -140,49 +140,6 @@ export function getYoloModeId(cli: CliType): string {
 }
 
 /**
- * pre-spawn용 설정을 생성합니다.
- * createSpawnConfig와 동일하되, Gemini의 --model 인자를 포함하지 않습니다.
- * pre-spawn 후 connect → setModel 흐름에서 사용됩니다.
- *
- * @param cli - CLI 종류
- * @param options - 연결 옵션 (cwd 제외, 선택적)
- * @returns spawn 설정
- */
-export function createPreSpawnConfig(
-  cli: CliType,
-  options?: Omit<ConnectionOptions, 'cwd'>,
-): CliSpawnConfig {
-  const opts = options ?? {};
-  const backend = CLI_BACKENDS[cli];
-
-  // npx 브릿지 패키지를 사용하는 경우 (Claude, Codex ACP) — createSpawnConfig와 동일
-  if (backend.npxPackage) {
-    const cleanEnv = cleanEnvironment(process.env, opts.env);
-    const npxPath = resolveNpxPath(cleanEnv);
-    const npxArgs = buildNpxArgs(backend.npxPackage);
-    const args = cli === 'codex'
-      ? [...npxArgs, ...buildConfigArgs(CODEX_DEFAULT_CONFIG_OVERRIDES, opts.configOverrides)]
-      : npxArgs;
-
-    return {
-      command: npxPath,
-      args,
-      useNpx: true,
-    };
-  }
-
-  // CLI를 직접 spawn하는 경우 (Gemini) — model, yoloMode 무시
-  const command = opts.cliPath ?? backend.cliCommand;
-  const args = backend.acpArgs ? [...backend.acpArgs] : [];
-
-  return {
-    command,
-    args,
-    useNpx: false,
-  };
-}
-
-/**
  * 모든 백엔드 설정을 반환합니다.
  */
 export function getAllBackendConfigs(): CliBackendConfig[] {

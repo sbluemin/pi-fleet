@@ -91,31 +91,6 @@ export interface ConnectionOptions {
   configOverrides?: string[];
 }
 
-// ─── Pre-Spawn Handle ────────────────────────────────────
-
-/** unique symbol 브랜드 — 외부에서 literal 생성 차단 */
-declare const __preSpawnedBrand: unique symbol;
-
-/**
- * CLI 프로세스를 미리 스폰한 결과를 나타내는 opaque 핸들.
- * unique symbol 브랜드로 외부에서 literal 생성이 불가합니다.
- * connect() 시 preSpawned 옵션으로 전달하면 spawn을 건너뛰고 세션만 생성/로드합니다.
- */
-export interface PreSpawnedHandle {
-  /** 브랜드 — 외부 literal 생성 차단용 */
-  readonly [__preSpawnedBrand]: true;
-  /** 스폰된 CLI 종류 */
-  readonly cli: CliType;
-  /** 스폰된 자식 프로세스 */
-  readonly child: import('child_process').ChildProcess;
-  /** ACP 스트림 */
-  readonly stream: import('@agentclientprotocol/sdk').Stream;
-  /** connect() 진입 시 true로 세팅되어 재사용을 차단 */
-  consumed: boolean;
-  /** @internal Pool에서 생성된 connection 참조 */
-  _pooledConnection?: unknown;
-}
-
 /** CLI 감지 결과 */
 export interface CliDetectionResult {
   /** CLI 종류 */
@@ -140,6 +115,4 @@ export interface UnifiedClientOptions extends ConnectionOptions {
   sessionId?: string;
   /** 에이전트에 연결할 MCP 서버 목록 (선택) */
   mcpServers?: McpServerConfig[];
-  /** 미리 스폰된 프로세스 핸들 (preSpawn()으로 생성) */
-  preSpawned?: PreSpawnedHandle;
 }

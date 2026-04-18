@@ -52,7 +52,6 @@ export { getProcessPool, ProcessPool, type ProcessPoolOptions, type WarmUpOption
 export {
   CLI_BACKENDS,
   createSpawnConfig,
-  createPreSpawnConfig,
   getBackendConfig,
   getAllBackendConfigs,
 } from './config/CliConfigs.js';
@@ -135,7 +134,6 @@ export type {
   McpServerConfig,
   CliDetectionResult,
   UnifiedClientOptions,
-  PreSpawnedHandle,
 } from './types/config.js';
 
 // === 유틸리티 ===

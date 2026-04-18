@@ -8,11 +8,9 @@ import type { PromptResponse, McpServer } from '@agentclientprotocol/sdk';
 import type {
   CliType,
   UnifiedClientOptions,
-  ConnectionOptions,
   CliDetectionResult,
   AgentMode,
   McpServerConfig,
-  PreSpawnedHandle,
 } from '../types/config.js';
 import type {
   AcpAvailableCommand,
@@ -39,7 +37,6 @@ import { AcpConnection } from '../connection/AcpConnection.js';
 import { CliDetector } from '../detector/CliDetector.js';
 import {
   createSpawnConfig,
-  createPreSpawnConfig,
   getBackendConfig,
   getYoloModeId,
   mcpServerConfigsToCodexArgs,
@@ -62,6 +59,7 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
   private activeCli: CliType | null = null;
   private sessionId: string | null = null;
   private sessionCwd: string | null = null;
+  private bypassedPool = false;
   private detector = new CliDetector();
 
   /** 타입 안전한 이벤트 리스너 등록 */
@@ -106,24 +104,6 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
     // 기존 연결 정리
     await this.disconnect();
 
-    // preSpawned 핸들 처리
-    if (options.preSpawned) {
-      const handle = options.preSpawned;
-
-      if (handle.consumed) {
-        throw new Error('PreSpawnedHandle이 이미 소비되었습니다');
-      }
-
-      // dead handle → 기존 spawn 경로로 fallback
-      if (handle.child.exitCode !== null) {
-        return this.connectAcp(handle.cli, options);
-      }
-
-      // 정상: consumed 세팅 후 connectWithHandle 호출
-      handle.consumed = true;
-      return this.connectWithHandle(handle, options);
-    }
-
     // 세션 재개 시 CLI 미지정 방지 (자동 감지로 엉뚱한 CLI에 재개 시도하는 문제 차단)
     if (options.sessionId && !options.cli) {
       throw new Error('세션 재개 시 cli 지정이 필요합니다.');
@@ -152,28 +132,33 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
     cli: CliType,
     options: UnifiedClientOptions,
   ): Promise<ConnectResult> {
+    const shouldBypassPool = this.shouldBypassPool(cli, options);
+
     // MCP 서버 설정을 CLI별로 분기 변환
     const { acpMcpServers, effectiveOptions } = this.resolveMcpServers(cli, options);
 
     // Pool에서 acquire 시도
-    const pool = getProcessPool();
-    const pooled = pool.acquire(cli);
+    if (!shouldBypassPool) {
+      const pool = getProcessPool();
+      const pooled = pool.acquire(cli);
 
-    if (pooled) {
+      if (pooled) {
       // Pool에서 획득한 connection 재사용: createSession만 호출
-      this.acpConnection = pooled;
-      this.setupAcpEventForwarding();
+        this.acpConnection = pooled;
+        this.bypassedPool = false;
+        this.setupAcpEventForwarding();
 
-      let session: AcpSessionNewResult;
-      try {
-        session = await pooled.createSession(effectiveOptions.cwd, effectiveOptions.sessionId, acpMcpServers);
-      } catch (error) {
-        const connectionError = this.buildConnectionError(cli, error, []);
-        await this.cleanupFailedAcpConnection();
-        throw connectionError;
+        let session: AcpSessionNewResult;
+        try {
+          session = await pooled.createSession(effectiveOptions.cwd, effectiveOptions.sessionId, acpMcpServers);
+        } catch (error) {
+          const connectionError = this.buildConnectionError(cli, error, []);
+          await this.cleanupFailedAcpConnection();
+          throw connectionError;
+        }
+
+        return this.finalizeConnect(cli, effectiveOptions, session);
       }
-
-      return this.finalizeConnect(cli, effectiveOptions, session);
     }
 
     // Pool에 없으면 새로 spawn
@@ -197,6 +182,7 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
       clientInfo: effectiveOptions.clientInfo,
       autoApprove: effectiveOptions.autoApprove,
     });
+    this.bypassedPool = shouldBypassPool;
 
     this.setupAcpEventForwarding();
 
@@ -256,6 +242,18 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
   }
 
   /**
+   * Codex는 요청 단위 `-c`/MCP override가 있으면 spawn 인자가 세션마다 달라집니다.
+   * 이 경우 pooled 재사용 시 현재 요청의 spawn 계약을 반영할 수 없어 pool을 우회합니다.
+   */
+  private shouldBypassPool(cli: CliType, options: UnifiedClientOptions): boolean {
+    if (cli !== 'codex') {
+      return false;
+    }
+
+    return (options.mcpServers?.length ?? 0) > 0 || (options.configOverrides?.length ?? 0) > 0;
+  }
+
+  /**
    * 연결 완료 후 공통 후처리 (YOLO 모드, 모델 설정, 상태 저장).
    */
   private async finalizeConnect(
@@ -290,45 +288,6 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
       protocol: 'acp',
       session,
     };
-  }
-
-  /**
-   * CLI 프로세스를 미리 스폰하고 opaque PreSpawnedHandle을 반환합니다.
-   * Pool의 warmUp을 사용하여 spawn+initialize까지 완료된 connection을 생성합니다.
-   * connect() 시 preSpawned로 전달하면 createSession만 수행합니다.
-   *
-   * @param cli - 스폰할 CLI 종류
-   * @param options - 연결 옵션 (cwd 제외)
-   * @returns 미리 스폰된 프로세스 핸들
-   */
-  async preSpawn(
-    cli: CliType,
-    options?: Omit<ConnectionOptions, 'cwd'>,
-  ): Promise<PreSpawnedHandle> {
-    const pool = getProcessPool();
-    const connection = await pool.warmUp(cli, {
-      env: options?.env,
-      cliPath: options?.cliPath,
-      timeout: options?.timeout,
-      clientInfo: options?.clientInfo,
-    });
-
-    const child = connection.childProcess!;
-    const stream = connection.stream!;
-
-    // opaque handle 생성 (unique symbol brand 때문에 as unknown as 필요)
-    // Pool에서 acquire하여 active 상태로 전환 (Pool에서 제거됨)
-    pool.acquire(cli);
-
-    const handle = {
-      cli,
-      child,
-      stream,
-      consumed: false,
-      _pooledConnection: connection,
-    } as unknown as PreSpawnedHandle;
-
-    return handle;
   }
 
   /**
@@ -377,88 +336,6 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
     }
     await this.acpConnection.endSession(this.sessionId);
     this.sessionId = null;
-  }
-
-  /**
-   * pre-spawn 핸들을 사용하여 ACP 연결을 수행합니다.
-   * _pooledConnection이 있으면 이미 initialized된 connection을 재사용합니다.
-   */
-  private async connectWithHandle(
-    handle: PreSpawnedHandle,
-    options: UnifiedClientOptions,
-  ): Promise<ConnectResult> {
-    // MCP 서버 설정을 CLI별로 분기 변환
-    const { acpMcpServers, effectiveOptions } = this.resolveMcpServers(handle.cli, options);
-
-    // Pool에서 생성된 connection이 있으면 재사용
-    const pooledConn = handle._pooledConnection as AcpConnection | undefined;
-    if (pooledConn) {
-      this.acpConnection = pooledConn;
-      this.setupAcpEventForwarding();
-
-      let session: AcpSessionNewResult;
-      try {
-        session = await pooledConn.createSession(effectiveOptions.cwd, effectiveOptions.sessionId, acpMcpServers);
-      } catch (error) {
-        const connectionError = this.buildConnectionError(handle.cli, error, []);
-        await this.cleanupFailedAcpConnection();
-        throw connectionError;
-      }
-
-      return this.finalizeConnect(handle.cli, effectiveOptions, session);
-    }
-
-    // Pool connection 없으면 기존 connectWithExternalProcess 경로
-    const spawnConfig = createPreSpawnConfig(handle.cli, effectiveOptions);
-    const cleanEnv = cleanEnvironment(process.env, effectiveOptions.env);
-
-    const env: Record<string, string | undefined> = { ...cleanEnv };
-
-    if (handle.cli === 'gemini' && isWindows() && env.GEMINI_CLI_NO_RELAUNCH === undefined) {
-      env.GEMINI_CLI_NO_RELAUNCH = 'true';
-    }
-
-    this.acpConnection = new AcpConnection({
-      command: spawnConfig.command,
-      args: spawnConfig.args,
-      cwd: effectiveOptions.cwd,
-      env,
-      requestTimeout: effectiveOptions.timeout,
-      initTimeout: effectiveOptions.timeout,
-      promptIdleTimeout: effectiveOptions.promptIdleTimeout,
-      clientInfo: effectiveOptions.clientInfo,
-      autoApprove: effectiveOptions.autoApprove,
-    });
-
-    this.setupAcpEventForwarding();
-
-    const recentLogs: string[] = [];
-    const collectLog = (message: string): void => {
-      recentLogs.push(message);
-      if (recentLogs.length > 30) {
-        recentLogs.shift();
-      }
-    };
-    this.acpConnection.on('log', collectLog);
-
-    let session;
-    try {
-      session = await this.acpConnection.connectWithExternalProcess(
-        handle.child,
-        handle.stream,
-        effectiveOptions.cwd,
-        effectiveOptions.sessionId,
-        acpMcpServers,
-      );
-    } catch (error) {
-      const connectionError = this.buildConnectionError(handle.cli, error, recentLogs);
-      await this.cleanupFailedAcpConnection();
-      throw connectionError;
-    } finally {
-      this.acpConnection?.off('log', collectLog);
-    }
-
-    return this.finalizeConnect(handle.cli, effectiveOptions, session);
   }
 
   /**
@@ -617,7 +494,10 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
       const conn = this.acpConnection;
       const cli = this.activeCli;
 
-      if (cli && this.sessionId && conn.canResetSession) {
+      if (this.bypassedPool) {
+        await conn.disconnect();
+        conn.removeAllListeners();
+      } else if (cli && this.sessionId && conn.canResetSession) {
         // Claude/Codex: endSession 후 Pool에 반환
         try {
           await conn.endSession(this.sessionId);
@@ -646,6 +526,7 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
     this.activeCli = null;
     this.sessionId = null;
     this.sessionCwd = null;
+    this.bypassedPool = false;
   }
 
   /**
@@ -719,6 +600,7 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
     this.activeCli = null;
     this.sessionId = null;
     this.sessionCwd = null;
+    this.bypassedPool = false;
   }
 
   /**

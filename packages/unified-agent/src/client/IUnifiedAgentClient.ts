@@ -10,12 +10,10 @@ import type { PromptResponse } from '@agentclientprotocol/sdk';
 import type {
   CliType,
   ProtocolType,
-  ConnectionOptions,
   McpServerConfig,
   UnifiedClientOptions,
   CliDetectionResult,
   AgentMode,
-  PreSpawnedHandle,
 } from '../types/config.js';
 import type {
   AcpAvailableCommand,
@@ -241,18 +239,6 @@ export interface IUnifiedAgentClient {
    * @param sessionId - 로드할 세션 ID
    */
   loadSession(sessionId: string, mcpServers?: McpServerConfig[]): Promise<void>;
-
-  // ─── Pre-Spawn & 세션 교체 ─────────────────────────────
-
-  /**
-   * CLI 프로세스를 미리 스폰하고 opaque PreSpawnedHandle을 반환합니다.
-   * connect() 시 preSpawned로 전달하면 spawn을 건너뛰고 세션 생성/로드만 수행합니다.
-   *
-   * @param cli - 스폰할 CLI 종류
-   * @param options - 연결 옵션 (cwd 제외)
-   * @returns 미리 스폰된 프로세스 핸들
-   */
-  preSpawn(cli: CliType, options?: Omit<ConnectionOptions, 'cwd'>): Promise<PreSpawnedHandle>;
 
   /**
    * 현재 프로세스를 유지한 채 세션만 교체합니다.

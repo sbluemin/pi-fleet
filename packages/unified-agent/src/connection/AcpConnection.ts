@@ -22,6 +22,7 @@ import {
   type PromptResponse,
   type ContentBlock,
   type McpServer,
+  type Stream,
   type CreateTerminalRequest,
   type CreateTerminalResponse,
   type TerminalOutputRequest,
@@ -36,7 +37,6 @@ import {
 import type { ChildProcess } from 'child_process';
 import { readFile, writeFile, mkdir, access } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import type { Stream } from '@agentclientprotocol/sdk';
 import type { ConnectionState } from '../types/common.js';
 import type {
   AcpAvailableCommand,
@@ -107,11 +107,6 @@ export class AcpConnection extends BaseConnection {
     return this.child;
   }
 
-  /** Pool의 PreSpawnedHandle 생성용 ACP 스트림 참조 */
-  get stream(): Stream | null {
-    return this.acpStream;
-  }
-
   constructor(options: AcpConnectionOptions) {
     super(options);
     this.clientInfo = options.clientInfo ?? {
@@ -162,35 +157,6 @@ export class AcpConnection extends BaseConnection {
    */
   async initializeConnection(_workspace: string): Promise<void> {
     const { stream } = this.spawnProcess();
-    this.setState('initializing');
-
-    try {
-      await this.performInitialize(stream);
-      this.setState('connected');
-    } catch (error) {
-      this.setState('error');
-      try {
-        await this.disconnect();
-      } catch {
-        // 정리 실패는 원본 예외를 가리지 않음
-      }
-      throw error;
-    }
-  }
-
-  /**
-   * 외부 프로세스를 받아 initialize만 수행합니다 (세션 미생성).
-   *
-   * @param child - 외부에서 spawn된 자식 프로세스
-   * @param stream - ACP SDK 호환 Stream
-   * @param workspace - 작업 디렉토리 경로
-   */
-  async initializeWithExternalProcess(
-    child: ChildProcess,
-    stream: Stream,
-    _workspace: string,
-  ): Promise<void> {
-    this.adoptExternalProcess(child, stream);
     this.setState('initializing');
 
     try {
@@ -284,36 +250,6 @@ export class AcpConnection extends BaseConnection {
       this.requestTimeout,
       'session/load',
     );
-  }
-
-  /**
-   * 외부에서 pre-spawn된 프로세스를 사용하여 ACP 연결을 시작합니다.
-   * spawn 단계를 건너뛰고, ClientSideConnection 생성 ~ 세션 생성까지 수행합니다.
-   *
-   * @param child - 외부에서 spawn된 자식 프로세스
-   * @param stream - ACP SDK 호환 Stream
-   * @param workspace - 작업 디렉토리 경로
-   * @param sessionId - 재개할 기존 세션 ID (선택)
-   * @returns 세션 정보
-   */
-  async connectWithExternalProcess(
-    child: ChildProcess,
-    stream: Stream,
-    workspace: string,
-    sessionId?: string,
-    mcpServers?: McpServer[],
-  ): Promise<NewSessionResponse> {
-    await this.initializeWithExternalProcess(child, stream, workspace);
-    try {
-      return await this.createSession(workspace, sessionId, mcpServers);
-    } catch (error) {
-      try {
-        await this.disconnect();
-      } catch {
-        // 정리 실패는 원본 예외를 가리지 않음
-      }
-      throw error;
-    }
   }
 
   /**
@@ -504,7 +440,7 @@ export class AcpConnection extends BaseConnection {
 
   /**
    * ClientSideConnection 생성 → initialize 공통 로직.
-   * initializeConnection과 initializeWithExternalProcess에서 호출됩니다.
+   * initializeConnection에서 호출됩니다.
    */
   private async performInitialize(stream: Stream): Promise<void> {
     const connection = new ClientSideConnection(

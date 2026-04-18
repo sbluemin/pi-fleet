@@ -1,8 +1,44 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { EventEmitter } from 'events';
-import { ProcessPool, resetProcessPool } from '../../src/pool/ProcessPool.js';
+import type { CliSpawnConfig } from '../../src/types/config.js';
 import type { AcpConnection } from '../../src/connection/AcpConnection.js';
-import type { CliType } from '../../src/types/config.js';
+
+const {
+  mockCreateSpawnConfig,
+  mockAcpConnectionConstructor,
+  mockInitializeConnection,
+} = vi.hoisted(() => ({
+  mockCreateSpawnConfig: vi.fn(),
+  mockAcpConnectionConstructor: vi.fn(),
+  mockInitializeConnection: vi.fn(),
+}));
+
+vi.mock('../../src/config/CliConfigs.js', async () => {
+  const actual = await vi.importActual<typeof import('../../src/config/CliConfigs.js')>('../../src/config/CliConfigs.js');
+  return {
+    ...actual,
+    createSpawnConfig: mockCreateSpawnConfig,
+  };
+});
+
+vi.mock('../../src/connection/AcpConnection.js', () => ({
+  AcpConnection: vi.fn((options: Record<string, unknown>) => {
+    mockAcpConnectionConstructor(options);
+    const emitter = new EventEmitter();
+    Object.assign(emitter, {
+      childProcess: { exitCode: null, kill: vi.fn() },
+      canResetSession: true,
+      disconnect: vi.fn().mockResolvedValue(undefined),
+      initializeConnection: mockInitializeConnection,
+      createSession: vi.fn().mockResolvedValue({ sessionId: 'test-session' }),
+      removeAllListeners: vi.fn(),
+      connectionState: 'connected',
+    });
+    return emitter;
+  }),
+}));
+
+const { ProcessPool, resetProcessPool } = await import('../../src/pool/ProcessPool.js');
 
 // ─── 헬퍼 ────────────────────────────────────────────────
 
@@ -26,14 +62,20 @@ function createMockConnection(overrides?: {
   return emitter as unknown as AcpConnection;
 }
 
+function createSpawnConfig(command: string, args: string[], useNpx = false): CliSpawnConfig {
+  return { command, args, useNpx };
+}
+
 // ─── 테스트 ──────────────────────────────────────────────
 
 describe('ProcessPool', () => {
-  let pool: ProcessPool;
+  let pool: InstanceType<typeof ProcessPool>;
 
   beforeEach(() => {
     resetProcessPool();
     pool = new ProcessPool({ maxPerCli: 2, idleTtlMs: 300_000 });
+    vi.clearAllMocks();
+    mockInitializeConnection.mockResolvedValue(undefined);
   });
 
   afterEach(async () => {
@@ -118,20 +160,69 @@ describe('ProcessPool', () => {
   describe('warmUp', () => {
     it('새 AcpConnection + initializeConnection 호출', async () => {
       // warmUp은 실제 AcpConnection을 생성하므로 모듈 mock 필요
-      // 여기서는 createPreSpawnConfig + AcpConnection 생성자를 mock
-      const { ProcessPool: PoolClass } = await import('../../src/pool/ProcessPool.js');
-
-      // AcpConnection mock을 위해 vi.mock은 테스트 파일 레벨에서 해야 하므로
-      // 이 테스트에서는 release/acquire 통합으로 간접 검증
-      const mockConn = createMockConnection();
-      const testPool = new PoolClass({ maxPerCli: 2 });
+      // 여기서는 createSpawnConfig + AcpConnection 생성자를 mock
+      const testPool = new ProcessPool({ maxPerCli: 2 });
 
       // warmUp 대신 release로 Pool에 직접 넣어서 기본 동작 검증
+      const mockConn = createMockConnection();
       await testPool.release('claude', mockConn);
       const acquired = testPool.acquire('claude');
       expect(acquired).toBe(mockConn);
 
       await testPool.drain();
+    });
+
+    it('gemini warmUp: createSpawnConfig 계약과 initializeConnection 호출을 검증', async () => {
+      const spawnConfig = createSpawnConfig('gemini', ['--acp']);
+      mockCreateSpawnConfig.mockReturnValue(spawnConfig);
+
+      await pool.warmUp('gemini', {
+        cliPath: '/custom/gemini',
+        timeout: 5000,
+        env: { FOO: 'bar' },
+      });
+
+      expect(mockCreateSpawnConfig).toHaveBeenCalledWith('gemini', {
+        cwd: process.cwd(),
+        cliPath: '/custom/gemini',
+        timeout: 5000,
+        env: { FOO: 'bar' },
+      });
+      expect(mockAcpConnectionConstructor).toHaveBeenCalledWith(expect.objectContaining({
+        command: 'gemini',
+        args: ['--acp'],
+        cwd: process.cwd(),
+        requestTimeout: 5000,
+        initTimeout: 5000,
+      }));
+      expect(mockInitializeConnection).toHaveBeenCalledWith(process.cwd());
+      expect(pool.size('gemini')).toBe(1);
+    });
+
+    it('codex warmUp: createSpawnConfig 계약과 initializeConnection 호출을 검증', async () => {
+      const spawnConfig = createSpawnConfig('npx', ['--package=@zed-industries/codex-acp@0.11.1', 'codex-acp'], true);
+      mockCreateSpawnConfig.mockReturnValue(spawnConfig);
+
+      await pool.warmUp('codex', {
+        timeout: 7000,
+        clientInfo: { name: 'test-client', version: '1.2.3' },
+      });
+
+      expect(mockCreateSpawnConfig).toHaveBeenCalledWith('codex', {
+        cwd: process.cwd(),
+        timeout: 7000,
+        clientInfo: { name: 'test-client', version: '1.2.3' },
+      });
+      expect(mockAcpConnectionConstructor).toHaveBeenCalledWith(expect.objectContaining({
+        command: 'npx',
+        args: ['--package=@zed-industries/codex-acp@0.11.1', 'codex-acp'],
+        cwd: process.cwd(),
+        requestTimeout: 7000,
+        initTimeout: 7000,
+        clientInfo: { name: 'test-client', version: '1.2.3' },
+      }));
+      expect(mockInitializeConnection).toHaveBeenCalledWith(process.cwd());
+      expect(pool.size('codex')).toBe(1);
     });
   });
 
