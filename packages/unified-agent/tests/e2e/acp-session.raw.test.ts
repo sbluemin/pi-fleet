@@ -33,7 +33,7 @@ const CLIS: CliDef[] = [
   {
     name: 'claude',
     command: 'npx',
-    args: ['--yes', '--package=@agentclientprotocol/claude-agent-acp@0.26.0', 'claude-agent-acp'],
+    args: ['--yes', '--package=@agentclientprotocol/claude-agent-acp@0.29.2', 'claude-agent-acp'],
   },
   {
     name: 'codex',

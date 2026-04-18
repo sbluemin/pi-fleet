@@ -14,7 +14,7 @@ Unified Agent provides two ways to control three major CLI agents — Gemini, Cl
 | CLI | Protocol | Spawn Command |
 |-----|----------|---------------|
 | **Gemini** | ACP | `gemini --acp` |
-| **Claude** | ACP | `npx --package=@agentclientprotocol/claude-agent-acp@0.26.0 claude-agent-acp` |
+| **Claude** | ACP | `npx --package=@agentclientprotocol/claude-agent-acp@0.29.2 claude-agent-acp` |
 | **Codex** | ACP | `npx --package=@zed-industries/codex-acp@0.11.1 codex-acp` |
 
 ### Prerequisites
