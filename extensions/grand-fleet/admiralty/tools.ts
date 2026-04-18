@@ -8,6 +8,7 @@ import { getState } from "../index.js";
 import type { AdmiraltyServer } from "../ipc/server.js";
 import type { CarrierMap, ConnectedFleet, FleetStatus, MissionId } from "../types.js";
 import type { FleetRegistry } from "./fleet-registry.js";
+import { syncRosterWidget } from "./roster-widget.js";
 
 interface DispatchParams {
   fleetId: string;
@@ -143,6 +144,13 @@ export function registerAdmiraltyTools(
           Date.now(),
         );
 
+        const fleetState = getState().connectedFleets.get(params.fleetId);
+        if (fleetState) {
+          fleetState.activeMissionId = missionId;
+          fleetState.activeMissionObjective = params.directive.slice(0, 40);
+          syncRosterWidget();
+        }
+
         log.debug(LOG_SOURCE, `dispatch 완료: ${missionId}`);
 
         const result: MissionAck = {
@@ -203,6 +211,16 @@ export function registerAdmiraltyTools(
           };
         }),
       );
+
+      const objectivePreview = params.directive.slice(0, 40);
+      for (const ack of acknowledgements) {
+        const fleetState = getState().connectedFleets.get(ack.fleetId);
+        if (fleetState) {
+          fleetState.activeMissionId = missionId;
+          fleetState.activeMissionObjective = objectivePreview;
+        }
+      }
+      syncRosterWidget();
 
       return {
         content: [{

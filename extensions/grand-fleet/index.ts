@@ -15,12 +15,11 @@ import registerFleet from "./fleet/register.js";
 import { registerFormationCommands } from "./formation/auto-subdirs.js";
 
 export default function registerGrandFleet(pi: ExtensionAPI) {
-  const log = getLogAPI();
+  // 부트스트래퍼(boot/) 부팅 설정에 따른 비활성화 가드
+  const bootCfg = (globalThis as any)["__fleet_boot_config__"];
+  if (bootCfg && !bootCfg.grandFleet) return;
 
-  // 도구와 커맨드는 환경변수 없이도 항상 등록 (extension 로드 시점에 LLM에 노출)
-  registerAdmiraltyTools(pi);
-  registerFormationCommands(pi);
-  log.debug("grand-fleet", "도구 + Formation Strategy 커맨드 등록 완료");
+  const log = getLogAPI();
 
   const role = detectRole();
   if (!role) {
@@ -33,6 +32,8 @@ export default function registerGrandFleet(pi: ExtensionAPI) {
 
   if (role === "admiralty") {
     log.info("grand-fleet", "Admiralty 모드 초기화");
+    registerAdmiraltyTools(pi);
+    registerFormationCommands(pi);
     registerAdmiralty(pi);
   } else {
     log.info("grand-fleet", `Fleet 모드 초기화 — fleetId=${process.env.PI_FLEET_ID}`);

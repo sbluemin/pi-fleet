@@ -27,6 +27,8 @@ export class FleetRegistry {
   /** heartbeat 타이머 */
   private heartbeatTimers = new Map<FleetId, ReturnType<typeof setTimeout>>();
 
+  private changeListeners: Array<() => void> = [];
+
   /** 함대 등록 (fleet.register 핸들러) */
   async register(params: RegisterParams, socket: Socket): Promise<unknown> {
     const fleetId = params.fleetId as FleetId;
@@ -62,6 +64,7 @@ export class FleetRegistry {
         carriers: ((params.carriers ?? {}) as CarrierMap),
         status: "idle",
         activeMissionId: null,
+        activeMissionObjective: null,
         cost: 0,
         lastHeartbeat: Date.now(),
       };
@@ -75,6 +78,7 @@ export class FleetRegistry {
         `Fleet ${fleetId} 등록 완료 (zone=${fleet.operationalZone})`,
       );
 
+      this.notifyChange();
       return {
         registered: true,
         protocolVersion: PROTOCOL_VERSION,
@@ -93,6 +97,7 @@ export class FleetRegistry {
     this.sockets.delete(fleetId);
     this.clearHeartbeatTimer(fleetId);
     getLogAPI().info(LOG_SOURCE, `Fleet ${fleetId} 등록 해제`);
+    this.notifyChange();
   }
 
   /** heartbeat 수신 */
@@ -112,6 +117,7 @@ export class FleetRegistry {
     state.totalCost = calculateTotalCost();
     this.resetHeartbeatTimer(fleetId);
     getLogAPI().debug(LOG_SOURCE, `Fleet ${fleetId} heartbeat (cost=${fleet.cost})`);
+    this.notifyChange();
   }
 
   /** Carrier 상태 업데이트 */
@@ -130,6 +136,7 @@ export class FleetRegistry {
     }
 
     getLogAPI().debug(LOG_SOURCE, `Fleet ${fleetId} 상태 변경: ${fleet.status}`);
+    this.notifyChange();
   }
 
   /** 작전 보고 처리 */
@@ -143,8 +150,10 @@ export class FleetRegistry {
     getLogAPI().info(LOG_SOURCE, `Fleet ${fleetId} 보고: ${type}`);
     if (type === "complete" || type === "failed") {
       fleet.activeMissionId = null;
+      fleet.activeMissionObjective = null;
       fleet.status = "idle";
     }
+    this.notifyChange();
   }
 
   /** 함대 소켓 참조 조회 */
@@ -160,6 +169,18 @@ export class FleetRegistry {
       zone: fleet.operationalZone,
       status: fleet.status,
     }));
+  }
+
+  /** 상태 변경 리스너 등록 */
+  onChange(listener: () => void): void {
+    this.changeListeners.push(listener);
+  }
+
+  /** 등록된 리스너들에게 변경 알림 */
+  private notifyChange(): void {
+    for (const listener of this.changeListeners) {
+      listener();
+    }
   }
 
   /** heartbeat 감시 타이머를 시작한다. */

@@ -6,6 +6,8 @@
  * 각 디렉토리에 Fleet PI를 기동한다.
  */
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import * as os from "node:os";
+import * as path from "node:path";
 
 import { getLogAPI } from "../../core/log/bridge.js";
 import { getState } from "../index.js";
@@ -22,7 +24,7 @@ import * as tmux from "./tmux.js";
 
 const LOG_SOURCE = "grand-fleet:formation";
 const SESSION_PREFIX = "grand-fleet";
-const GRAND_FLEET_DIR = ".grand-fleet";
+const GRAND_FLEET_HOME = path.join(os.homedir(), ".pi", "grand-fleet");
 const ADMIRALTY_SOCKET_FILE = "admiralty.sock";
 
 /** Fleet PI 기동 셸 커맨드를 생성한다. cd 후 env로 환경변수를 설정하고 pi를 실행. */
@@ -64,7 +66,7 @@ export async function launchGrandFleet(
     return;
   }
 
-  const socketPath = `${cwd}/${GRAND_FLEET_DIR}/${ADMIRALTY_SOCKET_FILE}`;
+  const socketPath = path.join(GRAND_FLEET_HOME, ADMIRALTY_SOCKET_FILE);
 
   // Admiralty 상태 초기화 (환경변수 없이 시작된 경우)
   ensureAdmiraltyState(socketPath);

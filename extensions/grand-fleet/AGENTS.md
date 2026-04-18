@@ -70,8 +70,10 @@ grand-fleet/  →  core/ (임포트 허용)
 
 ## Core Rules
 
-- **기존 extension 무수정** — `fleet/`, `core/`를 절대 변경하지 않는다.
-- **프롬프트 수준 격리** — Admiralty 모드에서 `before_agent_start`로 시스템 프롬프트를 전체 교체. `fleet/`의 도구는 등록되나 화이트리스트로 억제.
+- **부팅 제어** — `boot/` 확장의 `__fleet_boot_config__` globalThis 플래그로 로드 여부 결정. 역할 미설정 시 grand-fleet 전체가 비활성화된다.
+- **역할별 도구/커맨드 격리** — Admiralty 도구(`grand_fleet_dispatch`, `broadcast`, `status`)와 Formation 커맨드(`start`, `stop`)는 `admiralty` 역할에서만 등록. Fleet 모드에서는 `connect`/`disconnect` 커맨드만 등록.
+- **프롬프트 수준 격리** — Admiralty 모드에서 `before_agent_start`로 시스템 프롬프트를 전체 교체. Fleet 모드에서는 연결 상태일 때만 Grand Fleet Context를 append.
+- **하이브리드 접속** — Fleet 모드에서 `PI_GRAND_FLEET_SOCK` env var가 있으면 자동 접속, 없으면 `/fleet:grand-fleet:connect`로 수동 접속.
 - **Prompt text lives in `prompts.ts`** — AI 프롬프트는 `prompts.ts`에 분리.
 - **globalThis로 모듈 간 상태 공유** — 세션 전환에도 유지.
 - **`index.ts` is for wiring only** — 비즈니스 로직은 하위 모듈에.

@@ -82,6 +82,7 @@ export interface ConnectedFleet {
   carriers: CarrierMap;
   status: FleetStatus;
   activeMissionId: MissionId | null;
+  activeMissionObjective: string | null;
   cost: number;
   lastHeartbeat: number;
 }

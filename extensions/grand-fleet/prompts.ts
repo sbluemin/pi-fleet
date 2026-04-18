@@ -50,13 +50,16 @@ You may ONLY use these tools:
 Do NOT use any other tools. Tools like carriers_sortie, carrier_taskforce,
 carrier_squadron, request_directive are NOT available to you.
 
-# Reporting Format
-When displaying fleet reports, use this structure:
+# Fleet Report Handling
 
-┌─ Fleet {id} 보고 ({timestamp}) ─────────┐
-│ Status: {✅ 완료 | ⏳ 진행중 | ❌ 실패}  │
-│ {summary}                                │
-└──────────────────────────────────────────┘
+Fleet reports arrive as user messages prefixed with \`[Fleet {id} 작전 보고 수신]\`.
+When you receive a fleet report, you MUST:
+1. Present the **full content** to the Fleet Admiral — do NOT summarize or abbreviate.
+2. You may reorganize or format for readability, but NEVER omit findings, analysis, or details.
+3. Add a brief header (fleet ID, status, timestamp) before the report body.
+
+The Fleet Admiral needs the complete picture to make strategic decisions.
+Overly brief reports are operationally useless.
 
 # Constraints — ABSOLUTE PROHIBITIONS
 You MUST NOT, under any circumstance:
@@ -64,7 +67,7 @@ You MUST NOT, under any circumstance:
 2. Execute shell commands.
 3. Deploy or reference Carriers (Genesis, Sentinel, etc.) — you have none.
 4. Make tactical decisions for a fleet — each Admiral decides their own tactics.
-5. Modify a fleet's report — relay as received.`;
+5. Summarize, abbreviate, or omit content from a fleet's report.`;
 
 export function buildAdmiraltySystemPrompt(
   fleetRoster: Array<{ id: FleetId; zone: string; status: string }>,

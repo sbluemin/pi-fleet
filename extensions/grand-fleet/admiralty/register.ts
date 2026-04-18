@@ -9,14 +9,20 @@ import type {
   ExtensionContext,
 } from "@mariozechner/pi-coding-agent";
 
+import * as os from "node:os";
+import * as path from "node:path";
+
+import { setEditorBorderColor, setEditorRightLabel } from "../../core/hud/border-bridge.js";
 import { getState } from "../index.js";
 import { AdmiraltyServer } from "../ipc/server.js";
 import { registerAdmiraltyHandlers } from "../ipc/methods.js";
 import { buildAdmiraltySystemPrompt } from "../prompts.js";
 import { FleetRegistry } from "./fleet-registry.js";
+import { initRosterWidget, disposeRosterWidget, syncRosterWidget } from "./roster-widget.js";
 import { setAdmiraltyRuntime } from "./tools.js";
 
-const DEFAULT_SOCKET_FILE = ".grand-fleet/admiralty.sock";
+const GRAND_FLEET_HOME = path.join(os.homedir(), ".pi", "grand-fleet");
+const DEFAULT_SOCKET_FILE = path.join(GRAND_FLEET_HOME, "admiralty.sock");
 
 let server: AdmiraltyServer | null = null;
 let registry: FleetRegistry | null = null;
@@ -33,10 +39,14 @@ export default function registerAdmiralty(pi: ExtensionAPI): void {
 
   // session_start: IPC 서버 기동
   pi.on("session_start", async (_event, ctx) => {
+    // Admiralty 모드 HUD 표시
+    const ADMIRALTY_COLOR = "\x1b[38;2;255;200;60m";
+    setEditorBorderColor(ADMIRALTY_COLOR);
+    setEditorRightLabel(`${ADMIRALTY_COLOR}⚓ Admiralty\x1b[0m`);
     const state = getState();
     if (!state) return;
 
-    const socketPath = state.socketPath ?? `${process.cwd()}/${DEFAULT_SOCKET_FILE}`;
+    const socketPath = state.socketPath ?? DEFAULT_SOCKET_FILE;
     state.socketPath = socketPath;
 
     server = new AdmiraltyServer(socketPath);
@@ -65,6 +75,8 @@ export default function registerAdmiralty(pi: ExtensionAPI): void {
     try {
       await server.start();
       notify(ctx, `[Grand Fleet] Admiralty 서버 기동: ${socketPath}`, "info");
+      initRosterWidget(ctx);
+      getRegistry().onChange(syncRosterWidget);
     } catch (err) {
       notify(
         ctx,
@@ -76,6 +88,7 @@ export default function registerAdmiralty(pi: ExtensionAPI): void {
 
   // session_shutdown: 서버 종료
   pi.on("session_shutdown", async () => {
+    disposeRosterWidget();
     await server?.close();
     server = null;
   });

@@ -42,6 +42,7 @@ export class FleetClient {
   private pendingRequests = new Map<number | string, PendingRequest>();
   private requestHandlers = new Map<string, RequestHandler>();
   private nextId = 1;
+  private intentionalClose = false;
   private onConnected?: () => void;
   private onDisconnected?: () => void;
 
@@ -67,6 +68,7 @@ export class FleetClient {
   /** 접속 시작 */
   connect(): void {
     if (this.state !== "disconnected") return;
+    this.intentionalClose = false;
     this.state = "connecting";
     getLogAPI().debug("grand-fleet:ipc", `Admiralty 접속 시도: ${this.socketPath}`);
     this.attemptConnect();
@@ -102,6 +104,7 @@ export class FleetClient {
 
   /** 연결 종료 */
   close(): void {
+    this.intentionalClose = true;
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
@@ -147,10 +150,14 @@ export class FleetClient {
       const wasConnected = this.state === "connected";
       this.state = "disconnected";
       if (wasConnected) {
-        getLogAPI().warn("grand-fleet:ipc", "Admiralty 연결 끊김 — 재연결 대기");
         this.onDisconnected?.();
       }
-      this.scheduleReconnect();
+      if (!this.intentionalClose) {
+        if (wasConnected) {
+          getLogAPI().warn("grand-fleet:ipc", "Admiralty 연결 끊김 — 재연결 대기");
+        }
+        this.scheduleReconnect();
+      }
     });
 
     socket.on("error", (err: Error) => {

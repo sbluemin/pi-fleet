@@ -1,9 +1,10 @@
 /**
- * formation/config.ts — .grand-fleet/config.json 읽기/쓰기
+ * formation/config.ts — ~/.pi/grand-fleet/config.json 읽기/쓰기
  *
  * 외부 YAML 파서 없이 JSON으로 구현. 향후 YAML 지원 추가 가능.
  */
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 
 import { getLogAPI } from "../../core/log/bridge.js";
@@ -15,7 +16,7 @@ import type {
 } from "../types.js";
 import { DEFAULT_EXCLUDE_PATTERNS } from "../types.js";
 
-const CONFIG_DIR = ".grand-fleet";
+const GRAND_FLEET_HOME = path.join(os.homedir(), ".pi", "grand-fleet");
 const CONFIG_FILE = "config.json";
 const LOG_SOURCE = "grand-fleet:formation";
 
@@ -42,24 +43,23 @@ function createDefaultConfig(): GrandFleetConfig {
   };
 }
 
-/** .grand-fleet 디렉토리를 보장한다. */
-function ensureConfigDir(cwd: string): string {
-  const dirPath = path.join(cwd, CONFIG_DIR);
-  if (!fs.existsSync(dirPath)) {
-    fs.mkdirSync(dirPath, { recursive: true });
+/** ~/.pi/grand-fleet 디렉토리를 보장한다. */
+function ensureConfigDir(): string {
+  if (!fs.existsSync(GRAND_FLEET_HOME)) {
+    fs.mkdirSync(GRAND_FLEET_HOME, { recursive: true });
   }
-  return dirPath;
+  return GRAND_FLEET_HOME;
 }
 
 /** 설정 파일 경로를 반환한다. */
-function getConfigPath(cwd: string): string {
-  return path.join(cwd, CONFIG_DIR, CONFIG_FILE);
+function getConfigPath(): string {
+  return path.join(GRAND_FLEET_HOME, CONFIG_FILE);
 }
 
 /** 설정을 로드한다. 파일이 없거나 파싱에 실패하면 기본값을 반환한다. */
-export function loadConfig(cwd: string): GrandFleetConfig {
+export function loadConfig(_cwd?: string): GrandFleetConfig {
   const log = getLogAPI();
-  const configPath = getConfigPath(cwd);
+  const configPath = getConfigPath();
   if (!fs.existsSync(configPath)) {
     log.debug(LOG_SOURCE, "Config 기본값 사용");
     return createDefaultConfig();
@@ -76,8 +76,8 @@ export function loadConfig(cwd: string): GrandFleetConfig {
 }
 
 /** 설정을 저장한다. */
-export function saveConfig(cwd: string, config: GrandFleetConfig): void {
-  const dirPath = ensureConfigDir(cwd);
+export function saveConfig(_cwd: string, config: GrandFleetConfig): void {
+  const dirPath = ensureConfigDir();
   const configPath = path.join(dirPath, CONFIG_FILE);
   getLogAPI().debug(LOG_SOURCE, `Config 저장: ${configPath}`);
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2), "utf-8");
