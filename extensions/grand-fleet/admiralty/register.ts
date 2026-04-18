@@ -97,6 +97,10 @@ export default function registerAdmiralty(pi: ExtensionAPI): void {
   setAdmiraltyRuntime(getRegistry, getServer);
 }
 
+export function getFleetRegistry(): FleetRegistry | null {
+  return registry;
+}
+
 function getRegistry(): FleetRegistry {
   if (!registry) {
     throw new Error("Admiralty registry가 초기화되지 않았습니다.");

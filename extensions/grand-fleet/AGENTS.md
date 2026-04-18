@@ -61,8 +61,13 @@ grand-fleet/  →  core/ (임포트 허용)
 | `admiralty/tools.ts` | grand_fleet_dispatch / broadcast / status 도구 |
 | `admiralty/fleet-registry.ts` | 함대 등록/해제/상태 관리 |
 | `admiralty/report-renderer.ts` | 함대 보고서 TUI 렌더링 |
-| `fleet/register.ts` | Fleet 모드 와이어링 |
+| `admiralty/status-overlay.ts` | Admiralty 상황판 오버레이 (Alt+G) |
+| `admiralty/roster-widget.ts` | Admiralty 함대 로스터 위젯 |
+| `fleet/register.ts` | Fleet 모드 와이어링 + Carrier 상태 수집/전송 |
+| `fleet/status-overlay.ts` | Fleet 상황판 오버레이 (Alt+G) |
 | `fleet/reporter.ts` | 작전 보고 모듈 |
+| `overlay-frame.ts` | 오버레이 프레임 공용 유틸 (border, truncation) |
+| `text-sanitize.ts` | ANSI/제어문자 제거 유틸 |
 | `formation/auto-subdirs.ts` | `/fleet:grand-fleet:start` 구현 |
 | `formation/tmux.ts` | tmux CLI 래퍼 |
 | `formation/scanner.ts` | 디렉토리 스캔 + 필터링 |
@@ -78,3 +83,5 @@ grand-fleet/  →  core/ (임포트 허용)
 - **globalThis로 모듈 간 상태 공유** — 세션 전환에도 유지.
 - **`index.ts` is for wiring only** — 비즈니스 로직은 하위 모듈에.
 - **슬래시 커맨드**: `fleet:grand-fleet:<feature>` 형식.
+- **키바인딩** — `Alt+G`: Grand Fleet Status 오버레이. 역할에 따라 Admiralty/Fleet 뷰를 자동 분기.
+- **외부 입력 정화** — 오버레이/위젯에서 렌더링되는 외부 문자열(fleet ID, zone, mission objective 등)은 반드시 `stripControlChars()`로 ANSI/제어문자를 제거한 후 렌더링. Carrier task 텍스트는 `sanitizeTaskText()`로 민감 토큰 마스킹 + 80자 절단.

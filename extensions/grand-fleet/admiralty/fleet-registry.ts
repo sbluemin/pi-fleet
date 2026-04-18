@@ -114,6 +114,10 @@ export class FleetRegistry {
       fleet.activeMissionId = params.activeMissionId as string | null;
     }
 
+    if (params.activeMissionObjective !== undefined) {
+      fleet.activeMissionObjective = params.activeMissionObjective as string | null;
+    }
+
     state.totalCost = calculateTotalCost();
     this.resetHeartbeatTimer(fleetId);
     getLogAPI().debug(LOG_SOURCE, `Fleet ${fleetId} heartbeat (cost=${fleet.cost})`);
@@ -133,6 +137,14 @@ export class FleetRegistry {
 
     if (params.carriers) {
       Object.assign(fleet.carriers, params.carriers as CarrierMap);
+    }
+
+    if (params.activeMissionId !== undefined) {
+      fleet.activeMissionId = params.activeMissionId as string | null;
+    }
+
+    if (params.activeMissionObjective !== undefined) {
+      fleet.activeMissionObjective = params.activeMissionObjective as string | null;
     }
 
     getLogAPI().debug(LOG_SOURCE, `Fleet ${fleetId} 상태 변경: ${fleet.status}`);
@@ -172,8 +184,11 @@ export class FleetRegistry {
   }
 
   /** 상태 변경 리스너 등록 */
-  onChange(listener: () => void): void {
+  onChange(listener: () => void): () => void {
     this.changeListeners.push(listener);
+    return () => {
+      this.changeListeners = this.changeListeners.filter((item) => item !== listener);
+    };
   }
 
   /** 등록된 리스너들에게 변경 알림 */

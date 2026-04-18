@@ -54,6 +54,8 @@ export interface CarrierInfo {
   status: CarrierStatus;
   cli?: CliBackend;
   task?: string;
+  /** Task Force 구성 완료 여부 */
+  tfConfigured?: boolean;
 }
 
 export type CarrierMap = Record<string, CarrierInfo>;
@@ -121,6 +123,7 @@ export interface GrandFleetState {
   connectedFleets: Map<FleetId, ConnectedFleet>;
   totalCost: number;
   activeMissionId: MissionId | null;
+  activeMissionObjective: string | null;
 }
 
 export const GRAND_FLEET_STATE_KEY = "__grand_fleet_state__";

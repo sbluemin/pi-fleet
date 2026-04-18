@@ -68,13 +68,15 @@ export function renderFleetEvent(
   event: "connected" | "disconnected",
 ): void {
   getLogAPI().debug(LOG_SOURCE, `이벤트 렌더링: Fleet ${fleetId}, ${event}`);
-  const icon = event === "connected" ? "⚓" : "🟥";
+  const isConnect = event === "connected";
+  const color = isConnect ? "\x1b[38;2;80;220;120m" : "\x1b[38;2;255;100;90m";
+  const reset = "\x1b[0m";
+  const icon = isConnect ? "⚓" : "✖";
+  const label = isConnect ? "접속" : "해제";
 
   pi.sendMessage({
     customType: "grand-fleet-event",
-    content: `${icon} Fleet ${fleetId} — ${
-      event === "connected" ? "접속 완료" : "연결 끊김"
-    }`,
+    content: `${color}${icon}${reset} Fleet ${fleetId} ${color}${label}${reset}`,
     display: true,
   });
 }

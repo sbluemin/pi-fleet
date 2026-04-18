@@ -241,6 +241,7 @@ function ensureAdmiraltyState(socketPath: string): void {
     connectedFleets: new Map(),
     totalCost: 0,
     activeMissionId: null,
+    activeMissionObjective: null,
   } satisfies GrandFleetState;
 }
 

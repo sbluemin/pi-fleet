@@ -7,12 +7,17 @@
  * - 미설정: 아무 동작 없음 (기존 단일 함대 모드)
  */
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import { getKeybindAPI } from "../core/keybind/bridge.js";
 import { GRAND_FLEET_STATE_KEY, type GrandFleetState, type GrandFleetRole } from "./types.js";
 import { getLogAPI } from "../core/log/bridge.js";
+import { openAdmiraltyStatusOverlay } from "./admiralty/status-overlay.js";
 import registerAdmiralty from "./admiralty/register.js";
 import { registerAdmiraltyTools } from "./admiralty/tools.js";
+import { openFleetStatusOverlay } from "./fleet/status-overlay.js";
 import registerFleet from "./fleet/register.js";
 import { registerFormationCommands } from "./formation/auto-subdirs.js";
+
+let activeStatusPopup: Promise<void> | null = null;
 
 export default function registerGrandFleet(pi: ExtensionAPI) {
   // 부트스트래퍼(boot/) 부팅 설정에 따른 비활성화 가드
@@ -29,6 +34,7 @@ export default function registerGrandFleet(pi: ExtensionAPI) {
 
   log.info("grand-fleet", `역할 감지: ${role}`);
   initState(role);
+  registerStatusOverlayKeybind();
 
   if (role === "admiralty") {
     log.info("grand-fleet", "Admiralty 모드 초기화");
@@ -63,5 +69,31 @@ function initState(role: GrandFleetRole): void {
     connectedFleets: new Map(),
     totalCost: 0,
     activeMissionId: null,
+    activeMissionObjective: null,
   } satisfies GrandFleetState;
+}
+
+function registerStatusOverlayKeybind(): void {
+  const keybind = getKeybindAPI();
+  keybind.register({
+    extension: "grand-fleet",
+    action: "status-overlay",
+    defaultKey: "alt+g",
+    description: "Grand Fleet Status 오버레이",
+    category: "Grand Fleet",
+    handler: async (ctx) => {
+      if (!ctx.hasUI) return;
+      if (activeStatusPopup) return;
+
+      activeStatusPopup = getState().role === "admiralty"
+        ? openAdmiraltyStatusOverlay(ctx)
+        : openFleetStatusOverlay(ctx);
+
+      try {
+        await activeStatusPopup;
+      } finally {
+        activeStatusPopup = null;
+      }
+    },
+  });
 }

@@ -8,6 +8,7 @@ import * as os from "node:os";
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 
 import { getState } from "../index.js";
+import { stripControlChars } from "../text-sanitize.js";
 import type { ConnectedFleet } from "../types.js";
 
 const WIDGET_KEY = "grand-fleet-roster";
@@ -15,17 +16,19 @@ const ADMIRALTY_COLOR = "\x1b[38;2;255;200;60m";
 const DIM = "\x1b[2m";
 const RESET = "\x1b[0m";
 const MAX_FLEET_ROWS = 8;
+const SPINNER_INTERVAL_MS = 120;
 
 // 상태별 색상
 const COLOR_IDLE = "\x1b[38;2;100;180;255m";    // 청색
 const COLOR_ACTIVE = "\x1b[38;2;80;220;120m";   // 녹색
 const COLOR_ERROR = "\x1b[38;2;255;80;80m";     // 적색
-const COLOR_NAME = "\x1b[1;38;2;220;220;220m";  // 밝은 흰색 (볼드)
 const COLOR_ZONE = "\x1b[38;2;140;140;160m";    // 회청색
+
+// 스피너 프레임 (Braille 패턴)
+const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
 const STATUS_ICONS: Record<string, string> = {
   idle: `${COLOR_IDLE}⚓${RESET}`,
-  active: `${COLOR_ACTIVE}⚔${RESET}`,
   error: `${COLOR_ERROR}🔥${RESET}`,
 };
 
@@ -37,19 +40,41 @@ const STATUS_NAME_COLORS: Record<string, string> = {
 
 let widgetCtx: ExtensionContext | null = null;
 let pendingSync = false;
+let spinnerFrame = 0;
+let spinnerTimer: ReturnType<typeof setInterval> | null = null;
 
 /** 위젯 초기화 — session_start에서 호출 */
 export function initRosterWidget(ctx: ExtensionContext): void {
   widgetCtx = ctx;
   applyWidget();
+  startSpinner();
 }
 
 /** 위젯 해제 — session_shutdown에서 호출 */
 export function disposeRosterWidget(): void {
+  stopSpinner();
   if (widgetCtx) {
     widgetCtx.ui.setWidget(WIDGET_KEY, undefined);
     widgetCtx = null;
   }
+}
+
+function startSpinner(): void {
+  if (spinnerTimer) return;
+  spinnerTimer = setInterval(() => {
+    spinnerFrame = (spinnerFrame + 1) % SPINNER_FRAMES.length;
+    // 임무 수행 중인 함대가 있을 때만 위젯 재등록
+    const state = getState();
+    if (!state) return;
+    const hasActive = Array.from(state.connectedFleets.values()).some((f) => f.activeMissionId);
+    if (hasActive) applyWidget();
+  }, SPINNER_INTERVAL_MS);
+}
+
+function stopSpinner(): void {
+  if (!spinnerTimer) return;
+  clearInterval(spinnerTimer);
+  spinnerTimer = null;
 }
 
 /** 상태 변경 시 위젯 갱신 (microtask 배칭) */
@@ -95,8 +120,15 @@ function renderRoster(width: number): string[] {
   });
   const visibleFleets = sorted.slice(0, MAX_FLEET_ROWS);
 
+  // 열 폭 계산 — 전체 함대 기준으로 최대 길이에 맞춤
+  const nameCol = Math.min(20, Math.max(8, ...visibleFleets.map((f) => stripControlChars(f.id).length)));
+  const zoneCol = Math.min(
+    40,
+    Math.max(10, ...visibleFleets.map((f) => shortenPath(stripControlChars(f.operationalZone), home).length)),
+  );
+
   for (const fleet of visibleFleets) {
-    lines.push(renderFleetRow(fleet, width, home));
+    lines.push(renderFleetRow(fleet, width, home, nameCol, zoneCol));
   }
 
   if (fleets.length > MAX_FLEET_ROWS) {
@@ -107,17 +139,19 @@ function renderRoster(width: number): string[] {
   return lines;
 }
 
-function renderFleetRow(fleet: ConnectedFleet, _width: number, home: string): string {
+function renderFleetRow(fleet: ConnectedFleet, _width: number, home: string, nameCol: number, zoneCol: number): string {
   const effectiveStatus = fleet.activeMissionId ? "active" : fleet.status;
-  const icon = STATUS_ICONS[effectiveStatus] ?? `${COLOR_IDLE}⚓${RESET}`;
+  const icon = effectiveStatus === "active"
+    ? `${COLOR_ACTIVE}${SPINNER_FRAMES[spinnerFrame]}${RESET}`
+    : (STATUS_ICONS[effectiveStatus] ?? `${COLOR_IDLE}⚓${RESET}`);
   const nameColor = STATUS_NAME_COLORS[effectiveStatus] ?? COLOR_IDLE;
-  const name = fleet.id.padEnd(14).slice(0, 14);
-  const zone = shortenPath(fleet.operationalZone, home);
+  const name = stripControlChars(fleet.id).slice(0, nameCol).padEnd(nameCol);
+  const zone = shortenPath(stripControlChars(fleet.operationalZone), home).slice(0, zoneCol).padEnd(zoneCol);
   const mission = fleet.activeMissionObjective
-    ? `  ${ADMIRALTY_COLOR}「${fleet.activeMissionObjective}」${RESET}`
+    ? `${ADMIRALTY_COLOR}「${stripControlChars(fleet.activeMissionObjective)}」${RESET}`
     : "";
 
-  return `  ${icon} ${nameColor}${name}${RESET}${COLOR_ZONE}${zone}${RESET}${mission}`;
+  return `  ${icon} ${nameColor}${name}${RESET} ${COLOR_ZONE}${zone}${RESET}  ${mission}`;
 }
 
 function shortenPath(fullPath: string, home: string): string {
