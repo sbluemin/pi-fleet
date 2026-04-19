@@ -6,6 +6,7 @@
 import * as os from "node:os";
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
+import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
 import { getState } from "../index.js";
 import { stripControlChars } from "../text-sanitize.js";
@@ -103,11 +104,14 @@ function renderRoster(width: number): string[] {
   const fleets = state ? Array.from(state.connectedFleets.values()) : [];
 
   const headerText = " Grand Fleet ";
-  const dashCount = Math.max(0, width - headerText.length - 6);
-  const header = `  ${DIM}──${RESET}${ADMIRALTY_COLOR}${headerText}${RESET}${DIM}${"─".repeat(dashCount)}${RESET}`;
+  const dashCount = Math.max(0, width - visibleWidth(headerText) - 6);
+  const header = fitLineToWidth(
+    `  ${DIM}──${RESET}${ADMIRALTY_COLOR}${headerText}${RESET}${DIM}${"─".repeat(dashCount)}${RESET}`,
+    width,
+  );
 
   if (fleets.length === 0) {
-    return [`  ${DIM}──${RESET}${ADMIRALTY_COLOR} Grand Fleet ${RESET}${DIM}── 연결된 함대 없음${RESET}`];
+    return [fitLineToWidth(`  ${DIM}──${RESET}${ADMIRALTY_COLOR} Grand Fleet ${RESET}${DIM}── 연결된 함대 없음${RESET}`, width)];
   }
 
   const lines: string[] = [header];
@@ -125,12 +129,12 @@ function renderRoster(width: number): string[] {
     30,
     Math.max(
       8,
-      ...visibleFleets.map((f) => stripControlChars(formatFleetLabel(f)).length),
+      ...visibleFleets.map((f) => visibleWidth(stripControlChars(formatFleetLabel(f)))),
     ),
   );
   const zoneCol = Math.min(
     40,
-    Math.max(10, ...visibleFleets.map((f) => shortenPath(stripControlChars(f.operationalZone), home).length)),
+    Math.max(10, ...visibleFleets.map((f) => visibleWidth(shortenPath(stripControlChars(f.operationalZone), home)))),
   );
 
   for (const fleet of visibleFleets) {
@@ -139,25 +143,29 @@ function renderRoster(width: number): string[] {
 
   if (fleets.length > MAX_FLEET_ROWS) {
     const overflow = fleets.length - MAX_FLEET_ROWS;
-    lines.push(`  ${DIM}  +${overflow} more${RESET}`);
+    lines.push(fitLineToWidth(`  ${DIM}  +${overflow} more${RESET}`, width));
   }
 
   return lines;
 }
 
-function renderFleetRow(fleet: ConnectedFleet, _width: number, home: string, nameCol: number, zoneCol: number): string {
+function renderFleetRow(fleet: ConnectedFleet, width: number, home: string, nameCol: number, zoneCol: number): string {
   const effectiveStatus = fleet.activeMissionId ? "active" : fleet.status;
   const icon = effectiveStatus === "active"
     ? `${COLOR_ACTIVE}${SPINNER_FRAMES[spinnerFrame]}${RESET}`
     : (STATUS_ICONS[effectiveStatus] ?? `${COLOR_IDLE}⚓${RESET}`);
   const nameColor = STATUS_NAME_COLORS[effectiveStatus] ?? COLOR_IDLE;
-  const name = stripControlChars(formatFleetLabel(fleet)).slice(0, nameCol).padEnd(nameCol);
-  const zone = shortenPath(stripControlChars(fleet.operationalZone), home).slice(0, zoneCol).padEnd(zoneCol);
+  const name = fitTextToWidth(stripControlChars(formatFleetLabel(fleet)), nameCol);
+  const zone = fitTextToWidth(shortenPath(stripControlChars(fleet.operationalZone), home), zoneCol);
   const mission = fleet.activeMissionObjective
     ? `${ADMIRALTY_COLOR}「${stripControlChars(fleet.activeMissionObjective)}」${RESET}`
     : "";
+  const missionSuffix = mission ? `  ${mission}` : "";
 
-  return `  ${icon} ${nameColor}${name}${RESET} ${COLOR_ZONE}${zone}${RESET}  ${mission}`;
+  return fitLineToWidth(
+    `  ${icon} ${nameColor}${name}${RESET} ${COLOR_ZONE}${zone}${RESET}${missionSuffix}`,
+    width,
+  );
 }
 
 function shortenPath(fullPath: string, home: string): string {
@@ -168,4 +176,22 @@ function shortenPath(fullPath: string, home: string): string {
 
 function formatFleetLabel(fleet: ConnectedFleet): string {
   return `${fleet.designation} (${fleet.id})`;
+}
+
+function fitTextToWidth(text: string, width: number): string {
+  if (width <= 0) {
+    return "";
+  }
+
+  const truncated = visibleWidth(text) > width ? truncateToWidth(text, width) : text;
+  return truncated + " ".repeat(Math.max(0, width - visibleWidth(truncated)));
+}
+
+function fitLineToWidth(line: string, width: number): string {
+  if (width <= 0) {
+    return "";
+  }
+
+  const truncated = visibleWidth(line) > width ? truncateToWidth(line, width) : line;
+  return truncated + " ".repeat(Math.max(0, width - visibleWidth(truncated)));
 }
