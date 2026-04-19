@@ -29,7 +29,7 @@ import type {
   AcpToolCall,
   AcpToolCallUpdate,
 } from '../types/acp.js';
-import type { ConnectionState } from '../types/common.js';
+import type { ConnectionState, StructuredLogEntry } from '../types/common.js';
 import type { ProviderModelInfo } from '../models/schemas.js';
 
 // ─── 이벤트 맵 ────────────────────────────────────────────
@@ -68,6 +68,8 @@ export interface UnifiedClientEvents {
   exit: [code: number | null, signal: string | null];
   /** 로그 */
   log: [message: string];
+  /** 구조화 로그 */
+  logEntry: [entry: StructuredLogEntry];
 }
 
 // ─── 연결 결과 ────────────────────────────────────────────

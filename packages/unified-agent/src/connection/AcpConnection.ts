@@ -37,7 +37,7 @@ import {
 import type { ChildProcess } from 'child_process';
 import { readFile, writeFile, mkdir, access } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import type { ConnectionState } from '../types/common.js';
+import type { ConnectionState, StructuredLogEntry } from '../types/common.js';
 import type {
   AcpAvailableCommand,
   AcpAvailableCommandsUpdate,
@@ -84,6 +84,7 @@ interface BaseConnectionEventMap {
   error: [error: Error];
   exit: [code: number | null, signal: string | null];
   log: [message: string];
+  logEntry: [entry: StructuredLogEntry];
 }
 
 type AcpConnectionEvents = BaseConnectionEventMap & AcpConnectionEventMap;
@@ -97,6 +98,7 @@ export class AcpConnection extends BaseConnection {
   private readonly clientInfo: { name: string; version: string };
   private readonly protocolVersion: number;
   private readonly autoApprove: boolean;
+  private activeSessionId: string | null = null;
   private agentProxy: Agent | null = null;
   private agentCapabilities: InitializeResponse['agentCapabilities'] | null = null;
   private readonly pendingPermissionRequests = new Set<(
@@ -233,6 +235,7 @@ export class AcpConnection extends BaseConnection {
     }
 
     this.setState('ready');
+    this.activeSessionId = session.sessionId;
     return session;
   }
 
@@ -275,11 +278,14 @@ export class AcpConnection extends BaseConnection {
       throw new Error('연결된 에이전트가 session/load를 지원하지 않습니다');
     }
 
-    return this.withFixedTimeout(
+    const result = await this.withFixedTimeout(
       agent.loadSession(params),
       this.requestTimeout,
       'session/load',
     );
+    this.activeSessionId = params.sessionId;
+    this.setState('ready');
+    return result;
   }
 
   /**
@@ -299,6 +305,9 @@ export class AcpConnection extends BaseConnection {
       }
     }
     // 프로세스 유지 — disconnect 호출 금지
+    if (this.activeSessionId === sessionId) {
+      this.activeSessionId = null;
+    }
   }
 
   /**
@@ -352,7 +361,18 @@ export class AcpConnection extends BaseConnection {
 
   override async disconnect(): Promise<void> {
     this.cancelPendingPermissionRequests();
+    this.flushStderrBuffer();
+    this.activeSessionId = null;
     await super.disconnect();
+  }
+
+  /** CLI/세션 메타를 포함한 구조화 stderr 로그 항목을 보강합니다. */
+  protected createStructuredLogEntry(message: string): StructuredLogEntry {
+    return {
+      ...super.createStructuredLogEntry(message),
+      ...(this.cliType ? { cli: this.cliType } : {}),
+      ...(this.activeSessionId ? { sessionId: this.activeSessionId } : {}),
+    };
   }
 
   /**

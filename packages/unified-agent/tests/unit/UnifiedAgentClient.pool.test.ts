@@ -92,7 +92,7 @@ describe('Pool 통합', () => {
 
     expect(mockAcquire).toHaveBeenCalledWith('claude');
     // pooled connection의 createSession이 호출됨
-    expect(pooledConn.createSession).toHaveBeenCalledWith('/workspace', undefined, []);
+    expect(pooledConn.createSession).toHaveBeenCalledWith('/workspace', undefined, [], undefined);
     // 새 AcpConnection.connect()는 호출 안 됨
     expect(mockConnect).not.toHaveBeenCalled();
     expect(result.cli).toBe('claude');
@@ -156,7 +156,7 @@ describe('Pool 통합', () => {
     });
 
     expect(mockAcquire).not.toHaveBeenCalled();
-    expect(mockConnect).toHaveBeenCalledWith('/workspace', undefined, []);
+    expect(mockConnect).toHaveBeenCalledWith('/workspace', undefined, [], undefined);
     expect(pooledConn.createSession).not.toHaveBeenCalled();
     expect(result.cli).toBe('codex');
 
@@ -178,7 +178,7 @@ describe('Pool 통합', () => {
     const result = await client.connect({ cwd: '/workspace', cli: 'codex' });
 
     expect(mockAcquire).toHaveBeenCalledWith('codex');
-    expect(pooledConn.createSession).toHaveBeenCalledWith('/workspace', undefined, []);
+    expect(pooledConn.createSession).toHaveBeenCalledWith('/workspace', undefined, [], undefined);
     expect(mockConnect).not.toHaveBeenCalled();
     expect(result.cli).toBe('codex');
 

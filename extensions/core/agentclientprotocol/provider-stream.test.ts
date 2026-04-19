@@ -8,6 +8,7 @@ const mockState = vi.hoisted(() => {
     cancelPrompt: vi.fn(async () => {}),
     endSession: vi.fn(async () => {}),
     disconnect: vi.fn(async () => {}),
+    getConnectionInfo: vi.fn(() => ({ state: "ready" })),
   };
 
   return {
@@ -167,6 +168,17 @@ describe("provider-stream", () => {
         { toolCallId: "call-2", toolName: "custom-tool", args: { next: true }, emitted: false },
       ],
       pendingToolCallNotifier: null,
+      activePrompt: {
+        promptId: "prompt-1",
+        sessionGeneration: 0,
+        retryConsumed: false,
+        assistantOutputStarted: false,
+        builtinToolStarted: false,
+        mcpToolUseStarted: true,
+      },
+      sessionGeneration: 0,
+      needsRecovery: false,
+      lastError: null,
     };
 
     const providerState: AcpProviderState = {
@@ -204,7 +216,7 @@ describe("provider-stream", () => {
       expect(mockState.client.off).toHaveBeenCalled();
     });
 
-    expect(mockState.client.off).toHaveBeenCalledTimes(7);
+    expect(mockState.client.off).toHaveBeenCalledTimes(8);
     expect(removeEventListenerSpy).toHaveBeenCalledWith("abort", expect.any(Function));
     expect(session.pendingToolCallNotifier).toBeNull();
     expect(mockState.routerCalls).not.toContainEqual(["token-1", null]);
@@ -228,6 +240,17 @@ describe("provider-stream", () => {
         { toolCallId: "call-1", toolName: "custom-tool", args: {}, emitted: true },
       ],
       pendingToolCallNotifier: null,
+      activePrompt: {
+        promptId: "prompt-2",
+        sessionGeneration: 0,
+        retryConsumed: false,
+        assistantOutputStarted: false,
+        builtinToolStarted: false,
+        mcpToolUseStarted: true,
+      },
+      sessionGeneration: 0,
+      needsRecovery: false,
+      lastError: null,
     };
 
     const providerState: AcpProviderState = {
@@ -258,7 +281,7 @@ describe("provider-stream", () => {
     );
 
     await vi.waitFor(() => {
-      expect(mockState.client.on).toHaveBeenCalledTimes(7);
+      expect(mockState.client.on).toHaveBeenCalledTimes(8);
       expect(mockState.lastMapper).toBeTruthy();
     });
 
@@ -310,5 +333,64 @@ describe("provider-stream", () => {
 
     expect(mockState.clearPendingCalls.length).toBeGreaterThan(0);
     expect(mockState.client.cancelPrompt).toHaveBeenCalledTimes(1);
+  });
+
+  it("toolUse 이후 dead-session 상태에서는 stale toolResult를 폐기하고 새 세션을 열지 않는다", async () => {
+    const session: AcpSessionState = {
+      sessionKey: "acp:codex:session:pi:stale",
+      scopeKey: "session:pi:stale",
+      client: mockState.client as any,
+      sessionId: "acp-session-1",
+      cwd: "/tmp/pi-fleet",
+      lastSystemPromptHash: "hash",
+      cli: "codex",
+      firstPromptSent: true,
+      currentModel: "gpt-5.4",
+      mcpSessionToken: "token-stale",
+      toolHash: "tool-hash",
+      pendingToolCalls: [
+        { toolCallId: "call-1", toolName: "custom-tool", args: {}, emitted: true },
+      ],
+      pendingToolCallNotifier: null,
+      activePrompt: {
+        promptId: "prompt-stale",
+        sessionGeneration: 0,
+        retryConsumed: true,
+        assistantOutputStarted: false,
+        builtinToolStarted: false,
+        mcpToolUseStarted: true,
+      },
+      sessionGeneration: 0,
+      needsRecovery: true,
+      lastError: "unknown session",
+    };
+
+    const providerState: AcpProviderState = {
+      sessions: new Map([[session.sessionKey, session]]),
+      sessionKeysByScope: new Map([[session.scopeKey, new Set([session.sessionKey])]]),
+      toolCallToSessionKey: new Map([["call-1", session.sessionKey]]),
+      bridgeScopeSessionKeys: new Map(),
+      sessionLaunchConfigs: new Map(),
+    };
+    (globalThis as Record<symbol, unknown>)[GLOBAL_STATE_KEY] = providerState;
+
+    streamAcp(
+      { id: "gpt-5.4", provider: "Fleet ACP", reasoning: true } as any,
+      {
+        systemPrompt: "system",
+        messages: [{ role: "toolResult", content: "done", toolCallId: "call-1" } as any],
+      } as any,
+      { cwd: "/tmp/pi-fleet", sessionId: "stale" } as any,
+    );
+
+    await vi.waitFor(() => {
+      expect(mockState.lastMapper.finishWithError).toHaveBeenCalled();
+    });
+
+    expect(mockState.lastMapper.finishWithError).toHaveBeenCalledWith(
+      "error",
+      expect.stringContaining("stale toolResult"),
+    );
+    expect(mockState.client.on).not.toHaveBeenCalled();
   });
 });

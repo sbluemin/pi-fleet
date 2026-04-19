@@ -50,6 +50,16 @@ export interface EventMapperHandle {
   emitMcpToolCall: (toolName: string, args: Record<string, unknown>, toolCallId: string) => boolean;
 }
 
+/** retry gate 상태 갱신용 callback 묶음 */
+export interface EventMapperCallbacks {
+  /** assistant output 시작 알림 */
+  onAssistantOutputStarted?: () => void;
+  /** CLI built-in tool 시작 알림 */
+  onBuiltinToolStarted?: () => void;
+  /** MCP toolUse 시작 알림 */
+  onMcpToolUseStarted?: () => void;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Internal helpers
 // ═══════════════════════════════════════════════════════════════════════════
@@ -76,6 +86,7 @@ function debug(...args: unknown[]): void {
 export function createEventMapper(
   modelId: string,
   initialTargetSessionId: string = "",
+  callbacks?: EventMapperCallbacks,
 ): EventMapperHandle {
   const stream = createAssistantMessageEventStream();
 
@@ -191,6 +202,7 @@ export function createEventMapper(
 
   const onMessageChunk = (text: string, sessionId: string): void => {
     if (sessionId !== targetSessionId || finished) return;
+    callbacks?.onAssistantOutputStarted?.();
     ensureStarted();
 
     if (!textBlockOpen) {
@@ -216,6 +228,7 @@ export function createEventMapper(
 
   const onThoughtChunk = (text: string, sessionId: string): void => {
     if (sessionId !== targetSessionId || finished) return;
+    callbacks?.onAssistantOutputStarted?.();
     ensureStarted();
 
     if (!thinkingBlockOpen) {
@@ -264,6 +277,7 @@ export function createEventMapper(
     }
 
     // CLI 내장 tool → call_id 기반 추적 시작 (call_id 없으면 lastCliToolStart fallback)
+    callbacks?.onBuiltinToolStarted?.();
     const callId = extractCallId(data?.rawInput);
     if (callId) {
       activeCliTools.set(callId, { toolName, title });
@@ -386,6 +400,7 @@ export function createEventMapper(
 
     emitMcpToolCall: (toolName: string, args: Record<string, unknown>, toolCallId: string): boolean => {
       if (finished) return false;
+      callbacks?.onMcpToolUseStarted?.();
       ensureStarted();
       closeTextBlock();
       closeThinkingBlock();

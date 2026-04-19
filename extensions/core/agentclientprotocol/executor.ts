@@ -23,6 +23,7 @@ import {
   setSessionLaunchConfig,
 } from "./provider-types.js";
 import { getSessionStore } from "./runtime.js";
+import { getLogAPI } from "../log/bridge.js";
 
 type ToolCallLike = {
   content?: unknown;
@@ -31,6 +32,16 @@ type ToolCallLike = {
 };
 
 type SystemPromptPolicy = "inherit-global" | "none";
+
+type ResumeFailureKind =
+  | "dead-session"
+  | "capability-mismatch"
+  | "auth"
+  | "transport"
+  | "model-config"
+  | "timeout"
+  | "abort"
+  | "unknown";
 
 /** acquireSession 옵션 */
 export interface AcquireOptions {
@@ -89,6 +100,22 @@ const CLIENT_INFO = { name: "pi-unified-agent", version: "1.0.0" } as const;
 
 /** 도구 호출 최대 보관 수 (메모리 보호) */
 const MAX_TOOL_CALLS_TO_KEEP = 30;
+
+const DEAD_SESSION_PATTERNS = [
+  /session not found/i,
+  /unknown session/i,
+  /invalid session/i,
+  /closed session/i,
+  /expired session/i,
+];
+
+const AUTH_PATTERNS = [
+  /auth/i,
+  /login/i,
+  /unauthorized/i,
+  /permission denied/i,
+  /invalid api key/i,
+];
 
 // ─── executeWithPool: 풀 기반 실행 ─────────────────────
 
@@ -153,6 +180,8 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
     }
   }
 
+  let detachCoreStderrLogging = attachCoreStderrLogging(client, `acp-exec:${carrierId}`);
+
   // 임시 클라이언트 정리 함수
   const cleanupTemporary = async () => {
     if (!isTemporary) return;
@@ -173,7 +202,13 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
   };
 
   if (signal?.aborted) {
-    if (poolEntry) poolEntry.busy = false;
+    detachCoreStderrLogging();
+    if (poolEntry) {
+      poolEntry.busy = false;
+    }
+    if (isTemporary) {
+      await cleanupTemporary();
+    }
     return {
       responseText: "",
       thoughtText: "",
@@ -277,8 +312,11 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
       } catch (connectError) {
         // abort로 인한 reject이면 재시도하지 않고 즉시 전파
         if (aborted) throw connectError;
-        // sessionId로 resume 실패 시 새 세션으로 재시도
+        // sessionId로 resume 실패 시 dead-session 계열만 새 세션으로 재시도
         if (!savedSessionId) throw connectError;
+        if (classifyResumeFailure(connectError) !== "dead-session") {
+          throw connectError;
+        }
 
         console.error(
           `[unified-agent] session/load 실패 (carrierId=${carrierId}, sessionId=${savedSessionId}):`,
@@ -292,7 +330,9 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
         // 실패한 연결 정리 후 클라이언트 재생성
         try { await client.disconnect(); } catch {}
         detachListeners();
+        detachCoreStderrLogging();
         client = new UnifiedAgentClient();
+        detachCoreStderrLogging = attachCoreStderrLogging(client, `acp-exec:${carrierId}`);
         if (!isTemporary) {
           poolEntry = { client, busy: true };
           clientPool.set(carrierId, poolEntry);
@@ -391,6 +431,7 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
   } finally {
     if (signal) signal.removeEventListener("abort", onAbort);
     detachListeners();
+    detachCoreStderrLogging();
     if (poolEntry) poolEntry.busy = false;
 
     // 임시 클라이언트가 얻은 sessionId를 풀의 기존 엔트리에도 반영하여
@@ -427,6 +468,7 @@ export async function executeOneShot(opts: ExecuteOptions): Promise<ExecuteResul
   opts.onStatusChange?.("connecting");
 
   const client = new UnifiedAgentClient();
+  const detachCoreStderrLogging = attachCoreStderrLogging(client, `acp-exec:${opts.carrierId}`);
   let aborted = false;
 
   const onAbort = () => {
@@ -520,6 +562,7 @@ export async function executeOneShot(opts: ExecuteOptions): Promise<ExecuteResul
     }
   } finally {
     if (signal) signal.removeEventListener("abort", onAbort);
+    detachCoreStderrLogging();
     try { await client.disconnect(); } catch { /* 정리 실패 무시 */ }
     client.removeAllListeners();
   }
@@ -565,8 +608,11 @@ export async function acquireSession(opts: AcquireOptions): Promise<AcquiredSess
     });
   }
 
+  let detachCoreStderrLogging = attachCoreStderrLogging(client, `acp-exec:${key}`);
+
   // 2. connect 전에 abort를 확인합니다.
   if (signal?.aborted) {
+    detachCoreStderrLogging();
     poolEntry.busy = false;
     throw new Error("Aborted");
   }
@@ -612,6 +658,9 @@ export async function acquireSession(opts: AcquireOptions): Promise<AcquiredSess
       } catch (connectError) {
         if (signal?.aborted) throw connectError;
         if (!savedSessionId) throw connectError;
+        if (classifyResumeFailure(connectError) !== "dead-session") {
+          throw connectError;
+        }
 
         store.clear(key);
         if (poolEntry) delete poolEntry.sessionId;
@@ -621,7 +670,9 @@ export async function acquireSession(opts: AcquireOptions): Promise<AcquiredSess
           await client.disconnect();
         } catch {}
         client.removeAllListeners();
+        detachCoreStderrLogging();
         client = new UnifiedAgentClient();
+        detachCoreStderrLogging = attachCoreStderrLogging(client, `acp-exec:${key}`);
         poolEntry = { client, busy: true };
         clientPool.set(key, poolEntry);
         client.on("exit", () => {
@@ -679,9 +730,12 @@ export async function acquireSession(opts: AcquireOptions): Promise<AcquiredSess
       });
     }
   } catch (err) {
+    detachCoreStderrLogging();
     poolEntry.busy = false;
     throw err;
   }
+
+  detachCoreStderrLogging();
 
   const release = () => {
     if (poolEntry) poolEntry.busy = false;
@@ -883,4 +937,80 @@ function resolveLaunchOverrides(
     effort,
     budgetTokens,
   };
+}
+
+function classifyResumeFailure(error: unknown): ResumeFailureKind {
+  const message = extractErrorMessage(error);
+  if (message === "Aborted") {
+    return "abort";
+  }
+  if (DEAD_SESSION_PATTERNS.some((pattern) => pattern.test(message))) {
+    return "dead-session";
+  }
+  if (/loadSession.*지원하지 않/i.test(message) || /session\/load.*지원하지 않/i.test(message)) {
+    return "capability-mismatch";
+  }
+  if (AUTH_PATTERNS.some((pattern) => pattern.test(message))) {
+    return "auth";
+  }
+  if (/spawn|initialize|transport|econn|pipe|closed/i.test(message)) {
+    return "transport";
+  }
+  if (/model|config|mcp/i.test(message)) {
+    return "model-config";
+  }
+  if (/timeout|timed out|유휴 상태/i.test(message)) {
+    return "timeout";
+  }
+  return "unknown";
+}
+
+function attachCoreStderrLogging(client: UnifiedAgentClient, source: string): () => void {
+  const log = getLogAPI();
+  const onLogEntry = (entry: { message: string; cli?: string; sessionId?: string }) => {
+    const normalized = normalizeDiagnosticStderr(entry.message);
+    if (!normalized) {
+      return;
+    }
+
+    const parts = [
+      entry.cli ? `cli=${entry.cli}` : null,
+      entry.sessionId ? `session=${entry.sessionId}` : null,
+      normalized,
+    ].filter(Boolean);
+
+    log.debug(source, parts.join(" "), {
+      category: "acp-stderr",
+      hideFromFooter: true,
+    });
+  };
+
+  client.on("logEntry", onLogEntry as never);
+  return () => {
+    client.off("logEntry", onLogEntry as never);
+  };
+}
+
+function normalizeDiagnosticStderr(message: string): string | null {
+  const stripped = message.replace(/\u001b\[[0-9;]*m/g, "").trim();
+  if (!stripped) {
+    return null;
+  }
+  if (/^[\|\/\\\-⠁-⣿\.\s]+$/.test(stripped)) {
+    return null;
+  }
+  return stripped;
+}
+
+function extractErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === "string") {
+    return error;
+  }
+  if (error && typeof error === "object" && "message" in error && typeof (error as { message?: unknown }).message === "string") {
+    return (error as { message: string }).message;
+  }
+  return String(error);
 }

@@ -19,6 +19,20 @@ export interface ClientInfo {
   version: string;
 }
 
+/** 구조화 로그 항목 */
+export interface StructuredLogEntry {
+  /** 로그 메시지 */
+  message: string;
+  /** 로그 소스 */
+  source: 'stderr';
+  /** ISO 8601 타임스탬프 */
+  timestamp: string;
+  /** CLI 종류 */
+  cli?: string;
+  /** ACP 세션 ID */
+  sessionId?: string;
+}
+
 /** 연결 이벤트 타입 */
 export interface ConnectionEvents {
   /** 상태 변경 */
@@ -29,4 +43,6 @@ export interface ConnectionEvents {
   exit: (code: number | null, signal: string | null) => void;
   /** stderr 로그 */
   log: (message: string) => void;
+  /** 구조화 stderr 로그 */
+  logEntry: (entry: StructuredLogEntry) => void;
 }

@@ -239,7 +239,9 @@ describe("executor", () => {
     });
     mockState.sessionStoreState["session-reconnect"] = "saved-session";
     mockState.clientPlans.push({
-      connectErrors: [new Error("resume failed")],
+      connectErrors: [new Error("unknown session: saved-session")],
+    });
+    mockState.clientPlans.push({
       connectResults: [{
         protocol: "mcp",
         session: { sessionId: "fresh-session", models: ["gpt-5.4"] },
@@ -256,6 +258,62 @@ describe("executor", () => {
     const client = mockState.instances[mockState.instances.length - 1];
     expect(client.setConfigOption).toHaveBeenCalledWith("reasoning_effort", "high");
     acquired.release();
+  });
+
+  it("acquireSession은 dead-session 계열 resume 실패에서만 fresh fallback한다", async () => {
+    mockState.sessionStoreState["session-dead"] = "saved-session";
+    mockState.clientPlans.push({
+      connectErrors: [new Error("unknown session: saved-session")],
+    });
+    mockState.clientPlans.push({
+      connectResults: [{ protocol: "mcp", session: { sessionId: "fresh-session" } }],
+    });
+
+    const acquired = await acquireSession({
+      key: "session-dead",
+      cliType: "codex",
+      cwd: "/tmp/pi-fleet",
+      model: "gpt-5.4",
+    });
+
+    expect(mockState.instances).toHaveLength(2);
+    expect(acquired.sessionId).toBe("fresh-session");
+    acquired.release();
+  });
+
+  it("acquireSession은 capability mismatch resume 실패를 fresh fallback으로 오판하지 않는다", async () => {
+    mockState.sessionStoreState["session-capability"] = "saved-session";
+    mockState.clientPlans.push({
+      connectErrors: [new Error("연결된 에이전트가 session/load를 지원하지 않습니다")],
+    });
+
+    await expect(acquireSession({
+      key: "session-capability",
+      cliType: "gemini",
+      cwd: "/tmp/pi-fleet",
+      model: "gemini-2.5-flash",
+    })).rejects.toThrow("session/load를 지원하지 않습니다");
+
+    expect(mockState.instances).toHaveLength(1);
+  });
+
+  it("executeWithPool은 capability mismatch resume 실패를 fresh fallback으로 오판하지 않는다", async () => {
+    mockState.sessionStoreState["carrier-capability"] = "saved-session";
+    mockState.clientPlans.push({
+      connectErrors: [new Error("연결된 에이전트가 session/load를 지원하지 않습니다")],
+    });
+
+    const result = await executeWithPool({
+      carrierId: "carrier-capability",
+      cliType: "gemini",
+      request: "hello",
+      cwd: "/tmp/pi-fleet",
+      model: "gemini-2.5-flash",
+    } as any);
+
+    expect(result.status).toBe("error");
+    expect(result.error).toContain("session/load를 지원하지 않습니다");
+    expect(mockState.instances).toHaveLength(1);
   });
 
   it("setSessionLaunchConfig는 미지정 값을 유지하고 명시 값만 갱신한다", async () => {

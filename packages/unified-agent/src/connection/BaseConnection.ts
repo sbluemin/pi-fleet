@@ -7,7 +7,7 @@ import { ChildProcess, spawn } from 'child_process';
 import { EventEmitter } from 'events';
 import { Readable, Writable } from 'stream';
 import { ndJsonStream, type Stream } from '@agentclientprotocol/sdk';
-import type { ConnectionState } from '../types/common.js';
+import type { ConnectionState, StructuredLogEntry } from '../types/common.js';
 import { isWindows } from '../utils/env.js';
 import { killProcess } from '../utils/process.js';
 
@@ -49,6 +49,7 @@ export class BaseConnection extends EventEmitter {
   protected readonly requestTimeout: number;
   protected readonly initTimeout: number;
   protected readonly promptIdleTimeout: number;
+  protected stderrBuffer = '';
 
   constructor(options: BaseConnectionOptions) {
     super();
@@ -102,22 +103,19 @@ export class BaseConnection extends EventEmitter {
 
     // stderr 로그 수집
     child.stderr?.on('data', (data: Buffer) => {
-      const lines = data.toString().split('\n');
-      for (const line of lines) {
-        if (line.trim()) {
-          this.emit('log', line.trim());
-        }
-      }
+      this.consumeStderrChunk(data.toString());
     });
 
     // 프로세스 종료 처리
     child.on('exit', (code, signal) => {
+      this.flushStderrBuffer();
       this.setState('closed');
       this.emit('exit', code, signal);
     });
 
     // 프로세스 에러 처리
     child.on('error', (err) => {
+      this.flushStderrBuffer();
       this.setState('error');
       this.emit('error', err);
     });
@@ -174,6 +172,53 @@ export class BaseConnection extends EventEmitter {
       this.state = newState;
       this.emit('stateChange', newState);
     }
+  }
+
+  /** stderr 청크를 줄 단위로 재조립해 legacy/structured 로그를 동시에 발행합니다. */
+  protected consumeStderrChunk(chunk: string): void {
+    this.stderrBuffer += chunk;
+
+    while (true) {
+      const newlineIndex = this.stderrBuffer.indexOf('\n');
+      if (newlineIndex < 0) {
+        break;
+      }
+
+      const line = this.stderrBuffer.slice(0, newlineIndex);
+      this.stderrBuffer = this.stderrBuffer.slice(newlineIndex + 1);
+      this.emitStderrLine(line);
+    }
+  }
+
+  /** 남은 stderr 버퍼를 강제로 flush합니다. */
+  protected flushStderrBuffer(): void {
+    if (!this.stderrBuffer) {
+      return;
+    }
+
+    const remaining = this.stderrBuffer;
+    this.stderrBuffer = '';
+    this.emitStderrLine(remaining);
+  }
+
+  /** stderr 한 줄을 legacy/structured 로그로 동시에 발행합니다. */
+  protected emitStderrLine(rawLine: string): void {
+    const message = rawLine.trim();
+    if (!message) {
+      return;
+    }
+
+    this.emit('log', message);
+    this.emit('logEntry', this.createStructuredLogEntry(message));
+  }
+
+  /** 기본 구조화 stderr 로그 항목을 생성합니다. */
+  protected createStructuredLogEntry(message: string): StructuredLogEntry {
+    return {
+      message,
+      source: 'stderr',
+      timestamp: new Date().toISOString(),
+    };
   }
 
   /**

@@ -26,7 +26,7 @@ import type {
   AcpToolCall,
   AcpToolCallUpdate,
 } from '../types/acp.js';
-import type { ConnectionState } from '../types/common.js';
+import type { ConnectionState, StructuredLogEntry } from '../types/common.js';
 import type {
   IUnifiedAgentClient,
   ConnectResult,
@@ -649,6 +649,9 @@ export class UnifiedAgentClient extends EventEmitter implements IUnifiedAgentCli
     });
     this.acpConnection.on('log', (msg: string) => {
       this.emitTyped('log', msg);
+    });
+    this.acpConnection.on('logEntry', (entry: StructuredLogEntry) => {
+      this.emitTyped('logEntry', entry);
     });
   }
 

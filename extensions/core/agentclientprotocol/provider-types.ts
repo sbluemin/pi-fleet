@@ -48,8 +48,30 @@ export interface AcpSessionState {
   pendingToolCalls: PendingToolCallState[];
   /** 현재 turn에서 pending MCP call을 flush하는 notifier */
   pendingToolCallNotifier: (() => void) | null;
-  /** sendPrompt idle timeout 등으로 reject된 경우 true */
-  sendPromptError?: boolean;
+  /** 현재 논리 프롬프트 상태 */
+  activePrompt: ActivePromptState | null;
+  /** 세션 세대 번호 — stale reject/exit fencing 용도 */
+  sessionGeneration: number;
+  /** 다음 턴에서 fresh reopen이 필요한지 여부 */
+  needsRecovery: boolean;
+  /** 마지막 오류 요약 */
+  lastError: string | null;
+}
+
+/** 논리 프롬프트 단위 retry gate 상태 */
+export interface ActivePromptState {
+  /** 프롬프트 ID */
+  promptId: string;
+  /** 프롬프트 시작 시점의 세션 세대 */
+  sessionGeneration: number;
+  /** 자동 retry 사용 여부 */
+  retryConsumed: boolean;
+  /** assistant output 시작 여부 */
+  assistantOutputStarted: boolean;
+  /** CLI built-in tool 시작 여부 */
+  builtinToolStarted: boolean;
+  /** MCP toolUse 시작 여부 */
+  mcpToolUseStarted: boolean;
 }
 
 /** provider 전역 상태 — globalThis에 저장 */

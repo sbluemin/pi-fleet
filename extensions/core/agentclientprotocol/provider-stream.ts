@@ -22,6 +22,7 @@ import { UnifiedAgentClient } from "@sbluemin/unified-agent";
 import type { CliType, McpServerConfig } from "@sbluemin/unified-agent";
 
 import {
+  type ActivePromptState,
   type AcpSessionState,
   type AcpProviderState,
   type PendingToolCallState,
@@ -39,6 +40,7 @@ import {
   getCliRuntimeContext,
 } from "./provider-types.js";
 import { acquireSession, releaseSession, applyPostConnectConfig } from "./executor.js";
+import { isClientAlive } from "./pool.js";
 import { createEventMapper } from "./provider-events.js";
 import { getLogAPI } from "../log/bridge.js";
 import {
@@ -80,6 +82,22 @@ interface ToolResultEnvelope {
 
 const SESSION_KEY_PREFIX = "acp";
 const SESSION_SCOPE_PREFIX = "session";
+const DEAD_SESSION_PATTERNS = [
+  /session not found/i,
+  /unknown session/i,
+  /invalid session/i,
+  /closed session/i,
+  /expired session/i,
+];
+
+const TRANSPORT_RECOVERY_PATTERNS = [
+  /ACP connection closed/i,
+  /connection closed/i,
+  /broken pipe/i,
+  /EPIPE/i,
+  /ECONNRESET/i,
+  /disconnect/i,
+];
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Functions
@@ -123,6 +141,66 @@ function errorMessage(err: unknown): string {
     try { return JSON.stringify(err); } catch { /* noop */ }
   }
   return String(err);
+}
+
+function isDeadSessionError(err: unknown): boolean {
+  const message = errorMessage(err);
+  return DEAD_SESSION_PATTERNS.some((pattern) => pattern.test(message));
+}
+
+function isRecoverablePromptFailure(err: unknown): boolean {
+  const message = errorMessage(err);
+  return isDeadSessionError(err) ||
+    TRANSPORT_RECOVERY_PATTERNS.some((pattern) => pattern.test(message));
+}
+
+function createActivePromptState(sessionGeneration: number): ActivePromptState {
+  return {
+    promptId: crypto.randomUUID(),
+    sessionGeneration,
+    retryConsumed: false,
+    assistantOutputStarted: false,
+    builtinToolStarted: false,
+    mcpToolUseStarted: false,
+  };
+}
+
+function isCurrentActivePrompt(
+  session: AcpSessionState,
+  promptId: string,
+  sessionGeneration: number,
+): boolean {
+  return session.activePrompt?.promptId === promptId &&
+    session.activePrompt.sessionGeneration === sessionGeneration;
+}
+
+function markAssistantOutputStarted(session: AcpSessionState): void {
+  if (session.activePrompt) {
+    session.activePrompt.assistantOutputStarted = true;
+  }
+}
+
+function markBuiltinToolStarted(session: AcpSessionState): void {
+  if (session.activePrompt) {
+    session.activePrompt.builtinToolStarted = true;
+  }
+}
+
+function markMcpToolUseStarted(session: AcpSessionState): void {
+  if (session.activePrompt) {
+    session.activePrompt.mcpToolUseStarted = true;
+  }
+}
+
+function canRetryDeadSession(session: AcpSessionState): boolean {
+  const prompt = session.activePrompt;
+  if (!prompt) {
+    return false;
+  }
+  return !prompt.retryConsumed &&
+    !prompt.assistantOutputStarted &&
+    !prompt.builtinToolStarted &&
+    !prompt.mcpToolUseStarted;
 }
 
 /** context에서 마지막 user 메시지 텍스트 추출 */
@@ -435,12 +513,20 @@ async function ensureSession(
       session.lastSystemPromptHash !== systemPromptHash;
     const toolsChanged = session.toolHash && currentToolHash &&
       session.toolHash !== currentToolHash;
+    const deadClient = !!session.client && !isClientAlive(session.client);
+    const needsRecovery = session.needsRecovery || deadClient;
 
-    if (cliChanged || promptDrifted || toolsChanged) {
-      debug(
-        `세션 폐기: ${cliChanged ? "CLI 변경" : promptDrifted ? "systemPrompt drift" : "tool 목록 변경"}`,
-        `(${session.cli} → ${cli})`,
-      );
+    if (cliChanged || promptDrifted || toolsChanged || needsRecovery) {
+      const reason = cliChanged
+        ? "CLI 변경"
+        : promptDrifted
+          ? "systemPrompt drift"
+          : toolsChanged
+            ? "tool 목록 변경"
+            : deadClient
+              ? "dead client 감지"
+              : "dead-session recovery";
+      debug(`세션 폐기: ${reason}`, `(${session.cli} → ${cli})`);
       await session.client?.endSession().catch(() => {});
       await session.client?.disconnect().catch(() => {});
       releaseSession(session.sessionKey);
@@ -477,6 +563,8 @@ async function ensureSession(
         await applyPostConnectConfig(session.client!, session.cli, effortOverrides);
       }
       installToolCallRouter(state, session);
+      session.needsRecovery = false;
+      session.lastError = null;
       setSessionLaunchConfig(session.sessionKey, {
         modelId: buildModelId(cli, session.currentModel),
         ...(effortOverrides?.effort ? { effort: effortOverrides.effort } : {}),
@@ -525,6 +613,10 @@ async function ensureSession(
     toolHash: currentToolHash,
     pendingToolCalls: [],
     pendingToolCallNotifier: null,
+    activePrompt: null,
+    sessionGeneration: (session?.sessionGeneration ?? -1) + 1,
+    needsRecovery: false,
+    lastError: null,
   };
 
   try {
@@ -560,11 +652,6 @@ async function ensureSession(
     // 실패 시 정리
     if (mcpActive) removeToolsForSession(sessionToken);
     releaseSession(key);
-    if (session?.sessionId) {
-      debug(`session/load 실패, 새 세션으로 fallback: ${errorMessage(err)}`);
-      session.sessionId = null;
-      return ensureSession(cli, backendModel, scopeKey, cwd, systemPromptHash, tools, effortOverrides);
-    }
     throw err;
   }
 }
@@ -619,7 +706,7 @@ function createTurnCleanup(
     cleanupAbort();
     if (mapper.output.stopReason !== "toolUse") {
       closeLogicalPromptRouting(state, session);
-      session.sendPromptError = false;
+      session.activePrompt = null;
     }
   };
 }
@@ -682,7 +769,6 @@ export function streamAcp(
   }
 
   const { cli, backendModel } = parsed;
-  const mapper = createEventMapper(model.id);
   const streamOptions = options as StreamOptionsLike | undefined;
   const cwd = streamOptions?.cwd ?? process.cwd();
   let scopeKey: string;
@@ -700,6 +786,26 @@ export function streamAcp(
   const toolResults = extractAllToolResults(context);
   const isToolResultDelivery = toolResults.length > 0;
   const toolResultSession = isToolResultDelivery ? resolveToolResultSession(state, toolResults) : null;
+  const mapper = createEventMapper(model.id, "", {
+    onAssistantOutputStarted: () => {
+      const session = toolResultSession ?? getSessionByScope(state, cli, scopeKey);
+      if (session) {
+        markAssistantOutputStarted(session);
+      }
+    },
+    onBuiltinToolStarted: () => {
+      const session = toolResultSession ?? getSessionByScope(state, cli, scopeKey);
+      if (session) {
+        markBuiltinToolStarted(session);
+      }
+    },
+    onMcpToolUseStarted: () => {
+      const session = toolResultSession ?? getSessionByScope(state, cli, scopeKey);
+      if (session) {
+        markMcpToolUseStarted(session);
+      }
+    },
+  });
 
   if (isToolResultDelivery) {
     if (!toolResultSession) {
@@ -745,11 +851,10 @@ async function runFreshQuery(
   const state = getOrInitState();
   const key = getSessionKey(cli, scopeKey);
 
-  // 새 prompt 시작 시 sendPromptError 플래그 초기화
+  // 새 prompt 시작 시 논리 프롬프트 상태 초기화
   const existingSession = getSessionByScope(state, cli, scopeKey);
-  if (existingSession?.sendPromptError) {
-    existingSession.sendPromptError = false;
-    debug("sendPromptError 플래그 초기화 (새 prompt 시작)");
+  if (existingSession?.activePrompt) {
+    existingSession.activePrompt = null;
   }
 
   // ── 프롬프트 추출 ──
@@ -782,6 +887,11 @@ async function runFreshQuery(
     mapper.finishWithError("error", "ACP 세션이 유효하지 않습니다");
     return;
   }
+
+  session.activePrompt = createActivePromptState(session.sessionGeneration);
+  session.lastError = null;
+  const promptId = session.activePrompt.promptId;
+  const promptGeneration = session.activePrompt.sessionGeneration;
 
   setBridgeScopeSession(DEFAULT_BRIDGE_SCOPE, session.sessionKey);
 
@@ -823,15 +933,34 @@ async function runFreshQuery(
   debug(`sendMessage: cli=${cli} model=${backendModel} prompt=${finalPrompt.slice(0, 60)}...`);
 
   client.sendMessage(finalPrompt).then(() => {
+    if (!isCurrentActivePrompt(session, promptId, promptGeneration)) {
+      debug(`stale prompt 완료 무시: key=${key}`);
+      return;
+    }
     session.firstPromptSent = true;
     session.lastSystemPromptHash = systemPromptHash;
+    session.needsRecovery = false;
+    session.lastError = null;
     debug("sendMessage 완료 (promptComplete 처리됨)");
   }).catch((err) => {
     if (wasAborted.value) return;
     const msg = errorMessage(err);
+    if (!isCurrentActivePrompt(session, promptId, promptGeneration)) {
+      debug(`stale prompt 에러 무시: key=${key} msg=${msg}`);
+      return;
+    }
     debug(`sendMessage 에러: ${msg}`);
-    session.sendPromptError = true;
-    debug(`sendPromptError 플래그 설정: key=${key}`);
+    session.lastError = msg;
+    session.needsRecovery = isRecoverablePromptFailure(err);
+    if (session.needsRecovery) {
+      debug(`dead-session 감지: key=${key}`);
+    }
+    if (session.activePrompt && canRetryDeadSession(session) && session.needsRecovery) {
+      session.activePrompt.retryConsumed = true;
+      session.sessionGeneration += 1;
+      mapper.finishWithError("error", `ACP 세션이 종료되었습니다. 현재 턴은 자동 재시작하지 않았습니다. 다시 시도해주세요. (${msg})`);
+      return;
+    }
     // mapper가 아직 finished가 아니면 에러 발행
     mapper.finishWithError("error", `ACP 요청 실패: ${msg}`);
   });
@@ -856,6 +985,12 @@ async function runToolResultDelivery(
   if (!session?.client || !session.sessionId || !session.mcpSessionToken) {
     mapper.finishWithError("error", "tool result delivery: 세션이 유효하지 않습니다");
     clearSessionRoutingState(state, session);
+    return;
+  }
+
+  if (session.needsRecovery || !session.activePrompt || session.activePrompt.mcpToolUseStarted !== true) {
+    mapper.finishWithError("error", "이전 toolUse 이후 ACP 세션이 유효하지 않습니다. stale toolResult는 폐기되었고, 새 세션 자동 재개는 수행하지 않습니다. 다시 시도해주세요.");
+    closeLogicalPromptRouting(state, session);
     return;
   }
 
@@ -968,6 +1103,20 @@ function wireListeners(
   mcpToken?: string,
 ): () => void {
   const { listeners } = mapper;
+  const log = getLogAPI();
+  const onLogEntry = (entry: { message: string; cli?: string; sessionId?: string }) => {
+    const stripped = entry.message.replace(/\u001b\[[0-9;]*m/g, "").trim();
+    if (!stripped || /^[\|\/\\\-⠁-⣿\.\s]+$/.test(stripped)) {
+      return;
+    }
+    log.debug(
+      "acp-provider",
+      [entry.cli ? `cli=${entry.cli}` : null, entry.sessionId ? `session=${entry.sessionId}` : null, stripped]
+        .filter(Boolean)
+        .join(" "),
+      { category: "acp-stderr", hideFromFooter: true },
+    );
+  };
 
   client.on("messageChunk", listeners.onMessageChunk);
   client.on("thoughtChunk", listeners.onThoughtChunk);
@@ -976,6 +1125,7 @@ function wireListeners(
   client.on("promptComplete", listeners.onPromptComplete);
   client.on("error", listeners.onError);
   client.on("exit", listeners.onExit);
+  client.on("logEntry", onLogEntry as never);
 
   // 현재 turn에서만 flush notifier를 연결
   if (mcpToken) {
@@ -992,6 +1142,7 @@ function wireListeners(
     client.off("promptComplete", listeners.onPromptComplete);
     client.off("error", listeners.onError);
     client.off("exit", listeners.onExit);
+    client.off("logEntry", onLogEntry as never);
     if (mcpToken && session.pendingToolCallNotifier) {
       session.pendingToolCallNotifier = null;
     }
