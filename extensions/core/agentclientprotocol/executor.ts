@@ -24,15 +24,12 @@ import {
 } from "./provider-types.js";
 import { getSessionStore } from "./runtime.js";
 import { getLogAPI } from "../log/bridge.js";
-import { buildCarrierSystemPrompt } from "../../fleet/shipyard/carrier/prompts.js";
 
 type ToolCallLike = {
   content?: unknown;
   rawOutput?: unknown;
   toolCallId?: string;
 };
-
-type SystemPromptPolicy = "inherit-global" | "carrier" | "none";
 
 type ResumeFailureKind =
   | "dead-session"
@@ -43,6 +40,11 @@ type ResumeFailureKind =
   | "timeout"
   | "abort"
   | "unknown";
+
+type InternalExecuteOptions = ExecuteOptions & {
+  /** carrier 경로의 connect-time system prompt handoff */
+  connectSystemPrompt?: string | null;
+};
 
 /** acquireSession 옵션 */
 export interface AcquireOptions {
@@ -129,7 +131,7 @@ const AUTH_PATTERNS = [
  *  3. resume 실패 → store.clear(carrierId) + 새 세션 자동 재시도
  *  4. 이미 연결된 경우 기존 세션 ID를 그대로 재사용
  */
-export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResult> {
+export async function executeWithPool(opts: InternalExecuteOptions): Promise<ExecuteResult> {
   const { carrierId, cliType, request, cwd, signal } = opts;
   const clientPool = getClientPool();
 
@@ -283,7 +285,7 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
   try {
     let needsConnect = !isClientAlive(client);
 
-    if (!needsConnect && hasSystemPromptDrift(client, "carrier")) {
+    if (!needsConnect && hasSystemPromptDrift(client, opts.connectSystemPrompt ?? null)) {
       debugSystemPromptDrift("executeWithPool", carrierId, cliType);
       store.clear(carrierId);
       if (poolEntry) {
@@ -299,10 +301,13 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
       const connectOpts = buildConnectOptions(cliType, cwd, {
         model: opts.model,
         promptIdleTimeout: opts.promptIdleTimeout,
-      }, "carrier");
+      }, opts.connectSystemPrompt ?? null);
 
-      // 세션 매핑에서 저장된 sessionId를 우선 사용
-      const savedSessionId = store.get(carrierId) ?? poolEntry?.sessionId;
+      // carrier connect prompt가 있으면 저장된 sessionId resume을 건너뛰어
+      // stale connect-time prompt 세션을 조용히 재사용하지 않도록 한다.
+      const savedSessionId = opts.connectSystemPrompt
+        ? undefined
+        : store.get(carrierId) ?? poolEntry?.sessionId;
       if (savedSessionId) {
         connectOpts.sessionId = savedSessionId;
       }
@@ -456,7 +461,7 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
  * 매번 새 UnifiedAgentClient를 생성 → 실행 → disconnect
  * 세션 매핑을 사용하지 않습니다.
  */
-export async function executeOneShot(opts: ExecuteOptions): Promise<ExecuteResult> {
+export async function executeOneShot(opts: InternalExecuteOptions): Promise<ExecuteResult> {
   const { cliType, request, cwd, signal } = opts;
 
   let responseText = "";
@@ -497,7 +502,7 @@ export async function executeOneShot(opts: ExecuteOptions): Promise<ExecuteResul
     const connectOpts = buildConnectOptions(cliType, cwd, {
       model: opts.model,
       promptIdleTimeout: opts.promptIdleTimeout,
-    }, "carrier");
+    }, opts.connectSystemPrompt ?? null);
 
     await raceAbort(client.connect(connectOpts), signal);
     await applyPostConnectConfig(client, cliType, {
@@ -623,7 +628,7 @@ export async function acquireSession(opts: AcquireOptions): Promise<AcquiredSess
   try {
     let needsConnect = !isClientAlive(client);
 
-    if (!needsConnect && hasSystemPromptDrift(client, "inherit-global")) {
+    if (!needsConnect && hasSystemPromptDrift(client, getCliSystemPrompt())) {
       debugSystemPromptDrift("acquireSession", key, cliType);
       store.clear(key);
       if (poolEntry) {
@@ -638,7 +643,7 @@ export async function acquireSession(opts: AcquireOptions): Promise<AcquiredSess
       const connectOpts = buildConnectOptions(cliType, cwd, {
         model: opts.model,
         promptIdleTimeout: opts.promptIdleTimeout,
-      }, "inherit-global");
+      }, getCliSystemPrompt());
 
       connectOpts.yoloMode = opts.yoloMode !== false;
       if (opts.promptIdleTimeout !== undefined) {
@@ -845,7 +850,7 @@ function buildConnectOptions(
   cli: CliType,
   cwd: string,
   overrides: { model?: string; promptIdleTimeout?: number } | undefined,
-  policy: SystemPromptPolicy,
+  systemPrompt: string | null | undefined,
 ): UnifiedClientOptions {
   const opts: UnifiedClientOptions = {
     cwd,
@@ -863,13 +868,8 @@ function buildConnectOptions(
     opts.promptIdleTimeout = overrides.promptIdleTimeout;
   }
 
-  if (policy === "inherit-global") {
-    const systemPrompt = getCliSystemPrompt();
-    if (systemPrompt) {
-      opts.systemPrompt = systemPrompt;
-    }
-  } else if (policy === "carrier") {
-    opts.systemPrompt = buildCarrierSystemPrompt();
+  if (systemPrompt) {
+    opts.systemPrompt = systemPrompt;
   }
 
   return opts;
@@ -877,14 +877,9 @@ function buildConnectOptions(
 
 function hasSystemPromptDrift(
   client: UnifiedAgentClient,
-  policy: SystemPromptPolicy,
+  expectedSystemPrompt: string | null | undefined,
 ): boolean {
-  const expected = policy === "inherit-global"
-    ? getCliSystemPrompt()
-    : policy === "carrier"
-      ? buildCarrierSystemPrompt()
-      : null;
-  return normalizeSystemPrompt(client.getCurrentSystemPrompt()) !== normalizeSystemPrompt(expected);
+  return normalizeSystemPrompt(client.getCurrentSystemPrompt()) !== normalizeSystemPrompt(expectedSystemPrompt);
 }
 
 function normalizeSystemPrompt(systemPrompt: string | null | undefined): string {

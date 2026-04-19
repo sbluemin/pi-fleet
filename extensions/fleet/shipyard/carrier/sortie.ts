@@ -47,6 +47,7 @@ import {
 import {
   FLEET_SORTIE_DESCRIPTION,
   SORTIE_MANIFEST,
+  buildCarrierSystemPrompt,
   buildSortieToolPromptSnippet,
   buildSortieToolPromptGuidelines,
   buildSortieToolSchema,
@@ -284,6 +285,7 @@ export function buildSortieToolConfig() {
               carrierId: a.carrier,
               request: composedRequest,
               ctx,
+              connectSystemPrompt: buildCarrierSystemPrompt(),
               signal,
               onMessageChunk: () => {
                 progress.status = "streaming";

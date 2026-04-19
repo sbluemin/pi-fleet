@@ -219,6 +219,53 @@ describe("executor", () => {
     );
   });
 
+  it("executeWithPool은 내부 handoff connectSystemPrompt를 connect 옵션에 전달한다", async () => {
+    await executeWithPool({
+      carrierId: "carrier-connect-prompt",
+      cliType: "codex",
+      request: "hello",
+      cwd: "/tmp/pi-fleet",
+      connectSystemPrompt: "<system-reminder>carrier</system-reminder>",
+    } as any);
+
+    const client = mockState.instances[0];
+    expect(client.connect).toHaveBeenCalledWith(expect.objectContaining({
+      systemPrompt: "<system-reminder>carrier</system-reminder>",
+    }));
+  });
+
+  it("executeWithPool은 connectSystemPrompt가 있으면 저장된 sessionId resume을 건너뛴다", async () => {
+    mockState.sessionStoreState["carrier-connect-prompt-fresh"] = "saved-session";
+
+    await executeWithPool({
+      carrierId: "carrier-connect-prompt-fresh",
+      cliType: "codex",
+      request: "hello",
+      cwd: "/tmp/pi-fleet",
+      connectSystemPrompt: "<system-reminder>carrier</system-reminder>",
+    } as any);
+
+    const client = mockState.instances[0];
+    expect(client.connect).toHaveBeenCalledWith(expect.not.objectContaining({
+      sessionId: "saved-session",
+    }));
+  });
+
+  it("executeOneShot은 내부 handoff connectSystemPrompt를 connect 옵션에 전달한다", async () => {
+    await executeOneShot({
+      carrierId: "oneshot-connect-prompt",
+      cliType: "codex",
+      request: "hello",
+      cwd: "/tmp/pi-fleet",
+      connectSystemPrompt: "<system-reminder>carrier</system-reminder>",
+    } as any);
+
+    const client = mockState.instances[0];
+    expect(client.connect).toHaveBeenCalledWith(expect.objectContaining({
+      systemPrompt: "<system-reminder>carrier</system-reminder>",
+    }));
+  });
+
   it("acquireSession 신규 연결에서 opts.effort가 falsy면 sticky로 setConfigOption을 호출하지 않는다", async () => {
     const acquired = await acquireSession({
       key: "session-new",

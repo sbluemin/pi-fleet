@@ -40,7 +40,10 @@ import { UNIFIED_AGENT_REQUEST_KEY } from "./types.js";
 
 // ─── 내부 타입 ──────────────────────────────────────────
 
-interface RunAgentRequestOptions extends UnifiedAgentRequestOptions {}
+interface RunAgentRequestOptions extends UnifiedAgentRequestOptions {
+  /** carrier connect 시점에만 사용하는 내부 handoff */
+  connectSystemPrompt?: string | null;
+}
 
 interface RunnerState {
   abortControllers: Map<string, AbortController>;
@@ -96,6 +99,7 @@ export async function runAgentRequest(options: RunAgentRequestOptions): Promise<
       model: cliConfig?.model,
       effort: cliConfig?.effort,
       budgetTokens: cliConfig?.budgetTokens,
+      connectSystemPrompt: options.connectSystemPrompt,
       signal: effectiveSignal,
       onMessageChunk: (text: string) => {
         appendTextBlock(carrierId, sanitizeChunk(text));

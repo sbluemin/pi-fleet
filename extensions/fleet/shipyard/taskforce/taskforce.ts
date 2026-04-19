@@ -35,7 +35,7 @@ import {
   getRegisteredCarrierConfig,
   resolveCarrierDisplayName,
 } from "../carrier/framework.js";
-import { composeTier2Request } from "../carrier/prompts.js";
+import { buildCarrierSystemPrompt, composeTier2Request } from "../carrier/prompts.js";
 import {
   ANSI_RESET,
   PANEL_COLOR,
@@ -272,6 +272,7 @@ async function runTaskForceBackend(
     model: modelConfig.model,
     effort: modelConfig.effort,
     budgetTokens: modelConfig.budgetTokens,
+    connectSystemPrompt: buildCarrierSystemPrompt(),
     signal,
     onStatusChange: (status) => {
       updateRunStatus(syntheticId, status);

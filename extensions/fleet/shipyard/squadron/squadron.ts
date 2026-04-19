@@ -33,7 +33,7 @@ import {
   isSquadronCarrierEnabled,
   resolveCarrierDisplayName,
 } from "../carrier/framework.js";
-import { composeTier2Request } from "../carrier/prompts.js";
+import { buildCarrierSystemPrompt, composeTier2Request } from "../carrier/prompts.js";
 import {
   ANSI_RESET,
   PANEL_COLOR,
@@ -312,6 +312,7 @@ async function runSquadronInstance(
     model: opts.modelConfig?.model,
     effort: opts.modelConfig?.effort,
     budgetTokens: opts.modelConfig?.budgetTokens,
+    connectSystemPrompt: buildCarrierSystemPrompt(),
     signal: opts.signal,
     onStatusChange: (status) => {
       updateRunStatus(syntheticId, status);
