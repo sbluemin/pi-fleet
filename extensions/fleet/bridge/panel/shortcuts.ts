@@ -16,9 +16,9 @@
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 
-import { getKeybindAPI } from "../../core/keybind/bridge.js";
-import { BODY_H_STEP } from "../constants";
-import { abortCarrierRun } from "../operation-runner.js";
+import { getKeybindAPI } from "../../../core/keybind/bridge.js";
+import { BODY_H_STEP } from "../../constants";
+import { abortCarrierRun } from "../../operation-runner.js";
 import { toggleAgentPanel, showAgentPanel, setDetailView, getDetailCarrierId } from "./lifecycle.js";
 import { adjustPanelHeight } from "./config.js";
 import { getState, getFocusedCarrierId } from "./state.js";

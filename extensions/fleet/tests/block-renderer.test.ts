@@ -4,8 +4,8 @@ import {
   renderBlockLines,
   blockLineAnsiColor,
   blockLineToAnsi,
-} from "../render/block-renderer.js";
-import type { ColBlock } from "../streaming/types.js";
+} from "../bridge/render/block-renderer.js";
+import type { ColBlock } from "../bridge/streaming/types.js";
 import {
   ANSI_RESET,
   PANEL_DIM_COLOR,

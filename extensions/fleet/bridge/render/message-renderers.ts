@@ -15,7 +15,7 @@ import {
   PANEL_DIM_COLOR,
   SYM_INDICATOR,
   TOOLS_COLOR,
-} from "../constants";
+} from "../../constants";
 import type { ColBlock } from "../streaming/types.js";
 import { renderBlockLines, blockLineToAnsi, renderBlocksToContainer, renderLegacyToContainer } from "./block-renderer";
 import { clampCompletedCompactLines } from "./compact.js";

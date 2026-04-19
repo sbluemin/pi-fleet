@@ -18,10 +18,10 @@ import {
   resolveCarrierRgb,
   isSortieCarrierEnabled,
   isSquadronCarrierEnabled,
-} from "./framework.js";
-import { getConfiguredTaskForceBackends } from "../store.js";
-import { waveText } from "../../render/panel-renderer";
-import type { AgentCol } from "../../panel/types.js";
+} from "../../shipyard/carrier/framework.js";
+import { getConfiguredTaskForceBackends } from "../../shipyard/store.js";
+import { waveText } from "../render/panel-renderer";
+import type { AgentCol } from "../panel/types.js";
 
 /** renderCarrierStatus에 필요한 최소 상태 */
 interface CarrierStatusRenderInput {

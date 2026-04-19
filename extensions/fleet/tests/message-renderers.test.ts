@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { createDefaultResponseRenderer } from "../render/message-renderers.js";
-import type { ColBlock } from "../streaming/types.js";
+import { createDefaultResponseRenderer } from "../bridge/render/message-renderers.js";
+import type { ColBlock } from "../bridge/streaming/types.js";
 
 const ANSI_PATTERN = /\x1b\[[0-9;]*m/g;
 

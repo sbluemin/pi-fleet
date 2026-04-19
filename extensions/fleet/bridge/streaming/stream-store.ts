@@ -13,8 +13,8 @@
  * ⚠️ globalThis 기반 — pi가 확장을 별도 번들로 로드하므로 필수.
  */
 
-import type { AgentStatus } from "../../core/agentclientprotocol/types.js";
-import { getRegisteredOrder } from "../shipyard/carrier/framework.js";
+import type { AgentStatus } from "../../../core/agentclientprotocol/types.js";
+import { getRegisteredOrder } from "../../shipyard/carrier/framework.js";
 import type { ColBlock, ColStatus, CollectedStreamData } from "./types.js";
 
 // 스트리밍 타입 re-export

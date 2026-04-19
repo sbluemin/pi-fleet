@@ -27,8 +27,8 @@ import {
   finalizeRun,
   updateRunStatus,
   getVisibleRun,
-} from "../../streaming/stream-store.js";
-import { renderBlockLines, blockLineToAnsi } from "../../render/block-renderer.js";
+} from "../../bridge/streaming/stream-store.js";
+import { renderBlockLines, blockLineToAnsi } from "../../bridge/render/block-renderer.js";
 import {
   getRegisteredOrder,
   getRegisteredCarrierConfig,
@@ -101,8 +101,8 @@ const TASKFORCE_RUN_PREFIX = "taskforce";
 /**
  * carrier_taskforce 도구 정의(ToolDefinition)를 조립해 반환합니다.
  *
- * pi.registerTool 호출 오너쉽은 admiral/prompts.ts의 `registerTaskForceTool`이
- * 소유합니다. 이 팩토리는 등록 시 필요한 schema/guidelines/execute/render 등
+ * pi.registerTool 호출 오너쉽은 fleet/index.ts가 부팅 시 1회 등록합니다.
+ * 이 팩토리는 등록 시 필요한 schema/guidelines/execute/render 등
  * 도구 기능 자체만을 제공합니다. 등록 불필요 시 null을 반환합니다.
  */
 export function buildTaskForceToolConfig() {

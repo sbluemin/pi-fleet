@@ -7,7 +7,6 @@
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { CliType } from "@sbluemin/unified-agent";
-import type { HealthStatus, ProviderKey } from "../../../core/agentclientprotocol/types.js";
 
 // ─── Carrier 메타데이터 (2-Tier) ────────────────────────
 
@@ -77,101 +76,6 @@ export interface CarrierConfig {
   carrierMetadata?: CarrierMetadata;
 }
 
-export type CarrierCliType = ProviderKey;
-
-export interface ModelSelection {
-  model: string;
-  effort?: string;
-  budgetTokens?: number;
-}
-
-export interface CliModelInfo {
-  defaultModel: string;
-  models: Array<{ modelId: string; name: string }>;
-  reasoningEffort: {
-    supported: boolean;
-    levels?: string[];
-    default?: string;
-  };
-  defaultBudgetTokens?: Record<string, number>;
-}
-
-export interface CliServiceSnapshot {
-  status: HealthStatus;
-}
-
-export interface ResolvedCliSelection {
-  model: string;
-  effort: string | null;
-  isDefault: boolean;
-  budgetTokens: number | null;
-}
-
-export interface CliTypeChangeResult {
-  carrierId: string;
-  newCliType: CarrierCliType;
-  selection: ResolvedCliSelection;
-}
-
-export interface CarrierStatusEntry {
-  carrierId: string;
-  slot: number;
-  cliType: CarrierCliType;
-  defaultCliType: CarrierCliType;
-  displayName: string;
-  model: string;
-  isDefault: boolean;
-  effort: string | null;
-  budgetTokens: number | null;
-  role: string | null;
-  roleDescription: string | null;
-  isSortieEnabled: boolean;
-  isSquadronEnabled: boolean;
-  taskForceBackendCount: number;
-}
-
-export interface CarrierStatusGroup {
-  header: string;
-  color: string;
-  providerKey: ProviderKey;
-  entries: CarrierStatusEntry[];
-}
-
-export interface CliTypeChoice {
-  value: CarrierCliType;
-  label: string;
-}
-
-export interface BatchCliChoice {
-  cliType: CarrierCliType;
-  label: string;
-  carrierCount: number;
-  status: HealthStatus;
-}
-
-export type OverlayState =
-  | { kind: "browse" }
-  | { kind: "model"; carrierId: string; choices: string[]; cursor: number }
-  | { kind: "effort"; carrierId: string; pendingModel: string; choices: string[]; cursor: number }
-  | { kind: "cliType"; carrierId: string; choices: CliTypeChoice[]; cursor: number }
-  | { kind: "batchFrom"; choices: BatchCliChoice[]; cursor: number }
-  | { kind: "batchTo"; fromCli: CarrierCliType; choices: BatchCliChoice[]; cursor: number }
-  | { kind: "saving" };
-
-export interface CarrierOverlayCallbacks {
-  getEntries(): CarrierStatusEntry[];
-  changeCliType(carrierId: string, newCliType: CarrierCliType): Promise<ResolvedCliSelection>;
-  changeCliTypes(updates: Array<{ carrierId: string; newCliType: CarrierCliType }>): Promise<CliTypeChangeResult[]>;
-  resetCliTypesToDefault(): Promise<CliTypeChangeResult[]>;
-  saveModelSelection(carrierId: string, selection: ModelSelection): Promise<void>;
-  toggleSortieEnabled(carrierId: string): void;
-  toggleSquadronEnabled(carrierId: string): void;
-  openTaskForce(carrierId: string): void;
-  getAvailableModels(cliType: CarrierCliType): CliModelInfo;
-  getServiceSnapshots(): Map<CarrierCliType, CliServiceSnapshot>;
-  getDefaultCliType(): CarrierCliType;
-}
-
 // ─── 내부 상태 타입 ──────────────────────────────────────
 
 export interface CarrierState {
@@ -189,21 +93,10 @@ export interface CarrierFrameworkState {
   statusUpdateCallbacks: Array<() => void>;
   /** sortie 비활성화된 carrier ID 집합 */
   sortieDisabledCarriers: Set<string>;
-  /** sortie 가용 상태 변경 시 호출되는 콜백 */
-  sortieStateChangeCallbacks: Array<() => void>;
-  /**
-   * carrier 등록 시 sortie 도구 재등록용 debounce 타이머
-   * (복수 carrier 동시 등록 시 콜백이 N번 발화되는 것을 방지)
-   */
-  sortieRegisterTimer: ReturnType<typeof setTimeout> | null;
-  /** Task Force 설정 변경 시 호출되는 콜백 */
-  taskforceConfigChangeCallbacks: Array<() => void>;
   /** Task Force 설정이 완료된 carrier ID 집합 */
   taskforceConfiguredCarriers: Set<string>;
   /** squadron 활성화된 carrier ID 집합 */
   squadronEnabledCarriers: Set<string>;
-  /** squadron 가용 상태 변경 시 호출되는 콜백 */
-  squadronStateChangeCallbacks: Array<() => void>;
   /** 캐리어 등록 전 로드된 cliType override (carrier 등록 시 자동 적용) */
   pendingCliTypeOverrides: Map<string, CliType>;
 }

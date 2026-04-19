@@ -17,14 +17,14 @@ import {
   updateModelSelection,
   updateAllModelSelections,
 } from "../store.js";
-import { setAgentPanelModelConfig } from "../../panel/config.js";
+import { setAgentPanelModelConfig } from "../../bridge/panel/config.js";
 import {
   notifyStatusUpdate,
   getRegisteredOrder,
   getRegisteredCarrierConfig,
   resolveCarrierDisplayName,
 } from "./framework.js";
-import { getFocusedCarrierId } from "../../panel/state.js";
+import { getFocusedCarrierId } from "../../bridge/panel/state.js";
 import { getKeybindAPI } from "../../../core/keybind/bridge.js";
 import {
   CLI_DISPLAY_NAMES,

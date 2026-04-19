@@ -20,7 +20,7 @@ import {
   TOOLS_COLOR,
   SYM_INDICATOR,
   SYM_THINKING,
-} from "../constants.js";
+} from "../../constants.js";
 
 /** 렌더링된 블록 라인의 의미적 타입 */
 export type BlockLineType =

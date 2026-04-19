@@ -12,8 +12,6 @@
  * `setCliRuntimeContext()`에 함수 레퍼런스로 등록된다.
  */
 
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-
 import { getSettingsAPI } from "../../core/settings/bridge.js";
 import { getActiveProtocol, getAllProtocols } from "./protocols/index.js";
 import { getAllStandingOrders } from "./standing-orders/index.js";
@@ -24,9 +22,6 @@ import {
   getSquadronEnabledIds,
   getTaskForceConfiguredIds,
 } from "../shipyard/carrier/framework.js";
-import { buildSortieToolConfig } from "../shipyard/carrier/sortie.js";
-import { buildTaskForceToolConfig } from "../shipyard/taskforce/index.js";
-import { buildSquadronToolConfig } from "../shipyard/squadron/index.js";
 
 // ─────────────────────────────────────────────────────────
 // 타입
@@ -249,29 +244,6 @@ export function setWorldviewEnabled(enabled: boolean): void {
   if (!api) return;
   const cfg = api.load<AdmiralSettings>("admiral");
   api.save("admiral", { ...cfg, worldview: enabled });
-}
-
-// ─────────────────────────────────────────────────────────
-// pi 도구 등록 오너쉽 — Admiral이 pi.registerTool 호출자
-// (shipyard는 도구 기능을 ToolDefinition 팩토리로 제공, 등록 행위는 admiral)
-// ─────────────────────────────────────────────────────────
-
-/** carriers_sortie 도구를 pi에 등록한다 (가용 Carrier가 없으면 no-op). */
-export function registerSortieTool(pi: ExtensionAPI): void {
-  const config = buildSortieToolConfig();
-  if (config) pi.registerTool(config);
-}
-
-/** carrier_taskforce 도구를 pi에 등록한다 (가용 Carrier가 없으면 no-op). */
-export function registerTaskForceTool(pi: ExtensionAPI): void {
-  const config = buildTaskForceToolConfig();
-  if (config) pi.registerTool(config);
-}
-
-/** carrier_squadron 도구를 pi에 등록한다 (가용 Carrier가 없으면 no-op). */
-export function registerSquadronTool(pi: ExtensionAPI): void {
-  const config = buildSquadronToolConfig();
-  if (config) pi.registerTool(config);
 }
 
 /**

@@ -1,6 +1,5 @@
 import type {
   CarrierCliType,
-  CarrierConfig,
   CarrierOverlayCallbacks,
   CarrierStatusEntry,
   CliModelInfo,
@@ -8,6 +7,7 @@ import type {
   ModelSelection,
   ResolvedCliSelection,
 } from "./types.js";
+import type { CarrierConfig } from "../../shipyard/carrier/types.js";
 
 interface StoredCliSelection {
   model?: string;

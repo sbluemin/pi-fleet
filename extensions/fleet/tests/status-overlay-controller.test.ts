@@ -1,13 +1,13 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-import { StatusOverlayController } from "../shipyard/carrier/status-overlay-controller.js";
+import { StatusOverlayController } from "../bridge/carrier-ui/status-overlay-controller.js";
 import type {
   CarrierCliType,
-  CarrierConfig,
   CarrierStatusEntry,
   CliModelInfo,
   ModelSelection,
-} from "../shipyard/carrier/types.js";
+} from "../bridge/carrier-ui/types.js";
+import type { CarrierConfig } from "../shipyard/carrier/types.js";
 
 interface TestState {
   configs: Map<string, CarrierConfig>;

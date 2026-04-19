@@ -10,12 +10,11 @@
 import type { Component, Focusable, TUI } from "@mariozechner/pi-tui";
 import { Key, matchesKey } from "@mariozechner/pi-tui";
 import type { Theme } from "@mariozechner/pi-coding-agent";
-import type { ProviderInfo } from "../store.js";
+import type { ProviderInfo } from "../../shipyard/store.js";
 import {
   TASKFORCE_CLI_TYPES,
   type TaskForceCliType,
-} from "../taskforce/types.js";
-import { notifyTaskForceConfigChange } from "./framework.js";
+} from "../../shipyard/taskforce/types.js";
 import { CARRIER_BG_COLORS } from "../../constants.js";
 import { createOverlayFrame } from "./overlay-frame.js";
 import { buildModelEffortTransition } from "./overlay-model-flow.js";
@@ -344,7 +343,6 @@ export class TaskForceConfigOverlay implements Component, Focusable {
     }
 
     this.callbacks.resetBackendConfig(entry.cliType);
-    notifyTaskForceConfigChange();
     this.feedbackMessage = `${entry.displayName} 설정을 origin으로 초기화했습니다.`;
     this.tui.requestRender();
   }
@@ -388,7 +386,6 @@ export class TaskForceConfigOverlay implements Component, Focusable {
 
     try {
       await this.callbacks.updateBackendConfig(cliType, selection);
-      notifyTaskForceConfigChange();
       this.feedbackMessage = `${entry.displayName} 설정을 저장했습니다.`;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

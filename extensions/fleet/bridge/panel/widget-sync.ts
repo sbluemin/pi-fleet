@@ -13,14 +13,14 @@ import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 import {
   PANEL_COLOR,
   MIN_BODY_H,
-} from "../constants";
+} from "../../constants";
 import {
   resolveCarrierColor,
-} from "../shipyard/carrier/framework.js";
+} from "../../shipyard/carrier/framework.js";
 import {
   renderPanelFull,
 } from "../render/panel-renderer";
-import { renderCarrierStatus } from "../shipyard/carrier/status-renderer.js";
+import { renderCarrierStatus } from "../carrier-ui/status-renderer.js";
 import { getState, makeFooterCols, WIDGET_KEY } from "./state.js";
 
 const FLEET_CARRIER_STATUS_WIDGET_KEY = "fleet-carrier-status";

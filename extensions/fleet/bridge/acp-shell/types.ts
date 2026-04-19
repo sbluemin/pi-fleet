@@ -1,6 +1,6 @@
 import type { CliType } from "@sbluemin/unified-agent";
 
-import type { ShellPopupBridge } from "../../core/shell/types.js";
+import type { ShellPopupBridge } from "../../../core/shell/types.js";
 
 export interface BridgeLaunchContext {
   cli: CliType;

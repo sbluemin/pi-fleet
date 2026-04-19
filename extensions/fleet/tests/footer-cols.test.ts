@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { CARRIER_FRAMEWORK_KEY } from "../shipyard/carrier/types.js";
-import { createRun, finalizeRun } from "../streaming/stream-store.js";
-import type { AgentCol } from "../panel/types.js";
-import { getState, makeFooterCols } from "../panel/state.js";
+import { createRun, finalizeRun } from "../bridge/streaming/stream-store.js";
+import type { AgentCol } from "../bridge/panel/types.js";
+import { getState, makeFooterCols } from "../bridge/panel/state.js";
 
 function makeCol(cli: string, status: AgentCol["status"]): AgentCol {
   return {

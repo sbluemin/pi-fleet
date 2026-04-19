@@ -23,7 +23,7 @@ import {
 import {
   createDefaultUserRenderer,
   createDefaultResponseRenderer,
-} from "../../render/message-renderers.js";
+} from "../../bridge/render/message-renderers.js";
 
 import type {
   CarrierConfig,
@@ -93,15 +93,6 @@ export function registerCarrier(
 
   const responseRenderer = config.renderResponse ?? createDefaultResponseRenderer(config);
   pi.registerMessageRenderer(`${config.id}-response`, responseRenderer);
-
-  // ── Sortie 도구 온디맨드 재등록 트리거 (debounce) ──
-  // 복수 carrier가 동시에 등록될 때 콜백이 N번 발화되는 것을 방지합니다.
-  // 모든 carrier 등록이 완료된 직후 단 1회 notifySortieStateChange를 호출합니다.
-  if (gs.sortieRegisterTimer) clearTimeout(gs.sortieRegisterTimer);
-  gs.sortieRegisterTimer = setTimeout(() => {
-    gs.sortieRegisterTimer = null;
-    notifySortieStateChange();
-  }, 0);
 }
 
 /**
@@ -139,7 +130,6 @@ export function disableSortieCarrier(id: string): void {
   if (!gs.modes.has(id)) return;
   if (gs.sortieDisabledCarriers.has(id)) return;
   gs.sortieDisabledCarriers.add(id);
-  notifySortieStateChange();
 }
 
 /**
@@ -149,7 +139,6 @@ export function enableSortieCarrier(id: string): void {
   const gs = getState();
   if (!gs.sortieDisabledCarriers.has(id)) return;
   gs.sortieDisabledCarriers.delete(id);
-  notifySortieStateChange();
 }
 
 /**
@@ -178,20 +167,10 @@ export function getSortieDisabledIds(): string[] {
 
 /**
  * sortie 비활성화 목록을 일괄 설정합니다.
- * @param silent true면 콜백을 호출하지 않음 (부팅 시 복원용)
  */
-export function setSortieDisabledCarriers(ids: string[], silent = false): void {
+export function setSortieDisabledCarriers(ids: string[]): void {
   const gs = getState();
   gs.sortieDisabledCarriers = new Set(ids);
-  if (!silent) notifySortieStateChange();
-}
-
-/**
- * sortie 상태 변경 시 호출될 콜백을 등록합니다.
- * 재초기화(/reload) 시 이전 콜백이 누적되지 않도록 기존 목록을 클리어합니다.
- */
-export function onSortieStateChange(callback: () => void): void {
-  replaceStateChangeCallbacks("sortieStateChangeCallbacks", callback);
 }
 
 // ─── Squadron 가용 상태 관리 ─────────────────────────────
@@ -204,7 +183,6 @@ export function enableSquadronCarrier(id: string): void {
   if (!gs.modes.has(id)) return;
   if (gs.squadronEnabledCarriers.has(id)) return;
   gs.squadronEnabledCarriers.add(id);
-  notifySquadronStateChange();
 }
 
 /**
@@ -214,7 +192,6 @@ export function disableSquadronCarrier(id: string): void {
   const gs = getState();
   if (!gs.squadronEnabledCarriers.has(id)) return;
   gs.squadronEnabledCarriers.delete(id);
-  notifySquadronStateChange();
 }
 
 /**
@@ -233,31 +210,13 @@ export function getSquadronEnabledIds(): string[] {
 
 /**
  * squadron 활성화 목록을 일괄 설정합니다.
- * @param silent true면 콜백을 호출하지 않음 (부팅 시 복원용)
  */
-export function setSquadronEnabledCarriers(ids: string[], silent = false): void {
+export function setSquadronEnabledCarriers(ids: string[]): void {
   const gs = getState();
   gs.squadronEnabledCarriers = new Set(ids);
-  if (!silent) notifySquadronStateChange();
-}
-
-/**
- * squadron 상태 변경 시 호출될 콜백을 등록합니다.
- * 재초기화(/reload) 시 이전 콜백이 누적되지 않도록 기존 목록을 클리어합니다.
- */
-export function onSquadronStateChange(callback: () => void): void {
-  replaceStateChangeCallbacks("squadronStateChangeCallbacks", callback);
 }
 
 // ─── Task Force 설정 변경 관리 ──────────────────────────
-
-/**
- * Task Force 설정 변경 시 호출될 콜백을 등록합니다.
- * 재초기화(/reload) 시 이전 콜백이 누적되지 않도록 기존 목록을 클리어합니다.
- */
-export function onTaskForceConfigChange(callback: () => void): void {
-  replaceStateChangeCallbacks("taskforceConfigChangeCallbacks", callback);
-}
 
 /**
  * Task Force 설정이 완료된 carrier ID 목록을 반환합니다.
@@ -268,20 +227,10 @@ export function getTaskForceConfiguredIds(): string[] {
 
 /**
  * Task Force 설정 완료 carrier ID 목록을 일괄 설정합니다.
- * @param silent true면 콜백을 호출하지 않음 (부팅 시 복원용)
  */
-export function setTaskForceConfiguredCarriers(ids: string[], silent = false): void {
+export function setTaskForceConfiguredCarriers(ids: string[]): void {
   const gs = getState();
   gs.taskforceConfiguredCarriers = new Set(ids);
-  if (!silent) notifyTaskForceConfigChange();
-}
-
-/**
- * Task Force 설정 변경 콜백을 모두 호출합니다.
- * taskforce-config-overlay에서 설정 저장/리셋 성공 시 호출합니다.
- */
-export function notifyTaskForceConfigChange(): void {
-  notifyStateChangeCallbacks("taskforceConfigChangeCallbacks");
 }
 
 /**
@@ -414,12 +363,8 @@ function getState(): CarrierFrameworkState {
       registeredOrder: [],
       statusUpdateCallbacks: [],
       sortieDisabledCarriers: new Set(),
-      sortieStateChangeCallbacks: [],
-      sortieRegisterTimer: null,
-      taskforceConfigChangeCallbacks: [],
       taskforceConfiguredCarriers: new Set(),
       squadronEnabledCarriers: new Set(),
-      squadronStateChangeCallbacks: [],
       pendingCliTypeOverrides: new Map(),
     };
     (globalThis as any)[CARRIER_FRAMEWORK_KEY] = s;
@@ -427,37 +372,6 @@ function getState(): CarrierFrameworkState {
   // 런타임 방어: 기존 상태에 필드가 없을 경우 초기화
   if (!s.pendingCliTypeOverrides) s.pendingCliTypeOverrides = new Map();
   if (!s.squadronEnabledCarriers) s.squadronEnabledCarriers = new Set();
-  if (!s.squadronStateChangeCallbacks) s.squadronStateChangeCallbacks = [];
   if (!s.taskforceConfiguredCarriers) s.taskforceConfiguredCarriers = new Set();
   return s;
-}
-
-/** sortie 상태 변경 콜백을 모두 호출합니다. */
-function notifySortieStateChange(): void {
-  notifyStateChangeCallbacks("sortieStateChangeCallbacks");
-}
-
-/** squadron 상태 변경 콜백을 모두 호출합니다. */
-function notifySquadronStateChange(): void {
-  notifyStateChangeCallbacks("squadronStateChangeCallbacks");
-}
-
-type StateChangeCallbackKey =
-  | "sortieStateChangeCallbacks"
-  | "taskforceConfigChangeCallbacks"
-  | "squadronStateChangeCallbacks";
-
-function replaceStateChangeCallbacks(
-  key: StateChangeCallbackKey,
-  callback: () => void,
-): void {
-  getState()[key] = [callback];
-}
-
-function notifyStateChangeCallbacks(
-  key: StateChangeCallbackKey,
-): void {
-  for (const callback of getState()[key]) {
-    try { callback(); } catch { /* 무시 */ }
-  }
 }

@@ -23,13 +23,13 @@ import {
   finalizeRun,
   getRunById,
   getVisibleRun,
-} from "./streaming/stream-store.js";
+} from "./bridge/streaming/stream-store.js";
 import {
   beginColStreaming,
   endColStreaming,
   updateAgentCol,
-} from "./panel/lifecycle.js";
-import { findColIndex } from "./panel/state.js";
+} from "./bridge/panel/lifecycle.js";
+import { findColIndex } from "./bridge/panel/state.js";
 import type {
   UnifiedAgentRequestBridge,
   UnifiedAgentRequestOptions,

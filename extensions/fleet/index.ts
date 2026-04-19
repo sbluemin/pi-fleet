@@ -30,8 +30,6 @@ import {
   isSortieCarrierEnabled,
   getSortieDisabledIds,
   setSortieDisabledCarriers,
-  onSortieStateChange,
-  onTaskForceConfigChange,
   setTaskForceConfiguredCarriers,
   updateCarrierCliType,
   setPendingCliTypeOverrides,
@@ -40,7 +38,6 @@ import {
   isSquadronCarrierEnabled,
   getSquadronEnabledIds,
   setSquadronEnabledCarriers,
-  onSquadronStateChange,
 } from "./shipyard/carrier/framework.js";
 import {
   initRuntime,
@@ -72,34 +69,32 @@ import { cleanIdleClients } from "../core/agentclientprotocol/pool.js";
 import { setCliRuntimeContext, setCliSystemPrompt } from "../core/agentclientprotocol/provider-types.js";
 import { registerModelCommands, syncModelConfig } from "./shipyard/carrier/model-ui.js";
 import { exposeAgentApi } from "./operation-runner.js";
-import { refreshAgentPanel } from "./panel/lifecycle.js";
-import { registerAgentPanelShortcut } from "./panel/shortcuts.js";
-import { setAgentPanelServiceLoading, setAgentPanelServiceStatus } from "./panel/config.js";
+import { refreshAgentPanel } from "./bridge/panel/lifecycle.js";
+import { registerAgentPanelShortcut } from "./bridge/panel/shortcuts.js";
+import { setAgentPanelServiceLoading, setAgentPanelServiceStatus } from "./bridge/panel/config.js";
 import { initServiceStatus, attachStatusContext, refreshStatusNow, getServiceSnapshots, refreshStatusQuiet } from "../core/agentclientprotocol/service-status/store.js";
-import {
-  registerSortieTool,
-  registerTaskForceTool,
-  registerSquadronTool,
-} from "./admiral/prompts.js";
+import { buildSortieToolConfig } from "./shipyard/carrier/sortie.js";
+import { buildTaskForceToolConfig } from "./shipyard/taskforce/index.js";
+import { buildSquadronToolConfig } from "./shipyard/squadron/index.js";
 import {
   TASKFORCE_CLI_TYPES,
   type TaskForceCliType,
 } from "./shipyard/taskforce/types.js";
-import { TaskForceConfigOverlay } from "./shipyard/carrier/taskforce-config-overlay.js";
-import type { TaskForceOverlayCallbacks } from "./shipyard/carrier/taskforce-config-overlay.js";
-import { CarrierStatusOverlay } from "./shipyard/carrier/status-overlay.js";
-import { StatusOverlayController } from "./shipyard/carrier/status-overlay-controller.js";
+import { TaskForceConfigOverlay } from "./bridge/carrier-ui/taskforce-config-overlay.js";
+import type { TaskForceOverlayCallbacks } from "./bridge/carrier-ui/taskforce-config-overlay.js";
+import { CarrierStatusOverlay } from "./bridge/carrier-ui/status-overlay.js";
+import { StatusOverlayController } from "./bridge/carrier-ui/status-overlay-controller.js";
 import type {
   CarrierCliType,
   CarrierStatusEntry,
   CliModelInfo,
   ModelSelection as OverlayModelSelection,
-} from "./shipyard/carrier/types.js";
+} from "./bridge/carrier-ui/types.js";
 import { getKeybindAPI } from "../core/keybind/bridge.js";
 import { bootAdmiral } from "./admiral/index.js";
 import { bootBridge } from "./bridge/index.js";
 import { registerFleetCarriers } from "./carriers/index.js";
-export type { CollectedStreamData } from "./streaming/types.js";
+export type { CollectedStreamData } from "./bridge/streaming/types.js";
 
 export { runAgentRequest, abortCarrierRun } from "./operation-runner.js";
 
@@ -142,9 +137,6 @@ export {
   getSortieEnabledIds,
   getSortieDisabledIds,
   setSortieDisabledCarriers,
-  onSortieStateChange,
-  onTaskForceConfigChange,
-  notifyTaskForceConfigChange,
   enableSquadronCarrier,
   disableSquadronCarrier,
   isSquadronCarrierEnabled,
@@ -181,16 +173,15 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
 
   // ── Sortie 비활성 상태 복원 ──
   // 부팅 시에는 carrier 등록 전이므로 validIds 필터 없이 전체 로드.
-  // 아직 미등록 carrier ID도 보존하여 debounced 콜백의 덮어쓰기를 방지한다.
   const restoredDisabled = loadSortieDisabled();
   if (restoredDisabled.length > 0) {
-    setSortieDisabledCarriers(restoredDisabled, true);
+    setSortieDisabledCarriers(restoredDisabled);
   }
 
   // ── Squadron 활성 상태 복원 ──
   const restoredSquadron = loadSquadronEnabled();
   if (restoredSquadron.length > 0) {
-    setSquadronEnabledCarriers(restoredSquadron, true);
+    setSquadronEnabledCarriers(restoredSquadron);
   }
 
   // ── cliType 오버라이드 복원 ──
@@ -206,62 +197,39 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
 
   registerFleetCarriers(pi);
 
-  registerSortieTool(pi);
-  registerTaskForceTool(pi);
-  registerSquadronTool(pi);
-  const refreshTaskForceState = () => {
-    // globalThis 캐시를 먼저 갱신해 크로스 번들에서 동일 상태를 읽게 합니다.
-    const tfIds = getConfiguredTaskForceCarrierIds(getRegisteredOrder());
-    setTaskForceConfiguredCarriers(tfIds, true);
-    registerTaskForceTool(pi);
-    notifyStatusUpdate();
-  };
-  let hasReconciledInitialModelSelections = false;
+  const sortieToolConfig = buildSortieToolConfig();
+  if (sortieToolConfig) pi.registerTool(sortieToolConfig);
+  const taskForceToolConfig = buildTaskForceToolConfig();
+  if (taskForceToolConfig) pi.registerTool(taskForceToolConfig);
+  const squadronToolConfig = buildSquadronToolConfig();
+  if (squadronToolConfig) pi.registerTool(squadronToolConfig);
 
-  // sortie 상태 변경 시 → 도구 재등록 + 영속화 + 상태바 갱신
-  // carrier 등록 완료 후 debounce를 통해 최초 1회 발화됨 → stale squadron ID도 이 시점에 정리
-  onSortieStateChange(() => {
-    registerSortieTool(pi);
-    registerSquadronTool(pi);
-    refreshTaskForceState();
-    saveSortieDisabled(getSortieDisabledIds());
-    if (!hasReconciledInitialModelSelections) {
-      const cliTypesByCarrier = Object.fromEntries(
-        getRegisteredOrder()
-          .map((carrierId) => {
-            const config = getRegisteredCarrierConfig(carrierId);
-            return config ? [carrierId, config.cliType] : null;
-          })
-          .filter((entry): entry is [string, CliType] => entry !== null),
-      );
-      hasReconciledInitialModelSelections = true;
-      if (Object.keys(cliTypesByCarrier).length > 0 && reconcileActiveModelSelections(cliTypesByCarrier)) {
-        syncModelConfig();
-      }
+  // ── 부팅 후 1회 초기화: 모델 정합성 검증 + stale ID 정리 + taskforce 상태 동기화 ──
+  setTimeout(() => {
+    // 모델 선택 정합성 검증
+    const cliTypesByCarrier = Object.fromEntries(
+      getRegisteredOrder()
+        .map((carrierId) => {
+          const config = getRegisteredCarrierConfig(carrierId);
+          return config ? [carrierId, config.cliType] : null;
+        })
+        .filter((entry): entry is [string, CliType] => entry !== null),
+    );
+    if (Object.keys(cliTypesByCarrier).length > 0 && reconcileActiveModelSelections(cliTypesByCarrier)) {
+      syncModelConfig();
     }
-    // 부팅 시 복원된 stale squadron ID 정리 (등록된 carrier와 교집합만 유지)
+    // stale squadron ID 정리 (등록된 carrier와 교집합만 유지)
     const registeredSet = new Set(getRegisteredOrder());
     const validSquadronIds = getSquadronEnabledIds().filter((id) => registeredSet.has(id));
     if (validSquadronIds.length !== getSquadronEnabledIds().length) {
-      setSquadronEnabledCarriers(validSquadronIds, true);
+      setSquadronEnabledCarriers(validSquadronIds);
       saveSquadronEnabled(validSquadronIds);
     }
-  });
-
-  // squadron 상태 변경 시 → sortie/squadron 도구 재등록 + 영속화 + 상태바 갱신
-  onSquadronStateChange(() => {
-    registerSortieTool(pi);
-    registerSquadronTool(pi);
-    // 등록된 carrier ID와의 교집합만 영속화 (미등록 ID 제거)
-    const registeredSet = new Set(getRegisteredOrder());
-    saveSquadronEnabled(getSquadronEnabledIds().filter((id) => registeredSet.has(id)));
+    // taskforce 상태 동기화
+    const tfIds = getConfiguredTaskForceCarrierIds(getRegisteredOrder());
+    setTaskForceConfiguredCarriers(tfIds);
     notifyStatusUpdate();
-  });
-
-  // Task Force 설정 변경 시 → 도구 재등록 + 상태바 갱신
-  onTaskForceConfigChange(() => {
-    refreshTaskForceState();
-  });
+  }, 0);
 
   syncModelConfig();
   registerAgentPanelShortcut();
@@ -391,6 +359,8 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
                 } else {
                   enableSortieCarrier(carrierId);
                 }
+                saveSortieDisabled(getSortieDisabledIds());
+                notifyStatusUpdate();
               },
               toggleSquadronEnabled: (carrierId: string) => {
                 if (isSquadronCarrierEnabled(carrierId)) {
@@ -398,6 +368,9 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
                 } else {
                   enableSquadronCarrier(carrierId);
                 }
+                const registeredSet = new Set(getRegisteredOrder());
+                saveSquadronEnabled(getSquadronEnabledIds().filter((id) => registeredSet.has(id)));
+                notifyStatusUpdate();
               },
               getAvailableModels: getCliModelInfo,
               getServiceSnapshots: () =>
@@ -443,9 +416,15 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
                       requireTaskForceCliType(cliType),
                       selection,
                     );
+                    const tfIds = getConfiguredTaskForceCarrierIds(getRegisteredOrder());
+                    setTaskForceConfiguredCarriers(tfIds);
+                    notifyStatusUpdate();
                   },
                   resetBackendConfig: (cliType: string) => {
                     resetTaskForceModelSelection(carrierId, requireTaskForceCliType(cliType));
+                    const tfIds = getConfiguredTaskForceCarrierIds(getRegisteredOrder());
+                    setTaskForceConfiguredCarriers(tfIds);
+                    notifyStatusUpdate();
                   },
                 };
                 void ctx.ui.custom(
