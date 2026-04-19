@@ -1,6 +1,6 @@
 /**
- * Admiralty가 Fleet 연결을 받아 JSON-RPC Request/Notification을 처리하는
- * Unix Domain Socket 서버를 제공한다.
+ * Admiralty가 Fleet 연결을 받아
+ * JSON-RPC Request/Notification을 처리하는 Unix Domain Socket 서버를 제공한다.
  */
 import * as fs from "node:fs";
 import * as net from "node:net";

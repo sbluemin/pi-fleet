@@ -1,5 +1,6 @@
 /**
- * Admiralty가 연결된 함대의 등록/해제, heartbeat, 상태, 소켓 참조를 관리한다.
+ * Admiralty가 연결된 함대의 등록/해제,
+ * heartbeat, 상태, 소켓 참조를 관리한다.
  */
 import type { Socket } from "node:net";
 

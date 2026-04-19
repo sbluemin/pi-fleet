@@ -2,20 +2,22 @@
  * admiral/prompts — Admiral 시스템 프롬프트 및 세계관 관리
  *
  * ACP 시스템 프롬프트는 `buildAcpSystemPrompt()`로 합성되며, 각 섹션은
- * XML 태그(`<fleet_role>`, `<fleet_tone>`, `<carrier_roster>`, `<protocols>`,
- * `<standing_orders>`, `<request_directive>`)로 감싸지고 `---` 구분자로
- * 분리된다. `<fleet_role>`은 항상 주입되어 Admiral ↔ Fleet Admiral 호칭과
- * 행동 규약을 고정하고, `<fleet_tone>`는 worldview 토글이 켜진 경우에만
- * 덧붙어 군대식 톤·fleet 용어 사용 지침을 오버레이한다. 프로토콜 카탈로그
- * 전체가 포함되며, 활성 프로토콜은 매 턴 `<current_protocol>` 런타임 태그로
- * 지정된다.
+ * XML 태그(`<fleet_persona>`, `<fleet_role>`, `<fleet_tone>`,
+ * `<carrier_roster>`, `<protocols>`, `<standing_orders>`,
+ * `<request_directive>`)로 감싸지고 `---` 구분자로 분리된다.
+ * `<fleet_role>`은 항상 주입되어 Admiral ↔ Admiral of the Navy (대원수) 호칭과
+ * 행동 규약을 고정한다. worldview 토글이 켜진 경우에만 `<fleet_persona>`와
+ * `<fleet_tone>`가 함께 주입되어 4계층 페르소나와 군대식 톤을 오버레이한다.
+ * 프로토콜 카탈로그 전체가 포함되며, 활성 프로토콜은 매 턴
+ * `<current_protocol>` 런타임 태그로 지정된다.
  *
  * 매 턴 follow-up prefix는 `buildAcpRuntimeContext(userRequest)`가 조립한다.
  * 런타임 태그 블록과 `<user_request>` 래핑을 한 번에 반환하는 builder 시그니처이며,
  * `setCliRuntimeContext()`에 함수 레퍼런스로 등록된다.
  */
 
-import { getSettingsAPI } from "../../core/settings/bridge.js";
+import { FLEET_PI_PERSONA_PROMPT, FLEET_TONE_PROMPT } from "../../metaphor/prompts.js";
+import { isWorldviewEnabled } from "../../metaphor/worldview.js";
 import { getActiveProtocol, getAllProtocols } from "./protocols/index.js";
 import { getAllStandingOrders } from "./standing-orders/index.js";
 import { getAllToolPromptManifests, renderToolPromptManifestTagBlock } from "./tool-prompt-manifest/index.js";
@@ -33,7 +35,6 @@ import {
 
 /** admiral 섹션 설정 타입 */
 export interface AdmiralSettings {
-  worldview?: boolean;
   activeProtocol?: string;
 }
 
@@ -44,42 +45,27 @@ export interface AdmiralSettings {
 /**
  * Fleet 역할·행동 규약 — 항상 주입.
  *
- * Admiral ↔ Fleet Admiral 호칭과 위임/수동 제어/언어 규칙 등 CLI 백엔드가
- * carrier_roster·protocols를 해석할 때 필요한 구조적 맥락을 담는다. 톤은
- * 별도의 `FLEET_TONE_PROMPT`가 담당한다.
+ * Admiral (제독) ↔ Admiral of the Navy (대원수) 호칭과 위임/수동 제어/언어 규칙 등 CLI 백엔드가
+ * carrier_roster·protocols를 해석할 때 필요한 구조적 맥락을 담는다. 페르소나와
+ * 톤은 metaphor 패키지에서 별도로 주입한다.
  */
 export const FLEET_ROLE_PROMPT = String.raw`
 # Role
-You are the Admiral commanding the Agent Harness Fleet.
-The user issuing orders to you is the Fleet Admiral, the supreme commander of the entire fleet.
+You are the Admiral (제독) commanding the Agent Harness Fleet on behalf of the Admiral of the Navy (대원수).
+The user issuing orders to you is the Admiral of the Navy (대원수), the supreme commander of the entire fleet.
 
 # Action Guidelines
-- When a mission is assigned, first decide whether to handle it directly or deploy Carrier(s); if deploying, brief the Fleet Admiral on which Carrier(s) will be used.
-- All user-visible output must be framed as a report to the Fleet Admiral. Carrier reports, tool outputs, and system reminders are operational inputs for you to interpret, not conversation turns to answer.
-- When Carrier results arrive, synthesize them into your own report to the Fleet Admiral instead of replying to, thanking, or giving conversational follow-up instructions to the Carrier.
-- When manual control is needed, advise the Fleet Admiral to enter the Bridge and take the Helm.
+- When a mission is assigned, first decide whether to handle it directly or deploy Carrier(s); if deploying, brief the Admiral of the Navy (대원수) on which Captain-led Carrier(s) will be used.
+- All user-visible output must be framed as a report to the Admiral of the Navy (대원수). Carrier reports, tool outputs, and system reminders are operational inputs for you to interpret, not conversation turns to answer.
+- When Carrier results arrive, synthesize them into your own report to the Admiral of the Navy (대원수) instead of replying to, thanking, or giving conversational follow-up instructions to the Carrier.
+- When manual control is needed, advise the Admiral of the Navy (대원수) to enter the Bridge and take the Helm.
 - All responses to the user must be written in Korean.
-`;
-
-/**
- * Fleet 톤/스타일 오버레이 — worldview 토글로 활성화/비활성화.
- *
- * 역할·행동 규약(`FLEET_ROLE_PROMPT`) 위에 덧씌워지는 스타일 지침으로,
- * 군대식 어투와 fleet 용어 사용, 오류 상황의 메타포 전달을 규정한다.
- * 토글 Off 시에도 호칭과 행동 규약은 유지되며 어조만 중립화된다.
- */
-export const FLEET_TONE_PROMPT = String.raw`
-# Tone & Manner
-1. Use a disciplined, clear, military-style tone. Be concise, avoid filler, and prefer a report-style format addressed to the Fleet Admiral. (Examples: "Fleet Admiral, mission complete.", "Fleet Admiral, I am deploying TaskFleet and will report back.", "Fleet Admiral, here is the consolidated report.")
-2. Show absolute loyalty and professionalism. Strategically analyze the Fleet Admiral's orders, propose the most efficient tactics including agent allocation when appropriate, or execute them immediately.
-3. Actively use the fleet-world terminology in context instead of plain development wording when it improves clarity, including terms such as Carrier, Commission, Sortie, Board, Broadside, Bridge, and Helm.
-4. If an error or bug occurs during execution, communicate the severity through fleet-world metaphors such as enemy attack or ship damage.
 `;
 
 /** 프로토콜 활성 시 주입되는 서문 */
 export const PROTOCOL_PREAMBLE = String.raw`All task execution follows the active Protocol. Additional Standing Orders are always in effect — they can be invoked from any workflow phase.
 
-**Parallel execution default:** When multiple Carriers can be dispatched for the same phase or step, bundle them into a single ${"``"}carriers_sortie${"``"} call with all Carriers in the array. Use sequential ordering only when (1) a later Carrier's work depends on an earlier Carrier's output, (2) carriers share a mutable resource that cannot be safely accessed concurrently (e.g., same files, generated artifacts, lock files, or test environment singletons), or (3) a recon Carrier must complete before a specialist Carrier can be selected.`;
+**Parallel execution default:** When multiple Captain-led Carriers can be dispatched for the same phase or step, bundle them into a single ${"``"}carriers_sortie${"``"} call with all Carriers in the array. Use sequential ordering only when (1) a later Carrier's work depends on an earlier Carrier's output, (2) carriers share a mutable resource that cannot be safely accessed concurrently (e.g., same files, generated artifacts, lock files, or test environment singletons), or (3) a recon Carrier must complete before a specialist Carrier can be selected.`;
 
 /** 시스템 태그 힌트 — ACP 초기 프롬프트와 carrier 시스템 프롬프트에 공통 주입 */
 export const SYSTEM_REMINDER_HINT = String.raw`
@@ -104,12 +90,13 @@ export const RUNTIME_CONTEXT_TAGS_PROMPT = String.raw`
  *
  * 각 섹션은 XML 태그로 감싸지며 `---` 구분자로 분리된다.
  * 섹션 순서:
- *  1. `<fleet_role>` — Fleet 역할·행동 규약 (항상)
- *  2. `<fleet_tone>` — Fleet 톤/스타일 오버레이 (worldview 토글 시에만)
- *  3. `<carrier_roster>` — 등록 캐리어 Tier 1 메타데이터
- *  4. `<protocols>` — 프로토콜 카탈로그 + 런타임 컨텍스트 태그 해석 규칙
- *  5. `<standing_orders>` — Standing Orders (프로토콜별 활성/비활성은 런타임 결정)
- *  6. 등록된 tool manifest XML 블록
+ *  1. `<fleet_persona>` — Fleet PI 페르소나 (worldview 토글 시에만)
+ *  2. `<fleet_role>` — Fleet 역할·행동 규약 (항상)
+ *  3. `<fleet_tone>` — Fleet 톤/스타일 오버레이 (worldview 토글 시에만)
+ *  4. `<carrier_roster>` — 등록 캐리어 Tier 1 메타데이터
+ *  5. `<protocols>` — 프로토콜 카탈로그 + 런타임 컨텍스트 태그 해석 규칙
+ *  6. `<standing_orders>` — Standing Orders (프로토콜별 활성/비활성은 런타임 결정)
+ *  7. 등록된 tool manifest XML 블록
  *
  * ACP에서는 시스템 프롬프트가 최초 1회만 전달되므로 모든 프로토콜 정의를
  * 카탈로그로 포함하고, 런타임 전환은 매 턴 `<current_protocol>` 태그로 제어한다.
@@ -117,7 +104,10 @@ export const RUNTIME_CONTEXT_TAGS_PROMPT = String.raw`
 export function buildAcpSystemPrompt(): string {
   const parts: string[] = [];
 
-  // ── 1. Fleet 역할 (항상) + 톤 오버레이 (worldview 토글 시에만) ──
+  // ── 1. Fleet 페르소나/역할/톤 — persona+tone은 worldview 토글 시에만 ──
+  if (isWorldviewEnabled()) {
+    parts.push(`<fleet_persona>\n${FLEET_PI_PERSONA_PROMPT.trim()}\n</fleet_persona>`);
+  }
   parts.push(`<fleet_role>\n${FLEET_ROLE_PROMPT.trim()}\n</fleet_role>`);
   if (isWorldviewEnabled()) {
     parts.push(`<fleet_tone>\n${FLEET_TONE_PROMPT.trim()}\n</fleet_tone>`);
@@ -201,23 +191,6 @@ export function buildAcpRuntimeContext(userRequest: string): string {
   ].join("\n");
 
   return `<system-reminder>\n${runtimeTags}\n</system-reminder>\n\n${userRequest}`;
-}
-
-/** admiral 섹션에서 worldview 활성 여부를 읽는다 (기본: false). */
-export function isWorldviewEnabled(): boolean {
-  const api = getSettingsAPI();
-  if (!api) return false;
-
-  const cfg = api.load<AdmiralSettings>("admiral");
-  return cfg.worldview === true;
-}
-
-/** admiral 섹션의 worldview 설정을 저장한다 (기존 설정 병합) */
-export function setWorldviewEnabled(enabled: boolean): void {
-  const api = getSettingsAPI();
-  if (!api) return;
-  const cfg = api.load<AdmiralSettings>("admiral");
-  api.save("admiral", { ...cfg, worldview: enabled });
 }
 
 /**

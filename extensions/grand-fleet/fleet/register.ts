@@ -2,13 +2,15 @@
  * fleet/register.ts — Fleet 모드 와이어링
  *
  * Admiralty에 IPC 클라이언트로 접속하고, Grand Fleet Context를
- * 시스템 프롬프트에 append하며, 명령 수신 시 Admiral에 주입한다.
+ * 시스템 프롬프트에 append하며, 명령 수신 시 Admiral (제독)에 주입한다.
  */
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { StringEnum } from "@mariozechner/pi-ai";
 import { Type } from "@sinclair/typebox";
 
+import { PROVIDER_ID, setCliSystemPrompt } from "../../core/agentclientprotocol/provider-types.js";
 import { getLogAPI } from "../../core/log/bridge.js";
+import { buildAcpSystemPrompt } from "../../fleet/admiral/prompts.js";
 import { getState } from "../index.js";
 import { FleetClient } from "../ipc/client.js";
 import { registerFleetHandlers } from "../ipc/methods.js";
@@ -188,6 +190,11 @@ export default function registerFleet(pi: ExtensionAPI): void {
     if (state.socketPath && state.fleetId) {
       connectToAdmiralty(state.socketPath, state.fleetId, pi, ctx);
     }
+    syncAcpSystemPrompt(
+      ctx,
+      state.fleetId ?? fleetId,
+      state.designation ?? fleetId,
+    );
   });
 
   let missionTexts: string[] = [];
@@ -305,6 +312,21 @@ export function getFleetOverlayRuntimeState(): FleetOverlayRuntimeState {
     heartbeatAgeMs: lastHeartbeatAt === null ? null : Date.now() - lastHeartbeatAt,
     socketPath: state.socketPath,
   };
+}
+
+/**
+ * ACP 프로바이더에 Fleet 기본 시스템 프롬프트와 Grand Fleet 컨텍스트를 함께 주입한다.
+ */
+function syncAcpSystemPrompt(
+  ctx: ExtensionContext,
+  fleetId: string,
+  designation: string,
+): void {
+  const isAcp = ctx.model?.provider === PROVIDER_ID;
+  if (!isAcp) return;
+  const base = buildAcpSystemPrompt();
+  const context = buildFleetContextPrompt(fleetId, designation, process.cwd());
+  setCliSystemPrompt(`${base}\n\n${context}`);
 }
 
 function connectToAdmiralty(

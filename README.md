@@ -4,11 +4,16 @@ A multi-LLM orchestration kit for [pi-coding-agent](https://github.com/badlogic/
 
 ## Naval Fleet Metaphor
 
-This project treats individual LLM agents as **Carriers** within a **Fleet**.
+This project treats individual LLM agents as **Carriers** within a **Fleet**. Roles and responsibilities are defined through a 4-tier naval hierarchy:
 
-- **Fleet Admiral**: The **User** who wields the tool and sets the ultimate strategy.
-- **Admiral**: The **Main Orchestrator (PI's LLM)** that plans operations and delegates to the fleet.
-- **Carrier**: An **Execution Instance** of a CLI tool (Claude, Codex, Gemini). Each carrier has its own persona, specialization, and isolated session.
+1. **Admiral of the Navy (ATN, 대원수)**: The **User** who wields the tool and sets the ultimate strategy.
+2. **Fleet Admiral (사령관)**: The **Admiralty LLM persona** in `grand-fleet` mode. Responsible for multi-fleet orchestration.
+3. **Admiral (제독)**: A single **workspace PI instance**. Plans operations and dispatches Carriers within its zone.
+4. **Captain (함장)**: The **persona of a Carrier agent**. While a **Carrier** is the execution entity, the **Captain** is its personified commander.
+
+### Key Definitions
+- **Carrier**: An **Execution Instance** of a CLI tool (Claude, Codex, Gemini). A system entity with isolated configuration and session.
+- **Captain**: The **Commander Persona** (e.g., Chief Engineer, Scout Specialist) that speaks on behalf of the Carrier.
 
 ## Extensions
 
@@ -35,7 +40,13 @@ This project treats individual LLM agents as **Carriers** within a **Fleet**.
 
 | Extension | Domain | Description |
 |-----------|--------|-------------|
-| `fleet/admiral/` | `admiral` | **Host-Agent Prompt Policy Library** — `fleet/index.ts`가 사용하는 Admiral system prompt injection, worldview toggle, settings helpers |
+| `fleet/admiral/` | `admiral` | **Host-Agent Prompt Policy Library** — `fleet/index.ts`가 사용하는 Admiral system prompt injection, protocols, settings helpers |
+
+### Metaphor (`extensions/metaphor/`)
+
+| Extension | Domain | Description |
+|-----------|--------|-------------|
+| `metaphor/` | `metaphor` | **Persona Framework Extension** — Naval Fleet "Persona" prompts and worldview management |
 
 ### Bridge (`extensions/fleet/bridge/`)
 
@@ -129,7 +140,7 @@ Once **two or more** backends are configured for a carrier, it becomes available
 |---------|-------------|
 | `/fleet:agent:models` | Configure model selection for each registered carrier (slot order) |
 | `/fleet:agent:status` | Instantly refresh the connection status of all CLI services |
-| `/fleet:admiral:worldview` | Toggle Naval Fleet "Persona" prompts on/off |
+| `/metaphor:worldview` | Toggle Naval Fleet "Persona" prompts on/off |
 | `/fleet:hud:editor` | Configure HUD editor display status (toggle, preset) |
 | `/fleet:prompt:settings` | Meta-prompt model and reasoning level settings |
 | `/fleet:summary:settings` | Auto-summary model and max-length settings |

@@ -1,7 +1,8 @@
 /**
  * admiralty/roster-widget.ts — Grand Fleet 함대 로스터 aboveEditor 위젯
  *
- * 연결된 함대들의 상태, 작전 구역, 임무를 실시간으로 표시한다.
+ * Admiralty가 Admiral of the Navy (대원수)에게 보고할 연결 함대들의 상태,
+ * 작전 구역, 임무를 실시간으로 표시한다.
  */
 import * as os from "node:os";
 

@@ -11,13 +11,13 @@ import { registerSingleCarrier } from "../shipyard/carrier/register.js";
 
 const CARRIER_METADATA: CarrierMetadata = {
   // ── Tier 1: Routing ──
-  title: "Strategic Planning Officer",
-  summary: "Clarifies requirements, closes pre-execution gaps, and turns a PRD or goal into an executable markdown work plan with task waves, dependencies, and QA checkpoints.",
+  title: "Captain · Strategic Planning Officer",
+  summary: "Clarifies requirements, closes pre-execution gaps, and turns a PRD or goal into an executable markdown work plan with task waves, dependencies, and QA checkpoints. As the Captain (함장) of this Carrier, Athena commands the planning deck and prepares execution-ready plans for the fleet.",
   whenToUse: [
     "tasks requiring 2+ Carriers to coordinate with inter-task dependencies",
     "tasks requiring 4+ dependent steps, explicit execution waves, or agent-executable QA checkpoints",
     "requirements that remain materially ambiguous (≥2 open questions) after the Admiral's brief classification pass",
-    "explicit Fleet Admiral requests for a structured plan, PRD decomposition, or execution checklist",
+    "explicit Admiral of the Navy (대원수) requests for a structured plan, PRD decomposition, or execution checklist",
   ],
   whenNotToUse: "single-Carrier tasks with ≤3 dependent steps and clear acceptance criteria (→Admiral plans directly), direct code implementation (→genesis), final architecture arbitration or deep trade-off decisions (→oracle), sorties needing reconnaissance before planning (→vanguard/echelon first)",
 

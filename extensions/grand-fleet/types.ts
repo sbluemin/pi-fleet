@@ -1,5 +1,9 @@
 /**
  * grand-fleet 확장의 공통 타입, 전역 상태 키, 프로토콜 상수를 정의한다.
+ *
+ * 계층 의미는 사용자 `Admiral of the Navy (대원수)` → Admiralty 상위 페르소나
+ * → 각 Fleet PI의 `Admiral (제독)` → Carrier를 운용하는 `Captain (함장)`
+ * 순서를 따른다.
  */
 
 export interface JsonRpcRequest {

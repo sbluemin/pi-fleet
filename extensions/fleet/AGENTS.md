@@ -4,16 +4,24 @@ Carrier **framework SDK** (`shipyard/carrier/`) + Admiral/Bridge/Carrier wiring 
 
 The number of carriers is determined at runtime by the carrier modules registered from `fleet/carriers/index.ts`, which is booted by `fleet/index.ts`. Each carrier specifies a `slot` number which determines its panel column position and inline navigation order automatically.
 
+## 4-Tier Naval Hierarchy (4계층 해군 위계)
+
+이 확장은 다음과 같은 4계층 위계에 따라 함대를 제어합니다:
+
+1. **Admiral of the Navy (ATN, 대원수)**: **사용자 (User)**. 함대 운영의 최종 주체.
+2. **Fleet Admiral (사령관)**: `grand-fleet`의 Admiralty LLM 페르소나.
+3. **Admiral (제독)**: **워크스페이스 PI 인스턴스 (Host PI)**. 작전을 계획하고 Carrier를 파견하는 주체.
+4. **Captain (함장)**: 개별 **Carrier 에이전트 페르소나**. 각 함장(e.g., Chief Engineer)은 자신의 Carrier를 지휘하여 **Admiral (제독)**의 지시에 응답합니다.
+
+> **Note on Persona & Tone**: 모든 계층의 명칭 컨벤션, 의인화 페르소나, 언어적 톤은 `metaphor` 패키지에서 중앙 관리합니다.
+
 ## Core Rules
 
+- **Carrier vs Captain**: **Carrier**는 시스템 엔티티(실행 인스턴스, 설정)이며, **Captain (함장)**은 그 Carrier를 대변하는 지휘관 페르소나입니다.
 - Carrier framework state in `shipyard/carrier/framework.ts` is **shared via `globalThis`** — Avoid module-level singletons as pi bundles each extension separately.
 - `registerCarrier` is the public API for carrier registration (re-exported via `index.ts`).
-- `registerSingleCarrier` is the convenience API for single CLI carrier registration (re-exported via `index.ts`, lives in `shipyard/carrier/register.ts`). It registers the carrier in the framework with prompt metadata but does **not** register a PI tool — all tool delegation goes through `carriers_sortie`.
-- Carrier prompt text belongs to each carrier module (`carriers/genesis.ts`, `carriers/sentinel.ts`, `carriers/vanguard.ts`) even if duplicated today — this is intentional to allow future carrier-specific role divergence. These prompts are stored in `CarrierConfig` and dynamically synthesized into `carriers_sortie`'s promptGuidelines at registration time.
-- **`carriers_sortie` is the sole PI tool for carrier delegation** — there are no individual carrier tools (genesis, sentinel, vanguard). PI delegates all tasks through `carriers_sortie` with `minItems: 1`.
-- `requestUnifiedAgent` is the public agent execution API exposed via `globalThis["__pi_ua_request__"]`.
-- **All execution paths go through `runAgentRequest()`** — Carriers, tools, and external extensions all use `runAgentRequest()` from `operation-runner.ts`. No direct `executeWithPool` calls outside operation-runner. **`UnifiedAgentRequestOptions`는 `systemPrompt` 필드를 노출하지 않으며, 시스템 지침은 `admiral`의 전역 설정을 따릅니다.**
-- **Tool Doctrine SSOT**: 모든 PI 도구(sortie, squadron, taskforce)의 교리는 각 도구 모듈의 `ToolPromptManifest`에 정의되며, admiral이 이를 ACP XML 블록으로 동적 조립한다.
+- `registerSingleCarrier` is the convenience API for single CLI carrier registration (re-exported via `index.ts`, lives in `shipyard/carrier/register.ts`). It registers the carrier in the framework with **Captain (함장)** 페르소나 메타데이터를 포함하지만 PI 도구로 직접 등록되지는 않습니다.
+- **`Admiral (제독)`**의 전역 지침(SSOT)은 `admiral` 확장에서 관리하며, **PERSONA/TONE 소스는 `metaphor` 패키지를 사용합니다.** 모든 PI 도구(sortie, squadron, taskforce)의 교리는 `ToolPromptManifest`를 통해 동적으로 조립됩니다.
 - Calling `runAgentRequest()` **automatically syncs all UIs**: Agent Panel column, Streaming Widget (when panel collapsed), and stream-store data.
 - **carrierId vs cliType**: `carrierId` (string) is the unique carrier identity used for pool keys, session keys, and panel column identity. `cliType` (CliType) is the CLI binary to execute. Multiple carriers can share the same `cliType` while maintaining fully isolated sessions and connections. **`cliType` can be dynamically changed and persisted at runtime, and `defaultCliType` preserves the original CLI type.**
 - **Slot-based ordering**: Each carrier's `slot` determines its panel column position and inline navigation order. Slots must be unique across all registered carriers. **When `cliType` changes, the sorting order and theme color of the corresponding CLI type are immediately reflected.**

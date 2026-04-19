@@ -27,12 +27,18 @@ Beyond simple parallel API calls, the system adopts a **naval fleet metaphor** t
 
 ### Core Entities
 
-| Entity | Metaphor | Definition |
-|--------|----------|------------|
-| **Fleet** | The fleet | The logical unit encompassing the entire agent harness system. |
-| **Fleet Admiral** | Supreme commander | The **user** who wields the tool. Sets the ultimate strategy and final objectives for the fleet. |
-| **Admiral** | Fleet commander | The **main orchestrator (PI's LLM router)** that plans operations and issues commands to the entire fleet on behalf of the Fleet Admiral. |
-| **Carrier** | Aircraft carrier | An **execution instance (process)** of an individual CLI tool such as Genesis (Codex), Sentinel (Codex), or Vanguard (Codex). A large, independent asset with its own internal sub-agent ecosystem. Each carrier has its own persona and configuration, managed in the `carriers/` extension. |
+| Layer | Entity | Metaphor | Definition |
+|-------|--------|----------|------------|
+| 1 | **Admiral of the Navy** (ATN) | 대원수 (User) | **The user** who wields the tool. Sets ultimate strategy and final objectives for the fleet. |
+| 2 | **Fleet Admiral** | 사령관 (Grand Fleet) | The **Admiralty LLM persona** in `grand-fleet` mode. Responsible for multi-fleet orchestration. *Does not exist in single-fleet mode; the user communicates directly with the Admiral.* |
+| 3 | **Admiral** | 제독 (Host PI) | A single **workspace PI instance**. Plans operations and dispatches Carriers within its operational zone. |
+| 4 | **Captain** | 함장 (Carrier Persona) | The **persona of a Carrier agent**. While a Carrier is the system entity, the Captain is its personified commander. |
+
+> **Note on Persona & Tone**: The naming conventions, personified personas, and linguistic tone for all tiers are centrally managed by the `extensions/metaphor/` package.
+
+#### Carrier vs Captain Separation
+- **Carrier**: The **system entity** (ID: `genesis`, `sentinel`, etc.). Represents the execution instance, process, and configuration.
+- **Captain**: The **commander persona** of that Carrier. Represents the "voice" and "character" (e.g., Chief Engineer, Scout Specialist) that communicates with the Admiral.
 
 ## Architecture — Agent Workflow
 
@@ -88,7 +94,7 @@ The final system prompt delivered to the LLM is synthesized as follows:
 
 ```text
 System Prompt
-  + [Toggle] Worldview (via fleet:admiral:worldview)
+  + [Toggle] Worldview (via metaphor:worldview)
   + [Always] Standing Orders (Delegation Policy + Deep Dive + ...)
   + [Always] Active Protocol (Fleet Action Protocol, etc.)
   + [Always] request_directive guide
@@ -179,7 +185,8 @@ Each extension maps to exactly one domain. Use the domain below for all commands
 | Extension | Domain | Rationale |
 |-----------|--------|-----------|
 | `fleet/` | `agent` | Sub-agent orchestration features |
-| `fleet/admiral/` | `admiral` | Host-agent prompt policy, worldview, and operational doctrine |
+| `fleet/admiral/` | `admiral` | Host-agent prompt policy, protocols, and operational doctrine |
+| `metaphor/` | `metaphor` | Naval Fleet "Persona" prompts and worldview management |
 | `fleet/carriers/` | `carrier` | Individual carrier registration and configuration |
 | `core/hud/` | `hud` | HUD / editor display features |
 | `core/improve-prompt/` | `prompt` | Meta-prompt model and reasoning settings |

@@ -2,7 +2,8 @@
  * Fleet JSON-RPC 클라이언트.
  *
  * Fleet 모드에서 Admiralty의 Unix Domain Socket 서버에 접속하고,
- * Request/Response 매칭과 재연결을 관리한다.
+ * Admiral (제독) 인스턴스가 Admiral of the Navy (대원수)의 명령 체계를
+ * 상위로부터 수신할 수 있도록 Request/Response 매칭과 재연결을 관리한다.
  */
 import * as net from "node:net";
 

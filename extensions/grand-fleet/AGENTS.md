@@ -1,6 +1,6 @@
 # grand-fleet
 
-복수 PI 인스턴스를 수평 확장하는 Grand Fleet extension. Admiralty(지휘소)가 JSON-RPC over Unix Domain Socket으로 여러 Fleet(함대)를 통솔한다.
+복수 PI 인스턴스를 수평 확장하는 Grand Fleet extension. Admiralty(지휘소)가 JSON-RPC over Unix Domain Socket으로 여러 Fleet(함대)를 통솔하고, 최상위 사용자 계층은 Admiral of the Navy (대원수)다.
 
 ## Role
 
@@ -9,9 +9,26 @@
 - **fleet**: 함대 모드 — JSON-RPC 클라이언트로 Admiralty에 접속, Grand Fleet Context 프롬프트 append
 - **미설정**: 아무 동작 없음 (기존 단일 함대 모드)
 
-## 2계층 아키텍처
+## 4-Tier Naval Hierarchy (4계층 해군 위계)
 
-### Core Primitive Layer (범용 기반)
+Grand Fleet 도입과 함께 체계화된 4단계 위계 구조입니다:
+
+| Tier | Entity | Persona / Target | Role |
+|------|--------|-----------------|------|
+| 1 | **Admiral of the Navy (ATN, 대원수)** | **사용자 (User)** | 최종 전략 수립 및 함대 가동의 주체. |
+| 2 | **Fleet Admiral (사령관)** | **Admiralty LLM 페르소나** | `grand-fleet`의 지휘소(Admiralty)를 의인화한 지휘관. 다수 함대 조율. |
+| 3 | **Admiral (제독)** | **개별 PI 인스턴스 (Host PI)** | 특정 워크스페이스(함대)의 작전 계획 및 Carrier 파견 담당. |
+| 4 | **Captain** | **Carrier 에이전트 페르소나** | 개별 Carrier의 지휘관 페르소나 (e.g., Chief Engineer, Scout Specialist). |
+
+> **Note on Persona & Tone**: 모든 계층의 명칭 컨벤션, 의인화 페르소나, 언어적 톤은 `metaphor` 패키지에서 중앙 관리합니다.
+
+### Admiralty (조직) vs Fleet Admiral (사령관)
+- **Admiralty**: `grand-fleet`의 **조직 및 시스템 레이어**. 코드 내 `AdmiraltyServer`, `registerAdmiralty` 등의 식별자로 표현되는 물리적 지휘소.
+- **Fleet Admiral (사령관)**: Admiralty LLM이 취하는 **지휘관 페르소나**. 사용자(ATN)에게 보고하고 각 함대의 Admiral(제독)들을 지휘하는 목소리.
+
+## 2계층 아키텍처 (Runtime Layer)
+
+시스템의 실행 레이어 구조입니다 (위계 구조와 별개):
 환경변수만으로 동작하는 범용 메커니즘. Formation Strategy와 무관하게 독립 동작.
 - IPC 서버/클라이언트 (ipc/)
 - 함대 레지스트리 (admiralty/fleet-registry.ts)

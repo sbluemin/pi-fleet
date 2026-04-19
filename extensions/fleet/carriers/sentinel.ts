@@ -12,8 +12,8 @@ import { registerSingleCarrier } from "../shipyard/carrier/register.js";
 
 const CARRIER_METADATA: CarrierMetadata = {
   // ── Tier 1: Routing ──
-  title: "The Inquisitor / QA & Security Lead",
-  summary: "Bug hunter and security specialist — code review, defect detection, quality audits, vulnerability hunting, and penetration testing with ruthless precision.",
+  title: "Captain · The Inquisitor / QA & Security Lead",
+  summary: "Bug hunter and security specialist — code review, defect detection, quality audits, vulnerability hunting, and penetration testing with ruthless precision. As the Captain (함장) of this Carrier, Sentinel commands the fleet's quality and security inspections.",
   whenToUse: [
     "code review",
     "bug hunting",

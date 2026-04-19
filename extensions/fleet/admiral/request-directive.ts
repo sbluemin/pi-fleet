@@ -1,5 +1,5 @@
 /**
- * request_directive — Fleet Admiral에게 지시(directive)를 요청하는 도구
+ * request_directive — Admiral of the Navy (대원수)에게 지시(directive)를 요청하는 도구
  *
  * claude-code의 AskUserQuestion을 pi 플랫폼의 ctx.ui.custom() API 기반으로 재구현.
  * questionnaire.ts 패턴을 따른다.
@@ -74,7 +74,7 @@ const DirectiveQuestionSchema = Type.Object({
   question: Type.String({
     minLength: 1,
     description:
-      'Fleet Admiral에게 제시할 질문. 명확하고 구체적으로, 물음표로 끝낼 것. 예: "어떤 인증 방식을 사용할까요?"',
+      'Admiral of the Navy (대원수)에게 제시할 질문. 명확하고 구체적으로, 물음표로 끝낼 것. 예: "어떤 인증 방식을 사용할까요?"',
   }),
   header: Type.String({
     minLength: 1,
@@ -97,7 +97,7 @@ const RequestDirectiveParams = Type.Object({
   questions: Type.Array(DirectiveQuestionSchema, {
     minItems: 1,
     maxItems: 4,
-    description: "Fleet Admiral에게 요청할 질문 목록 (1-4개)",
+    description: "Admiral of the Navy (대원수)에게 요청할 질문 목록 (1-4개)",
   }),
 });
 
@@ -106,14 +106,14 @@ export const REQUEST_DIRECTIVE_MANIFEST: ToolPromptManifest = {
   tag: "request_directive",
   title: "request_directive Tool Guidelines",
   description:
-    "Use `request_directive` when you need the Fleet Admiral's judgment to proceed. This tool is for **strategic decisions**, not routine confirmations.",
+    "Use `request_directive` when you need the Admiral of the Navy (대원수)'s judgment to proceed. This tool is for **strategic decisions**, not routine confirmations.",
   promptSnippet:
-    "request_directive — Ask the Fleet Admiral for strategic directives when judgment is required.",
+    "request_directive — Ask the Admiral of the Navy (대원수) for strategic directives when judgment is required.",
   whenToUse: [
-    "1. **Ambiguity resolution** — The Fleet Admiral's orders contain unclear or conflicting requirements.",
+    "1. **Ambiguity resolution** — The Admiral of the Navy (대원수)'s orders contain unclear or conflicting requirements.",
     "2. **Direction selection** — Multiple viable approaches exist, each with meaningful trade-offs.",
     "3. **Scope confirmation** — The mission scope needs clarification before committing resources.",
-    "4. **Preference gathering** — Implementation details that depend on the Fleet Admiral's priorities.",
+    "4. **Preference gathering** — Implementation details that depend on the Admiral of the Navy (대원수)'s priorities.",
   ],
   whenNotToUse: [
     'Routine status confirmations ("Should I proceed?", "Is this okay?").',
@@ -128,7 +128,7 @@ export const REQUEST_DIRECTIVE_MANIFEST: ToolPromptManifest = {
     `If \`multiSelect\` is true, do not attach \`preview\` fields to its options.`,
     `If you recommend a specific option, make it the first in the list and append "(Recommended)" to its label.`,
     "Keep headers concise (max 12 chars) — they appear as tab labels.",
-    `Use the optional \`preview\` field when presenting concrete artifacts that the Fleet Admiral needs to visually compare (ASCII mockups, code snippets, config examples). Previews are only supported for single-select questions.`,
+    `Use the optional \`preview\` field when presenting concrete artifacts that the Admiral of the Navy (대원수) needs to visually compare (ASCII mockups, code snippets, config examples). Previews are only supported for single-select questions.`,
   ],
   guardrails: [
     `In plan mode, use \`request_directive\` to clarify requirements or choose between approaches **before** finalizing a plan. Do **not** use it to ask "Is the plan ready?" or "Should I execute?" — that is what plan approval is for.`,
@@ -290,7 +290,7 @@ export default function registerRequestDirective(pi: ExtensionAPI) {
             ...o,
             selected: selectedSet?.has(i) ?? false,
           }));
-          opts.push({ label: "직접 입력", description: "Fleet Admiral이 직접 지시를 작성합니다.", isOther: true });
+          opts.push({ label: "직접 입력", description: "대원수(Admiral of the Navy)가 직접 지시를 작성합니다.", isOther: true });
           return opts;
         }
 
@@ -536,7 +536,7 @@ export default function registerRequestDirective(pi: ExtensionAPI) {
             // 직접 입력 모드
             add(theme.fg("text", ` ${q.question}`));
             lines.push("");
-            add(theme.fg("muted", " Fleet Admiral's response:"));
+            add(theme.fg("muted", " Admiral of the Navy (대원수)'s response:"));
             for (const line of editor.render(width - 2)) {
               add(` ${line}`);
             }
@@ -647,17 +647,17 @@ export default function registerRequestDirective(pi: ExtensionAPI) {
 
       if (result.cancelled) {
         return {
-          content: [{ type: "text", text: "Fleet Admiral이 지시 요청을 취소했습니다." }],
+          content: [{ type: "text", text: "대원수(Admiral of the Navy)가 지시 요청을 취소했습니다." }],
           details: result,
         };
       }
 
       const answerLines = result.answers.map((a) => {
         if (a.wasCustom) {
-          return `${a.header}: Fleet Admiral's directive: ${a.values[0]}`;
+          return `${a.header}: Admiral of the Navy (대원수)'s directive: ${a.values[0]}`;
         }
         const valStr = a.values.join(", ");
-        return `${a.header}: Fleet Admiral selected: ${valStr}`;
+        return `${a.header}: Admiral of the Navy (대원수) selected: ${valStr}`;
       });
 
       return {

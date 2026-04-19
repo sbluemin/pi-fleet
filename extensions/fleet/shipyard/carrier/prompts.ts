@@ -65,7 +65,7 @@ export const SORTIE_MANIFEST: ToolPromptManifest = {
     `carriers_sortie requires an expected_carrier_count field that MUST be set BEFORE filling the carriers array.` +
       ` Decide the total number of carriers you plan to launch first, write that number into expected_carrier_count, then fill the carriers array to match.` +
       ` The system will immediately hard-error if expected_carrier_count does not equal the actual carriers array length — the call will be rejected and you must resubmit with the correct count and all intended carriers.` +
-      ` If a previous carriers_sortie call failed, retry with ALL originally intended carriers if the cause was a validation error or transient issue; if an inactive or unregistered carrier caused the failure, review alternatives or request Fleet Admiral clarification instead.`,
+      ` If a previous carriers_sortie call failed, retry with ALL originally intended carriers if the cause was a validation error or transient issue; if an inactive or unregistered carrier caused the failure, review alternatives or ask for clarification before retrying.`,
     `When composing a carrier request, provide only background, context, objective, and constraints.` +
       ` Do NOT prescribe implementation details or step-by-step instructions — trust the carrier's own reasoning.` +
       ` Use the Tags listed for each carrier to structure your request.`,
@@ -171,6 +171,7 @@ export function buildCarrierSystemPrompt(): string {
 /**
  * 등록된 carrier들의 CarrierMetadata Tier 1 정보를 읽어
  * "## Available Carriers" compact roster 문자열을 생성합니다.
+ * Captain (함장) 페르소나는 title 필드에 반영된 값을 그대로 사용합니다.
  *
  * carrier당 ~4줄로 압축하여 시스템 프롬프트 토큰을 절약합니다.
  *
@@ -180,6 +181,8 @@ export function buildCarrierSystemPrompt(): string {
 function buildCarrierRoster(carrierIds: string[]): string {
   const lines: string[] = [];
   lines.push(`## Available Carriers`);
+  lines.push(`Captain (함장) persona is encoded in each carrier title; Carrier remains the system entity name.`);
+  lines.push(`All Carrier reports return to the Admiral (제독); only the Admiral reports onward to the Admiral of the Navy (대원수).`);
 
   for (const carrierId of carrierIds) {
     const config = getRegisteredCarrierConfig(carrierId);
@@ -193,7 +196,7 @@ function buildCarrierRoster(carrierIds: string[]): string {
     }
 
     const name = config.displayName;
-    // 1줄: carrier ID, 표시명, 직함, 요약
+    // 1줄: carrier ID, 표시명, Captain 직함, 요약
     lines.push(`- **${carrierId}** (${name} · ${meta.title}): ${meta.summary}`);
     // 2줄: 긍정 호출 조건
     lines.push(`  Use for: ${meta.whenToUse.join(", ")}.`);

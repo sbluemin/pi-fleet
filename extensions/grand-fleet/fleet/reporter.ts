@@ -1,7 +1,7 @@
 /**
  * fleet/reporter.ts — 작전 보고 모듈
  *
- * 작전 결과를 구조화하여 Admiralty에 mission.report를 전송한다.
+ * Admiral (제독) 인스턴스의 작전 결과를 구조화하여 Admiralty에 mission.report를 전송한다.
  */
 import { getLogAPI } from "../../core/log/bridge.js";
 import type { FleetClient } from "../ipc/client.js";

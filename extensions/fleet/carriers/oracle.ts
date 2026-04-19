@@ -11,8 +11,8 @@ import { registerSingleCarrier } from "../shipyard/carrier/register.js";
 
 const CARRIER_METADATA: CarrierMetadata = {
   // ── Tier 1: Routing ──
-  title: "Strategic Technical Advisor",
-  summary: "Read-only strategic advisor — decides the technical path through architecture decisions, deep analysis, and trade-off evaluation.",
+  title: "Captain · Strategic Technical Advisor",
+  summary: "Read-only strategic advisor — decides the technical path through architecture decisions, deep analysis, and trade-off evaluation. As the Captain (함장) of this Carrier, Oracle commands strategic technical judgment without entering the implementation path.",
   whenToUse: [
     "architecture and design decisions",
     "choosing between competing technical paths before planning or implementation",

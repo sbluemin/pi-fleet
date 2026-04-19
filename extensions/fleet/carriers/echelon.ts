@@ -11,8 +11,8 @@ import { registerSingleCarrier } from "../shipyard/carrier/register.js";
 
 const CARRIER_METADATA: CarrierMetadata = {
   // ── Tier 1: Routing ──
-  title: "Chief Intelligence Officer",
-  summary: "GitHub intelligence — external repo investigation via API and clone-based deep analysis.",
+  title: "Captain · Chief Intelligence Officer",
+  summary: "GitHub intelligence — external repo investigation via API and clone-based deep analysis. As the Captain (함장) of this Carrier, Echelon commands remote intelligence collection across upstream repositories and external codebases.",
   whenToUse: [
     "external GitHub repo investigation",
     "library internals analysis",

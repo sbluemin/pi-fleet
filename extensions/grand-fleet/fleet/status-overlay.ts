@@ -80,7 +80,7 @@ class FleetStatusOverlay implements Component, Focusable {
     lines.push(frame.row(`    Role            ${state.role ?? "fleet"}`));
     lines.push(frame.row(`    Fleet ID        ${state.fleetId ?? "(unset)"}`));
     lines.push(frame.row(`    Designation     ${stripControlChars(runtime.designation ?? "(unset)")}`));
-    lines.push(frame.row(`    Admiralty       ${connectionLabel}`));
+    lines.push(frame.row(`    Admiralty/F.Adm ${connectionLabel}`));
     lines.push(frame.row(`    Socket Path     ${runtime.socketPath ?? "(unset)"}`));
     lines.push(frame.emptyRow());
     lines.push(frame.separator());

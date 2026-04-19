@@ -1,3 +1,8 @@
+/**
+ * admiralty/status-overlay.ts — Admiralty 상태 오버레이
+ *
+ * Admiral of the Navy (대원수)에게 상신할 연결 함대 현황을 상황판 형태로 표시한다.
+ */
 import type { Theme } from "@mariozechner/pi-coding-agent";
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import type { Component, Focusable, TUI } from "@mariozechner/pi-tui";

@@ -1,7 +1,8 @@
 /**
  * admiralty/report-renderer.ts — 함대 보고서 TUI 렌더링
  *
- * mission.report 수신 시 Admiralty LLM이 후속 정리를 하도록 보고서를 주입한다.
+ * mission.report 수신 시 Admiralty LLM이
+ * Admiral of the Navy (대원수)에게 후속 보고를 이어갈 수 있도록 보고서를 주입한다.
  */
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 

@@ -11,8 +11,8 @@ import { registerSingleCarrier } from "../shipyard/carrier/register.js";
 
 const CARRIER_METADATA: CarrierMetadata = {
   // ── Tier 1: Routing ──
-  title: "Scout Specialist",
-  summary: "Fast reconnaissance — codebase exploration, symbol tracing, web research.",
+  title: "Captain · Scout Specialist",
+  summary: "Fast reconnaissance — codebase exploration, symbol tracing, web research. As the Captain (함장) of this Carrier, Vanguard leads forward scouting and fast intelligence gathering before heavier operations begin.",
   whenToUse: [
     "codebase exploration",
     "symbol tracing",

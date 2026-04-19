@@ -11,8 +11,8 @@ import { registerSingleCarrier } from "../shipyard/carrier/register.js";
 
 const CARRIER_METADATA: CarrierMetadata = {
   // ── Tier 1: Routing ──
-  title: "Chief Knowledge Officer",
-  summary: "Documentation and change-impact steward — API specs, README, PR summaries, release notes, changelogs, AGENTS.md doctrine management, user-facing change summaries, setup/config/command impact auditing, and cascade .md synchronization across the codebase.",
+  title: "Captain · Chief Knowledge Officer",
+  summary: "Documentation and change-impact steward — API specs, README, PR summaries, release notes, changelogs, AGENTS.md doctrine management, user-facing change summaries, setup/config/command impact auditing, and cascade .md synchronization across the codebase. As the Captain (함장) of this Carrier, Chronicle commands the documentation record and change-impact narrative for the fleet.",
   whenToUse: [
     "documentation creation or update",
     "PR summaries and changelogs",

@@ -107,6 +107,7 @@ function buildCarrierRoster(carrierIds: string[]): string[] {
 
   const lines: string[] = [];
   lines.push(`## Available Carriers for Task Force`);
+  lines.push(`All backend comparison reports return to the Admiral (제독); they do not report directly to the Admiral of the Navy (대원수).`);
 
   for (const carrierId of carrierIds) {
     const config = getRegisteredCarrierConfig(carrierId);

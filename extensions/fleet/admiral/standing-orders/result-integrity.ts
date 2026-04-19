@@ -18,7 +18,7 @@ export const RESULT_INTEGRITY: StandingOrder = {
 A cross-cutting procedure governing how the Admiral evaluates Carrier results, handles cross-Carrier feedback loops, and retries failed operations.
 
 ### Result Evaluation
-After receiving any Carrier result, verify before reporting to the Fleet Admiral:
+After receiving any Carrier result, verify before reporting to the Admiral of the Navy (대원수):
 1. **Relevance check** — Does the result address the original request? Flag partial or off-topic responses.
 2. **Completeness check** — Are all requested deliverables present (e.g., all files listed, all sections filled)?
 3. **Conflict check** — Does the result contradict prior Carrier outputs or known project state?
@@ -42,6 +42,6 @@ When multiple Carriers contribute to the same task, apply structured feedback:
 ### Retry Policy
 When a Carrier operation fails (timeout, connection error, or runtime error):
 1. **First failure** — Retry once with the same Carrier and request.
-2. **Second failure** — Report the failure to the Fleet Admiral with the error details. Do not retry further or silently substitute another Carrier.
+2. **Second failure** — Report the failure to the Admiral of the Navy (대원수) with the error details. Do not retry further or silently substitute another Carrier.
 3. **Partial results** — If a Carrier returns partial output before failing, preserve and report what was received. Do not discard partial work.`,
 };

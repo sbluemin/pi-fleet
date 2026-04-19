@@ -1,7 +1,7 @@
 /**
  * admiralty/register.ts — Admiralty 모드 와이어링
  *
- * before_agent_start에서 시스템 프롬프트를 전체 교체하고,
+ * before_agent_start에서 Admiralty 시스템 프롬프트를 전체 교체하고,
  * IPC 서버를 기동하며, 함대 관리 도구를 등록한다.
  */
 import type {
@@ -12,6 +12,7 @@ import type {
 import * as os from "node:os";
 import * as path from "node:path";
 
+import { PROVIDER_ID, setCliSystemPrompt } from "../../core/agentclientprotocol/provider-types.js";
 import { setEditorBorderColor, setEditorRightLabel } from "../../core/hud/border-bridge.js";
 import { getState } from "../index.js";
 import { AdmiraltyServer } from "../ipc/server.js";
@@ -57,6 +58,7 @@ export default function registerAdmiralty(pi: ExtensionAPI): void {
     try {
       await runtime.server.start();
       notify(ctx, `[Grand Fleet] Admiralty 서버 기동: ${runtime.socketPath}`, "info");
+      syncAcpSystemPrompt(ctx);
       initRosterWidget(ctx);
       getRegistry().onChange(syncRosterWidget);
       syncRosterWidget();
@@ -113,6 +115,19 @@ function notify(
 function toErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   return String(err);
+}
+
+/**
+ * ACP 프로바이더에 Admiralty 시스템 프롬프트를 주입한다.
+ */
+function syncAcpSystemPrompt(ctx: ExtensionContext): void {
+  const isAcp = ctx.model?.provider === PROVIDER_ID;
+  if (isAcp) {
+    const roster = getRegistry().getRoster();
+    setCliSystemPrompt(buildAdmiraltySystemPrompt(roster));
+    return;
+  }
+  setCliSystemPrompt(null);
 }
 
 function ensureRuntime(): AdmiraltyRuntimeState {

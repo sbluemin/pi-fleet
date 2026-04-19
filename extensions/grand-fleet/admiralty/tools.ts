@@ -163,7 +163,7 @@ export function registerAdmiraltyTools(
   pi.registerTool({
     name: "grand_fleet_deploy",
     label: "Grand Fleet Deploy",
-    description: "대상 하위 디렉토리에 Fleet PI를 파견하거나 기존 Fleet을 재사용한다.",
+    description: "Admiral of the Navy (대원수)의 지시에 따라 대상 하위 디렉토리에 Fleet PI를 파견하거나 기존 Fleet을 재사용한다.",
     parameters: DeployParamsSchema as any,
     async execute(_toolCallId: string, params: DeployParams) {
       const log = getLogAPI();
@@ -192,7 +192,7 @@ export function registerAdmiraltyTools(
   pi.registerTool({
     name: "grand_fleet_dispatch",
     label: "Grand Fleet Dispatch",
-    description: "특정 함대에 작전을 하달한다.",
+    description: "Admiral of the Navy (대원수)의 명령을 특정 함대에 작전으로 하달한다.",
     parameters: DispatchParamsSchema as any,
     async execute(_toolCallId: string, params: DispatchParams) {
       const log = getLogAPI();
@@ -256,7 +256,7 @@ export function registerAdmiraltyTools(
   pi.registerTool({
     name: "grand_fleet_recall",
     label: "Grand Fleet Recall",
-    description: "특정 함대를 철수시켜 프로세스를 종료하고 진행 중인 임무를 중단한다.",
+    description: "Admiral of the Navy (대원수)의 철수 명령에 따라 특정 함대를 회수하고 진행 중인 임무를 중단한다.",
     parameters: RecallParamsSchema as any,
     async execute(_toolCallId: string, params: RecallParams) {
       const log = getLogAPI();
@@ -295,7 +295,7 @@ export function registerAdmiraltyTools(
   pi.registerTool({
     name: "grand_fleet_broadcast",
     label: "Grand Fleet Broadcast",
-    description: "연결된 모든 함대에 동일한 작전을 동시에 하달한다.",
+    description: "Admiral of the Navy (대원수)의 공통 명령을 연결된 모든 함대에 동시에 하달한다.",
     parameters: BroadcastParamsSchema as any,
     async execute(_toolCallId: string, params: BroadcastParams) {
       const log = getLogAPI();
@@ -355,7 +355,7 @@ export function registerAdmiraltyTools(
   pi.registerTool({
     name: "grand_fleet_status",
     label: "Grand Fleet Status",
-    description: "함대별 상태, carrier 가동 현황, 비용을 조회한다.",
+    description: "Admiral of the Navy (대원수)에게 보고할 함대별 상태, carrier 가동 현황, 비용을 조회한다.",
     parameters: StatusParamsSchema as any,
     async execute(_toolCallId: string, params: StatusParams) {
       const log = getLogAPI();
@@ -385,7 +385,7 @@ export function registerAdmiraltyTools(
 
 function requireRuntime(): { registry: FleetRegistry; server: AdmiraltyServer } {
   if (!runtimeRegistry || !runtimeServer) {
-    throw new Error("Grand Fleet Admiralty 런타임이 초기화되지 않았습니다.");
+    throw new Error("Grand Fleet command runtime이 초기화되지 않았습니다.");
   }
   return { registry: runtimeRegistry(), server: runtimeServer() };
 }

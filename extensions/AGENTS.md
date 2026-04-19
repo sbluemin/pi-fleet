@@ -14,6 +14,7 @@ Do not create intermediate layers that simply wrap official TUI APIs (e.g., `set
 |-----------|------|------------|
 | `fleet/` | Agent orchestration framework — carrier SDK (`shipyard/carrier/`), Admiral/Bridge/Carrier wiring, unified pipeline, Agent Panel, model selection. Provides the carrier framework consumed by `fleet/carriers/`. | `index.ts` (wiring), `shipyard/carrier/` (framework), `admiral/`, `bridge/`, `carriers/` |
 | `core/` | Unified infrastructure extension — root entry point that wires keybind, settings, log, welcome, hud, shell, improve-prompt, summarize, thinking-timer, provider-guard, and the unified `agentclientprotocol/` module | `index.ts` (root wiring), `<module>/register.ts` (module wiring), `agentclientprotocol/` (shared ACP infra + provider boundary) |
+| `metaphor/` | Metaphor framework extension — Centralized management of PERSONA/TONE for the 4-tier naval hierarchy, provides `metaphor:worldview` toggle and settings. | `index.ts`, `worldview.ts`, `prompts.ts` |
 
 ### Shared Libraries — Directories without `index.ts`
 
@@ -50,7 +51,15 @@ Any string that is ultimately consumed by an AI model should live in `prompts.ts
 | Tool prompt fields | `description`, `promptSnippet`, `promptGuidelines` | `prompts.ts` by default, or inline in the owning module when a child `AGENTS.md` explicitly allows it |
 | Short UI-only labels | button text, notification messages | `constants.ts` or inline (NOT `prompts.ts`) |
 
-> **Fleet 전역 정책**: `systemPrompt`는 공개 API(`UnifiedAgentRequestOptions`)에서 비노출되며, `admiral` 확장 내 `setCliSystemPrompt()`를 통해 host/provider 경로 전용 전역 단일 소스로 관리됩니다. `unified-agent`는 이를 `connect` 옵션으로 소비하여 하이브리드(native append 또는 첫 user-turn prefix) 방식으로 주입합니다. Carrier 도구 실행 경로는 Admiral systemPrompt를 상속하지 않으며, carrier persona는 각 요청 본문 조립 경로가 담당합니다.
+> **Fleet 전역 정책**: `systemPrompt`는 공개 API(`UnifiedAgentRequestOptions`)에서 비노출되며, `admiral` 확장 내 `setCliSystemPrompt()`를 통해 **Admiral (제독)**의 전역 지침으로 관리됩니다. `unified-agent`는 이를 `connect` 옵션으로 소비하여 하이브리드(native append 또는 첫 user-turn prefix) 방식으로 주입합니다. Carrier 도구 실행 경로는 **Admiral (제독)**의 지침을 상속하지 않으며, 각 **Captain (함장)**의 페르소나와 임무 가이드는 각 요청 본문 조립 경로가 담당합니다.
+
+## 4-Tier Naval Hierarchy (4계층 해군 위계)
+
+모든 확장은 동일한 4계층 위계를 따릅니다:
+1. **Admiral of the Navy (ATN, 대원수)**: **사용자 (User)**.
+2. **Fleet Admiral (사령관)**: `grand-fleet` Admiralty LLM 페르소나.
+3. **Admiral (제독)**: 워크스페이스 **Host PI 인스턴스**.
+4. **Captain (함장)**: 개별 **Carrier 에이전트 페르소나**.
 
 **Why separate?** Prompt text often needs independent review, A/B testing, or iteration without touching business logic. Keeping prompts in a single file per extension makes them easy to locate, audit, and modify.
 
@@ -304,8 +313,8 @@ Extensions are organized in layers. **Dependencies must only flow in one directi
 ### Dependency Direction
 
 ```
-fleet/ (unified feature)  →  core/
-  ├── admiral/               (infrastructure + utility)
+fleet/ (unified feature)  →  metaphor/  →  core/
+  ├── admiral/               (PERSONA)      (infrastructure + utility)
   ├── bridge/
   └── carriers/
 ```
@@ -313,19 +322,21 @@ fleet/ (unified feature)  →  core/
 - **Allowed**: A layer may import from any layer below it (direct or transitive).
 - **Forbidden**: A layer must never import from a layer above it (no reverse dependencies).
 - **`fleet/`** is the primary feature extension. Its internal components (`admiral/`, `bridge/`, `carriers/`) are orchestrated by `fleet/index.ts`.
+- **`metaphor/`** is the persona framework extension. It provides the source of truth for the naval metaphor hierarchy.
 - **Internal Component Rules**:
     - **`fleet/carriers/`** depends only on `fleet/shipyard/carrier/` (the carrier framework SDK) — NOT on `fleet/index.ts`, `fleet/internal/`, or `fleet/operation-runner.ts`.
-    - **`fleet/admiral/`** is the internal orchestrator. It may import from `fleet/shipyard/` (carrier framework, store, tool prompts) and `core/agentclientprotocol/` (CLI system prompt setter) to compose ACP CLI system instructions.
+    - **`fleet/admiral/`** is the internal orchestrator. It may import from `fleet/shipyard/` (carrier framework, store, tool prompts), `metaphor/` (PERSONA/TONE sources), and `core/agentclientprotocol/` (CLI system prompt setter) to compose ACP CLI system instructions.
     - **`fleet/index.ts`** is the single entry point that initializes and exports all internal components.
 
 ### Layer Rules
 
 | Layer | May import from | Must NOT import from |
 |-------|----------------|----------------------|
-| `core/` | external packages only | `fleet/` |
-| `fleet/` (feature) | `core/` | - |
-| `fleet/admiral/` | `core/settings`, `core/keybind`, `core/agentclientprotocol/provider-types`, `fleet/shipyard/` | `fleet/index.ts`, `fleet/internal/` |
-| `fleet/carriers/` | `fleet/shipyard/carrier/` | `fleet/index.ts`, `fleet/internal/`, `fleet/admiral/`, `core/` |
+| `core/` | external packages only | `metaphor/`, `fleet/` |
+| `metaphor/` | `core/` | `fleet/` |
+| `fleet/` (feature) | `metaphor/`, `core/` | - |
+| `fleet/admiral/` | `core/settings`, `core/keybind`, `core/agentclientprotocol/provider-types`, `metaphor/`, `fleet/shipyard/` | `fleet/index.ts`, `fleet/internal/` |
+| `fleet/carriers/` | `fleet/shipyard/carrier/` | `fleet/index.ts`, `fleet/internal/`, `fleet/admiral/`, `metaphor/`, `core/` |
 
 > **Skipping layers is allowed** — e.g., `fleet/` components may import from `core/` modules directly.
 
