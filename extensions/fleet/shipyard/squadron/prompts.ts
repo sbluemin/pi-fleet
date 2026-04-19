@@ -6,6 +6,12 @@
  */
 
 import { Type, type TObject } from "@sinclair/typebox";
+import type { ToolPromptManifest } from "../../admiral/tool-prompt-manifest/index.js";
+import {
+  deriveToolDescription,
+  deriveToolPromptGuidelines,
+  deriveToolPromptSnippet,
+} from "../../admiral/tool-prompt-manifest/index.js";
 import { getRegisteredCarrierConfig } from "../carrier/framework.js";
 import { SQUADRON_MAX_INSTANCES } from "./types.js";
 
@@ -16,47 +22,45 @@ import { SQUADRON_MAX_INSTANCES } from "./types.js";
 /**
  * carrier_squadron 도구 설명 (Tool Schema — LLM이 도구 선택 시 참조).
  */
-export const FLEET_SQUADRON_DESCRIPTION =
-  `Fan out subtasks to parallel instances of the same carrier for divide-and-conquer execution.` +
-  ` Split a single large task into independent subtasks and run them simultaneously on the chosen carrier.`;
-
-/** carrier_squadron promptSnippet 기본값 */
-const SQUADRON_PROMPT_SNIPPET =
-  `carrier_squadron — Fan out subtasks to parallel instances of the same carrier.`;
-
-/** whenToUse 가이드라인 */
-const SQUADRON_WHEN_TO_USE =
-  `Use carrier_squadron when a task can be decomposed into independent subtasks that benefit` +
-  ` from parallel execution on the same carrier type. E.g., analyzing multiple files independently,` +
-  ` running the same check across different modules, batch-processing items.`;
-
-/** whenNotToUse 가이드라인 */
-const SQUADRON_WHEN_NOT_TO_USE =
-  `Do NOT use carrier_squadron for tasks requiring sequential/dependent execution — use carriers_sortie` +
-  ` for serial delegation. Do not use for cross-model comparison — use carrier_taskforce instead.` +
-  ` Do not use when subtasks have data dependencies on each other.`;
-
 const SQUADRON_CONFIGURE_HINT =
   `open Carrier Status (Alt+O) and press S to enable squadron mode for a carrier`;
 
-/** 기본 가이드라인 항목 목록 */
-const SQUADRON_BASE_GUIDELINES: string[] = [
-  SQUADRON_WHEN_TO_USE,
-  SQUADRON_WHEN_NOT_TO_USE,
-  `The carrier parameter selects which carrier to fan out.` +
-  ` All instances inherit the base carrier's persona, model, and settings.`,
-  `expected_subtask_count must exactly match the subtasks array length — mismatches cause a hard error.` +
-  ` Maximum ${SQUADRON_MAX_INSTANCES} subtasks allowed.`,
-  `Each subtask request must still follow the selected carrier's request-tag contract.` +
-  ` Preserve ordinary direct request composition when no optional planning artifact is available.`,
-  `If Athena has already produced a plan file for Genesis, pass that path via Genesis's optional <plan_file> tag inside the relevant subtask request instead of re-describing the full plan inline.` +
-  ` That path must stay repo-relative and must point only to a Markdown plan under .fleet/plans/*.md.` +
-  ` If no such file exists, preserve ordinary Genesis subtask request composition by sending only the normal objective/scope/constraints context.`,
-  `Do not pass absolute paths, general repo-relative files, or non-Markdown files via Genesis's <plan_file> tag in carrier_squadron subtasks.` +
-  ` If a provided <plan_file> is missing, unreadable, or invalid, Genesis must report the issue and request re-direction rather than guessing or silently re-planning.`,
-  `PI splits the task into subtasks — the tool only fans out execution.` +
-  ` Results are returned in structured format; final interpretation is PI's responsibility.`,
-];
+export const SQUADRON_MANIFEST: ToolPromptManifest = {
+  id: "carrier_squadron",
+  tag: "carrier_squadron",
+  title: "carrier_squadron Tool Guidelines",
+  description:
+    `Fan out subtasks to parallel instances of the same carrier for divide-and-conquer execution.` +
+    ` Split a single large task into independent subtasks and run them simultaneously on the chosen carrier.`,
+  promptSnippet:
+    `carrier_squadron — Fan out subtasks to parallel instances of the same carrier.`,
+  whenToUse: [
+    "Use carrier_squadron when a task can be decomposed into independent subtasks that benefit from parallel execution on the same carrier type.",
+    "Use it for analyzing multiple files independently, running the same check across different modules, or batch-processing items.",
+  ],
+  whenNotToUse: [
+    "Do NOT use carrier_squadron for tasks requiring sequential or dependent execution — use carriers_sortie for serial delegation.",
+    "Do not use for cross-model comparison — use carrier_taskforce instead.",
+    "Do not use when subtasks have data dependencies on each other.",
+  ],
+  usageGuidelines: [
+    `The carrier parameter selects which carrier to fan out.` +
+      ` All instances inherit the base carrier's persona, model, and settings.`,
+    `expected_subtask_count must exactly match the subtasks array length — mismatches cause a hard error.` +
+      ` Maximum ${SQUADRON_MAX_INSTANCES} subtasks allowed.`,
+    `Each subtask request must still follow the selected carrier's request-tag contract.` +
+      ` Preserve ordinary direct request composition when no optional planning artifact is available.`,
+    `If Athena has already produced a plan file for Genesis, pass that path via Genesis's optional \`<plan_file>\` tag inside the relevant subtask request instead of re-describing the full plan inline.` +
+      ` That path must stay repo-relative and must point only to a Markdown plan under .fleet/plans/*.md.` +
+      ` If no such file exists, preserve ordinary Genesis subtask request composition by sending only the normal objective/scope/constraints context.`,
+    `Do not pass absolute paths, general repo-relative files, or non-Markdown files via Genesis's \`<plan_file>\` tag in carrier_squadron subtasks.` +
+      ` If a provided \`<plan_file>\` is missing, unreadable, or invalid, Genesis must report the issue and request re-direction rather than guessing or silently re-planning.`,
+    `PI splits the task into subtasks — the tool only fans out execution.` +
+      ` Results are returned in structured format; final interpretation is PI's responsibility.`,
+  ],
+};
+
+export const FLEET_SQUADRON_DESCRIPTION = deriveToolDescription(SQUADRON_MANIFEST);
 
 // ─────────────────────────────────────────────────────────
 // 2. Build 함수
@@ -64,7 +68,7 @@ const SQUADRON_BASE_GUIDELINES: string[] = [
 
 /** carrier_squadron의 `promptSnippet` 값을 반환합니다. */
 export function buildSquadronPromptSnippet(): string {
-  return SQUADRON_PROMPT_SNIPPET;
+  return deriveToolPromptSnippet(SQUADRON_MANIFEST);
 }
 
 /**
@@ -73,7 +77,7 @@ export function buildSquadronPromptSnippet(): string {
  * @param enabledCarrierIds squadron 활성 carrier ID 목록
  */
 export function buildSquadronPromptGuidelines(enabledCarrierIds: string[]): string[] {
-  return [...SQUADRON_BASE_GUIDELINES, ...buildCarrierRoster(enabledCarrierIds)];
+  return deriveToolPromptGuidelines(SQUADRON_MANIFEST, buildCarrierRoster(enabledCarrierIds));
 }
 
 /**

@@ -23,6 +23,7 @@ import type { CliType } from "@sbluemin/unified-agent";
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
 import { getLogAPI } from "../../../core/log/bridge.js";
+import { registerToolPromptManifest } from "../../admiral/tool-prompt-manifest/index.js";
 import { runAgentRequest } from "../../operation-runner.js";
 import { composeTier2Request } from "./prompts.js";
 import { getVisibleRun, getRunById } from "../../bridge/streaming/stream-store.js";
@@ -45,6 +46,7 @@ import {
 } from "../../constants.js";
 import {
   FLEET_SORTIE_DESCRIPTION,
+  SORTIE_MANIFEST,
   buildSortieToolPromptSnippet,
   buildSortieToolPromptGuidelines,
   buildSortieToolSchema,
@@ -148,6 +150,8 @@ const SORTIE_RESULT_CACHE_KEY = "__pi_carrier_sortie_result_cache__";
 export function buildSortieToolConfig() {
   const allCarriers = getRegisteredOrder();
   if (allCarriers.length < 1) return null; // Carrier가 없으면 등록 불필요
+
+  registerToolPromptManifest(SORTIE_MANIFEST);
 
   // sortie 가용 carrier만 프롬프트/파라미터에 반영
   const enabledIds = getSortieEnabledIds();

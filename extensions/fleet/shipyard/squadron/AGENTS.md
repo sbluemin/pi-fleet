@@ -16,7 +16,7 @@ Carrier Squadron logic for parallel execution of same-type carriers.
 |------|------|
 | `index.ts` | Entry point. Handles squadron tool registration and lifecycle. |
 | `squadron.ts` | Main execution engine. Manages `runAgentRequest` calls for squadron instances, synthesizes prompts, and aggregates results. |
-| `prompts.ts` | Defines the tool schemas and instructions for squadron delegation. |
+| `prompts.ts` | `SQUADRON_MANIFEST` (`ToolPromptManifest`) 정의 및 등록. 도구 교리의 SSOT. |
 | `types.ts` | Domain types for squadron configuration and execution state. |
 
 ## Execution Flow

@@ -9,7 +9,7 @@ import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { DEFAULT_BODY_H, formatPanelMultiColHint } from "../../constants";
 import { getSessionStore } from "../../../core/agentclientprotocol/runtime.js";
 import { ensureVisibleRun, setRunSessionId } from "../streaming/stream-store";
-import { getRegisteredOrder } from "../../shipyard/carrier/framework.js";
+import { getRegisteredOrder, isSquadronCarrierEnabled } from "../../shipyard/carrier/framework.js";
 import type { AgentCol } from "./types.js";
 import type { ServiceSnapshot } from "../../../core/agentclientprotocol/types.js";
 
@@ -50,7 +50,7 @@ export const WIDGET_KEY = "ua-panel";
  * 기본 경로에서는 여기서 빈 registeredOrder를 보지 않습니다.
  */
 export function getDefaultClis(): readonly string[] {
-  return getRegisteredOrder();
+  return getRegisteredOrder().filter(id => !isSquadronCarrierEnabled(id));
 }
 
 export function getState(): AgentPanelState {
@@ -181,7 +181,7 @@ export function makeFooterCols(): AgentCol[] {
   const activeCols = new Map(s.cols.map((col) => [col.cli, col] as const));
   const sessionMap = getSessionStore().getAll() as Readonly<Record<string, string | undefined>>;
 
-  return getDefaultClis().map((cli) => {
+  return getRegisteredOrder().map((cli) => {
     const activeCol = activeCols.get(cli);
     if (activeCol) return activeCol;
 

@@ -5,6 +5,7 @@ Core logic for carrier management and fleet persistence. This subpackage contain
 ## Core Rules
 
 - **Single Source of Truth**: `store.ts` is the authoritative owner of all fleet persistent state (`states.json`).
+- **Tool Doctrine SSOT**: 모든 PI 도구(sortie, squadron, taskforce)의 교리는 각 도구 모듈의 `ToolPromptManifest`에 정의된다.
 - **Initialization Order**: `initStore(dataDir)` must be called after `initRuntime(dataDir)` in the extension entry point.
 - **Atomic Operations**: All state modifications in `store.ts` use a temporary file + rename pattern to ensure file integrity.
 - **Migration Ownership**: The shipyard store is responsible for migrating legacy configuration files (e.g., `selected-models.json`) to the unified `states.json`.
@@ -20,9 +21,9 @@ Core logic for carrier management and fleet persistence. This subpackage contain
 | File | Role |
 |------|------|
 | `store.ts` | Unified fleet persistence store. Consolidates model selection, Task Force configs, `sortieDisabled`, `squadronEnabled` status, and `cliTypeOverrides`. |
-| **carrier/** | **Carrier Framework SDK** — registration, activation, tool delegation (`carriers_sortie`), and status bar UI (via direct `setWidget` for carrier status and banners). |
-| **squadron/** | **Carrier Squadron** — parallel execution of same-type carriers using `executeOneShot`. |
-| **taskforce/** | **Task Force Logic** — cross-validation between multiple CLI backends. |
+| **carrier/** | **Carrier Framework SDK** — registration, activation, tool delegation (`carriers_sortie`), and status bar UI. `prompts.ts`는 `SORTIE_MANIFEST`를 소유한다. |
+| **squadron/** | **Carrier Squadron** — parallel execution of same-type carriers using `executeOneShot`. `prompts.ts`는 `SQUADRON_MANIFEST`를 소유한다. |
+| **taskforce/** | **Task Force Logic** — cross-validation between multiple CLI backends. `prompts.ts`는 `TASKFORCE_MANIFEST`를 소유한다. |
 
 ## Persistence Store (`store.ts`)
 

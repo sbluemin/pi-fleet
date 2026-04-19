@@ -8,6 +8,11 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Editor, type EditorTheme, Key, matchesKey, Text, truncateToWidth } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
+import {
+  type ToolPromptManifest,
+  deriveToolDescription,
+  registerToolPromptManifest,
+} from "./tool-prompt-manifest/index.js";
 
 // ─────────────────────────────────────────────────────────
 // 타입
@@ -96,6 +101,40 @@ const RequestDirectiveParams = Type.Object({
   }),
 });
 
+export const REQUEST_DIRECTIVE_MANIFEST: ToolPromptManifest = {
+  id: "request_directive",
+  tag: "request_directive",
+  title: "request_directive Tool Guidelines",
+  description:
+    "Use `request_directive` when you need the Fleet Admiral's judgment to proceed. This tool is for **strategic decisions**, not routine confirmations.",
+  promptSnippet:
+    "request_directive — Ask the Fleet Admiral for strategic directives when judgment is required.",
+  whenToUse: [
+    "1. **Ambiguity resolution** — The Fleet Admiral's orders contain unclear or conflicting requirements.",
+    "2. **Direction selection** — Multiple viable approaches exist, each with meaningful trade-offs.",
+    "3. **Scope confirmation** — The mission scope needs clarification before committing resources.",
+    "4. **Preference gathering** — Implementation details that depend on the Fleet Admiral's priorities.",
+  ],
+  whenNotToUse: [
+    'Routine status confirmations ("Should I proceed?", "Is this okay?").',
+    "Questions you can answer by reading code or documentation.",
+    "Asking for approval on something you've already decided — just do it.",
+    "Rephrasing your analysis as a question to appear thorough.",
+  ],
+  usageGuidelines: [
+    `Users will always see an "직접 입력" (type your own) option — do not include an "Other" choice in your options.`,
+    `Use \`multiSelect: true\` when choices are not mutually exclusive.`,
+    "Question texts must be unique, and option labels must be unique within each question.",
+    `If \`multiSelect\` is true, do not attach \`preview\` fields to its options.`,
+    `If you recommend a specific option, make it the first in the list and append "(Recommended)" to its label.`,
+    "Keep headers concise (max 12 chars) — they appear as tab labels.",
+    `Use the optional \`preview\` field when presenting concrete artifacts that the Fleet Admiral needs to visually compare (ASCII mockups, code snippets, config examples). Previews are only supported for single-select questions.`,
+  ],
+  guardrails: [
+    `In plan mode, use \`request_directive\` to clarify requirements or choose between approaches **before** finalizing a plan. Do **not** use it to ask "Is the plan ready?" or "Should I execute?" — that is what plan approval is for.`,
+  ],
+};
+
 // ─────────────────────────────────────────────────────────
 // 헬퍼
 // ─────────────────────────────────────────────────────────
@@ -169,11 +208,12 @@ function validateQuestions(questions: DirectiveQuestion[]): string | null {
 // ─────────────────────────────────────────────────────────
 
 export default function registerRequestDirective(pi: ExtensionAPI) {
+  registerToolPromptManifest(REQUEST_DIRECTIVE_MANIFEST);
+
   pi.registerTool({
     name: "request_directive",
     label: "Request Directive",
-    description:
-      "Fleet Admiral(사용자)에게 전략적 지시를 요청한다. 모호성 해소, 요구사항 확인, 구현 방향 결정 등에 사용. 일상적 확인이 아닌 판단이 필요한 상황에서 호출할 것.",
+    description: deriveToolDescription(REQUEST_DIRECTIVE_MANIFEST),
     parameters: RequestDirectiveParams,
 
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {

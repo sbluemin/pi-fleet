@@ -13,6 +13,7 @@ The number of carriers is determined at runtime by the carrier modules registere
 - **`carriers_sortie` is the sole PI tool for carrier delegation** — there are no individual carrier tools (genesis, sentinel, vanguard). PI delegates all tasks through `carriers_sortie` with `minItems: 1`.
 - `requestUnifiedAgent` is the public agent execution API exposed via `globalThis["__pi_ua_request__"]`.
 - **All execution paths go through `runAgentRequest()`** — Carriers, tools, and external extensions all use `runAgentRequest()` from `operation-runner.ts`. No direct `executeWithPool` calls outside operation-runner. **`UnifiedAgentRequestOptions`는 `systemPrompt` 필드를 노출하지 않으며, 시스템 지침은 `admiral`의 전역 설정을 따릅니다.**
+- **Tool Doctrine SSOT**: 모든 PI 도구(sortie, squadron, taskforce)의 교리는 각 도구 모듈의 `ToolPromptManifest`에 정의되며, admiral이 이를 ACP XML 블록으로 동적 조립한다.
 - Calling `runAgentRequest()` **automatically syncs all UIs**: Agent Panel column, Streaming Widget (when panel collapsed), and stream-store data.
 - **carrierId vs cliType**: `carrierId` (string) is the unique carrier identity used for pool keys, session keys, and panel column identity. `cliType` (CliType) is the CLI binary to execute. Multiple carriers can share the same `cliType` while maintaining fully isolated sessions and connections. **`cliType` can be dynamically changed and persisted at runtime, and `defaultCliType` preserves the original CLI type.**
 - **Slot-based ordering**: Each carrier's `slot` determines its panel column position and inline navigation order. Slots must be unique across all registered carriers. **When `cliType` changes, the sorting order and theme color of the corresponding CLI type are immediately reflected.**
@@ -99,12 +100,13 @@ Consumer (carriers, external extensions)
 | `shipyard/carrier/types.ts` | Carrier framework types — CarrierConfig, internal state types (오버레이 전용 타입은 bridge/carrier-ui/types.ts로 분리) |
 | `shipyard/carrier/framework.ts` | Carrier framework SDK — `registerCarrier`, `updateCarrierCliType`, `setPendingCliTypeOverrides`. Manages globalThis shared state, registration order, and message renderer registration. |
 | `shipyard/carrier/register.ts` | Single-carrier registration — `registerSingleCarrier`. Performs dynamic cliType reference and `defaultCliType` auto-configuration. |
-| `shipyard/carrier/prompts.ts` | carriers_sortie prompt / schema management |
+| `shipyard/carrier/prompts.ts` | `SORTIE_MANIFEST` (`ToolPromptManifest`) 소유 |
 | `shipyard/carrier/sortie.ts` | Carrier Sortie tool — sole carrier delegation PI tool. Through **call instance isolation (sortieKey)** and **runId-based streaming filtering**, it displays unified progress/results without UI interference even when multiple calls run simultaneously. |
 | `shipyard/squadron/index.ts` | Squadron module entry point — registration and public API |
 | `shipyard/squadron/squadron.ts` | Squadron execution logic — manages parallel `executeOneShot` calls. |
 | `shipyard/taskforce/taskforce.ts` | Task Force execution logic — cross-backend parallel `executeOneShot` for configured CLIs. |
-| `shipyard/squadron/prompts.ts` | Squadron-specific tool prompts and JSON schema |
+| `shipyard/squadron/prompts.ts` | `SQUADRON_MANIFEST` (`ToolPromptManifest`) 소유 |
+| `shipyard/taskforce/prompts.ts` | `TASKFORCE_MANIFEST` (`ToolPromptManifest`) 소유 |
 | `shipyard/squadron/types.ts` | Squadron domain types and interfaces |
 | `shipyard/store.ts` | Unified fleet persistence store — `initStore`, `loadModels`, `saveModels`, `updateModelSelection`, `getPerCliSettings`/`savePerCliSettings`, `loadSortieDisabled`, `saveSortieDisabled`, `loadSquadronEnabled`, `saveSquadronEnabled`, `loadCliTypeOverrides`, `saveCliTypeOverrides`. |
 

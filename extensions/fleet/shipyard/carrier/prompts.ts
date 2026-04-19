@@ -11,6 +11,13 @@
  */
 
 import { Type, type TObject } from "@sinclair/typebox";
+import { SYSTEM_REMINDER_HINT } from "../../admiral/prompts.js";
+import type { ToolPromptManifest } from "../../admiral/tool-prompt-manifest/index.js";
+import {
+  deriveToolDescription,
+  deriveToolPromptGuidelines,
+  deriveToolPromptSnippet,
+} from "../../admiral/tool-prompt-manifest/index.js";
 import { getRegisteredCarrierConfig } from "./framework.js";
 import type { CarrierMetadata } from "./types.js";
 
@@ -36,70 +43,50 @@ export interface CarrierAssignment {
  * carriers_sortie 도구 설명 (Tool Schema — LLM이 도구 선택 시 참조).
  * registerTool의 `description` 필드에 전달됩니다.
  */
-export const FLEET_SORTIE_DESCRIPTION =
-  `Launch carriers for task execution — single or multiple(parallel).` +
-  ` This is the only tool for delegating tasks to carrier agents.` +
-  ` Use it whenever you want to delegate implementation, analysis, exploration, or any coding task to one or more carriers.` +
-  ` Always bundle all intended carriers into one call — never split a parallel batch into multiple sequential calls.`;
+export const SORTIE_MANIFEST: ToolPromptManifest = {
+  id: "carriers_sortie",
+  tag: "carriers_sortie",
+  title: "carriers_sortie Tool Guidelines",
+  description:
+    `Launch carriers for task execution — single or multiple(parallel).` +
+    ` This is the only tool for delegating tasks to carrier agents.` +
+    ` Use it whenever you want to delegate implementation, analysis, exploration, or any coding task to one or more carriers.` +
+    ` Always bundle all intended carriers into one call — never split a parallel batch into multiple sequential calls.`,
+  promptSnippet:
+    `carriers_sortie — Launch 1+ carriers for task delegation. The sole carrier delegation tool.`,
+  whenToUse: [
+    `carriers_sortie is the only way to delegate tasks to carrier agents.` +
+      ` Always use this tool — never attempt to invoke carriers directly.`,
+    `You can launch a single carrier or multiple carriers in parallel — when launching multiple carriers, you MUST include all of them in a single carriers_sortie call.` +
+      ` This tool provides unified progress tracking and a consolidated result view.`,
+  ],
+  whenNotToUse: [],
+  usageGuidelines: [
+    `carriers_sortie requires an expected_carrier_count field that MUST be set BEFORE filling the carriers array.` +
+      ` Decide the total number of carriers you plan to launch first, write that number into expected_carrier_count, then fill the carriers array to match.` +
+      ` The system will immediately hard-error if expected_carrier_count does not equal the actual carriers array length — the call will be rejected and you must resubmit with the correct count and all intended carriers.` +
+      ` If a previous carriers_sortie call failed, retry with ALL originally intended carriers if the cause was a validation error or transient issue; if an inactive or unregistered carrier caused the failure, review alternatives or request Fleet Admiral clarification instead.`,
+    `When composing a carrier request, provide only background, context, objective, and constraints.` +
+      ` Do NOT prescribe implementation details or step-by-step instructions — trust the carrier's own reasoning.` +
+      ` Use the Tags listed for each carrier to structure your request.`,
+    `If Athena has already produced a plan file for Genesis, pass that path via Genesis's optional \`<plan_file>\` tag instead of re-describing the full plan inline.` +
+      ` That path must stay repo-relative and must point only to a Markdown plan under .fleet/plans/*.md.` +
+      ` If no such file exists, preserve direct Admiral->Genesis execution by sending only the normal objective/scope/constraints context.`,
+    `Do not pass absolute paths, general repo-relative files, or non-Markdown files via Genesis's \`<plan_file>\` tag.` +
+      ` If a provided \`<plan_file>\` is missing, unreadable, or invalid, Genesis must report the issue and request re-direction rather than guessing or silently re-planning.`,
+    `Each carrier ID may appear at most once per carriers_sortie call.` +
+      ` Duplicate carrier IDs in the same call are rejected by the system and cause the entire sortie to fail.` +
+      ` If you need two different workloads handled by carriers of the same type, assign each to a different carrier ID within the same call's carriers array.`,
+  ],
+  guardrails: [
+    `Multiple agents may be working on this codebase at the same time on a single filesystem and branch.` +
+      ` Only touch changes you made — never revert or overwrite modifications made by others.` +
+      ` Prefer precise edits (edit) over full-file writes (write).` +
+      ` Always re-read a file before modifying it, as it may have changed since your last read.`,
+  ],
+};
 
-/**
- * carriers_sortie promptSnippet 기본값.
- * 시스템 프롬프트 "Available tools" 섹션의 한 줄 요약.
- */
-const SORTIE_PROMPT_SNIPPET =
-  `carriers_sortie — Launch 1+ carriers for task delegation. The sole carrier delegation tool.`;
-
-/**
- * 병렬 작업 환경 경고 — sortie promptGuidelines에 삽입됩니다.
- * (fleet/prompts의 PARALLEL_WORK_WARNING은 시스템 프롬프트 전체 섹션용이며,
- *  이쪽은 도구 Guidelines bullet 한 항목용으로 별도 유지됩니다.)
- */
-const SORTIE_PARALLEL_WORK_GUIDELINE =
-  `Multiple agents may be working on this codebase at the same time on a single filesystem and branch.` +
-  ` Only touch changes you made — never revert or overwrite modifications made by others.` +
-  ` Prefer precise edits (edit) over full-file writes (write).` +
-  ` Always re-read a file before modifying it, as it may have changed since your last read.`;
-
-/**
- * 중복 carrier 금지 규칙 — 동일 carrier ID를 carriers 배열에 2회 이상 등록하면
- * 시스템이 즉시 에러를 반환하며 전체 sortie가 실패한다.
- */
-const SORTIE_DEDUP_GUIDELINE =
-  `Each carrier ID may appear at most once per carriers_sortie call.` +
-  ` Duplicate carrier IDs in the same call are rejected by the system and cause the entire sortie to fail.` +
-  ` If you need two different workloads handled by carriers of the same type, assign each to a different carrier ID within the same call's carriers array.`;
-
-/**
- * 병렬 출격 시 누락 방지 규칙 — 계획한 모든 carrier를 단일 carriers_sortie 호출의
- * carriers 배열에 빠짐없이 포함해야 한다. 분리된 tool call로 나누지 말 것.
- */
-const SORTIE_COMPLETENESS_GUIDELINE =
-  `carriers_sortie requires an expected_carrier_count field that MUST be set BEFORE filling the carriers array.` +
-  ` Decide the total number of carriers you plan to launch first, write that number into expected_carrier_count, then fill the carriers array to match.` +
-  ` The system will immediately hard-error if expected_carrier_count does not equal the actual carriers array length — the call will be rejected and you must resubmit with the correct count and all intended carriers.` +
-  ` If a previous carriers_sortie call failed, retry with ALL originally intended carriers if the cause was a validation error or transient issue; if an inactive or unregistered carrier caused the failure, review alternatives or request Fleet Admiral clarification instead.`;
-
-/**
- * carriers_sortie promptGuidelines 고정 항목.
- * 시스템 프롬프트 "Guidelines" 섹션의 기본 bullets.
- */
-const SORTIE_BASE_GUIDELINES: string[] = [
-  SORTIE_COMPLETENESS_GUIDELINE,
-  `carriers_sortie is the only way to delegate tasks to carrier agents.` +
-  ` Always use this tool — never attempt to invoke carriers directly.`,
-  `You can launch a single carrier or multiple carriers in parallel — when launching multiple carriers, you MUST include all of them in a single carriers_sortie call.` +
-  ` This tool provides unified progress tracking and a consolidated result view.`,
-  `When composing a carrier request, provide only background, context, objective, and constraints.` +
-  ` Do NOT prescribe implementation details or step-by-step instructions — trust the carrier's own reasoning.` +
-  ` Use the Tags listed for each carrier to structure your request.`,
-  `If Athena has already produced a plan file for Genesis, pass that path via Genesis's optional <plan_file> tag instead of re-describing the full plan inline.` +
-  ` That path must stay repo-relative and must point only to a Markdown plan under .fleet/plans/*.md.` +
-  ` If no such file exists, preserve direct Admiral->Genesis execution by sending only the normal objective/scope/constraints context.`,
-  `Do not pass absolute paths, general repo-relative files, or non-Markdown files via Genesis's <plan_file> tag.` +
-  ` If a provided <plan_file> is missing, unreadable, or invalid, Genesis must report the issue and request re-direction rather than guessing or silently re-planning.`,
-  SORTIE_DEDUP_GUIDELINE,
-  SORTIE_PARALLEL_WORK_GUIDELINE,
-];
+export const FLEET_SORTIE_DESCRIPTION = deriveToolDescription(SORTIE_MANIFEST);
 
 // ─────────────────────────────────────────────────────────
 // 2. Build 함수
@@ -110,7 +97,7 @@ const SORTIE_BASE_GUIDELINES: string[] = [
  * 시스템 프롬프트 "Available tools" 섹션에 한 줄로 표시됩니다.
  */
 export function buildSortieToolPromptSnippet(): string {
-  return SORTIE_PROMPT_SNIPPET;
+  return deriveToolPromptSnippet(SORTIE_MANIFEST);
 }
 
 /**
@@ -122,7 +109,7 @@ export function buildSortieToolPromptSnippet(): string {
  * @param carrierIds sortie 가능한 carrier ID 목록
  */
 export function buildSortieToolPromptGuidelines(carrierIds: string[]): string[] {
-  return [...SORTIE_BASE_GUIDELINES, ...buildCarrierGuidelines(carrierIds)];
+  return deriveToolPromptGuidelines(SORTIE_MANIFEST, buildCarrierGuidelines(carrierIds));
 }
 
 /**
@@ -167,6 +154,14 @@ export function buildSortieToolSchema(enabledIds: string[]): TObject {
       },
     ),
   });
+}
+
+/**
+ * 캐리어 출격 시 시스템 프롬프트로 1회 주입되는 컨텍스트.
+ * <system-reminder> 태그의 의미를 캐리어에게 알린다.
+ */
+export function buildCarrierSystemPrompt(): string {
+  return SYSTEM_REMINDER_HINT.trim();
 }
 
 // ─────────────────────────────────────────────────────────
@@ -226,12 +221,13 @@ function buildCarrierGuidelines(carrierIds: string[]): string[] {
 // ═════════════════════════════════════════════════════════
 
 /**
- * Tier 2 자동 주입: 각 섹션을 XML 태그로 감싸고 `---` 구분자로 분리한 최종
- * request를 조립합니다. XML 래핑 책임은 이 함수가 일원적으로 보유하므로
+ * Tier 2 자동 주입: 각 섹션을 묶어 단일 텍스트로 합친 후, 최종적으로
+ * 전체 내용을 `<system-reminder>` 태그로 감싸서 반환합니다.
+ * XML 래핑 책임은 이 함수가 일원적으로 보유하므로
  * carrier metadata의 `outputFormat`은 순수 내용만 담고 태그 래핑은 여기서 수행합니다.
  *
  * 주입 순서 (LLM의 primacy bias 활용):
- *  1. `<request>` — 원본 요청 (최상단, 가장 중요)
+ *  1. 원본 요청 (최상단, 가장 중요, 태그 없이 배치)
  *  2. `<permissions>` — 운영 권한/제약
  *  3. `<principles>` — 핵심 원칙
  *  4. `<output_format>` — 출력 형식 가이드 (최하단)
@@ -240,7 +236,7 @@ export function composeTier2Request(metadata: CarrierMetadata, originalRequest: 
   const parts: string[] = [];
 
   // 1. 원본 요청 — 최상단
-  parts.push(`<request>\n${originalRequest}\n</request>`);
+  parts.push(originalRequest);
 
   // 2. 운영 권한/제약
   if (metadata.permissions.length > 0) {
@@ -260,5 +256,6 @@ export function composeTier2Request(metadata: CarrierMetadata, originalRequest: 
     parts.push(`<output_format>\n${metadata.outputFormat.trim()}\n</output_format>`);
   }
 
-  return parts.join("\n\n---\n\n");
+  const composedContent = parts.join("\n\n");
+  return `<system-reminder>\n${composedContent}\n</system-reminder>`;
 }

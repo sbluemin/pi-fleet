@@ -14,6 +14,7 @@ import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
 import { getLogAPI } from "../../../core/log/bridge.js";
 import { executeOneShot } from "../../../core/agentclientprotocol/executor.js";
+import { registerToolPromptManifest } from "../../admiral/tool-prompt-manifest/index.js";
 import { loadModels } from "../store.js";
 import {
   createRun,
@@ -43,6 +44,7 @@ import {
 } from "../../constants.js";
 import {
   FLEET_SQUADRON_DESCRIPTION,
+  SQUADRON_MANIFEST,
   buildSquadronPromptSnippet,
   buildSquadronPromptGuidelines,
   buildSquadronSchema,
@@ -105,6 +107,8 @@ const SQUADRON_RUN_PREFIX = "squadron";
 export function buildSquadronToolConfig() {
   const allCarriers = getRegisteredOrder();
   if (allCarriers.length < 1) return null;
+
+  registerToolPromptManifest(SQUADRON_MANIFEST);
 
   // squadron 활성 캐리어만 스키마/가이드라인에 반영
   const enabledCarriers = getSquadronEnabledIds();

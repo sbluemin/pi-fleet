@@ -370,6 +370,7 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
                 }
                 const registeredSet = new Set(getRegisteredOrder());
                 saveSquadronEnabled(getSquadronEnabledIds().filter((id) => registeredSet.has(id)));
+                refreshAgentPanel(ctx);
                 notifyStatusUpdate();
               },
               getAvailableModels: getCliModelInfo,

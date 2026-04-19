@@ -24,6 +24,7 @@ import {
 } from "./provider-types.js";
 import { getSessionStore } from "./runtime.js";
 import { getLogAPI } from "../log/bridge.js";
+import { buildCarrierSystemPrompt } from "../../fleet/shipyard/carrier/prompts.js";
 
 type ToolCallLike = {
   content?: unknown;
@@ -31,7 +32,7 @@ type ToolCallLike = {
   toolCallId?: string;
 };
 
-type SystemPromptPolicy = "inherit-global" | "none";
+type SystemPromptPolicy = "inherit-global" | "carrier" | "none";
 
 type ResumeFailureKind =
   | "dead-session"
@@ -282,7 +283,7 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
   try {
     let needsConnect = !isClientAlive(client);
 
-    if (!needsConnect && hasSystemPromptDrift(client, "none")) {
+    if (!needsConnect && hasSystemPromptDrift(client, "carrier")) {
       debugSystemPromptDrift("executeWithPool", carrierId, cliType);
       store.clear(carrierId);
       if (poolEntry) {
@@ -298,7 +299,7 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
       const connectOpts = buildConnectOptions(cliType, cwd, {
         model: opts.model,
         promptIdleTimeout: opts.promptIdleTimeout,
-      }, "none");
+      }, "carrier");
 
       // 세션 매핑에서 저장된 sessionId를 우선 사용
       const savedSessionId = store.get(carrierId) ?? poolEntry?.sessionId;
@@ -496,7 +497,7 @@ export async function executeOneShot(opts: ExecuteOptions): Promise<ExecuteResul
     const connectOpts = buildConnectOptions(cliType, cwd, {
       model: opts.model,
       promptIdleTimeout: opts.promptIdleTimeout,
-    }, "none");
+    }, "carrier");
 
     await raceAbort(client.connect(connectOpts), signal);
     await applyPostConnectConfig(client, cliType, {
@@ -867,6 +868,8 @@ function buildConnectOptions(
     if (systemPrompt) {
       opts.systemPrompt = systemPrompt;
     }
+  } else if (policy === "carrier") {
+    opts.systemPrompt = buildCarrierSystemPrompt();
   }
 
   return opts;
@@ -876,7 +879,11 @@ function hasSystemPromptDrift(
   client: UnifiedAgentClient,
   policy: SystemPromptPolicy,
 ): boolean {
-  const expected = policy === "inherit-global" ? getCliSystemPrompt() : null;
+  const expected = policy === "inherit-global"
+    ? getCliSystemPrompt()
+    : policy === "carrier"
+      ? buildCarrierSystemPrompt()
+      : null;
   return normalizeSystemPrompt(client.getCurrentSystemPrompt()) !== normalizeSystemPrompt(expected);
 }
 
