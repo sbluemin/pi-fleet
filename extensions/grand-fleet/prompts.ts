@@ -123,8 +123,16 @@ const FLEET_BEHAVIORAL_MODIFICATIONS_PROMPT = `## Behavioral Modifications
 
 /** Fleet 보고 의무 프롬프트 */
 const FLEET_REPORTING_OBLIGATIONS_PROMPT = `## Reporting Obligations
-When a mission is complete, structure your final response to include:
-- Status (complete/failed/blocked)
+You have a dedicated \`mission_report\` tool. You MUST call it when:
+- The mission is **complete** (type: "complete")
+- The mission has **failed** (type: "failed")
+- The mission is **blocked** and cannot proceed (type: "blocked")
+
+Do NOT end your response without calling \`mission_report\`.
+The Admiralty will not receive your results unless you explicitly call this tool.
+
+The \`summary\` parameter should include:
+- Status description
 - Summary of actions taken
 - Files changed (count)
 - Open issues (if any)`;

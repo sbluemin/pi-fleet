@@ -5,12 +5,15 @@
  * 시스템 프롬프트에 append하며, 명령 수신 시 Admiral에 주입한다.
  */
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import { StringEnum } from "@mariozechner/pi-ai";
+import { Type } from "@sinclair/typebox";
 
 import { getLogAPI } from "../../core/log/bridge.js";
 import { getState } from "../index.js";
 import { FleetClient } from "../ipc/client.js";
 import { registerFleetHandlers } from "../ipc/methods.js";
 import { buildFleetContextPrompt } from "../prompts.js";
+import { sendCompleteReport, sendMissionReport } from "./reporter.js";
 import {
   HEARTBEAT_INTERVAL_MS,
   PROTOCOL_VERSION,
@@ -20,6 +23,7 @@ import {
   type CliBackend,
   type FleetId,
   type FleetStatus,
+  type ReportType,
 } from "../types.js";
 
 interface FleetRegisterPayload {
@@ -188,6 +192,53 @@ export default function registerFleet(pi: ExtensionAPI): void {
 
   let missionTexts: string[] = [];
 
+  pi.registerTool({
+    name: "mission_report",
+    label: "Mission Report",
+    description: "작전 보고를 Admiralty에 전송한다. 임무 완료/실패/차단 시 반드시 호출해야 한다.",
+    parameters: Type.Object({
+      type: StringEnum(["complete", "failed", "blocked"]) as any,
+      summary: Type.String({ description: "작전 결과 요약" }),
+    }) as any,
+    async execute(
+      _toolCallId: string,
+      params: any,
+      _signal: AbortSignal | undefined,
+      _onUpdate: any,
+      _ctx: ExtensionContext,
+    ) {
+      if (!state.activeMissionId || !client) {
+        throw new Error("활성 임무가 없거나 Admiralty에 연결되지 않았습니다.");
+      }
+
+      const missionId = state.activeMissionId;
+      const reportParams = params as { type: ReportType; summary: string };
+      const reportType = reportParams.type;
+      const accumulated = missionTexts.join("\n\n---\n\n");
+      const fullSummary = accumulated
+        ? `${accumulated}\n\n---\n\n${reportParams.summary}`
+        : reportParams.summary;
+
+      sendMissionReport(client, {
+        fleetId,
+        missionId,
+        type: reportType,
+        summary: fullSummary,
+      });
+
+      log.info(LOG_SOURCE, `작전 보고 전송 (tool): type=${reportType}, missionId=${missionId}`);
+
+      state.activeMissionId = null;
+      state.activeMissionObjective = null;
+      missionTexts = [];
+      flushFleetStatus(state.fleetId ?? fleetId, true);
+
+      return {
+        content: [{ type: "text" as const, text: `작전 보고 완료: ${reportType}` }],
+      };
+    },
+  } as any);
+
   pi.on("message_end", async (event) => {
     if (!state.activeMissionId || !client) return;
 
@@ -203,26 +254,18 @@ export default function registerFleet(pi: ExtensionAPI): void {
     if (turnText) {
       missionTexts.push(turnText);
     }
+    flushFleetStatus(state.fleetId ?? fleetId);
+  });
 
-    const hasToolUse = msg.content.some((c: any) => c?.type === "tool_use");
-    if (hasToolUse) {
-      flushFleetStatus(state.fleetId ?? fleetId);
-      return;
-    }
+  pi.on("agent_end", async (_event) => {
+    if (!state.activeMissionId || !client) return;
 
+    const missionId = state.activeMissionId;
     const summary = missionTexts.join("\n\n---\n\n");
     if (!summary) return;
 
-    const missionId = state.activeMissionId;
-    log.info(LOG_SOURCE, `작전 보고 전송: missionId=${missionId}, ${missionTexts.length}개 턴 누적, ${summary.length}자`);
-
-    client.sendNotification("mission.report", {
-      fleetId,
-      missionId,
-      type: "complete",
-      summary,
-      timestamp: new Date().toISOString(),
-    });
+    log.info(LOG_SOURCE, `에이전트 루프 종료 (임무 미완료): missionId=${missionId}, complete 보고 전송`);
+    sendCompleteReport(client, fleetId, missionId, summary);
 
     state.activeMissionId = null;
     state.activeMissionObjective = null;
