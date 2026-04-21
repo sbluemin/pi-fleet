@@ -1,5 +1,11 @@
 node_modules/
+dist/
 session-maps/
 selected-models.json
+keybindings.json
 *.bak
 .DS_Store
+.spsec/
+.specs
+.fleet/
+.grand-fleet/

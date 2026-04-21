@@ -1,0 +1,9 @@
+{
+  "name": "core-agentclientprotocol",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "@sbluemin/unified-agent": "file:../../../packages/unified-agent",
+    "@mariozechner/pi-coding-agent": "*"
+  }
+}

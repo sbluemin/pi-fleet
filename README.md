@@ -1,70 +1,100 @@
-# pi-fleet
+<div align="center">
+    <h1>pi-fleet</h1>
+    <img src=".github/logo.png" alt="pi-fleet" width="640" />
+    <h3><em>One Fleet. All LLMs.</em></h3>
+</div>
 
-A multi-LLM orchestration kit for [pi-coding-agent](https://github.com/badlogic/pi-mono). Operate Claude Code, Codex CLI, and Gemini CLI through a single unified interface — using native CLIs directly, no API wrapping or proxying.
+<p align="center">
+    <strong>A multi-LLM orchestration kit that operates Claude Code, Codex CLI, and Gemini CLI through a single unified interface — using native CLIs directly, no API wrapping or proxying.</strong>
+</p>
 
-## Extensions
+<p align="center">
+  <a href="README.md">English</a> |
+  <a href="README.ko.md">한국어</a>
+</p>
 
-### Core Extensions
+---
 
-| Extension | Description |
-|-----------|-------------|
-| `unified-agent-direct` | Direct mode — switch between 4 agent panels via `Alt+1~4` |
-| `unified-agent-tools` | Register `claude`, `codex`, `gemini` as individual pi tools with streaming widget |
-| `hud-editor` | Custom status bar editor + footer |
-| `hud-welcome` | Welcome overlay on session start |
-| `utils-improve-prompt` | Meta-prompting via `Alt+Shift+M` |
-| `utils-summarize` | Auto one-line session summary |
+## Motivation
 
-### Shared Libraries
+Each LLM CLI excels at different things — Claude at reasoning, Codex at fast code generation, Gemini at large-context analysis. But they all run in isolation. Combining their strengths on a single task means juggling separate terminals, copy-pasting context, and manually coordinating results.
 
-| Library | Description | Used by |
-|---------|-------------|---------|
-| `hud-core` | Status bar rendering engine (segments, layout, colors, themes) | `hud-editor`, `hud-welcome` |
-| `unified-agent-core` | Shared agent logic (client pool, executor, session map) | `unified-agent-direct`, `unified-agent-tools` |
+pi-fleet solves this by treating LLM agents as **Carriers** within a naval **Fleet**. A central Admiral orchestrates multiple Carriers in parallel, each commanded by a specialized Captain persona. You give the order once; the fleet executes together.
+
+## Naval Fleet Hierarchy
+
+A 4-tier command structure maps users, orchestrators, and agents into clear roles:
+
+- **Admiral of the Navy** — The user. Sets strategy and gives orders.
+- **Fleet Admiral** — Multi-fleet orchestrator in grand-fleet mode.
+- **Admiral** — A workspace PI instance. Plans and dispatches Carriers.
+- **Captain** — The commander persona of a Carrier agent.
+
+A **Carrier** is an execution instance of a CLI tool with isolated configuration. A **Captain** is the persona (e.g., Chief Engineer, Scout Specialist) that commands it.
+
+## Carriers
+
+Seven built-in Carriers, each with a distinct operational role:
+
+- **Genesis** — Chief Engineer. Implementation, integration, and code delivery.
+- **Athena** — Strategic Planning Officer. Requirements clarification and structured work planning.
+- **Oracle** — Strategic Technical Advisor. Read-only architecture decisions and trade-off analysis.
+- **Sentinel** — QA & Security Lead. Code review, defect detection, and vulnerability hunting.
+- **Vanguard** — Scout Specialist. Codebase exploration, symbol tracing, and web research.
+- **Echelon** — Chief Intelligence Officer. GitHub intelligence and external repo analysis.
+- **Chronicle** — Chief Knowledge Officer. Documentation, changelogs, and change-impact reporting.
+
+## Features
+
+### Multi-LLM Orchestration
+
+- Parallel carrier execution with unified progress tracking
+- Per-carrier model and reasoning level configuration
+- Protocol system for different operational modes (Fleet Action, Positive Control)
+
+### Task Force
+
+- Cross-validate a carrier's response across multiple CLI backends simultaneously
+- Compare approaches, detect blind spots, and build multi-model consensus
+
+### Agent Panel
+
+- Real-time streaming UI for all active carriers
+- Inline navigation between carrier slots
+- Detail view toggle for focused monitoring
+
+### HUD
+
+- Integrated editor with status bar and footer
+- Meta-prompting and reasoning level controls
+- Auto session summary and thinking timer
+
+## Keybindings
+
+| Key | Action |
+|-----|--------|
+| `Alt+H` / `Alt+L` | Navigate to previous / next Carrier slot |
+| `Alt+P` | Toggle Agent Panel |
+| `Alt+J` / `Alt+K` | Grow / shrink Agent Panel height |
+| `Alt+S` | Stash / restore editor content |
+| `Alt+O` | Fleet Status & Model Config overlay |
+| `Alt+T` | Launch active ACP provider in overlay shell |
+| `Alt+X` | Cancel active Carrier execution |
+| `Alt+Shift+M` | Change Model & Reasoning for active Carrier |
+| `Alt+M` | Improve input via Meta-prompting |
+| `Alt+R` | Cycle Reasoning Level (Off → Low → Medium → High) |
+| `Alt+1` | Switch to Fleet Action Protocol |
+| `Alt+.` | Keybinding help overlay |
+| `Alt+/` | Settings overlay |
+| `Ctrl+Enter` | Toggle Carrier detail view |
 
 ## Setup
 
-### 1. Clone
+See [SETUP.md](SETUP.md) for step-by-step instructions.
 
-```bash
-git clone https://github.com/sbluemin/pi-fleet.git ~/workspace/pi-fleet
-```
-
-### 2. Install dependencies
-
-```bash
-cd ~/workspace/pi-fleet/extensions/unified-agent-core
-npm install
-```
-
-### 3. Register extensions in pi settings
-
-Add the `extensions` field to your pi settings file.
-
-**Global** (`~/.pi/agent/settings.json`):
-
-```json
-{
-  "extensions": ["~/workspace/pi-fleet/extensions"]
-}
-```
-
-**Or project-local** (`.pi/settings.json` in your project root):
-
-```json
-{
-  "extensions": ["~/workspace/pi-fleet/extensions"]
-}
-```
-
-### 4. Verify
-
-Launch `pi` and run `/reload` — all extensions should load automatically.
-
-## Requirements
-
-- [pi-coding-agent](https://github.com/badlogic/pi-mono) installed globally
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Codex CLI](https://github.com/openai/codex), [Gemini CLI](https://github.com/google-gemini/gemini-cli) installed and authenticated
+> **Quick Start with AI Agent** — Copy and paste into your LLM agent:
+>
+> Install and configure pi-fleet by following the instructions here: `https://raw.githubusercontent.com/sbluemin/pi-fleet/main/SETUP.md`
 
 ## License
 

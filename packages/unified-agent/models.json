@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "updatedAt": "2026-04-19T00:00:00Z",
+  "providers": {
+    "claude": {
+      "name": "Anthropic Claude Code",
+      "defaultModel": "opus[1m]",
+      "models": [
+        { "modelId": "haiku", "name": "Claude Haiku" },
+        { "modelId": "sonnet", "name": "Claude Sonnet" },
+        { "modelId": "opus", "name": "Claude Opus" },
+        { "modelId": "opus[1m]", "name": "Claude Opus [1M]" },
+        { "modelId": "claude-opus-4-6[1m]", "name": "Claude Opus 4.6 [1M]" }
+      ],
+      "reasoningEffort": {
+        "supported": false
+      }
+    },
+    "codex": {
+      "name": "OpenAI Codex CLI",
+      "defaultModel": "gpt-5.4",
+      "models": [
+        { "modelId": "gpt-5.3-codex", "name": "GPT-5.3 Codex" },
+        { "modelId": "gpt-5.3-codex-spark", "name": "GPT-5.3 Codex Spark" },
+        { "modelId": "gpt-5.4", "name": "GPT-5.4" },
+        { "modelId": "gpt-5.4-mini", "name": "GPT-5.4 Mini" }
+      ],
+      "reasoningEffort": {
+        "supported": true,
+        "levels": ["none", "low", "medium", "high", "xhigh"],
+        "default": "high"
+      }
+    },
+    "gemini": {
+      "name": "Google Gemini CLI",
+      "defaultModel": "gemini-3.1-flash-lite-preview",
+      "models": [
+        { "modelId": "gemini-2.5-flash", "name": "Gemini 2.5 Flash" },
+        { "modelId": "gemini-3-flash-preview", "name": "Gemini 3 Flash Preview" },
+        { "modelId": "gemini-3.1-pro-preview", "name": "Gemini 3.1 Pro Preview" },
+        { "modelId": "gemini-3.1-flash-lite-preview", "name": "Gemini 3.1 Flash Lite Preview" }
+      ],
+      "reasoningEffort": {
+        "supported": false
+      }
+    }
+  }
+}

@@ -1,85 +1,155 @@
-# Pi Extensions 개발 지침
+# Pi Extensions Development Guidelines
 
-이 디렉토리는 pi-coding-agent의 커스텀 extension들을 모아 관리하는 곳이다.
-`~/.pi/agent/extensions` → 이 디렉토리로 심볼릭 링크되어 있어 pi 실행 시 자동 로드된다.
+This directory is where custom extensions for pi-coding-agent are collected and managed.
+It is symlinked to `~/.pi/agent/extensions`, so they are automatically loaded when pi is executed.
 
-## 디렉토리 구조 및 도메인 규칙
+## Directory Structure and Domain Rules
 
-### 확장 (Extension) — `index.ts`가 있는 디렉토리
+### Extensions — Directories with `index.ts`
 
-pi가 자동 로드하는 확장 단위. 각 확장은 **독자적인 UI 기능을 제공**해야 한다.
-TUI 공식 API(`setWidget`, `setFooter`, `setEditorComponent` 등)를 단순히 래핑하는 중간 레이어는 만들지 않는다.
+These are extension units automatically loaded by pi. Each extension must provide **independent UI features**.
+Do not create intermediate layers that simply wrap official TUI APIs (e.g., `setWidget`, `setFooter`, `setEditorComponent`).
 
-| 확장 | 역할 | 주요 파일 |
-|------|------|-----------|
-| `hud-editor/` | 커스텀 에디터 + 상태바 + footer | `index.ts` (배선), `editor.ts` (에디터/footer/위젯 UI) |
-| `hud-welcome/` | 웰컴 오버레이/헤더 | `index.ts` (배선), `welcome.ts` (UI), `types.ts` (globalThis 타입) |
-| `unified-agent-direct/` | 다이렉트 모드 4종 (alt+1~4) | `index.ts` (배선), `agent-panel.ts`, `agent-panel-renderer.ts` 등 |
-| `unified-agent-tools/` | 개별 에이전트 도구 (claude/codex/gemini) | `index.ts` (배선), `renderer.ts` (스트리밍 위젯) |
-| `utils-improve-prompt/` | 메타 프롬프팅 (alt+shift+m) | `index.ts` (배선), `ui.ts` (상태바 위젯) |
-| `utils-summarize/` | 세션 한 줄 자동 요약 | `index.ts` (배선), `ui.ts` (상태바 위젯) |
-
-### 공유 라이브러리 — `index.ts`가 없는 디렉토리
-
-pi가 확장으로 인식하지 않는 순수 라이브러리.
-
-| 라이브러리 | 역할 | 주요 소비자 |
+| Extension | Role | Main Files |
 |-----------|------|------------|
-| `hud-core/` | 상태바 렌더링 엔진 (세그먼트, 레이아웃, 색상, 테마, 프리셋) | `hud-editor`, `hud-welcome` |
-| `unified-agent-core/` | 통합 에이전트 공유 로직 | `unified-agent-direct` |
+| `fleet/` | Agent orchestration framework — carrier SDK (`shipyard/carrier/`), Admiral/Bridge/Carrier wiring, unified pipeline, Agent Panel, model selection. Provides the carrier framework consumed by `fleet/carriers/`. | `index.ts` (wiring), `shipyard/carrier/` (framework), `admiral/`, `bridge/`, `carriers/` |
+| `core/` | Unified infrastructure extension — root entry point that wires keybind, settings, log, welcome, hud, shell, improve-prompt, summarize, thinking-timer, provider-guard, and the unified `agentclientprotocol/` module | `index.ts` (root wiring), `<module>/register.ts` (module wiring), `agentclientprotocol/` (shared ACP infra + provider boundary) |
+| `metaphor/` | Metaphor framework extension — Centralized management of PERSONA/TONE for the 4-tier naval hierarchy, provides `metaphor:worldview` toggle and settings. | `index.ts`, `worldview.ts`, `prompts.ts` |
 
-### 확장 분리 기준
+### Shared Libraries — Directories without `index.ts`
 
-새 확장을 만들거나 기존 확장을 분리할 때 이 기준을 적용한다:
+These are pure libraries not recognized as extensions by pi.
 
-1. **자체 UI 기능을 제공하는가?** — 독자적인 렌더링 로직, 자체 컴포넌트, 독립 기능이 있으면 **확장으로 분리**
-2. **TUI API를 래핑하는 수준인가?** — `setWidget`/`setFooter` 등의 라우팅/중계 역할이면 **분리하지 않고 소비자 확장에 인라인**
-3. **여러 확장이 공유하는 순수 로직인가?** — `index.ts` 없는 **공유 라이브러리 디렉토리**로 분리
+| Library | Role | Main Consumers |
+|---------|------|----------------|
+| `core/agentclientprotocol/` | Unified ACP infrastructure — shared execution/runtime/session/service-status files plus provider integration files | `fleet/`, `carriers/` |
+| `core/hud/` (also a library) | Status Bar rendering engine (segments, layout, colors, themes, presets) | `core/index.ts`, `core/welcome` |
 
-## 모듈화 원칙
+### Extension Separation Criteria
 
-- **`index.ts`는 배선(wiring)만** — `registerTool`, `registerCommand`, `on`, `registerShortcut` 호출과 import만 둔다. 비즈니스 로직, UI 코드를 인라인하지 않는다.
-- **UI/렌더링은 반드시 별도 파일로 분리** — `ui.ts`, `editor.ts`, `welcome.ts` 등. `index.ts`에 TUI 컴포넌트 조립 코드를 넣지 않는다.
-- **상수/타입은 `types.ts`로 분리** — 여러 모듈에서 공유되는 값(특히 globalThis 키/브릿지 인터페이스)은 반드시 별도 파일.
-- **`globalThis`는 "독자적 기능의 액션/데이터 공유"에만 사용** — 확장이 자신의 기능을 다른 확장에 노출할 때만 사용한다 (예: welcome의 dismiss 액션). TUI 데이터를 중계하기 위한 globalThis는 사용하지 않는다.
+Apply these criteria when creating a new extension or separating an existing one:
 
-### globalThis 사용 규칙
+1. **Does it provide its own UI feature?** — If it has independent rendering logic, its own components, or standalone functionality, **separate it into an extension**.
+2. **Is it just wrapping TUI APIs?** — If it acts as a router/relay for `setWidget`, inline it in the consumer extension instead of separating it. Note that `setFooter` is discouraged for external extensions; use `setWidget` with appropriate placement instead.
+3. **Is it pure logic shared by multiple extensions?** — Separate it into a **shared library directory** without an `index.ts`.
+
+## Modularization Principles
+
+- **`index.ts` is for wiring only** — Keep only `registerTool`, `registerCommand`, `on`, `registerShortcut` calls, top-level initialization, and imports. Do not inline business logic or UI code here.
+- **UI/Rendering must be in separate files** — Such as `ui.ts`, `editor.ts`, `welcome.ts`. Do not put TUI component assembly code in `index.ts`.
+- **Constants/Types must be in `types.ts`** — Values shared across modules (especially globalThis keys/bridge interfaces) must be in a separate file.
+- **AI prompts should normally be in `prompts.ts`** — All prompts sent to AI models (system prompts, instructions, tool descriptions, guidelines, etc.) should normally be defined in a dedicated `prompts.ts` file. Do not embed prompt text inline in business logic, tool registration, or constants files unless a child `AGENTS.md` explicitly documents a narrower domain-specific exception.
+- **Use `globalThis` only for "sharing actions/data of independent features"** — Use it only when an extension exposes its functionality to other extensions (e.g., the dismiss action of welcome). Do not use globalThis to relay TUI framework data.
+
+### Prompt Separation Rules (`prompts.ts`)
+
+Any string that is ultimately consumed by an AI model should live in `prompts.ts` by default:
+
+| Category | Examples | Location |
+|----------|----------|----------|
+| System prompt / instruction | `SYSTEM_PROMPT`, `SYSTEM_INSTRUCTION` | `prompts.ts` by default |
+| Tool prompt fields | `description`, `promptSnippet`, `promptGuidelines` | `prompts.ts` by default, or inline in the owning module when a child `AGENTS.md` explicitly allows it |
+| Short UI-only labels | button text, notification messages | `constants.ts` or inline (NOT `prompts.ts`) |
+
+> **Fleet 전역 정책**: `systemPrompt`는 공개 API(`UnifiedAgentRequestOptions`)에서 비노출되며, `admiral` 확장 내 `setCliSystemPrompt()`를 통해 **Admiral (제독)**의 전역 지침으로 관리됩니다. `unified-agent`는 이를 `connect` 옵션으로 소비하여 하이브리드(native append 또는 첫 user-turn prefix) 방식으로 주입합니다. Carrier 도구 실행 경로는 **Admiral (제독)**의 지침을 상속하지 않으며, 각 **Captain (함장)**의 페르소나와 임무 가이드는 각 요청 본문 조립 경로가 담당합니다.
+
+## 4-Tier Naval Hierarchy (4계층 해군 위계)
+
+모든 확장은 동일한 4계층 위계를 따릅니다:
+1. **Admiral of the Navy (ATN, 대원수)**: **사용자 (User)**.
+2. **Fleet Admiral (사령관)**: `grand-fleet` Admiralty LLM 페르소나.
+3. **Admiral (제독)**: 워크스페이스 **Host PI 인스턴스**.
+4. **Captain (함장)**: 개별 **Carrier 에이전트 페르소나**.
+
+**Why separate?** Prompt text often needs independent review, A/B testing, or iteration without touching business logic. Keeping prompts in a single file per extension makes them easy to locate, audit, and modify.
+
+**Allowed exception:** If a child `AGENTS.md` explicitly states that prompt text is part of the owning module's domain contract and is expected to diverge per module, prompts may live inline in that module instead of a shared `prompts.ts`.
+
+**Naming conventions:**
+- Static prompts → `export const SYSTEM_PROMPT = \`...\``
+- Dynamic prompts (parameterized) → `export function toolDescription(name: string): string`
+- Inline prompt exceptions must be documented by a child `AGENTS.md` and kept near the owning module's registration logic
+- Re-export from `constants.ts` if consumers currently import from there → `export { SYSTEM_PROMPT } from "./prompts.js"`
+
+### globalThis Usage Rules
 
 ```
-허용: hud-welcome → globalThis["__pi_hud_welcome__"] = { dismiss }
-      (독자적 기능의 액션을 노출)
+Allowed: core/welcome → globalThis["__pi_core_welcome__"] = { dismiss }
+         (Exposes actions of an independent feature)
 
-금지: hud-footer → globalThis["__pi_hud_footer__"] = { footerDataRef, tuiRef }
-      (TUI 프레임워크 데이터를 중계하는 래핑)
+Forbidden: core/hud-footer → globalThis["__pi_hud_footer__"] = { footerDataRef, tuiRef }
+           (Wraps and relays TUI framework data)
 ```
 
-globalThis 키와 브릿지 인터페이스는 **해당 기능을 소유한 확장의 `types.ts`에 정의**한다 (공유 라이브러리가 아닌 소유자 확장에).
+The globalThis key and bridge interface should be **defined in the `types.ts` of the extension that owns the feature** (not in shared libraries, but in the owner extension).
 
-## Extension 작성 가이드
+#### State Persistence Across Module Reloads
 
-### 기본 구조
+pi-coding-agent v0.65.0+ reloads extension modules on every session switch (resume, new, fork). When modules are reloaded, **module-level variables are reset** (new module instance), but **globalThis persists**.
+
+**Rule: Any state that must survive session switches MUST be stored on globalThis. Module-level variables are only safe for single-session caches.**
+
+Examples of correctly placed state:
+| Extension | State | Location | Reload-safe |
+|-----------|-------|----------|-------------|
+| `fleet/panel/state.ts` | Panel UI state | `globalThis["__pi_agent_panel_state__"]` | ✅ |
+| `fleet/stream-store.ts` | Stream data | `globalThis["__pi_stream_store__"]` | ✅ |
+| `carrier/framework.ts` | Framework state | `globalThis["__pi_bridge_framework__"]` | ✅ |
+| `core/keybind/registry.ts` | Keybinding list | module-level `const bindings[]` | ❌ BUG — must migrate to globalThis |
+
+Pattern for globalThis-backed state:
+```typescript
+// types.ts — define the shape
+const GLOBAL_KEY = "__my_extension_state__";
+interface MyState { items: Item[]; }
+
+// Lazy-init guard: only create if not already present
+if (!(globalThis as any)[GLOBAL_KEY]) {
+  (globalThis as any)[GLOBAL_KEY] = { items: [] };
+}
+
+// Access functions (in registry.ts or similar)
+export function getItems(): Item[] {
+  return ((globalThis as any)[GLOBAL_KEY] as MyState).items;
+}
+```
+
+Anti-pattern:
+```typescript
+// ❌ Module-level state — reset on reload, causes silent data loss
+const items: Item[] = [];
+export function getItems() { return items; }
+```
+
+> **Defense-in-Depth:** For services that must survive reloads (like keybindings), use the `_bootstrapKeybind` migration pattern to move existing state to `globalThis` if found, and always re-register essential hooks/shortcuts during `session_start` to ensure the new module instance is correctly wired to the persistent state. The `core/keybind` extension serves as the canonical example for this pattern.
+
+## Extension Authoring Guide
+
+### Basic Structure
 
 ```
 extensions/
 ├── AGENTS.md
 ├── <extension-name>/
-│   └── index.ts          ← 진입점 (필수)
+│   └── index.ts          ← Entry point (required)
 ├── <extension-name>/
 │   ├── index.ts
-│   ├── ui.ts             ← UI/렌더링 분리
-│   └── types.ts          ← 타입/상수
-└── <shared-lib>/         ← index.ts 없음 = 확장이 아닌 순수 라이브러리
+│   ├── ui.ts             ← UI/Rendering separated
+│   ├── prompts.ts        ← AI prompts (if the extension uses LLM calls or registers tools with prompt fields)
+│   └── types.ts          ← Types/Constants
+└── <shared-lib>/         ← No index.ts = Pure library, not an extension
     ├── types.ts
     └── utils.ts
 ```
 
-### 규칙
+### Rules
 
-- **각 extension은 반드시 서브디렉토리 + `index.ts` 형태**로 만든다.
-- 루트에 `.ts` 파일을 두지 않는다 — pi가 extension으로 인식해버린다.
-- `index.ts`는 `(pi: ExtensionAPI) => void` 형태의 default export 함수를 가진다.
+- **Each extension must be a subdirectory with an `index.ts` file**.
+- **`core/` is the canonical composite example** — only `core/index.ts` is auto-loaded; submodules under `core/*/register.ts` are internal wiring modules, not standalone extensions.
+- Do not place `.ts` files in the root — pi will mistakenly recognize them as extensions.
+- `index.ts` must have a default export function of type `(pi: ExtensionAPI) => void`.
 
-### 기본 템플릿
+### Basic Template
 
 ```typescript
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -91,139 +161,199 @@ export default function (pi: ExtensionAPI) {
 }
 ```
 
-### 사용 가능한 import
+### Allowed Imports
 
-| 패키지 | 용도 |
-|--------|------|
-| `@mariozechner/pi-coding-agent` | Extension 타입 (`ExtensionAPI`, `ExtensionContext` 등) |
-| `@sinclair/typebox` | 도구 파라미터 스키마 정의 (`Type.Object`, `Type.String` 등) |
-| `@mariozechner/pi-ai` | AI 유틸리티 (`StringEnum` — Google API 호환 enum) |
-| `@mariozechner/pi-tui` | TUI 컴포넌트 (커스텀 렌더링) |
+| Package | Purpose |
+|---------|---------|
+| `@mariozechner/pi-coding-agent` | Extension types (`ExtensionAPI`, `ExtensionContext`, etc.) |
+| `@sinclair/typebox` | Tool parameter schema definition (`Type.Object`, `Type.String`, etc.) |
+| `@mariozechner/pi-ai` | AI utilities (`StringEnum` — Google API compatible enum) |
+| `@mariozechner/pi-tui` | TUI components (custom rendering) |
 
-이들은 pi 런타임이 자동 제공하므로 별도 `npm install` 불필요.
-외부 npm 패키지가 필요하면 해당 extension 서브디렉토리에 `package.json`을 두고 `npm install`한다.
+These are automatically provided by the pi runtime, so `npm install` is not needed.
+If an external npm package is required, place a `package.json` in the respective extension subdirectory and run `npm install`.
 
-### 주의사항
+### Notes
 
-- string enum은 반드시 `StringEnum` (`@mariozechner/pi-ai`)을 사용한다. `Type.Union`/`Type.Literal`은 Google API에서 동작하지 않는다.
-- 도구 출력은 **50KB / 2000줄** 제한을 지킨다. 초과 시 `truncateHead`/`truncateTail` 유틸리티를 사용한다.
-- 에러는 `throw new Error()`로 시그널링한다 (return으로는 `isError`가 설정되지 않음).
+- String enums must use `StringEnum` (`@mariozechner/pi-ai`). `Type.Union`/`Type.Literal` do not work with the Google API.
+- Tool outputs must adhere to the **50KB / 2000 lines** limit. Use `truncateHead`/`truncateTail` utilities if exceeded.
+- Signal errors using `throw new Error()` (returning an object won't set `isError`).
 
-## 주요 API 패턴 레퍼런스
+## Key API Pattern Reference
 
-### 메시지 전송
+### Sending Messages
 
-| 메서드 | 용도 | 에이전트 트리거 |
-|--------|------|----------------|
-| `pi.sendUserMessage(text)` | 사용자 메시지로 에이전트에 전송 (에이전트가 응답함) | **Yes** |
-| `pi.sendMessage({...})` | 커스텀 메시지를 TUI에 표시만 함 | **No** (기본값) |
+| Method | Purpose | Triggers Agent |
+|--------|---------|----------------|
+| `pi.sendUserMessage(text)` | Sends a user message to the agent (agent will respond) | **Yes** |
+| `pi.sendMessage({...})` | Custom message displayed only on TUI | **No** (default) |
 
-#### `pi.sendUserMessage()` — 에이전트에 전달
+#### `pi.sendUserMessage()` — Send to Agent
 
 ```typescript
-// 기본 (idle 상태에서만 동작)
-pi.sendUserMessage("분석해줘");
+// Default (only works in idle state)
+pi.sendUserMessage("Analyze this");
 
-// 에이전트가 응답 중일 때 즉시 전송
-pi.sendUserMessage("방향을 바꿔줘", { deliverAs: "steer" });
+// Send immediately while the agent is responding
+pi.sendUserMessage("Change direction", { deliverAs: "steer" });
 
-// 현재 턴 완료 후 큐에 대기
-pi.sendUserMessage("다음 작업", { deliverAs: "followUp" });
+// Queue up after the current turn completes
+pi.sendUserMessage("Next task", { deliverAs: "followUp" });
 ```
 
-#### `pi.sendMessage()` — TUI에 표시만 (에이전트 미트리거)
+#### `pi.sendMessage()` — Display on TUI only (Agent not triggered)
 
 ```typescript
 pi.sendMessage({
-  customType: "my-result",    // 커스텀 식별자
-  content: "표시할 텍스트",     // string 또는 (TextContent | ImageContent)[]
-  display: true,              // true여야 TUI에 표시됨
-  details: { /* 선택적 메타데이터 */ },
+  customType: "my-result",    // Custom identifier
+  content: "Text to display", // string or (TextContent | ImageContent)[]
+  display: true,              // Must be true to display on TUI
+  details: { /* optional metadata */ },
 });
-// triggerTurn 옵션을 true로 주면 에이전트도 트리거 가능
+// Can also trigger the agent if triggerTurn option is set to true
 ```
 
-### LLM 호출 (`complete`)
+### LLM Call (`complete`)
 
 ```typescript
 import { complete } from "@mariozechner/pi-ai";
 
-// ctx.model로 현재 세션 모델 사용
-const apiKey = await ctx.modelRegistry.getApiKey(ctx.model);
+// Use the current session model with ctx.model
+// getApiKey() does not exist — use getApiKeyAndHeaders() instead
+const auth = await ctx.modelRegistry.getApiKeyAndHeaders(ctx.model);
+if (!auth.ok) throw new Error(auth.error);
+
 const response = await complete(
   ctx.model,
   { systemPrompt: "...", messages: [{ role: "user", content: "...", timestamp: Date.now() }] },
-  { apiKey }
+  {
+    ...(auth.apiKey && { apiKey: auth.apiKey }),
+    ...(auth.headers && { headers: auth.headers }),
+  }
 );
 
-// 응답 텍스트 추출
+// Extract response text
 const text = response.content
   .filter((c): c is { type: "text"; text: string } => c.type === "text")
   .map((c) => c.text)
   .join("\n");
 ```
 
-### UI 알림
+### UI Notifications
 
 ```typescript
-ctx.ui.notify("메시지", "info");     // "info" | "warning" | "error"
+ctx.ui.notify("Message", "info");     // "info" | "warning" | "error"
 ```
 
-## 개발 워크플로
+## Development Workflow
 
-1. 새 extension: `mkdir <name> && touch <name>/index.ts`
-2. 테스트: `pi -e ./<name>/index.ts` (단독) 또는 그냥 `pi` 실행 (전체 로드)
-3. 수정 후 반영: pi 내에서 `/reload` (재시작 불필요)
-4. 비활성화: 디렉토리명 앞에 `_` 붙이기 (예: `_memo/`) — pi는 `index.ts`가 있는 디렉토리만 로드
+1. New extension: `mkdir <name> && touch <name>/index.ts`
+2. Test: `pi -e ./<name>/index.ts` (standalone) or just run `pi` (loads all)
+3. Apply changes: run `/reload` inside pi (no restart needed)
+4. Disable: prefix directory name with `_` (e.g., `_memo/`) — pi only loads directories with `index.ts`
 
-## 참고 문서
+## Reference Documents
 
-### 로컬 경로 (AI Agent가 직접 읽을 수 있음)
+### Local Paths (Can be read directly by AI Agents)
 
-pi 설치 루트 확인 명령어:
+Command to check pi installation root:
 
 ```bash
 npm ls -g @mariozechner/pi-coding-agent --parseable 2>/dev/null | head -1
 ```
 
-| 문서 | 경로 (pi 설치 루트 기준) | 설명 |
-|------|--------------------------|------|
-| **Extension 전체 문서** | `docs/extensions.md` | API, 이벤트, 도구 등록, 커스텀 UI 등 전체 레퍼런스 |
-| **예제 목록 (README)** | `examples/extensions/README.md` | 모든 예제 extension 카탈로그 |
-| **TUI 컴포넌트** | `docs/tui.md` | 커스텀 렌더링, 컴포넌트 API |
-| **세션 관리** | `docs/session.md` | SessionManager, 상태 저장/복원, 브랜치 |
-| **커스텀 프로바이더** | `docs/custom-provider.md` | 모델 프로바이더 등록, OAuth, 스트리밍 |
-| **모델 설정** | `docs/models.md` | 모델 추가/커스텀 설정 |
-| **테마** | `docs/themes.md` | 테마 커스터마이징 |
-| **키바인딩** | `docs/keybindings.md` | 단축키 등록, 기본 키바인딩 |
-| **패키지 배포** | `docs/packages.md` | npm/git으로 extension 배포 |
-| **Skills** | `docs/skills.md` | Skill 시스템 |
-| **설정** | `docs/settings.md` | settings.json 옵션 |
-| **SDK** | `docs/sdk.md` | 프로그래밍 방식으로 pi 사용 |
-| **RPC** | `docs/rpc.md` | RPC 프로토콜, extension UI sub-protocol |
+| Document | Path (Relative to pi root) | Description |
+|----------|----------------------------|-------------|
+| **Full Extension Docs** | `docs/extensions.md` | Full reference for API, events, tool registration, custom UI, etc. |
+| **Examples List (README)**| `examples/extensions/README.md` | Catalog of all example extensions |
+| **TUI Components** | `docs/tui.md` | Custom rendering, component API |
+| **Session Management** | `docs/session.md` | SessionManager, save/restore state, branching |
+| **Custom Providers** | `docs/custom-provider.md` | Model provider registration, OAuth, streaming |
+| **Model Configuration** | `docs/models.md` | Add/customize models |
+| **Themes** | `docs/themes.md` | Theme customization |
+| **Keybindings** | `docs/keybindings.md` | Register shortcuts, default keybindings |
+| **Package Distribution**| `docs/packages.md` | Distribute extensions via npm/git |
+| **Skills** | `docs/skills.md` | Skill system |
+| **Settings** | `docs/settings.md` | settings.json options |
+| **SDK** | `docs/sdk.md` | Programmatically use pi |
+| **RPC** | `docs/rpc.md` | RPC protocol, extension UI sub-protocol |
 
-### 예제 Extension (자주 참고하는 패턴)
+### Example Extensions (Commonly referenced patterns)
 
-경로: `examples/extensions/` (pi 설치 루트 기준)
+Path: `examples/extensions/` (Relative to pi root)
 
-| 파일 | 패턴 |
-|------|------|
-| `hello.ts` | 최소 커스텀 도구 |
-| `todo.ts` | 상태 저장/복원 + 커스텀 렌더링 + 명령 |
-| `tools.ts` | 커스텀 UI (SettingsList) + 세션 퍼시스턴스 |
-| `permission-gate.ts` | tool_call 이벤트 차단 |
-| `dynamic-tools.ts` | 런타임 도구 등록/해제 |
-| `tool-override.ts` | 빌트인 도구 오버라이드 |
-| `truncated-tool.ts` | 출력 truncation 처리 |
-| `ssh.ts` | 원격 실행 (pluggable operations) |
-| `custom-footer.ts` | 커스텀 footer UI |
-| `message-renderer.ts` | 커스텀 메시지 렌더링 |
-| `with-deps/` | npm 의존성이 있는 extension |
-| `subagent/` | 서브에이전트 위임 |
+| File | Pattern |
+|------|---------|
+| `hello.ts` | Minimal custom tool |
+| `todo.ts` | State save/restore + custom rendering + commands |
+| `tools.ts` | Custom UI (SettingsList) + session persistence |
+| `permission-gate.ts` | Block tool_call events |
+| `dynamic-tools.ts` | Runtime tool registration/deregistration |
+| `tool-override.ts` | Override built-in tools |
+| `truncated-tool.ts` | Handle output truncation |
+| `ssh.ts` | Remote execution (pluggable operations) |
+| `custom-footer.ts` | Custom footer UI |
+| `message-renderer.ts` | Custom message rendering |
+| `with-deps/` | Extension with npm dependencies |
+| `subagent/` | Sub-agent delegation |
 
 ### GitHub
 
-- 모노레포: https://github.com/badlogic/pi-mono
-- Extension 문서: https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/extensions.md
-- Extension 예제: https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent/examples/extensions
-- 빌트인 도구 구현: https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent/src/core/tools
+- Monorepo: https://github.com/badlogic/pi-mono
+- Extension Docs: https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/extensions.md
+- Extension Examples: https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent/examples/extensions
+- Built-in Tool Implementations: https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent/src/core/tools
+
+---
+
+## Domain Boundary Rules
+
+Extensions are organized in layers. **Dependencies must only flow in one direction — from higher layers toward lower layers.**
+
+### Dependency Direction
+
+```
+fleet/ (unified feature)  →  metaphor/  →  core/
+  ├── admiral/               (PERSONA)      (infrastructure + utility)
+  ├── bridge/
+  └── carriers/
+```
+
+- **Allowed**: A layer may import from any layer below it (direct or transitive).
+- **Forbidden**: A layer must never import from a layer above it (no reverse dependencies).
+- **`fleet/`** is the primary feature extension. Its internal components (`admiral/`, `bridge/`, `carriers/`) are orchestrated by `fleet/index.ts`.
+- **`metaphor/`** is the persona framework extension. It provides the source of truth for the naval metaphor hierarchy.
+- **Internal Component Rules**:
+    - **`fleet/carriers/`** depends only on `fleet/shipyard/carrier/` (the carrier framework SDK) — NOT on `fleet/index.ts`, `fleet/internal/`, or `fleet/operation-runner.ts`.
+    - **`fleet/admiral/`** is the internal orchestrator. It may import from `fleet/shipyard/` (carrier framework, store, tool prompts), `metaphor/` (PERSONA/TONE sources), and `core/agentclientprotocol/` (CLI system prompt setter) to compose ACP CLI system instructions.
+    - **`fleet/index.ts`** is the single entry point that initializes and exports all internal components.
+
+### Layer Rules
+
+| Layer | May import from | Must NOT import from |
+|-------|----------------|----------------------|
+| `core/` | external packages only | `metaphor/`, `fleet/` |
+| `metaphor/` | `core/` | `fleet/` |
+| `fleet/` (feature) | `metaphor/`, `core/` | - |
+| `fleet/admiral/` | `core/settings`, `core/keybind`, `core/agentclientprotocol/provider-types`, `metaphor/`, `fleet/shipyard/` | `fleet/index.ts`, `fleet/internal/` |
+| `fleet/carriers/` | `fleet/shipyard/carrier/` | `fleet/index.ts`, `fleet/internal/`, `fleet/admiral/`, `metaphor/`, `core/` |
+
+> **Skipping layers is allowed** — e.g., `fleet/` components may import from `core/` modules directly.
+
+### Verification (as of 2026-04-16)
+
+All cross-domain imports verified — **no reverse dependency violations found**.
+
+| Import | Direction | Status |
+|--------|-----------|--------|
+| `fleet/` → `core/keybind` | fleet → core | ✅ |
+| `fleet/admiral/` → `core/keybind`, `core/settings` | fleet → core | ✅ |
+| `fleet/admiral/` → `core/agentclientprotocol/provider-types` | fleet → core | ✅ |
+| `fleet/admiral/` → `fleet/shipyard/` | fleet internal | ✅ |
+| `core/summarize` → `core/settings` | core internal | ✅ |
+| `core/improve-prompt` → `core/settings`, `core/keybind` | core internal | ✅ |
+
+### Enforcement
+
+- When adding a new import across layer boundaries, **verify the direction before committing**.
+- A reverse dependency is a hard violation — **do not merge code that breaks this rule**.

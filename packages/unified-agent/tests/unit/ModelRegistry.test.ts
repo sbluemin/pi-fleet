@@ -1,0 +1,13 @@
+import { describe, expect, it } from 'vitest';
+import { getProviderModels } from '../../src/models/ModelRegistry.js';
+
+describe('ModelRegistry', () => {
+  it('Claude 정적 모델 목록에 Opus 1M 변형들을 포함한다', () => {
+    const provider = getProviderModels('claude');
+    const modelIds = provider.models.map((model) => model.modelId);
+
+    expect(modelIds).toContain('opus[1m]');
+    expect(modelIds).toContain('claude-opus-4-6[1m]');
+    expect(modelIds).not.toContain('sonnet[1m]');
+  });
+});

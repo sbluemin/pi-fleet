@@ -1,54 +1,232 @@
-# Cockpit
+# Fleet
 
-> **SBLUEMIN의 개인 에이전트 도구**
+> **A Multi-LLM Orchestration Kit**
 >
-> [pi-coding-agent](https://github.com/badlogic/pi-mono)를 기반으로 커스터마이징한 중앙 에이전트 조종실.
-> Claude Code, Codex CLI, Gemini CLI를 단일 인터페이스에서 통합 운용하는 것이 핵심 목적이다.
+> A custom extension fleet based on [pi-coding-agent](https://github.com/badlogic/pi-mono).
+> The core purpose is to operate 9 carriers — Claude Code, Codex CLI, and Gemini CLI — through a single unified interface.
 
----
+## Structure
 
-# Pi 온보딩 지침
+| Path | Description |
+|------|-------------|
+| `packages/` | Embedded first-party libraries (e.g., `unified-agent`) |
+| `extensions/` | All extensions consolidated here (refer to its own `AGENTS.md`) |
+| `extensions/fleet/` | Agent orchestration extension — carrier framework, admiral/bridge/carriers wiring, unified pipeline, Agent Panel (refer to its own `AGENTS.md`) |
+| `extensions/fleet/admiral/` | Admiral prompt-policy library — prompts, protocols, standing orders, request directive, widget |
+| `extensions/fleet/bridge/` | Bridge library — active ACP provider overlay shell launcher |
+| `extensions/fleet/carriers/` | Carrier registration library — default carrier definitions (refer to its own `AGENTS.md`) |
+| `extensions/core/` | Infrastructure + utility extensions — agent infra, hud, keybind, settings, welcome, shell, improve-prompt, summarize, thinking-timer, provider-guard (refer to its own `AGENTS.md`) |
 
-이 문서는 `pi/` 디렉토리 내의 설정 파일들을 `~/.pi/agent/`에 **심볼릭 링크**로 등록하는 절차를 정의합니다.
+> Currently, there is no `pi/` directory — symlink setup is not required.
 
-> **실행 주체**: AI 에이전트가 이 문서를 읽고 심링크 생성을 수행합니다.
+## Fleet Architecture (Metaphor)
 
----
+This project is an **Agent Harness** that centrally commands and orchestrates powerful CLI tools (Claude Code, Codex, Gemini, etc.), each of which possesses its own internal sub-agent system.
 
-## 대상 파일
+Beyond simple parallel API calls, the system adopts a **naval fleet metaphor** to clearly separate roles and responsibilities across the architecture.
 
-`pi/` 디렉토리 내의 모든 **파일**을 대상으로 하되, 아래를 **제외**합니다:
+### Core Entities
 
-- `AGENTS.md`
-- 하위 디렉토리 (`extensions/` 등) — 각각 자체 `AGENTS.md`를 가짐
+| Layer | Entity | Metaphor | Definition |
+|-------|--------|----------|------------|
+| 1 | **Admiral of the Navy** (ATN) | 대원수 (User) | **The user** who wields the tool. Sets ultimate strategy and final objectives for the fleet. |
+| 2 | **Fleet Admiral** | 사령관 (Grand Fleet) | The **Admiralty LLM persona** in `grand-fleet` mode. Responsible for multi-fleet orchestration. *Does not exist in single-fleet mode; the user communicates directly with the Admiral.* |
+| 3 | **Admiral** | 제독 (Host PI) | A single **workspace PI instance**. Plans operations and dispatches Carriers within its operational zone. |
+| 4 | **Captain** | 함장 (Carrier Persona) | The **persona of a Carrier agent**. While a Carrier is the system entity, the Captain is its personified commander. |
 
-| 원본 | 심링크 |
-|---|---|
-| `pi/settings.json` | `~/.pi/agent/settings.json` |
+> **Note on Persona & Tone**: The naming conventions, personified personas, and linguistic tone for all tiers are centrally managed by the `extensions/metaphor/` package.
 
----
+#### Carrier vs Captain Separation
+- **Carrier**: The **system entity** (ID: `genesis`, `sentinel`, etc.). Represents the execution instance, process, and configuration.
+- **Captain**: The **commander persona** of that Carrier. Represents the "voice" and "character" (e.g., Chief Engineer, Scout Specialist) that communicates with the Admiral.
 
-## 수행 절차
+## Architecture — Agent Workflow
 
-1. **대상 디렉토리 확인**: `~/.pi/agent/`가 없으면 생성.
-2. **파일 순회**: 대상 파일 각각에 대해 아래를 반복:
-   - 대상 경로에 파일이 **존재하지 않으면** → 심링크 생성
-   - 이미 **올바른 심링크**인 경우 (소스와 동일한 대상을 가리킴) → **스킵**
-   - **일반 파일**이거나 **다른 심링크**인 경우 → `.bak` 확장자로 **백업** 후 삭제
-3. **심링크 생성**:
+PI is the **host agent** (orchestrator). Genesis, Sentinel, and Vanguard are **sub-agents** that execute independently via ACP protocol.
 
-   **macOS / Linux (Bash)**:
+### Speakers
 
-   ```bash
-   ln -s "<소스 절대경로>" "<대상 경로>"
-   ```
+| Speaker | Role |
+|---------|------|
+| **PI** (host) | Orchestrator — routes requests, invokes tools, synthesizes cross-reports |
+| **Genesis** (sub) | CVN-01 Chief Engineer (Codex CLI via ACP) |
+| **Athena** (sub) | CVN-02 Strategic Planning Officer (Claude Code CLI via ACP) |
+| **Oracle** (sub) | CVN-09 Strategic Technical Advisor — read-only (Claude Code CLI via ACP) |
+| **Sentinel** (sub) | CVN-04 The Inquisitor / QA & Security Lead (Codex CLI via ACP) |
+| **Vanguard** (sub) | CVN-06 Scout Specialist (Codex CLI via ACP) |
+| **Echelon** (sub) | CVN-07 Chief Intelligence Officer (Gemini CLI via ACP) |
+| **Chronicle** (sub) | CVN-08 Chief Knowledge Officer — documentation, change-impact summaries, and release communication (Gemini CLI via ACP) |
 
-   **Windows (PowerShell)**:
+### Execution Modes
 
-   ```powershell
-   cmd /c mklink "<대상 경로>" "<소스 절대경로>"
-   ```
+| Mode | Trigger | Flow |
+|------|---------|------|
+| **Fleet Action** | Alt+1 (Active Protocol) | PI handles directly (no sub-agents) — Standard workflow |
+| **Tool delegation** | PI's own judgment | PI → tool_call(any carrier) → sub-agent result → PI synthesizes |
+| **Bridge (single)** | Alt+H/L → Ctrl+Enter | User → single sub-agent (PI acts as router only, no synthesis) |
 
-   > Windows 환경에서는 PowerShell 5.1의 `New-Item -SymbolicLink` 대신 `cmd /c mklink`을 사용합니다 (개발자 모드 활성화 필요).
+## Operational Protocols & Standing Orders
 
-4. **검증**: 생성된 각 심링크가 올바른 소스를 가리키는지 확인.
+The Admiral extension implements a modular prompt policy system that governs how the host agent (PI) operates. This system is composed of **Standing Orders** and **Protocols**.
+
+### Core Concepts
+
+| Concept | Definition | Scope |
+|---------|------------|-------|
+| **Standing Orders** | Cross-cutting mechanisms always injected into the system prompt. | Global — applies to all sessions and protocols. |
+| **Protocols** | Mutually exclusive workflows that define the current operational mode. | Session-specific — exactly one protocol is always active. |
+
+### Standing Orders
+
+- **Delegation Policy**: Defines how and when PI should delegate tasks to carriers.
+- **Deep Dive**: Strategy for recursive investigation and root-cause analysis.
+- **Always Active**: These are injected into every agent start sequence regardless of the selected protocol.
+
+### Protocols
+
+- **Fleet Action Protocol (Alt+1)**: The default, high-performance workflow for standard operations.
+- **Modular Expansion**: Additional protocols (e.g., specific research or refactoring modes) can be assigned to `Alt+2` through `Alt+9`.
+- **Switching**: Protocols are switched via dedicated hotkeys. Only one protocol can be active at a time; deactivation is not possible (switching only).
+
+### Prompt Structure
+
+The final system prompt delivered to the LLM is synthesized as follows:
+
+```text
+System Prompt
+  + [Toggle] Worldview (via metaphor:worldview)
+  + [Always] Standing Orders (Delegation Policy + Deep Dive + ...)
+  + [Always] Active Protocol (Fleet Action Protocol, etc.)
+  + [Always] request_directive guide
+```
+
+### UI & UX Integration
+
+- **Editor Border Color**: The editor's border color changes based on the active protocol (communicated via `globalThis.__pi_hud_editor_border_color__`).
+- **aboveEditor Widget**: Displays the active protocol label (e.g., `⚓ Fleet Action Protocol`) above the input field.
+- **Settings Popup (Alt+/)**: The "Admiral" section allows manual selection of the `activeProtocol` and toggling of the `worldview`.
+
+### Key Bindings
+
+| Key | Protocol / Action |
+|-----|-------------------|
+| **Alt+1** | Switch to Fleet Action Protocol |
+| **Alt+2~9** | Switch to dynamically assigned protocols |
+| **Alt+/** | Open Settings (to configure Admiral parameters) |
+
+## Fleet Architecture (Metaphor)
+
+
+- **Sub-agents are fully independent** — PI provides only background, objectives, and constraints. Never prescribe implementation details.
+- **Sub-agents are unaware of each other** — Cross-analysis is performed solely by PI after all responses are collected.
+- **Communication layer**: `runAgentRequest()` → `executeWithPool()` → ACP stdio (all CLIs use the same protocol).
+
+## PI TUI Layout & Terminology
+
+PI renders a vertical stack of **zones**. Extensions customize these zones via official TUI APIs.
+
+```
+┌──────────────────────────────────┐
+│  Header                          │  built-in
+├──────────────────────────────────┤
+│  Messages                        │  built-in · registerMessageRenderer()
+├──────────────────────────────────┤
+│  Widget:above                    │  setWidget()
+├──────────────────────────────────┤
+│  Editor                          │  setEditorComponent()
+├──────────────────────────────────┤
+│  Widget:below                    │  setWidget()
+├──────────────────────────────────┤
+│  Footer                          │  setFooter()
+└──────────────────────────────────┘
+  Overlay                            ctx.ui.custom() — floating
+```
+
+### Canonical Terms
+
+| Term | Zone | Owner | Notes |
+|------|------|-------|-------|
+| **Header** | Header | pi | Startup info, badges |
+| **Messages** | Messages | pi | Conversation, tool calls/results, custom messages |
+| **Editor** | Editor | `core/hud` | User input (HUD replaces default) |
+| **Footer** | Footer | `core/hud` | Bottom tokens — dir, session, cost, model (HUD replaces default) |
+| **Status Bar** | Widget:above | `core/hud` | Segment-based status line above Editor |
+| **Agent Panel** | Custom UI | `fleet` | Carrier streaming UI — exclusive / multi-column / compact view |
+| **Streaming Widget** | Widget | `fleet` | 1-line compact indicator when Agent Panel is collapsed |
+| **Overlay** | Overlay | various | Floating panel — keybind (Alt+.), settings (Alt+/), welcome |
+
+### Rules
+
+- Use the **canonical terms** above in all code comments, docs, and AGENTS.md files.
+- When an extension contributes UI, note which **zone** and **API** it targets.
+
+## Domain Boundary Rules
+
+> Refer to `extensions/AGENTS.md` for the full cross-layer dependency rules, layer hierarchy, and verification table.
+
+## Slash Command Naming
+
+All slash commands registered by extensions must follow this naming convention.
+
+### Format
+
+```
+fleet:<domain>:<feature>
+```
+
+- **All lowercase** — No uppercase letters, no underscores.
+- **`:` as separator** — Use `:` between segments. Do not use `-`, `_`, or `/`.
+- **Exactly 3 segments** — `fleet` prefix + domain + feature. Do not nest further.
+
+### Domain Assignment
+
+Each extension maps to exactly one domain. Use the domain below for all commands registered by that extension.
+
+| Extension | Domain | Rationale |
+|-----------|--------|-----------|
+| `fleet/` | `agent` | Sub-agent orchestration features |
+| `fleet/admiral/` | `admiral` | Host-agent prompt policy, protocols, and operational doctrine |
+| `metaphor/` | `metaphor` | Naval Fleet "Persona" prompts and worldview management |
+| `fleet/carriers/` | `carrier` | Individual carrier registration and configuration |
+| `core/hud/` | `hud` | HUD / editor display features |
+| `core/improve-prompt/` | `prompt` | Meta-prompt model and reasoning settings |
+| `core/summarize/` | `summary` | Session summarization settings |
+When adding a **new extension**, assign a domain that reflects the **feature category**, not the directory prefix (`core-`, etc.).
+
+### Feature Naming
+
+- Use a **verb or noun** that describes the action or target — e.g., `status`, `editor`, `models`, `settings`, `worldview`.
+- Prefer short, unambiguous words. Avoid abbreviations (`settings` not `cfg`, `status` not `stat`).
+- `settings` — reserved for commands that open a configuration UI for that domain.
+- `run` — reserved for manual re-trigger of an automated behavior (e.g., re-summarize on demand).
+
+### Conflict Prevention
+
+- The `fleet:` prefix is **reserved for this project**. Never register commands without it.
+- Domain names are shared across extensions — coordinate to avoid feature name collisions within a domain.
+
+### When to Apply
+
+- Apply this naming from the **first `registerCommand` call** in a new extension — do not rename later.
+- Commands without the `fleet:` prefix must be renamed before they are merged into active extensions.
+
+## TypeScript File Structure
+
+All `.ts` source files must follow this top-to-bottom declaration order:
+
+```
+imports → types/interfaces → constants → functions
+```
+
+- **Imports** — external packages first, then internal modules.
+- **Types / Interfaces** — `interface` and `type` declarations only; no logic.
+- **Constants** — `const` declarations. Module-private constants are `const` (unexported); public ones are `export const`.
+- **Functions** — exported functions first, then internal helpers at the bottom.
+
+Do **not** interleave constants and functions, or declare types mid-file.
+
+## Git Guidelines
+
+- **Commit Message Format:** Strictly adhere to the [Conventional Commits](https://www.conventionalcommits.org/) specification.
+  - Allowed types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`.
+- **Language:** All commit messages **MUST be written in English**.

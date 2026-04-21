@@ -1,0 +1,302 @@
+import { describe, expect, it, vi, beforeEach } from "vitest";
+
+import { StatusOverlayController } from "../bridge/carrier-ui/status-overlay-controller.js";
+import type {
+  CarrierCliType,
+  CarrierStatusEntry,
+  CliModelInfo,
+  ModelSelection,
+} from "../bridge/carrier-ui/types.js";
+import type { CarrierConfig } from "../shipyard/carrier/types.js";
+
+interface TestState {
+  configs: Map<string, CarrierConfig>;
+  currentSelections: Record<string, (ModelSelection & { direct?: boolean }) | undefined>;
+  entries: CarrierStatusEntry[];
+  perCliSettings: Map<string, { model?: string; effort?: string; budgetTokens?: number; direct?: boolean }>;
+  providers: Record<CarrierCliType, CliModelInfo>;
+}
+
+function makeCarrierConfig(
+  id: string,
+  cliType: CarrierCliType,
+  defaultCliType: CarrierCliType = cliType,
+): CarrierConfig {
+  return {
+    id,
+    cliType,
+    defaultCliType,
+    slot: 1,
+    displayName: id,
+    color: "",
+  } as CarrierConfig;
+}
+
+function makeEntry(
+  carrierId: string,
+  cliType: CarrierCliType,
+  defaultCliType: CarrierCliType = cliType,
+): CarrierStatusEntry {
+  return {
+    carrierId,
+    slot: 1,
+    cliType,
+    defaultCliType,
+    displayName: carrierId,
+    model: `${cliType}-model`,
+    isDefault: true,
+    effort: null,
+    budgetTokens: null,
+    role: null,
+    roleDescription: null,
+    isSortieEnabled: true,
+    isSquadronEnabled: false,
+    taskForceBackendCount: 0,
+  };
+}
+
+function makeProviders(): Record<CarrierCliType, CliModelInfo> {
+  return {
+    claude: {
+      defaultModel: "claude-default",
+      models: [
+        { modelId: "claude-default", name: "Claude Default" },
+        { modelId: "claude-saved", name: "Claude Saved" },
+      ],
+      reasoningEffort: {
+        supported: true,
+        levels: ["low", "high"],
+        default: "low",
+      },
+      defaultBudgetTokens: {
+        low: 4000,
+        high: 8000,
+      },
+    },
+    codex: {
+      defaultModel: "codex-default",
+      models: [
+        { modelId: "codex-default", name: "Codex Default" },
+        { modelId: "codex-saved", name: "Codex Saved" },
+      ],
+      reasoningEffort: {
+        supported: true,
+        levels: ["medium", "high"],
+        default: "medium",
+      },
+    },
+    gemini: {
+      defaultModel: "gemini-default",
+      models: [
+        { modelId: "gemini-default", name: "Gemini Default" },
+        { modelId: "gemini-saved", name: "Gemini Saved" },
+      ],
+      reasoningEffort: {
+        supported: false,
+      },
+    },
+  };
+}
+
+function createController(state: TestState) {
+  const savePerCliSettings = vi.fn((carrierId: string, cliType: CarrierCliType, selection: any) => {
+    state.perCliSettings.set(`${carrierId}:${cliType}`, selection);
+  });
+  const updateCarrierCliType = vi.fn((carrierId: string, cliType: CarrierCliType) => {
+    const config = state.configs.get(carrierId);
+    const entry = state.entries.find((item) => item.carrierId === carrierId);
+    if (config) config.cliType = cliType;
+    if (entry) entry.cliType = cliType;
+  });
+  const updateModelSelection = vi.fn(async (carrierId: string, selection: ModelSelection & { direct?: boolean }) => {
+    state.currentSelections[carrierId] = selection;
+    const entry = state.entries.find((item) => item.carrierId === carrierId);
+    if (entry) {
+      entry.model = selection.model;
+      entry.effort = selection.effort ?? null;
+      entry.budgetTokens = selection.budgetTokens ?? null;
+    }
+  });
+  const refreshAgentPanel = vi.fn();
+  const syncModelConfig = vi.fn();
+  const notifyStatusUpdate = vi.fn();
+  const saveCliTypeOverrides = vi.fn();
+
+  const controller = new StatusOverlayController({
+    getEntries: () => state.entries,
+    getRegisteredOrder: () => [...state.configs.keys()],
+    getRegisteredCarrierConfig: (carrierId) => state.configs.get(carrierId),
+    getCurrentModelSelection: (carrierId) => state.currentSelections[carrierId],
+    getAvailableModels: (cliType) => state.providers[cliType],
+    getPerCliSettings: (carrierId, cliType) => state.perCliSettings.get(`${carrierId}:${cliType}`),
+    savePerCliSettings,
+    updateCarrierCliType,
+    updateModelSelection,
+    refreshAgentPanel,
+    syncModelConfig,
+    notifyStatusUpdate,
+    saveCliTypeOverrides,
+  });
+
+  return {
+    controller,
+    spies: {
+      notifyStatusUpdate,
+      refreshAgentPanel,
+      saveCliTypeOverrides,
+      savePerCliSettings,
+      syncModelConfig,
+      updateCarrierCliType,
+      updateModelSelection,
+    },
+  };
+}
+
+describe("StatusOverlayController", () => {
+  let state: TestState;
+
+  beforeEach(() => {
+    state = {
+      configs: new Map([
+        ["alpha", makeCarrierConfig("alpha", "claude", "claude")],
+        ["beta", makeCarrierConfig("beta", "codex", "codex")],
+        ["gamma", makeCarrierConfig("gamma", "gemini", "claude")],
+      ]),
+      currentSelections: {
+        alpha: { model: "claude-current", effort: "high", budgetTokens: 9000, direct: true },
+        beta: { model: "codex-current", effort: "high" },
+        gamma: { model: "gemini-current" },
+      },
+      entries: [
+        makeEntry("alpha", "claude", "claude"),
+        makeEntry("beta", "codex", "codex"),
+        makeEntry("gamma", "gemini", "claude"),
+      ],
+      perCliSettings: new Map(),
+      providers: makeProviders(),
+    };
+  });
+
+  it("changeCliType는 saved per-CLI 값이 있으면 saved model/effort를 반환한다", async () => {
+    state.perCliSettings.set("alpha:codex", {
+      model: "codex-saved",
+      effort: "high",
+    });
+    const { controller, spies } = createController(state);
+
+    const result = await controller.changeCliType("alpha", "codex");
+
+    expect(result).toEqual({
+      model: "codex-saved",
+      effort: "high",
+      isDefault: false,
+      budgetTokens: null,
+    });
+    expect(spies.updateModelSelection).toHaveBeenCalledWith("alpha", {
+      model: "codex-saved",
+      effort: "high",
+      budgetTokens: undefined,
+      direct: undefined,
+    });
+    expect(spies.savePerCliSettings).toHaveBeenCalledWith("alpha", "claude", {
+      model: "claude-current",
+      effort: "high",
+      budgetTokens: 9000,
+      direct: true,
+    });
+  });
+
+  it("changeCliType는 saved 값이 없으면 defaultModel과 기본 effort를 반환한다", async () => {
+    const { controller, spies } = createController(state);
+
+    const result = await controller.changeCliType("beta", "claude");
+
+    expect(result).toEqual({
+      model: "claude-default",
+      effort: "low",
+      isDefault: true,
+      budgetTokens: 4000,
+    });
+    expect(spies.updateModelSelection).toHaveBeenCalledWith("beta", {
+      model: "claude-default",
+      effort: "low",
+      budgetTokens: 4000,
+      direct: undefined,
+    });
+  });
+
+  it("changeCliTypes는 여러 캐리어에 대한 일괄 전환 결과를 반환한다", async () => {
+    state.perCliSettings.set("alpha:gemini", {
+      model: "gemini-saved",
+    });
+    const { controller } = createController(state);
+
+    const results = await controller.changeCliTypes([
+      { carrierId: "alpha", newCliType: "gemini" },
+      { carrierId: "beta", newCliType: "claude" },
+    ]);
+
+    expect(results).toEqual([
+      {
+        carrierId: "alpha",
+        newCliType: "gemini",
+        selection: {
+          model: "gemini-saved",
+          effort: null,
+          isDefault: false,
+          budgetTokens: null,
+        },
+      },
+      {
+        carrierId: "beta",
+        newCliType: "claude",
+        selection: {
+          model: "claude-default",
+          effort: "low",
+          isDefault: true,
+          budgetTokens: 4000,
+        },
+      },
+    ]);
+  });
+
+  it("resetCliTypesToDefault는 UI 스냅샷과 무관하게 framework 기준으로 defaultCliType 복원을 수행한다", async () => {
+    state.configs.get("gamma")!.cliType = "gemini";
+    state.entries.find((entry) => entry.carrierId === "gamma")!.cliType = "claude";
+    state.perCliSettings.set("gamma:claude", {
+      model: "claude-saved",
+      effort: "high",
+      budgetTokens: 8000,
+    });
+    const { controller, spies } = createController(state);
+
+    const results = await controller.resetCliTypesToDefault();
+
+    expect(results).toEqual([
+      {
+        carrierId: "gamma",
+        newCliType: "claude",
+        selection: {
+          model: "claude-saved",
+          effort: "high",
+          isDefault: false,
+          budgetTokens: 8000,
+        },
+      },
+    ]);
+    expect(spies.updateCarrierCliType).toHaveBeenCalledTimes(1);
+    expect(state.configs.get("gamma")?.cliType).toBe("claude");
+  });
+
+  it("changeCliType 실패 시 framework cliType을 롤백하고 override를 재저장한다", async () => {
+    const { controller, spies } = createController(state);
+    spies.updateModelSelection.mockRejectedValueOnce(new Error("boom"));
+
+    await expect(controller.changeCliType("alpha", "codex")).rejects.toThrow("boom");
+
+    expect(state.configs.get("alpha")?.cliType).toBe("claude");
+    expect(spies.updateCarrierCliType).toHaveBeenNthCalledWith(1, "alpha", "codex");
+    expect(spies.updateCarrierCliType).toHaveBeenNthCalledWith(2, "alpha", "claude");
+    expect(spies.saveCliTypeOverrides).toHaveBeenCalledTimes(2);
+  });
+});
