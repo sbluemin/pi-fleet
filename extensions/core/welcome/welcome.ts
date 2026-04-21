@@ -1,10 +1,12 @@
 import { execSync } from "node:child_process";
 import { readdirSync, existsSync, statSync } from "node:fs";
-import { join, basename } from "node:path";
+import { join, basename, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { Component } from "@mariozechner/pi-tui";
 import { visibleWidth } from "@mariozechner/pi-tui";
 // ── welcome 전용 ANSI 색상 헬퍼 (HUD colors.ts 비의존) ──
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const ANSI_RESET = "\x1b[0m";
 
 /** 색상 이름 → ANSI 코드 매핑 (welcome에서 사용하는 색상만) */
@@ -311,13 +313,13 @@ export function discoverLoadedCounts(): LoadedCounts {
 export function checkGitUpdateStatus(): GitUpdateStatus {
   try {
     const branch = execSync("git rev-parse --abbrev-ref HEAD", {
-      cwd: process.cwd(),
+      cwd: __dirname,
       encoding: "utf-8",
       stdio: ["ignore", "pipe", "ignore"],
     }).trim();
 
     const behindRaw = execSync("git rev-list HEAD..@{u} --count", {
-      cwd: process.cwd(),
+      cwd: __dirname,
       encoding: "utf-8",
       stdio: ["ignore", "pipe", "ignore"],
     }).trim();
