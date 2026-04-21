@@ -1,5 +1,5 @@
 import { execSync } from "node:child_process";
-import { readdirSync, existsSync, statSync } from "node:fs";
+import { readdirSync, existsSync, statSync, readFileSync } from "node:fs";
 import { join, basename, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Component } from "@mariozechner/pi-tui";
@@ -50,6 +50,7 @@ export interface GitUpdateStatus {
   behind: number;
   branch: string;
   hasRemote: boolean;
+  version?: string;
 }
 
 interface WelcomeData {
@@ -58,6 +59,10 @@ interface WelcomeData {
   recentSessions: RecentSession[];
   loadedCounts: LoadedCounts;
   gitUpdate?: GitUpdateStatus;
+}
+
+interface FleetPackageJson {
+  version?: unknown;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -311,6 +316,8 @@ export function discoverLoadedCounts(): LoadedCounts {
 }
 
 export function checkGitUpdateStatus(): GitUpdateStatus {
+  const version = readFleetVersion();
+
   try {
     const branch = execSync("git rev-parse --abbrev-ref HEAD", {
       cwd: __dirname,
@@ -330,9 +337,10 @@ export function checkGitUpdateStatus(): GitUpdateStatus {
       behind: Number.isFinite(behind) ? behind : 0,
       branch,
       hasRemote: true,
+      version,
     };
   } catch {
-    return { behind: 0, branch: "", hasRemote: false };
+    return { behind: 0, branch: "", hasRemote: false, version };
   }
 }
 
@@ -397,6 +405,17 @@ export function getRecentSessions(maxCount: number = 3): RecentSession[] {
   }));
 }
 
+function readFleetVersion(): string {
+  try {
+    const packageJsonPath = join(__dirname, "..", "..", "..", "package.json");
+    if (!existsSync(packageJsonPath)) return "";
+
+    const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf-8")) as FleetPackageJson;
+    return typeof packageJson.version === "string" ? packageJson.version : "";
+  } catch {
+    return "";
+  }
+}
 
 
 function bold(text: string): string {
@@ -518,13 +537,18 @@ function buildFleetInfo(data: WelcomeData, colWidth: number): string[] {
 
   const updateLines: string[] = [];
   if (data.gitUpdate && data.gitUpdate.hasRemote) {
+    const currentVersion = data.gitUpdate.version ? `v${data.gitUpdate.version}` : "";
     updateLines.push(separator);
     if (data.gitUpdate.behind > 0) {
       const remoteBranch = data.gitUpdate.branch ? `origin/${data.gitUpdate.branch}` : "remote";
       updateLines.push(` ${bold(fgOnly("warn", "⚠ Update available"))}`);
       updateLines.push(` ${dim(`${data.gitUpdate.behind} commits behind ${remoteBranch}`)}`);
+      if (currentVersion) {
+        updateLines.push(` ${dim(`Current: ${currentVersion}`)}`);
+      }
     } else {
-      updateLines.push(` ${checkmark()} ${fgOnly("gitClean", `Up to date (${data.gitUpdate.branch})`)}`);
+      const versionSuffix = currentVersion ? ` · ${currentVersion}` : "";
+      updateLines.push(` ${checkmark()} ${fgOnly("gitClean", `Up to date (${data.gitUpdate.branch})${versionSuffix}`)}`);
     }
   }
 
