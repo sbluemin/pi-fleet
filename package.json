@@ -5,8 +5,6 @@
   "workspaces": [
     "packages/unified-agent",
     "extensions/core",
-    "extensions/core/agentclientprotocol",
-    "extensions/core/shell",
     "extensions/fleet"
   ],
   "scripts": {
