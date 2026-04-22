@@ -77,23 +77,28 @@ export class BaseConnection extends EventEmitter {
   protected spawnRawProcess(): ChildProcess {
     this.setState('connecting');
 
-    // Windows에서 .cmd 래퍼(npx.cmd, gemini.cmd 등)를 실행하려면 cmd.exe가 필요합니다.
-    // shell: true를 사용하면 Node.js가 내부적으로 cmd.exe /d /s /c "..." 형태로 감싸면서
-    // windowsVerbatimArguments=true를 강제하고 stdio 파이프가 불안정해집니다 (EPIPE).
-    // cmd.exe /c를 직접 spawn(shell: false)하면 Node.js 기본 인자 이스케이프가 적용되어
-    // stdio 파이프가 안정적으로 동작합니다.
-    const command = isWindows()
-      ? ((this.env.ComSpec as string) ?? 'cmd.exe')
-      : this.command;
-    const args = isWindows()
-      ? ['/c', this.command, ...this.args]
-      : this.args;
-
-    const child = spawn(command, args, {
-      cwd: this.cwd,
-      stdio: ['pipe', 'pipe', 'pipe'],
-      env: this.env as NodeJS.ProcessEnv,
-    });
+    // Windows에서 .cmd 래퍼(npx.cmd, gemini.cmd 등)를 실행하려면 cmd.exe를 경유해야 합니다.
+    // cmd.exe /C 단순 래핑은 경로에 공백이 있을 때(예: C:\Program Files\nodejs\npx.cmd)
+    // cmd의 quote-stripping 규칙에 따라 바깥 따옴표가 벗겨져 명령이 공백에서 끊깁니다.
+    // 이를 회피하려면 cmd.exe /S /C ""<cmd>" <args>" 관용구와 windowsVerbatimArguments를
+    // 함께 사용해 cmd가 바깥쪽 이중 따옴표만 벗기고 내부 인용은 보존하도록 합니다.
+    // 또한 cmd는 MSVCRT식 `\"` 이스케이프를 인식하지 않으므로 내부 `"`는 `""`로 이중화합니다.
+    const child = isWindows()
+      ? spawn(
+          (this.env.ComSpec as string) ?? 'cmd.exe',
+          buildWindowsCmdArgs(this.command, this.args),
+          {
+            cwd: this.cwd,
+            stdio: ['pipe', 'pipe', 'pipe'],
+            env: this.env as NodeJS.ProcessEnv,
+            windowsVerbatimArguments: true,
+          },
+        )
+      : spawn(this.command, this.args, {
+          cwd: this.cwd,
+          stdio: ['pipe', 'pipe', 'pipe'],
+          env: this.env as NodeJS.ProcessEnv,
+        });
 
     this.childExitPromise = new Promise<void>((resolve) => {
       child.once('exit', () => {
@@ -255,4 +260,32 @@ export class BaseConnection extends EventEmitter {
       }),
     ]);
   }
+}
+
+/**
+ * 단일 토큰을 cmd.exe의 인용 규칙에 맞게 감쌉니다.
+ * 공백, `"`, cmd-특수문자(`& < > ( ) @ ^ |`)를 포함하면 외곽을 `"..."`로 감싸고
+ * 내부의 `"`는 `""`로 이중화하여 cmd 내부에서 리터럴로 보존되게 합니다.
+ * 빈 문자열은 `""`로 반환해 인자 소실을 방지합니다.
+ */
+function quoteForCmd(token: string): string {
+  if (token === '') {
+    return '""';
+  }
+  if (!/[\s"&<>()@^|]/.test(token)) {
+    return token;
+  }
+  return `"${token.replace(/"/g, '""')}"`;
+}
+
+/**
+ * `cmd.exe /S /C ""<cmd>" <args>"` 호출에 필요한 args 배열을 생성합니다.
+ * `/S`는 cmd의 첫/마지막 따옴표 제거 예외 규칙을 끄고, 외곽 이중 따옴표를
+ * 벗긴 뒤 내부 인용은 그대로 보존하게 합니다. spawn 호출 시
+ * windowsVerbatimArguments: true 와 함께 사용해야 Node가 자동 이스케이프로
+ * 구성을 깨뜨리지 않습니다.
+ */
+function buildWindowsCmdArgs(command: string, args: string[]): string[] {
+  const line = [command, ...args].map(quoteForCmd).join(' ');
+  return ['/S', '/C', `"${line}"`];
 }

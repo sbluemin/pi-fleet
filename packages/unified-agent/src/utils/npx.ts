@@ -15,7 +15,8 @@ import { isWindows } from './env.js';
 export function resolveNpxPath(
   env?: Record<string, string | undefined>,
 ): string {
-  const whichCmd = isWindows() ? 'where npx' : 'which npx';
+  const windows = isWindows();
+  const whichCmd = windows ? 'where npx' : 'which npx';
 
   try {
     const result = execSync(whichCmd, {
@@ -25,11 +26,28 @@ export function resolveNpxPath(
       env: env as NodeJS.ProcessEnv,
     }).trim();
 
-    // Windows의 `where`는 여러 줄을 반환할 수 있음 — 첫 번째 결과 사용
-    return result.split('\n')[0].trim();
+    const candidates = result
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+
+    if (windows) {
+      // Windows의 `where`는 확장자 없는 shell script(`npx`)와 `npx.cmd`를 함께 반환합니다.
+      // 단독 실행 가능한 배치/실행 파일만 선별해 우선 사용합니다.
+      const executable = candidates.find((p) => /\.(cmd|bat|exe)$/i.test(p));
+      if (executable) {
+        return executable;
+      }
+    }
+
+    if (candidates.length > 0) {
+      return candidates[0];
+    }
+
+    return windows ? 'npx.cmd' : 'npx';
   } catch {
     // PATH가 정제된 환경에서는 기본 경로 시도
-    if (isWindows()) {
+    if (windows) {
       return 'npx.cmd';
     }
     return 'npx';

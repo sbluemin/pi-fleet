@@ -1,6 +1,6 @@
 {
   "name": "@sbluemin/unified-agent",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Codex CLI, Claude Code, Gemini CLI를 통합하는 TypeScript 기반 SDK",
   "bin": {
