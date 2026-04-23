@@ -1,23 +1,58 @@
 # Changelog
 
+All notable changes to this project will be documented in this file.
+This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
 ## [Unreleased]
-- **Refactor**: Redesigned ACP↔MCP bridge with a robust queue/router model
-  - Implemented per-session FIFO tool-call queues and Bearer token isolation for the singleton MCP server.
-  - Extended router lifetime to persist across `done="toolUse"` handoffs within the same logical prompt.
-  - Added explicit terminal cleanup logic to detach routers and fail stale requests on `stop`, `error`, or `abort`.
-  - Switched to a single-instance HTTP server with UUID-based opaque paths for enhanced security and efficiency.
-- **Breaking**: Completely removed `Alt+1~9` individual carrier shortcuts
-- **Feature**: Added Git remote update detection to `welcome` extension
-  - Automatically checks if the current branch is behind its remote tracking branch
-  - Displays `✓ Up to date (branch)` in green (#A8D08D) when synchronized
-  - Displays `⚠ Update available` in orange (#FFB347) with commit count when behind
-- **Feature**: Introduced inline slot navigation
-  - `Alt+H / Alt+L`: Move cursor to left/right slots within the Fleet Bridge panel
-  - `Ctrl+Enter`: Immediately activate the carrier at the current cursor position in Exclusive mode
-- **Feature**: Introduced Dynamic CliType Overrides
-  - Press `c` key in `Alt+O` (Fleet Status Overlay) to immediately change the CLI type (Claude/Codex/Gemini) of a specific carrier
-  - Changed settings are permanently saved in `states.json` and maintained after session restart
-  - Changes to CLI type are immediately reflected in the model's theme color and sorting order
-- **UX**: Added visual highlight to the cursor position slot (`▸` prefix + highlight color)
-- Merged unified-agent-status functionality into the status subpackage inside unified-agent-direct, and cleaned up to display each CLI status inline in the footer
-- Added basic functionality
+
+## [0.1.1] - 2026-04-23
+
+### Added
+- MCP keepalive mechanism (`provider-mcp.ts`): improved MCP server connection stability
+- `diagnostics` extension extracted as a standalone module (`extensions/diagnostics/`): dedicated `dummy-arith` diagnostic tool
+- Fleet version display in Welcome screen update status line (e.g., `Up to date (main) · v0.1.1`)
+- ACP↔MCP bridge redesigned with a robust queue/router model
+  - Per-session FIFO tool-call queues and Bearer token isolation for the singleton MCP server
+  - Router lifetime preserved across `done="toolUse"` handoffs within the same logical prompt
+  - Explicit cleanup logic on `stop`, `error`, or `abort`
+  - Single-instance HTTP server with UUID-based opaque paths
+
+### Changed
+- Upgraded `pi-sdk` to 0.69 (`package.json`)
+- Consolidated sub-package `package-lock.json` files (`core/agentclientprotocol`, `core`, `core/shell`, `fleet`) into the root and removed them
+- Updated `SETUP.md` to reflect project setup and structural changes
+
+### Fixed
+- Windows: fixed Codex/Claude CLI `spawn` path error (`packages/unified-agent/src/utils/npx.ts`, `BaseConnection.ts`)
+- Welcome extension: use `import.meta.url`-based `__dirname` instead of `process.cwd()` for git update check (`extensions/core/welcome/welcome.ts`)
+
+## [0.1.0] - 2026-04-22
+
+Initial release.
+
+### Added
+- **unified-agent package** (`packages/unified-agent/`): unified CLI agent SDK supporting Claude, Codex, and Gemini
+  - Core components: `AcpConnection`, `UnifiedAgentClient`, `ProcessPool`, `ModelRegistry`
+- **Core extensions** (`extensions/core/`):
+  - `agentclientprotocol`: ACP↔MCP bridge and tool-call management
+  - `hud`: status bar customization (colors, editor state, git status, etc.)
+  - `welcome`: welcome screen and Git remote update detection (`✓ Up to date`, `⚠ Update available`)
+  - `keybind`, `settings`, `shell`, `log`, `summarize`, `improve-prompt`, `thinking-timer`: system utilities
+- **Fleet extensions** (`extensions/fleet/`):
+  - `admiral`: Admiral prompt system and Standing Orders
+  - `bridge`: Fleet Bridge panel UI
+    - Inline slot navigation: `Alt+H`/`Alt+L` (move), `Ctrl+Enter` (activate immediately)
+    - Visual cursor highlight (`▸` prefix + highlight color)
+    - Dynamic CliType Overrides: change CLI type instantly with `c` key in `Alt+O` overlay; saved permanently to `states.json`
+  - `carriers`: 7 carrier definitions — Athena, Genesis, Oracle, Sentinel, Vanguard, Echelon, Chronicle
+  - `shipyard`: Carrier sortie, Squadron, and Taskforce management
+- **Grand Fleet extension** (`extensions/grand-fleet/`): centralized control of multiple PI instances with JSON-RPC IPC
+- **Metaphor extension** (`extensions/metaphor/`): persona and worldview system
+- **Boot extension** (`extensions/boot/`): system bootstrap entry point
+
+### Removed
+- Legacy modules removed: `unified-agent-core`, `unified-agent-direct`, `unified-agent-tools`, `utils-improve-prompt`, `utils-summarize`
+- HUD legacy consolidation: `hud-core`, `hud-editor`, `hud-welcome` merged into `core/hud`
+
+### Breaking Changes
+- Removed `Alt+1~9` individual carrier shortcut keys (replaced by Fleet Bridge navigation)

@@ -230,3 +230,9 @@ Do **not** interleave constants and functions, or declare types mid-file.
 - **Commit Message Format:** Strictly adhere to the [Conventional Commits](https://www.conventionalcommits.org/) specification.
   - Allowed types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`.
 - **Language:** All commit messages **MUST be written in English**.
+
+## Changelog Guidelines
+
+- **Language:** `CHANGELOG.md` **MUST be written entirely in English** — entries, descriptions, and all prose.
+- **Format:** Follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions (`Added`, `Changed`, `Fixed`, `Removed`, `Breaking Changes` subsections).
+- **Versioning:** Each release maps to a git tag (e.g., `## [0.1.1] - YYYY-MM-DD`). The `[Unreleased]` section stays empty until the next release is cut.
