@@ -187,20 +187,24 @@ export function setupCustomEditor(ctx: any, state: HudEditorState): void {
         invalidate() {},
         render(width: number): string[] {
           if (!state.currentCtx) return [];
-          const layout = getResponsiveLayout(width, theme, state);
-          const lines: string[] = [];
+          // pi 0.69: 세션 교체/종료 직후 stale ctx 접근 시 sessionManager getter가 throw.
+          // 마지막 render tick이 teardown과 레이스할 수 있으므로 방어적으로 무시.
+          try {
+            const layout = getResponsiveLayout(width, theme, state);
+            const lines: string[] = [];
 
-          // 상태바 (중앙 정렬)
-          if (layout.topContent) {
-            lines.push(centerLine(` ${layout.topContent}`, width));
+            if (layout.topContent) {
+              lines.push(centerLine(` ${layout.topContent}`, width));
+            }
+
+            if (layout.secondaryContent) {
+              lines.push(centerLine(` ${layout.secondaryContent}`, width));
+            }
+
+            return lines;
+          } catch {
+            return [];
           }
-
-          // 오버플로우 세그먼트
-          if (layout.secondaryContent) {
-            lines.push(centerLine(` ${layout.secondaryContent}`, width));
-          }
-
-          return lines;
         },
       };
     }, { placement: "belowEditor" });
@@ -212,22 +216,26 @@ export function setupCustomEditor(ctx: any, state: HudEditorState): void {
         invalidate() {},
         render(width: number): string[] {
           if (!state.currentCtx) return [];
+          // pi 0.69 stale ctx 방어 — 상태바와 동일 레이스 윈도우.
+          try {
+            const statuses = state.footerDataRef?.getExtensionStatuses();
+            if (!statuses || statuses.size === 0) return [];
 
-          const statuses = state.footerDataRef?.getExtensionStatuses();
-          if (!statuses || statuses.size === 0) return [];
-
-          const notifications: string[] = [];
-          for (const value of statuses.values()) {
-            if (value && value.trimStart().startsWith('[')) {
-              const lineContent = ` ${value}`;
-              const contentWidth = visibleWidth(lineContent);
-              if (contentWidth <= width) {
-                notifications.push(centerLine(lineContent, width));
+            const notifications: string[] = [];
+            for (const value of statuses.values()) {
+              if (value && value.trimStart().startsWith('[')) {
+                const lineContent = ` ${value}`;
+                const contentWidth = visibleWidth(lineContent);
+                if (contentWidth <= width) {
+                  notifications.push(centerLine(lineContent, width));
+                }
               }
             }
-          }
 
-          return notifications;
+            return notifications;
+          } catch {
+            return [];
+          }
         },
       };
     }, { placement: "belowEditor" });
