@@ -18,7 +18,7 @@
  * renderResult는 빈 컴포넌트를 반환하여 중복 표시를 방지합니다.
  */
 
-import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionContext, Theme } from "@mariozechner/pi-coding-agent";
 import type { CliType } from "@sbluemin/unified-agent";
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
@@ -177,8 +177,9 @@ export function buildSortieToolConfig() {
     parameters: buildSortieToolSchema(enabledIds),
 
     // ── renderCall: 스트리밍 콘텐츠 + 최종 결과까지 통합 표시 ──
-    renderCall(args: { carriers?: CarrierAssignment[] }, theme: any, context?: SortieRenderContext) {
-      const entries = args.carriers ?? [];
+    renderCall(args: unknown, theme: Theme, context: any) {
+      const typedArgs = args as { carriers?: CarrierAssignment[] };
+      const entries = typedArgs.carriers ?? [];
       const component = context?.lastComponent instanceof SortieCallComponent
         ? context.lastComponent
         : new SortieCallComponent();

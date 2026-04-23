@@ -3,6 +3,12 @@
   "type": "module",
   "private": true,
   "dependencies": {
-    "@sbluemin/unified-agent": "file:../../packages/unified-agent"
+    "@mariozechner/pi-ai": "^0.69.0",
+    "@mariozechner/pi-coding-agent": "^0.69.0",
+    "@mariozechner/pi-tui": "^0.69.0",
+    "@sbluemin/unified-agent": "file:../../packages/unified-agent",
+    "@xterm/addon-serialize": "^0.13.0",
+    "@xterm/headless": "^5.5.0",
+    "node-pty": "^1.1.0"
   }
 }

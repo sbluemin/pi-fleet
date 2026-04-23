@@ -28,7 +28,7 @@ import { getFocusedCarrierId } from "../../bridge/panel/state.js";
 import { getKeybindAPI } from "../../../core/keybind/bridge.js";
 import {
   CLI_DISPLAY_NAMES,
-} from "../../constants";
+} from "../../constants.js";
 
 /** 모델 설정을 런타임에서 읽어 패널 footer에 반영합니다. */
 export function syncModelConfig(): void {

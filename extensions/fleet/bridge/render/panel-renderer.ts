@@ -15,14 +15,14 @@ import {
   PANEL_COLOR,
   PANEL_DIM_COLOR,
   SYM_INDICATOR,
-} from "../../constants";
+} from "../../constants.js";
 import {
   resolveCarrierColor,
   resolveCarrierBgColor,
   resolveCarrierRgb,
   resolveCarrierDisplayName,
 } from "../../shipyard/carrier/framework.js";
-import { renderBlockLines, blockLineToAnsi } from "./block-renderer";
+import { renderBlockLines, blockLineToAnsi } from "./block-renderer.js";
 
 import type { AgentCol } from "../panel/types.js";
 

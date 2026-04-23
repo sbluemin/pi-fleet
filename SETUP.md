@@ -13,6 +13,10 @@ npm install -g @mariozechner/pi-coding-agent
 
 ## 1. Clone the repository
 
+Before cloning, ask the user whether it is okay to clone the repository under the current working directory. If not, ask for the desired parent directory and clone it there instead.
+
+> The example below assumes the current directory has been approved by the user.
+
 ```bash
 git clone https://github.com/sbluemin/pi-fleet.git
 cd pi-fleet
@@ -21,27 +25,16 @@ cd pi-fleet
 ## 2. Install dependencies
 
 ```bash
-# Install all workspace dependencies from the repository root
+# Install all workspace dependencies from the repository root.
+# The root postinstall hook also builds packages/unified-agent.
 npm install
-
-# Build the shared workspace package used by the extensions
-npm run build -w packages/unified-agent
-
-# Workaround: npm 10.x skips deps for workspaces nested inside another
-# workspace (`extensions/core/shell`, `extensions/core/agentclientprotocol`
-# live under the `extensions/core` workspace). Install them directly until
-# the workspace layout is flattened.
-npm install --workspaces=false --install-strategy=nested --prefix extensions/core/shell
-npm install --workspaces=false --install-strategy=nested --prefix extensions/core/agentclientprotocol
 ```
 
-> The repository uses npm workspaces, so the root `npm install` installs dependencies for `packages/unified-agent`, `extensions/core`, and `extensions/fleet`.
+> The repository uses npm workspaces, and the root install is the single setup entry point.
 >
-> Run `npm run build -w packages/unified-agent` after installing dependencies so `packages/unified-agent/dist/` exists before the extensions consume `@sbluemin/unified-agent`.
+> `npm install` installs the workspace dependencies for `packages/unified-agent`, `extensions/core`, and `extensions/fleet`, then builds `packages/unified-agent/dist/` via the root `postinstall` hook so the extensions can consume `@sbluemin/unified-agent` immediately.
 >
-> `extensions/core/` and `extensions/fleet/` consume `@sbluemin/unified-agent` from the workspace during root install, so no per-package `npm install` step is required for them.
->
-> **Known limitation — nested workspaces.** npm 10.x does not reliably install dependencies for workspaces that live inside another workspace directory. `extensions/core/shell` (declares `node-pty`, `@xterm/*`) and `extensions/core/agentclientprotocol` (declares `@mariozechner/pi-coding-agent`) are registered as workspaces but sit under `extensions/core/`, which is also a workspace. As a result the root `npm install` records their entries in `package-lock.json` yet never creates `extensions/core/shell/node_modules/` nor `extensions/core/agentclientprotocol/node_modules/`, and `pi` fails at startup with `Cannot find module 'node-pty'`. The two explicit commands above install each nested workspace locally with its own `node_modules/`. A future cleanup will flatten the workspace layout so a single `npm install` is sufficient again.
+> `extensions/core/shell` and `extensions/core/agentclientprotocol` are internal modules of the `extensions/core` workspace, so they no longer require separate `npm install` commands.
 
 ## 3. Register extensions in pi settings
 

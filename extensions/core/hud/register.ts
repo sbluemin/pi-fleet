@@ -38,10 +38,7 @@ export default function hudEditor(pi: ExtensionAPI) {
   pi.on("session_start", async (event, ctx) => {
     state.sessionStartTime = Date.now();
     state.currentCtx = ctx;
-
-    if (typeof ctx.getThinkingLevel === "function") {
-      state.getThinkingLevelFn = () => ctx.getThinkingLevel();
-    }
+    state.getThinkingLevelFn = null;
 
     // 상태바는 항상 등록 (state.enabled와 무관, footerDataRef 획득 목적)
     setupStatusBar(ctx, state);

@@ -148,7 +148,7 @@ function getThemePath(): string {
  */
 function loadUserTheme(): ColorScheme {
   const now = Date.now();
-  if (userThemeCache && now - userThemeCacheTime < CACHE_TTL) {
+  if (userThemeCache !== null && now - userThemeCacheTime < CACHE_TTL) {
     return userThemeCache;
   }
 
@@ -157,7 +157,10 @@ function loadUserTheme(): ColorScheme {
     if (existsSync(themePath)) {
       const content = readFileSync(themePath, "utf-8");
       const parsed = JSON.parse(content);
-      userThemeCache = parsed.colors ?? {};
+      userThemeCache =
+        parsed?.colors && typeof parsed.colors === "object"
+          ? parsed.colors as ColorScheme
+          : {};
       userThemeCacheTime = now;
       return userThemeCache;
     }

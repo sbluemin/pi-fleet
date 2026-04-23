@@ -11,7 +11,7 @@ import {
   PANEL_DIM_COLOR,
   SPINNER_FRAMES,
   SYM_INDICATOR,
-} from "../../constants";
+} from "../../constants.js";
 import {
   resolveCarrierColor,
   resolveCarrierDisplayName,
@@ -20,7 +20,7 @@ import {
   isSquadronCarrierEnabled,
 } from "../../shipyard/carrier/framework.js";
 import { getConfiguredTaskForceBackends } from "../../shipyard/store.js";
-import { waveText } from "../render/panel-renderer";
+import { waveText } from "../render/panel-renderer.js";
 import type { AgentCol } from "../panel/types.js";
 
 /** renderCarrierStatus에 필요한 최소 상태 */

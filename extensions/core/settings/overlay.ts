@@ -7,7 +7,7 @@
 
 import type { Component, Focusable } from "@mariozechner/pi-tui";
 import { visibleWidth } from "@mariozechner/pi-tui";
-import type { Theme } from "@mariozechner/pi-coding-agent";
+import type { Theme, ThemeColor } from "@mariozechner/pi-coding-agent";
 
 import type { SectionDisplayConfig } from "./types.js";
 
@@ -61,7 +61,7 @@ export class SettingsOverlay implements Component, Focusable {
     /** "  Label  value" 형태의 설정 행 */
     const settingRow = (label: string, value: string, color: string) => {
       const paddedLabel = " ".repeat(Math.max(0, LABEL_WIDTH - label.length)) + label;
-      return row(`  ${dim(paddedLabel)}  ${this.theme.fg(color, value)}`);
+      return row(`  ${dim(paddedLabel)}  ${this.theme.fg(color as ThemeColor, value)}`);
     };
 
     // ── 제목 행 ──

@@ -1,18 +1,17 @@
 {
   "name": "pi-fleet",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "workspaces": [
     "packages/unified-agent",
     "extensions/core",
-    "extensions/core/agentclientprotocol",
-    "extensions/core/shell",
     "extensions/fleet"
   ],
   "scripts": {
     "postinstall": "npm run build -w packages/unified-agent"
   },
   "devDependencies": {
+    "@sinclair/typebox": "^0.34.41",
     "typescript": "^6.0.2"
   }
 }
