@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../log/bridge.js", () => ({
   getLogAPI: () => ({
@@ -23,6 +23,10 @@ import {
 describe("provider-mcp", () => {
   beforeEach(() => {
     clearAllTools();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   afterAll(async () => {
@@ -178,6 +182,74 @@ describe("provider-mcp", () => {
         },
       }),
     ]));
+
+    removeToolsForSession(token);
+    setOnToolCallArrived(token, null);
+  });
+
+  it("장시간 tools/call 대기 중 공백 keepalive 후 최종 JSON을 정상 파싱한다", async () => {
+    vi.useFakeTimers();
+
+    const token = "test-token-keepalive";
+    const callback = vi.fn(() => "call-3");
+    const url = await startMcpServer();
+
+    registerToolsForSession(token, [
+      {
+        name: "custom-tool",
+        description: "custom",
+        parameters: { type: "object", properties: {} },
+      } as any,
+    ]);
+    setOnToolCallArrived(token, callback);
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 3,
+        method: "tools/call",
+        params: { name: "custom-tool", arguments: {} },
+      }),
+    });
+
+    expect(response.status).toBe(200);
+
+    const reader = response.body?.getReader();
+    expect(reader).toBeTruthy();
+
+    const firstChunkPromise = reader!.read();
+    await vi.advanceTimersByTimeAsync(60_000);
+
+    const firstChunk = await firstChunkPromise;
+    expect(firstChunk.done).toBe(false);
+    expect(new TextDecoder().decode(firstChunk.value)).toBe(" ");
+
+    resolveNextToolCall(token, "call-3", {
+      content: [{ type: "text", text: "slow-ok" }],
+      isError: false,
+    });
+
+    const chunks = [" "];
+    while (true) {
+      const chunk = await reader!.read();
+      if (chunk.done) break;
+      chunks.push(new TextDecoder().decode(chunk.value));
+    }
+
+    const body = JSON.parse(chunks.join(""));
+    expect(body).toEqual({
+      jsonrpc: "2.0",
+      id: 3,
+      result: {
+        content: [{ type: "text", text: "slow-ok" }],
+        isError: false,
+      },
+    });
 
     removeToolsForSession(token);
     setOnToolCallArrived(token, null);

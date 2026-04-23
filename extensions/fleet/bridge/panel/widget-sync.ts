@@ -13,13 +13,13 @@ import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 import {
   PANEL_COLOR,
   MIN_BODY_H,
-} from "../../constants";
+} from "../../constants.js";
 import {
   resolveCarrierColor,
 } from "../../shipyard/carrier/framework.js";
 import {
   renderPanelFull,
-} from "../render/panel-renderer";
+} from "../render/panel-renderer.js";
 import { renderCarrierStatus } from "../carrier-ui/status-renderer.js";
 import { getState, makeFooterCols, WIDGET_KEY } from "./state.js";
 

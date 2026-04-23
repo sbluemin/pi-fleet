@@ -225,7 +225,7 @@ export default function registerRequestDirective(pi: ExtensionAPI) {
       }
 
       // 질문 정규화
-      const questions: DirectiveQuestion[] = params.questions.map((q) => ({
+      const questions: DirectiveQuestion[] = params.questions.map((q: DirectiveQuestion) => ({
         ...q,
         header: clampHeader(q.header),
         multiSelect: q.multiSelect === true,

@@ -68,6 +68,7 @@ type JsonRpcPayload = JsonRpcResponse | JsonRpcResponse[] | null;
 
 interface ProcessJsonRpcOptions {
   immediateResponse?: http.ServerResponse;
+  stopKeepalive?: () => void;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -93,6 +94,7 @@ const pendingResults = new Map<string, PendingToolResult[]>();
 const toolCallArrivedCallbacks = new Map<string, ToolCallArrivedCallback>();
 
 const JSON_CONTENT_TYPE = { "Content-Type": "application/json" } as const;
+const MCP_KEEPALIVE_INTERVAL_MS = 60_000;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Functions — 서버 lifecycle
@@ -269,10 +271,12 @@ function handleRequest(
       const body = Buffer.concat(chunks).toString("utf-8");
       const parsed = JSON.parse(body);
       const shouldFlushHeaders = hasToolsCallRequest(parsed);
+      let stopKeepalive: () => void = () => undefined;
 
       if (shouldFlushHeaders) {
         res.writeHead(200, JSON_CONTENT_TYPE);
         res.flushHeaders();
+        stopKeepalive = startResponseKeepalive(res);
       }
 
       if (Array.isArray(parsed)) {
@@ -288,26 +292,41 @@ function handleRequest(
         Promise.all(promises)
           .then(() => {
             const filtered = results.filter((r): r is JsonRpcResponse => r !== null);
-            sendJsonRpcPayload(res, filtered.length === 0 ? null : filtered, shouldFlushHeaders);
+            sendJsonRpcPayload(
+              res,
+              filtered.length === 0 ? null : filtered,
+              shouldFlushHeaders,
+              stopKeepalive,
+            );
           })
           .catch((err) => {
             log.error("acp-provider", `MCP 배치 처리 실패: ${(err as Error).message}`, { category: "acp" });
-            sendJsonRpcPayload(res, makeError(null, -32603, "Internal error"), shouldFlushHeaders);
+            sendJsonRpcPayload(
+              res,
+              makeError(null, -32603, "Internal error"),
+              shouldFlushHeaders,
+              stopKeepalive,
+            );
           });
       } else {
         const options = shouldFlushHeaders && isToolsCallMethod(parsed)
-          ? { immediateResponse: res }
+          ? { immediateResponse: res, stopKeepalive }
           : undefined;
 
         processJsonRpc(parsed, token, options)
           .then((result) => {
             if (res.writableEnded) return;
-            sendJsonRpcPayload(res, result, shouldFlushHeaders);
+            sendJsonRpcPayload(res, result, shouldFlushHeaders, stopKeepalive);
           })
           .catch((err) => {
             log.error("acp-provider", `MCP 요청 처리 실패: ${(err as Error).message}`, { category: "acp" });
             if (res.writableEnded) return;
-            sendJsonRpcPayload(res, makeError(null, -32603, "Internal error"), shouldFlushHeaders);
+            sendJsonRpcPayload(
+              res,
+              makeError(null, -32603, "Internal error"),
+              shouldFlushHeaders,
+              stopKeepalive,
+            );
           });
       }
     } catch (err) {
@@ -410,6 +429,7 @@ async function processJsonRpc(
             // JSON-RPC id를 올바르게 설정
             const payload = { ...result, id: id ?? null };
             if (options?.immediateResponse && !options.immediateResponse.writableEnded) {
+              options.stopKeepalive?.();
               options.immediateResponse.end(JSON.stringify(payload));
             }
             resolve(payload);
@@ -457,7 +477,9 @@ function sendJsonRpcPayload(
   res: http.ServerResponse,
   payload: JsonRpcPayload,
   headersFlushed: boolean,
+  stopKeepalive?: () => void,
 ): void {
+  stopKeepalive?.();
   if (res.writableEnded) return;
 
   if (payload === null) {
@@ -474,4 +496,29 @@ function sendJsonRpcPayload(
     res.writeHead(200, JSON_CONTENT_TYPE);
   }
   res.end(JSON.stringify(payload));
+}
+
+function startResponseKeepalive(res: http.ServerResponse): () => void {
+  let closed = false;
+
+  const clearKeepalive = () => {
+    if (closed) return;
+    closed = true;
+    clearInterval(intervalId);
+    res.off("close", clearKeepalive);
+    res.off("finish", clearKeepalive);
+  };
+
+  const intervalId = setInterval(() => {
+    if (res.writableEnded) {
+      clearKeepalive();
+      return;
+    }
+    res.write(" ");
+  }, MCP_KEEPALIVE_INTERVAL_MS);
+
+  res.on("close", clearKeepalive);
+  res.on("finish", clearKeepalive);
+
+  return clearKeepalive;
 }

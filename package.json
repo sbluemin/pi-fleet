@@ -11,6 +11,7 @@
     "postinstall": "npm run build -w packages/unified-agent"
   },
   "devDependencies": {
+    "@sinclair/typebox": "^0.34.41",
     "typescript": "^6.0.2"
   }
 }

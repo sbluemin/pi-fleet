@@ -6,7 +6,7 @@
  */
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
-import { ANIM_INTERVAL_MS, formatPanelMultiColHint, PANEL_DETAIL_HINT } from "../../constants";
+import { ANIM_INTERVAL_MS, formatPanelMultiColHint, PANEL_DETAIL_HINT } from "../../constants.js";
 import { getState, makeCols, syncColsWithRegisteredOrder } from "./state.js";
 import type { AgentCol } from "./types.js";
 import { syncWidget } from "./widget-sync.js";

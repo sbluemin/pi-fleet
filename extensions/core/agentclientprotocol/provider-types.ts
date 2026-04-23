@@ -148,7 +148,7 @@ export const DEFAULT_REQUEST_TIMEOUT = 600_000; // 10분
 export const DEFAULT_INIT_TIMEOUT = 60_000; // 60초
 
 /** ACP 프롬프트 유휴 타임아웃 (ms) */
-export const DEFAULT_PROMPT_IDLE_TIMEOUT = 600_000; // 10분
+export const DEFAULT_PROMPT_IDLE_TIMEOUT = 1_800_000; // 30분
 
 /** bridge 확장이 읽는 기본 scope 이름 */
 export const DEFAULT_BRIDGE_SCOPE = "default";

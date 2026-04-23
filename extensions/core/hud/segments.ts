@@ -1,6 +1,6 @@
 import { hostname as osHostname } from "node:os";
 import { basename } from "node:path";
-import type { RenderedSegment, SegmentContext, SemanticColor, StatusLineSegment, StatusLineSegmentId } from "./types.js";
+import type { ColorValue, RenderedSegment, SegmentContext, SemanticColor, StatusLineSegment, StatusLineSegmentId } from "./types.js";
 import { fg, rainbow, applyColor } from "./theme.js";
 import { getIcons, SEP_DOT, getThinkingText } from "./icons.js";
 
@@ -171,7 +171,7 @@ const thinkingSegment: StatusLineSegment = {
     };
 
     // 레벨별 색상 (success → warning → error 단계)
-    const CHEVRON_COLORS: Record<string, string> = {
+    const CHEVRON_COLORS: Record<string, ColorValue> = {
       minimal: "success",
       low: "success",
       medium: "warning",

@@ -9,7 +9,7 @@
  * - renderResult(): 완료 후 결과 캐시에서 렌더링
  */
 
-import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionContext, Theme } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
 import { getLogAPI } from "../../../core/log/bridge.js";
@@ -131,14 +131,19 @@ export function buildSquadronToolConfig() {
 
     // ── renderCall: 실시간 스트리밍 표시 ──
     renderCall(
-      args: { carrier?: string; expected_subtask_count?: number; subtasks?: Array<{ title: string; request: string }> },
-      theme: any,
-      context?: SquadronRenderContext,
+      args: unknown,
+      theme: Theme,
+      context: any,
     ) {
+      const typedArgs = args as {
+        carrier?: string;
+        expected_subtask_count?: number;
+        subtasks?: Array<{ title: string; request: string }>;
+      };
       const component = context?.lastComponent instanceof SquadronCallComponent
         ? context.lastComponent
         : new SquadronCallComponent();
-      component.setState(args.carrier ?? "", args.subtasks ?? [], theme, context);
+      component.setState(typedArgs.carrier ?? "", typedArgs.subtasks ?? [], theme, context);
       return component;
     },
 

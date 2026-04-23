@@ -6,9 +6,9 @@
  */
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
-import { DEFAULT_BODY_H, formatPanelMultiColHint } from "../../constants";
+import { DEFAULT_BODY_H, formatPanelMultiColHint } from "../../constants.js";
 import { getSessionStore } from "../../../core/agentclientprotocol/runtime.js";
-import { ensureVisibleRun, setRunSessionId } from "../streaming/stream-store";
+import { ensureVisibleRun, setRunSessionId } from "../streaming/stream-store.js";
 import { getRegisteredOrder, isSquadronCarrierEnabled } from "../../shipyard/carrier/framework.js";
 import type { AgentCol } from "./types.js";
 import type { ServiceSnapshot } from "../../../core/agentclientprotocol/types.js";

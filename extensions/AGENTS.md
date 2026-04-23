@@ -15,6 +15,7 @@ Do not create intermediate layers that simply wrap official TUI APIs (e.g., `set
 | `fleet/` | Agent orchestration framework — carrier SDK (`shipyard/carrier/`), Admiral/Bridge/Carrier wiring, unified pipeline, Agent Panel, model selection. Provides the carrier framework consumed by `fleet/carriers/`. | `index.ts` (wiring), `shipyard/carrier/` (framework), `admiral/`, `bridge/`, `carriers/` |
 | `core/` | Unified infrastructure extension — root entry point that wires keybind, settings, log, welcome, hud, shell, improve-prompt, summarize, thinking-timer, provider-guard, and the unified `agentclientprotocol/` module | `index.ts` (root wiring), `<module>/register.ts` (module wiring), `agentclientprotocol/` (shared ACP infra + provider boundary) |
 | `metaphor/` | Metaphor framework extension — Centralized management of PERSONA/TONE for the 4-tier naval hierarchy, provides `metaphor:worldview` toggle and settings. | `index.ts`, `worldview.ts`, `prompts.ts` |
+| `diagnostics/` | MCP transport layer verification tools — long-running dummy arithmetic for timeout testing. | `index.ts`, `dummy-arith/tool.ts` |
 
 ### Shared Libraries — Directories without `index.ts`
 
@@ -170,7 +171,8 @@ export default function (pi: ExtensionAPI) {
 | `@mariozechner/pi-ai` | AI utilities (`StringEnum` — Google API compatible enum) |
 | `@mariozechner/pi-tui` | TUI components (custom rendering) |
 
-These are automatically provided by the pi runtime, so `npm install` is not needed.
+`@mariozechner/pi-coding-agent`, `@mariozechner/pi-ai`, and `@mariozechner/pi-tui` are provided by the pi runtime.
+`@sinclair/typebox` is no longer transitively provided in `pi-coding-agent@0.69.0+`, so the workspace must declare it explicitly when extensions import it.
 If an external npm package is required, place a `package.json` in the respective extension subdirectory and run `npm install`.
 
 ### Notes
