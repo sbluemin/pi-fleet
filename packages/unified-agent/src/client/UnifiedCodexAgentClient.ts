@@ -15,7 +15,7 @@ import type {
   AcpToolCall,
   AcpToolCallUpdate,
 } from '../types/acp.js';
-import type { CodexUserInput } from '../types/codex-app-server.js';
+import type { CodexJsonValue, CodexUserInput } from '../types/codex-app-server.js';
 import type { ConnectionState, StructuredLogEntry } from '../types/common.js';
 import type {
   ConnectResult,
@@ -46,7 +46,16 @@ interface CodexModeMapping {
   sandbox: string;
 }
 
+interface CodexThreadDefaultsForReset {
+  cwd: string;
+  approvalPolicy?: string;
+  sandbox?: string;
+  developerInstructions?: string;
+  config?: Record<string, CodexJsonValue>;
+}
+
 const CODEX_TURN_LEVEL_CONFIG_KEYS = new Set(['reasoning_effort', 'service_tier', 'model']);
+const CODEX_THREAD_POLICY_CONFIG_KEYS = new Set(['approvalPolicy', 'sandbox']);
 
 /**
  * Codex app-server 전용 내부 클라이언트.
@@ -144,7 +153,10 @@ export class UnifiedCodexAgentClient extends EventEmitter implements IUnifiedAge
     this.currentSystemPrompt = developerInstructions;
     this.pendingOverrides = {
       turnConfig: {},
-      threadConfig: {},
+      threadConfig: {
+        approvalPolicy: modeMapping.approvalPolicy,
+        sandbox: modeMapping.sandbox,
+      },
     };
 
     return {
@@ -237,7 +249,11 @@ export class UnifiedCodexAgentClient extends EventEmitter implements IUnifiedAge
   }
 
   async setMode(mode: string): Promise<void> {
-    this.ensurePendingOverrides().mode = mode;
+    const resolved = this.resolveMode(mode);
+    const pending = this.ensurePendingOverrides();
+    pending.threadConfig.approvalPolicy = resolved.approvalPolicy;
+    pending.threadConfig.sandbox = resolved.sandbox;
+    pending.mode = undefined;
   }
 
   async setYoloMode(enabled: boolean): Promise<void> {
@@ -278,7 +294,9 @@ export class UnifiedCodexAgentClient extends EventEmitter implements IUnifiedAge
     }
 
     const targetCwd = cwd ?? this.sessionCwd ?? process.cwd();
-    const result = await this.connection.resetSession({ cwd: targetCwd });
+    const result = await this.connection.resetSession(
+      this.buildCodexThreadDefaultsForReset(targetCwd),
+    );
     this.sessionId = result.thread.id;
     this.sessionCwd = targetCwd;
     this.pendingOverrides = {
@@ -382,13 +400,24 @@ export class UnifiedCodexAgentClient extends EventEmitter implements IUnifiedAge
     if (this.pendingOverrides.turnConfig.service_tier) {
       delete this.pendingOverrides.turnConfig.service_tier;
     }
+  }
 
-    if (this.pendingOverrides.mode) {
-      const resolved = this.resolveMode(this.pendingOverrides.mode);
-      this.pendingOverrides.threadConfig.approvalPolicy = resolved.approvalPolicy;
-      this.pendingOverrides.threadConfig.sandbox = resolved.sandbox;
-      this.pendingOverrides.mode = undefined;
-    }
+  private buildCodexThreadDefaultsForReset(cwd: string): CodexThreadDefaultsForReset {
+    const threadConfig = this.pendingOverrides?.threadConfig ?? {};
+    const { approvalPolicy, sandbox } = threadConfig;
+    const configEntries = Object.entries(threadConfig)
+      .filter(([key]) => !CODEX_THREAD_POLICY_CONFIG_KEYS.has(key));
+    const config = configEntries.length > 0
+      ? Object.fromEntries(configEntries) as Record<string, CodexJsonValue>
+      : undefined;
+
+    return {
+      cwd,
+      approvalPolicy,
+      sandbox,
+      developerInstructions: this.currentSystemPrompt ?? undefined,
+      config,
+    };
   }
 
   private resolveMode(modeId: string): CodexModeMapping {

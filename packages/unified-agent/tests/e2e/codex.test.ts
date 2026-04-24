@@ -270,5 +270,27 @@ describe.skipIf(!installed)('E2E: Codex native app-server', () => {
       expect(secondThreadId).toBeTruthy();
       expect(secondThreadId).not.toBe(firstThreadId);
     }, 180_000);
+
+    it('SDK: resetSession() 후에도 system prompt가 유지된다', async () => {
+      const c = await UnifiedAgent.build({ cli: 'codex' });
+      client = c;
+      client.on('error', () => {});
+
+      await client.connect({
+        cwd: process.cwd(),
+        cli: 'codex',
+        autoApprove: true,
+        systemPrompt: '사용자가 RESET_SENTINEL을 물으면 RESET-PROMPT-OK만 정확히 답하세요.',
+        clientInfo: { name: 'E2E-SystemPrompt-Reset-Test', version: '1.0.0' },
+      });
+
+      await client.resetSession();
+      const { response } = await sendAndCollect(
+        client,
+        'RESET_SENTINEL',
+      );
+
+      expect(response.trim()).toBe('RESET-PROMPT-OK');
+    }, 180_000);
   });
 });

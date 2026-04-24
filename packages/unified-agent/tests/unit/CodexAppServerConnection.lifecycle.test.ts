@@ -227,6 +227,42 @@ describe('CodexAppServerConnection lifecycle', () => {
     ]);
   });
 
+  it('failed turn/completed는 promptComplete 없이 error로 sendMessage를 거절한다', async () => {
+    await establishSession(connection, child);
+    const promptComplete = vi.fn();
+    const errors: string[] = [];
+    connection.on('promptComplete', promptComplete);
+    connection.on('error', (error: Error) => {
+      errors.push(error.message);
+    });
+
+    const sendPromise = connection.sendMessage([
+      {
+        type: 'text',
+        text: '실패 테스트',
+        text_elements: [],
+      },
+    ]);
+
+    await flushMicrotask();
+    child.stdout.emit('data', `${jsonRpcResult(3, { turn: { id: 'turn-failed' } })}\n`);
+    child.stdout.emit(
+      'data',
+      `${jsonRpcNotification('turn/completed', {
+        threadId: 'thread-1',
+        turn: {
+          id: 'turn-failed',
+          status: 'failed',
+          error: { message: '모델 실패' },
+        },
+      })}\n`,
+    );
+
+    await expect(sendPromise).rejects.toThrow('모델 실패');
+    expect(promptComplete).not.toHaveBeenCalled();
+    expect(errors).toEqual(['모델 실패']);
+  });
+
   it('cancelPrompt가 turn/interrupt를 호출한다', async () => {
     await establishSession(connection, child);
     await startTurn(connection, child, 'turn-7');

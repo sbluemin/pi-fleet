@@ -13,7 +13,6 @@ import {
   connectClient,
   sendAndCollect,
   runCli,
-  withTimeout,
   SIMPLE_PROMPT,
   SESSION_REMEMBER_PROMPT,
   SESSION_RECALL_PROMPT,

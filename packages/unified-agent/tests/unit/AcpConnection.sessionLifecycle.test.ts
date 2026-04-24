@@ -3,11 +3,14 @@ import { AcpConnection } from '../../src/connection/AcpConnection.js';
 import type { Agent, NewSessionResponse, LoadSessionResponse } from '@agentclientprotocol/sdk';
 
 /** private 멤버 접근을 위한 테스트 전용 타입 */
-type TestableAcpConnection = AcpConnection & {
+interface TestableAcpConnection {
   agentProxy: Agent | null;
   agentCapabilities: { sessionCapabilities?: { close?: unknown }; loadSession?: boolean } | null;
   command: string;
-};
+  connectionState: string;
+  endSession: (sessionId: string) => Promise<void>;
+  reconnectSession: (cwd: string, sessionId?: string) => Promise<NewSessionResponse>;
+}
 
 function createConnection(): TestableAcpConnection {
   return new AcpConnection({

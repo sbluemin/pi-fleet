@@ -177,4 +177,56 @@ describe('UnifiedCodexAgentClient config staging', () => {
     expect(mockCodexConnect).toHaveBeenCalledTimes(1);
     expect(mockCodexSendMessage).toHaveBeenCalledTimes(1);
   });
+
+  it('resetSession은 초기 mode와 systemPrompt를 thread/start payload로 보존한다', async () => {
+    const client = new UnifiedCodexAgentClient();
+    await client.connect({
+      cwd: '/workspace',
+      cli: 'codex',
+      yoloMode: false,
+      systemPrompt: '초기 지침',
+    });
+
+    await client.resetSession();
+
+    expect(mockCodexResetSession).toHaveBeenCalledWith({
+      cwd: '/workspace',
+      approvalPolicy: 'on-request',
+      sandbox: 'read-only',
+      developerInstructions: '초기 지침',
+      config: undefined,
+    });
+    expect(client.getCurrentSystemPrompt()).toBe('초기 지침');
+  });
+
+  it('setMode와 non-turn setConfigOption은 다음 resetSession payload에 반영한다', async () => {
+    const client = new UnifiedCodexAgentClient();
+    await client.connect({
+      cwd: '/workspace',
+      cli: 'codex',
+      systemPrompt: '리셋 지침',
+    });
+
+    await client.setMode('autoEdit');
+    await client.setConfigOption('notify', 'false');
+    await client.setConfigOption('model_reasoning_summary', 'auto');
+    await client.resetSession('/next-workspace');
+
+    expect(mockCodexResetSession).toHaveBeenCalledWith({
+      cwd: '/next-workspace',
+      approvalPolicy: 'on-request',
+      sandbox: 'workspace-write',
+      developerInstructions: '리셋 지침',
+      config: {
+        notify: 'false',
+        model_reasoning_summary: 'auto',
+      },
+    });
+    expect(mockCodexResetSession).not.toHaveBeenCalledWith(expect.objectContaining({
+      config: expect.objectContaining({
+        approvalPolicy: expect.anything(),
+        sandbox: expect.anything(),
+      }),
+    }));
+  });
 });

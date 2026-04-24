@@ -508,10 +508,11 @@ export class CodexAppServerConnection extends BaseConnection {
       case CODEX_NOTIFICATIONS.TURN_COMPLETED: {
         const notification = params as CodexTurnCompletedNotification;
         this.turnId = null;
-        this.emit('promptComplete', this.requireThreadId());
         if (notification.turn.status === 'failed' && notification.turn.error) {
           this.emit('error', new Error(notification.turn.error.message));
+          break;
         }
+        this.emit('promptComplete', this.requireThreadId());
         break;
       }
       case CODEX_NOTIFICATIONS.ERROR: {
