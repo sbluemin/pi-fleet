@@ -17,6 +17,7 @@ const WELCOME_COLORS: Record<string, string> = {
   gitClean: "\x1b[38;2;95;175;95m",
   accent: "\x1b[38;2;254;188;56m",
   warn: "\x1b[38;2;255;179;71m",
+  alert: "\x1b[38;2;255;85;85m",
 };
 
 const ansi = {
@@ -90,6 +91,10 @@ const GRADIENT_COLORS = [
   "\x1b[38;5;21m",
 ];
 
+const MIN_LAYOUT_WIDTH = 44;
+const MIN_WELCOME_WIDTH = 76;
+const MAX_WELCOME_WIDTH = 96;
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Welcome Components
 // ═══════════════════════════════════════════════════════════════════════════
@@ -120,15 +125,11 @@ export class WelcomeComponent implements Component {
 
   render(termWidth: number): string[] {
     // Minimum width for two-column layout (must match renderWelcomeBox)
-    const minLayoutWidth = 44;
-    if (termWidth < minLayoutWidth) {
+    if (termWidth < MIN_LAYOUT_WIDTH) {
       return [];
     }
 
-    const minWidth = 76;
-    const maxWidth = 96;
-    // Clamp to termWidth to prevent crash on narrow terminals
-    const boxWidth = Math.min(termWidth, Math.max(minWidth, Math.min(termWidth - 2, maxWidth)));
+    const boxWidth = getWelcomeBoxWidth(termWidth);
 
     // Bottom line with countdown
     const countdownText = ` Press any key to continue (${this.countdown}s) `;
@@ -142,7 +143,9 @@ export class WelcomeComponent implements Component {
       countdownStyled +
       dim(hChar.repeat(Math.max(0, rightPad)));
 
-    return renderWelcomeBox(this.data, termWidth, bottomLine);
+    const bannerLines = renderUpdateAlertBanner(this.data.gitUpdate, termWidth);
+    const boxLines = renderWelcomeBox(this.data, termWidth, bottomLine);
+    return bannerLines.length > 0 ? [...bannerLines, ...boxLines] : boxLines;
   }
 }
 
@@ -167,15 +170,11 @@ export class WelcomeHeader implements Component {
 
   render(termWidth: number): string[] {
     // Minimum width for two-column layout (must match renderWelcomeBox)
-    const minLayoutWidth = 44;
-    if (termWidth < minLayoutWidth) {
+    if (termWidth < MIN_LAYOUT_WIDTH) {
       return [];
     }
 
-    const minWidth = 76;
-    const maxWidth = 96;
-    // Clamp to termWidth to prevent crash on narrow terminals
-    const boxWidth = Math.min(termWidth, Math.max(minWidth, Math.min(termWidth - 2, maxWidth)));
+    const boxWidth = getWelcomeBoxWidth(termWidth);
     const hChar = "─";
 
     // Bottom line with column separator (leftCol=26, rightCol=boxWidth-29)
@@ -183,7 +182,11 @@ export class WelcomeHeader implements Component {
     const rightCol = Math.max(1, boxWidth - leftCol - 3);
     const bottomLine = dim(hChar.repeat(leftCol)) + dim("┴") + dim(hChar.repeat(rightCol));
 
+    const bannerLines = renderUpdateAlertBanner(this.data.gitUpdate, termWidth);
     const lines = renderWelcomeBox(this.data, termWidth, bottomLine);
+    if (bannerLines.length > 0) {
+      lines.unshift(...bannerLines);
+    }
     if (lines.length > 0) {
       lines.push(""); // Add empty line for spacing only if we rendered content
     }
@@ -436,6 +439,11 @@ function bold(text: string): string {
   return `\x1b[1m${text}\x1b[22m`;
 }
 
+function boldFg(color: string, text: string): string {
+  const code = getFgAnsiCode(color);
+  return code ? `\x1b[1m${code}${text}${ansi.reset}` : bold(text);
+}
+
 function dim(text: string): string {
   return getFgAnsiCode("sep") + text + ansi.reset;
 }
@@ -499,6 +507,62 @@ function truncateToWidth(str: string, width: number): string {
   return truncated;
 }
 
+function sanitizeDisplay(value: string): string {
+  return value.replace(/[\x00-\x1F\x7F-\x9F]/g, "");
+}
+
+function getWelcomeBoxWidth(termWidth: number): number {
+  // renderWelcomeBox와 배너의 좌우 정렬선이 어긋나지 않도록 단일 규칙을 사용한다.
+  return Math.min(termWidth, Math.max(MIN_WELCOME_WIDTH, Math.min(termWidth - 2, MAX_WELCOME_WIDTH)));
+}
+
+function applyHorizontalPadding(lines: string[], termWidth: number, boxWidth: number): string[] {
+  const hPad = Math.max(0, Math.floor((termWidth - boxWidth) / 2));
+  if (hPad === 0) return lines;
+  const pad = " ".repeat(hPad);
+  return lines.map((line) => pad + line);
+}
+
+function renderUpdateAlertBanner(gitUpdate: GitUpdateStatus | undefined, termWidth: number): string[] {
+  if (
+    termWidth < MIN_LAYOUT_WIDTH ||
+    !gitUpdate?.hasRemote ||
+    gitUpdate.behind <= 0
+  ) {
+    return [];
+  }
+
+  const boxWidth = getWelcomeBoxWidth(termWidth);
+  const contentWidth = boxWidth - 2;
+  const hChar = "═";
+  const borderColor = "alert";
+  const v = boldFg(borderColor, "║");
+  const tl = boldFg(borderColor, "╔");
+  const tr = boldFg(borderColor, "╗");
+  const bl = boldFg(borderColor, "╚");
+  const br = boldFg(borderColor, "╝");
+  const top = tl + boldFg(borderColor, hChar.repeat(contentWidth)) + tr;
+  const bottom = bl + boldFg(borderColor, hChar.repeat(contentWidth)) + br;
+  const remoteBranch = sanitizeDisplay(gitUpdate.upstream || gitUpdate.branch || "remote");
+  const currentVersion = gitUpdate.version ? `v${sanitizeDisplay(gitUpdate.version)}` : "";
+
+  const contentLines = [
+    boldFg("alert", "⚠  UPDATE AVAILABLE  ⚠"),
+    fgOnly("warn", `${gitUpdate.behind} commits behind ${remoteBranch}`),
+  ];
+  if (currentVersion) {
+    contentLines.push(fgOnly("accent", `Current ${currentVersion} · Run /fleet:update to sync`));
+  }
+
+  const lines = [
+    top,
+    ...contentLines.map((line) => v + fitToWidth(centerText(line, contentWidth), contentWidth) + v),
+    bottom,
+  ];
+
+  return applyHorizontalPadding(lines, termWidth, boxWidth);
+}
+
 function buildFleetBanner(data: WelcomeData, colWidth: number): string[] {
   const bannerColored = FLEET_BANNER.map((line) => gradientLine(line));
 
@@ -551,21 +615,15 @@ function buildFleetInfo(data: WelcomeData, colWidth: number): string[] {
 
   const updateLines: string[] = [];
   if (data.gitUpdate?.isGitRepo && data.gitUpdate.branch) {
-    const currentVersion = data.gitUpdate.version ? `v${data.gitUpdate.version}` : "";
+    const displayBranch = sanitizeDisplay(data.gitUpdate.branch);
+    const currentVersion = data.gitUpdate.version ? `v${sanitizeDisplay(data.gitUpdate.version)}` : "";
     updateLines.push(separator);
     if (!data.gitUpdate.hasRemote) {
       const versionSuffix = currentVersion ? ` · ${currentVersion}` : "";
-      updateLines.push(` ${fgOnly("accent", `● Local branch (${data.gitUpdate.branch})${versionSuffix}`)}`);
-    } else if (data.gitUpdate.behind > 0) {
-      const remoteBranch = data.gitUpdate.upstream || "remote";
-      updateLines.push(` ${bold(fgOnly("warn", "⚠ Update available"))}`);
-      updateLines.push(` ${dim(`${data.gitUpdate.behind} commits behind ${remoteBranch}`)}`);
-      if (currentVersion) {
-        updateLines.push(` ${dim(`Current: ${currentVersion}`)}`);
-      }
-    } else {
+      updateLines.push(` ${fgOnly("accent", `● Local branch (${displayBranch})${versionSuffix}`)}`);
+    } else if (data.gitUpdate.behind === 0) {
       const versionSuffix = currentVersion ? ` · ${currentVersion}` : "";
-      updateLines.push(` ${checkmark()} ${fgOnly("gitClean", `Up to date (${data.gitUpdate.branch})${versionSuffix}`)}`);
+      updateLines.push(` ${checkmark()} ${fgOnly("gitClean", `Up to date (${displayBranch})${versionSuffix}`)}`);
     }
   }
 
@@ -591,17 +649,12 @@ function renderWelcomeBox(
   bottomLine: string,
 ): string[] {
   // Minimum width for two-column layout: leftCol(26) + separator(3) + minRightCol(15) = 44
-  const minLayoutWidth = 44;
-
   // If terminal is too narrow for the layout, return empty (skip welcome box)
-  if (termWidth < minLayoutWidth) {
+  if (termWidth < MIN_LAYOUT_WIDTH) {
     return [];
   }
 
-  const minWidth = 76;
-  const maxWidth = 96;
-  // Clamp to termWidth to prevent crash on narrow terminals
-  const boxWidth = Math.min(termWidth, Math.max(minWidth, Math.min(termWidth - 2, maxWidth)));
+  const boxWidth = getWelcomeBoxWidth(termWidth);
   const leftCol = 26;
   const rightCol = Math.max(1, boxWidth - leftCol - 3); // Ensure rightCol is at least 1
 
@@ -637,11 +690,7 @@ function renderWelcomeBox(
   // Bottom border
   lines.push(bl + bottomLine + br);
 
-  // 수평 중앙 정렬 — 터미널 너비에서 박스 너비를 빼고 좌우로 나눠 패딩
-  const hPad = Math.max(0, Math.floor((termWidth - boxWidth) / 2));
-  if (hPad === 0) return lines;
-  const pad = " ".repeat(hPad);
-  return lines.map((line) => pad + line);
+  return applyHorizontalPadding(lines, termWidth, boxWidth);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
