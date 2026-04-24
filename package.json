@@ -13,5 +13,8 @@
   "devDependencies": {
     "@sinclair/typebox": "^0.34.41",
     "typescript": "^6.0.2"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.119"
   }
 }
