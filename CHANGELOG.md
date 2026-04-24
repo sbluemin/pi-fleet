@@ -5,6 +5,32 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-04-24
+
+### Added
+- `PI_EXPERIMENTAL` environment flag to opt into experimental extensions during boot.
+- GPT-5.5 Codex model entry in `packages/unified-agent/models.json`.
+- Provider-specific unified-agent clients for Claude, Codex, and Gemini.
+- Codex app-server connection path with dedicated event and lifecycle coverage.
+- Unified-agent provider contract E2E coverage.
+- `/fleet:update` slash command in the welcome extension that instructs the active PI agent to pull the local `pi-fleet` checkout and apply the `SETUP.md` update steps.
+
+### Changed
+- Split the monolithic `UnifiedAgentClient` implementation into provider-specific clients.
+- Reworked ACP provider execution and stream handling around the new client contracts.
+- Updated unified-agent examples, README, and AGENTS guidance for the provider-client architecture.
+- Added `@anthropic-ai/claude-agent-sdk` as a root dependency.
+
+### Fixed
+- Echelon repo cloning now uses the OS-native temporary directory.
+- Admiral prompts now explicitly require the `pi-tools` MCP availability check.
+- Codex commentary events are routed as message chunks.
+- Fleet bridge panel widget synchronization now detaches stale panel contexts.
+
+### Removed
+- Legacy `ProcessPool` implementation and related benchmark/pool tests.
+- Legacy raw ACP session E2E test in favor of provider-level E2E coverage.
+
 ## [0.1.1] - 2026-04-23
 
 ### Added
