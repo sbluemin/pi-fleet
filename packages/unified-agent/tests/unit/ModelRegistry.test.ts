@@ -10,4 +10,11 @@ describe('ModelRegistry', () => {
     expect(modelIds).toContain('claude-opus-4-6[1m]');
     expect(modelIds).not.toContain('sonnet[1m]');
   });
+
+  it('Codex 정적 모델 목록에 GPT-5.5를 포함한다', () => {
+    const provider = getProviderModels('codex');
+    const modelIds = provider.models.map((model) => model.modelId);
+
+    expect(modelIds).toContain('gpt-5.5');
+  });
 });
