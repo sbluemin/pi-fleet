@@ -9,7 +9,7 @@ import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { MIN_BODY_H, MAX_BODY_H, formatPanelMultiColHint } from "../../constants.js";
 import type { ServiceSnapshot } from "../../../core/agentclientprotocol/types.js";
 import { getState } from "./state.js";
-import { syncWidget } from "./widget-sync.js";
+import { syncCurrentWidget, syncWidget } from "./widget-sync.js";
 
 // ─── 모델 설정 동기화 ──────────────────────────────────────
 
@@ -22,7 +22,7 @@ export function setAgentPanelModelConfig(
 ): void {
   const s = getState();
   s.modelConfig = config;
-  if (s.lastCtx) syncWidget(s.lastCtx);
+  syncCurrentWidget();
 }
 
 // ─── 서비스 상태 동기화 ────────────────────────────────────
@@ -38,7 +38,7 @@ export function setAgentPanelServiceStatus(
   s.serviceSnapshots = snapshots;
   s.serviceLastUpdatedAt = lastUpdatedAt;
   s.serviceLoading = false;
-  if (s.lastCtx) syncWidget(s.lastCtx);
+  syncCurrentWidget();
 }
 
 /**
@@ -47,7 +47,7 @@ export function setAgentPanelServiceStatus(
 export function setAgentPanelServiceLoading(): void {
   const s = getState();
   s.serviceLoading = true;
-  if (s.lastCtx) syncWidget(s.lastCtx);
+  syncCurrentWidget();
 }
 
 // ─── 패널 높이 조절 ──────────────────────────────────────

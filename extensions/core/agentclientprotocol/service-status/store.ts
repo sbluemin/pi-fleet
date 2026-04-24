@@ -21,7 +21,6 @@ export interface ServiceStatusCallbacks {
 }
 
 interface StatusStore {
-  ctx: ExtensionContext | null;
   callbacks: ServiceStatusCallbacks | null;
   timer: ReturnType<typeof setInterval> | null;
   inFlight: Promise<void> | null;
@@ -103,6 +102,9 @@ const PROVIDER_CONFIGS: ProviderFetchConfig[] = [
 
 const PROVIDER_ORDER: ProviderKey[] = ["claude", "codex", "gemini"];
 
+let currentStatusCtx: ExtensionContext | null = null;
+let statusContextGeneration = 0;
+
 /**
  * 서비스 상태 콜백을 초기화합니다.
  * fleet/index.ts 등 상위 계층에서 1회 호출합니다.
@@ -114,7 +116,7 @@ export function initServiceStatus(callbacks: ServiceStatusCallbacks): void {
 
 export function attachStatusContext(ctx: ExtensionContext): void {
   const store = getStore();
-  store.ctx = ctx;
+  setStatusContext(ctx);
 
   if (store.snapshots.length > 0) {
     syncPanelStatus();
@@ -126,9 +128,19 @@ export function attachStatusContext(ctx: ExtensionContext): void {
   ensurePolling();
 }
 
+export function detachStatusContext(): void {
+  const store = getStore();
+  currentStatusCtx = null;
+  statusContextGeneration++;
+  if (store.timer) {
+    clearInterval(store.timer);
+    store.timer = null;
+  }
+}
+
 export async function refreshStatusNow(ctx: ExtensionContext): Promise<void> {
   const store = getStore();
-  store.ctx = ctx;
+  setStatusContext(ctx);
   store.callbacks?.setLoading();
   await refreshSnapshots({ force: true, notify: true });
 }
@@ -147,7 +159,6 @@ function getStore(): StatusStore {
   let store = (globalThis as unknown as Record<string, StatusStore | undefined>)[STORE_KEY];
   if (!store) {
     store = {
-      ctx: null,
       callbacks: null,
       timer: null,
       inFlight: null,
@@ -169,6 +180,21 @@ function getStore(): StatusStore {
 function syncPanelStatus(): void {
   const store = getStore();
   store.callbacks?.setStatus(store.snapshots, store.lastUpdatedAt);
+}
+
+function setStatusContext(ctx: ExtensionContext): void {
+  if (currentStatusCtx !== ctx) {
+    currentStatusCtx = ctx;
+    statusContextGeneration++;
+  }
+}
+
+function readSessionId(ctx: ExtensionContext): string | null {
+  try {
+    return ctx.sessionManager.getSessionId();
+  } catch {
+    return null;
+  }
 }
 
 function mapRawStatus(rawStatus: string | undefined): HealthStatus {
@@ -433,7 +459,9 @@ async function refreshSnapshots(
   options?: { force?: boolean; notify?: boolean },
 ): Promise<void> {
   const store = getStore();
-  const ctx = store.ctx;
+  const ctx = currentStatusCtx;
+  const ctxGeneration = statusContextGeneration;
+  const ctxSessionId = ctx ? readSessionId(ctx) : null;
   if (!ctx?.hasUI) return;
 
   if (store.inFlight) {
@@ -454,12 +482,19 @@ async function refreshSnapshots(
     store.lastUpdatedAt = Date.now();
     syncPanelStatus();
 
-    if (options?.notify && ctx?.hasUI) {
+    const activeCtx = currentStatusCtx;
+    const activeSessionId = activeCtx ? readSessionId(activeCtx) : null;
+    const isCurrentCtx =
+      activeCtx === ctx &&
+      statusContextGeneration === ctxGeneration &&
+      activeSessionId === ctxSessionId;
+
+    if (options?.notify && isCurrentCtx && activeCtx?.hasUI) {
       const unknownCount = snapshots.filter((snapshot) => snapshot.status === "unknown").length;
       if (unknownCount > 0) {
-        ctx.ui.notify(`상태 새로고침 완료 (${unknownCount}개 항목 미확인)`, "warning");
+        activeCtx.ui.notify(`상태 새로고침 완료 (${unknownCount}개 항목 미확인)`, "warning");
       } else {
-        ctx.ui.notify("상태 새로고침 완료", "info");
+        activeCtx.ui.notify("상태 새로고침 완료", "info");
       }
     }
   })();

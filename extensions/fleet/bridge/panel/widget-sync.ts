@@ -25,8 +25,10 @@ import { getState, makeFooterCols, WIDGET_KEY } from "./state.js";
 
 const FLEET_CARRIER_STATUS_WIDGET_KEY = "fleet-carrier-status";
 
-let pendingWidgetCtx: ExtensionContext | null = null;
+let currentWidgetCtx: ExtensionContext | null = null;
+let currentWidgetSessionId: string | null = null;
 let isWidgetSyncScheduled = false;
+let widgetSyncGeneration = 0;
 
 // ─── 위젯 동기화 ────────────────────────────────────────
 
@@ -40,64 +42,112 @@ let isWidgetSyncScheduled = false;
  * carrier 상태 위젯(aboveEditor)은 항상 등록됩니다.
  */
 export function syncWidget(ctx: ExtensionContext): void {
-  pendingWidgetCtx = ctx;
+  const sessionId = readSessionId(ctx);
+  if (currentWidgetSessionId && sessionId !== currentWidgetSessionId) return;
+  if (sessionId) currentWidgetSessionId = sessionId;
+  currentWidgetCtx = ctx;
+  syncCurrentWidget();
+}
+
+export function syncCurrentWidget(): void {
+  const generation = widgetSyncGeneration;
   if (isWidgetSyncScheduled) return;
 
   isWidgetSyncScheduled = true;
   queueMicrotask(() => {
     isWidgetSyncScheduled = false;
-    const nextCtx = pendingWidgetCtx;
-    pendingWidgetCtx = null;
+    if (generation !== widgetSyncGeneration) return;
+    const nextCtx = currentWidgetCtx;
     if (!nextCtx) return;
     applyWidgetSync(nextCtx);
   });
+}
+
+export function detachWidgetSync(): void {
+  currentWidgetCtx = null;
+  currentWidgetSessionId = null;
+  isWidgetSyncScheduled = false;
+  widgetSyncGeneration++;
+}
+
+function readSessionId(ctx: ExtensionContext): string | null {
+  try {
+    return ctx.sessionManager.getSessionId();
+  } catch {
+    return null;
+  }
+}
+
+function isStaleExtensionContextError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const message = error.message.toLowerCase();
+  const mentionsExtensionCtx =
+    message.includes("extensioncontext") ||
+    message.includes("extension ctx") ||
+    message.includes("extension context");
+  const mentionsStaleSession =
+    message.includes("stale") &&
+    (
+      message.includes("session") ||
+      message.includes("replacement") ||
+      message.includes("reload")
+    );
+  return (
+    mentionsExtensionCtx &&
+    mentionsStaleSession
+  );
 }
 
 function applyWidgetSync(ctx: ExtensionContext): void {
   const s = getState();
 
   // carrier 상태 위젯 (aboveEditor) — 항상 등록
-  ctx.ui.setWidget(FLEET_CARRIER_STATUS_WIDGET_KEY, (_tui, _theme) => ({
-    render(width: number): string[] {
-      const state = getState();
-      const content = renderCarrierStatus({
-        cols: makeFooterCols(),
-        streaming: state.streaming,
-        frame: state.frame,
-      });
-      if (!content) return [];
-      const pad = Math.max(0, Math.floor((width - visibleWidth(content)) / 2));
-      return [truncateToWidth(" ".repeat(pad) + content, width)];
-    },
-    invalidate() {},
-  }), { placement: "aboveEditor" });
+  try {
+    ctx.ui.setWidget(FLEET_CARRIER_STATUS_WIDGET_KEY, (_tui, _theme) => ({
+      render(width: number): string[] {
+        const state = getState();
+        const content = renderCarrierStatus({
+          cols: makeFooterCols(),
+          streaming: state.streaming,
+          frame: state.frame,
+        });
+        if (!content) return [];
+        const pad = Math.max(0, Math.floor((width - visibleWidth(content)) / 2));
+        return [truncateToWidth(" ".repeat(pad) + content, width)];
+      },
+      invalidate() {},
+    }), { placement: "aboveEditor" });
 
-  // 멀티칼럼/상세 뷰 패널 (aboveEditor) — expanded 시만
-  if (!s.expanded) {
-    ctx.ui.setWidget(WIDGET_KEY, undefined);
-    return;
+    // 멀티칼럼/상세 뷰 패널 (aboveEditor) — expanded 시만
+    if (!s.expanded) {
+      ctx.ui.setWidget(WIDGET_KEY, undefined);
+      return;
+    }
+
+    ctx.ui.setWidget(WIDGET_KEY, (_tui, _theme) => ({
+      render(width: number): string[] {
+        const state = getState();
+        const frameColor = state.detailCarrierId
+          ? (resolveCarrierColor(state.detailCarrierId) || PANEL_COLOR)
+          : PANEL_COLOR;
+
+        // 터미널 높이 기반 bodyH 클램핑
+        // 에디터(30%) + footer(2) + spacer/status 여유(5) 확보
+        const termH = process.stdout.rows ?? 24;
+        const reserved = Math.ceil(termH * 0.3) + 7;
+        const maxBodyH = Math.max(MIN_BODY_H, termH - reserved);
+        const effectiveBodyH = Math.min(state.bodyH, maxBodyH);
+
+        return renderPanelFull(
+          width, state.cols, state.frame, frameColor,
+          state.bottomHint, state.detailCarrierId, effectiveBodyH,
+          state.cursorColumn,
+        );
+      },
+      invalidate() {},
+    }));
+  } catch (error) {
+    if (!isStaleExtensionContextError(error)) throw error;
+    detachWidgetSync();
   }
-
-  ctx.ui.setWidget(WIDGET_KEY, (_tui, _theme) => ({
-    render(width: number): string[] {
-      const state = getState();
-      const frameColor = state.detailCarrierId
-        ? (resolveCarrierColor(state.detailCarrierId) || PANEL_COLOR)
-        : PANEL_COLOR;
-
-      // 터미널 높이 기반 bodyH 클램핑
-      // 에디터(30%) + footer(2) + spacer/status 여유(5) 확보
-      const termH = process.stdout.rows ?? 24;
-      const reserved = Math.ceil(termH * 0.3) + 7;
-      const maxBodyH = Math.max(MIN_BODY_H, termH - reserved);
-      const effectiveBodyH = Math.min(state.bodyH, maxBodyH);
-
-      return renderPanelFull(
-        width, state.cols, state.frame, frameColor,
-        state.bottomHint, state.detailCarrierId, effectiveBodyH,
-        state.cursorColumn,
-      );
-    },
-    invalidate() {},
-  }));
 }

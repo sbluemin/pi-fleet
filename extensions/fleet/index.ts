@@ -69,10 +69,10 @@ import { cleanIdleClients } from "../core/agentclientprotocol/pool.js";
 import { setCliRuntimeContext, setCliSystemPrompt } from "../core/agentclientprotocol/provider-types.js";
 import { registerModelCommands, syncModelConfig } from "./shipyard/carrier/model-ui.js";
 import { exposeAgentApi } from "./operation-runner.js";
-import { refreshAgentPanel } from "./bridge/panel/lifecycle.js";
+import { detachAgentPanelUi, refreshAgentPanel } from "./bridge/panel/lifecycle.js";
 import { registerAgentPanelShortcut } from "./bridge/panel/shortcuts.js";
 import { setAgentPanelServiceLoading, setAgentPanelServiceStatus } from "./bridge/panel/config.js";
-import { initServiceStatus, attachStatusContext, refreshStatusNow, getServiceSnapshots, refreshStatusQuiet } from "../core/agentclientprotocol/service-status/store.js";
+import { initServiceStatus, attachStatusContext, detachStatusContext, refreshStatusNow, getServiceSnapshots, refreshStatusQuiet } from "../core/agentclientprotocol/service-status/store.js";
 import { buildSortieToolConfig } from "./shipyard/carrier/sortie.js";
 import { buildTaskForceToolConfig } from "./shipyard/taskforce/index.js";
 import { buildSquadronToolConfig } from "./shipyard/squadron/index.js";
@@ -487,6 +487,8 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
   });
 
   pi.on("session_shutdown", async (_event, ctx) => {
+    detachAgentPanelUi();
+    detachStatusContext();
     clearAcpPrompts();
 
     const sessionFile = ctx.sessionManager.getSessionFile();

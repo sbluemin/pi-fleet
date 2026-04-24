@@ -9,7 +9,7 @@ import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { ANIM_INTERVAL_MS, formatPanelMultiColHint, PANEL_DETAIL_HINT } from "../../constants.js";
 import { getState, makeCols, syncColsWithRegisteredOrder } from "./state.js";
 import type { AgentCol } from "./types.js";
-import { syncWidget } from "./widget-sync.js";
+import { detachWidgetSync, syncCurrentWidget, syncWidget } from "./widget-sync.js";
 
 // 편의를 위한 re-export
 export type { AgentCol } from "./types.js";
@@ -67,7 +67,6 @@ export function stopAgentStreaming(ctx: ExtensionContext): void {
 export function showAgentPanel(ctx: ExtensionContext): void {
   const s = getState();
   s.expanded = true;
-  s.lastCtx = ctx;
   syncWidget(ctx);
   notifyToggle(true);
 }
@@ -117,7 +116,7 @@ export function updateAgentCol(index: number, update: Partial<AgentCol>): void {
   const s = getState();
   if (index >= 0 && index < s.cols.length) {
     Object.assign(s.cols[index], update);
-    if (s.lastCtx) syncWidget(s.lastCtx);
+    syncCurrentWidget();
   }
 }
 
@@ -144,10 +143,18 @@ export function resetAgentPanel(ctx: ExtensionContext): void {
 
 /** 패널 상태를 현재 기준으로 즉시 동기화합니다. */
 export function refreshAgentPanel(ctx: ExtensionContext): void {
-  const s = getState();
-  s.lastCtx = ctx;
   syncColsWithRegisteredOrder();
   syncWidget(ctx);
+}
+
+/** 세션 교체 시 패널 UI가 이전 ExtensionContext를 더 이상 사용하지 않도록 분리합니다. */
+export function detachAgentPanelUi(): void {
+  const s = getState();
+  if (s.animTimer) {
+    clearInterval(s.animTimer);
+    s.animTimer = null;
+  }
+  detachWidgetSync();
 }
 
 // ─── 개별 칼럼 스트리밍 (Carrier용) ─────────────────────
@@ -158,7 +165,6 @@ export function refreshAgentPanel(ctx: ExtensionContext): void {
  */
 export function beginColStreaming(ctx: ExtensionContext, colIndex: number): void {
   const s = getState();
-  s.lastCtx = ctx;
   s.streaming = true;
 
   // 해당 칼럼만 초기화
@@ -179,7 +185,7 @@ export function beginColStreaming(ctx: ExtensionContext, colIndex: number): void
   if (!s.animTimer) {
     s.animTimer = setInterval(() => {
       s.frame++;
-      syncWidget(ctx);
+      syncCurrentWidget();
     }, ANIM_INTERVAL_MS);
   }
 
