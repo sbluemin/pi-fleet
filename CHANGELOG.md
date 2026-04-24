@@ -14,6 +14,7 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - Codex app-server connection path with dedicated event and lifecycle coverage.
 - Unified-agent provider contract E2E coverage.
 - `/fleet:update` slash command in the welcome extension that instructs the active PI agent to pull the local `pi-fleet` checkout and apply the `SETUP.md` update steps.
+- Prominent full-width update alert banner rendered above the welcome box when the local branch is behind its remote; replaces the duplicate right-column `Update available` block while active, and is fully hidden when up-to-date or no upstream is configured.
 
 ### Changed
 - Split the monolithic `UnifiedAgentClient` implementation into provider-specific clients.
@@ -31,6 +32,9 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ### Removed
 - Legacy `ProcessPool` implementation and related benchmark/pool tests.
 - Legacy raw ACP session E2E test in favor of provider-level E2E coverage.
+
+### Security
+- Welcome extension sanitizes C0 / DEL / C1 control characters from `gitUpdate.branch` and `gitUpdate.version` before rendering to prevent terminal escape injection via crafted branch names or `package.json` version values. The original `GitUpdateStatus` object is not mutated — sanitization is display-only.
 
 ## [0.1.1] - 2026-04-23
 
