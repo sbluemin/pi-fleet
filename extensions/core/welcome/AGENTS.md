@@ -31,8 +31,9 @@ Use `/fleet:update` when the operator wants PI to update this `pi-fleet` checkou
 ## Git Update Status Logic
 
 The extension executes internal git commands to determine synchronization status:
+- `git rev-parse --abbrev-ref HEAD`: To identify the current local branch.
 - `git rev-parse --abbrev-ref --symbolic-full-name @{u}`: To identify the tracking branch.
-- `git rev-list --count HEAD..origin/branch`: To count commits behind.
+- `git rev-list --count HEAD..@{u}`: To count commits behind when an upstream exists.
 
 ### Visual Representation
 The display depends on the relationship with the remote tracking branch:
@@ -45,9 +46,14 @@ The display depends on the relationship with the remote tracking branch:
 - **Update available**:
   - **Condition**: `hasRemote && behind > 0`
   - **Label**: `⚠ Update available`
-  - **Details**: `N commits behind origin/branch`
+  - **Details**: `N commits behind upstream`
   - **Color**: `#FFB347` (`warn` orange)
 
-- **No Remote**:
-  - **Condition**: `!hasRemote`
+- **No upstream**:
+  - **Condition**: `isGitRepo && branch && !hasRemote`
+  - **Label**: `● Local branch (branch) · vX.Y.Z` (version suffix omitted when unavailable)
+  - **Color**: `#FEBC38` (`accent` yellow)
+
+- **Not a git repository**:
+  - **Condition**: `!isGitRepo`
   - **Action**: No status is displayed.

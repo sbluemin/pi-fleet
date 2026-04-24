@@ -26,6 +26,7 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - Admiral prompts now explicitly require the `pi-tools` MCP availability check.
 - Codex commentary events are routed as message chunks.
 - Fleet bridge panel widget synchronization now detaches stale panel contexts.
+- Welcome extension now renders the current branch name and Fleet version even when the local branch has no upstream configured.
 
 ### Removed
 - Legacy `ProcessPool` implementation and related benchmark/pool tests.

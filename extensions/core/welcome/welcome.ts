@@ -50,6 +50,8 @@ export interface GitUpdateStatus {
   behind: number;
   branch: string;
   hasRemote: boolean;
+  isGitRepo: boolean;
+  upstream?: string;
   version?: string;
 }
 
@@ -317,9 +319,20 @@ export function discoverLoadedCounts(): LoadedCounts {
 
 export function checkGitUpdateStatus(): GitUpdateStatus {
   const version = readFleetVersion();
+  let branch = "";
 
   try {
-    const branch = execSync("git rev-parse --abbrev-ref HEAD", {
+    branch = execSync("git rev-parse --abbrev-ref HEAD", {
+      cwd: __dirname,
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return { behind: 0, branch: "", hasRemote: false, isGitRepo: false, version };
+  }
+
+  try {
+    const upstream = execSync("git rev-parse --abbrev-ref --symbolic-full-name @{u}", {
       cwd: __dirname,
       encoding: "utf-8",
       stdio: ["ignore", "pipe", "ignore"],
@@ -330,17 +343,18 @@ export function checkGitUpdateStatus(): GitUpdateStatus {
       encoding: "utf-8",
       stdio: ["ignore", "pipe", "ignore"],
     }).trim();
-
     const behind = Number.parseInt(behindRaw, 10);
 
     return {
       behind: Number.isFinite(behind) ? behind : 0,
       branch,
       hasRemote: true,
+      isGitRepo: true,
+      upstream,
       version,
     };
   } catch {
-    return { behind: 0, branch: "", hasRemote: false, version };
+    return { behind: 0, branch, hasRemote: false, isGitRepo: true, version };
   }
 }
 
@@ -536,11 +550,14 @@ function buildFleetInfo(data: WelcomeData, colWidth: number): string[] {
   }
 
   const updateLines: string[] = [];
-  if (data.gitUpdate && data.gitUpdate.hasRemote) {
+  if (data.gitUpdate?.isGitRepo && data.gitUpdate.branch) {
     const currentVersion = data.gitUpdate.version ? `v${data.gitUpdate.version}` : "";
     updateLines.push(separator);
-    if (data.gitUpdate.behind > 0) {
-      const remoteBranch = data.gitUpdate.branch ? `origin/${data.gitUpdate.branch}` : "remote";
+    if (!data.gitUpdate.hasRemote) {
+      const versionSuffix = currentVersion ? ` · ${currentVersion}` : "";
+      updateLines.push(` ${fgOnly("accent", `● Local branch (${data.gitUpdate.branch})${versionSuffix}`)}`);
+    } else if (data.gitUpdate.behind > 0) {
+      const remoteBranch = data.gitUpdate.upstream || "remote";
       updateLines.push(` ${bold(fgOnly("warn", "⚠ Update available"))}`);
       updateLines.push(` ${dim(`${data.gitUpdate.behind} commits behind ${remoteBranch}`)}`);
       if (currentVersion) {
