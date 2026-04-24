@@ -46,8 +46,6 @@ export interface UnifiedClientEvents {
   userMessageChunk: [text: string, sessionId: string];
   /** AI 응답 텍스트 청크 (스트리밍) */
   messageChunk: [text: string, sessionId: string];
-  /** Codex commentary 청크 (최종 응답과 분리) */
-  commentaryChunk: [text: string, sessionId: string];
   /** AI 사고 과정 청크 */
   thoughtChunk: [text: string, sessionId: string];
   /** 도구 호출 */

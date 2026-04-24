@@ -79,9 +79,7 @@ describe('CodexAppServerConnection events', () => {
 
   it('final_answer agentMessage delta를 messageChunk로 승격한다', () => {
     const messageHandler = vi.fn();
-    const commentaryHandler = vi.fn();
     connection.on('messageChunk', messageHandler);
-    connection.on('commentaryChunk', commentaryHandler);
 
     child.stdout.emit(
       'data',
@@ -104,14 +102,11 @@ describe('CodexAppServerConnection events', () => {
     );
 
     expect(messageHandler).toHaveBeenCalledWith('응답 청크', 'thread-1');
-    expect(commentaryHandler).not.toHaveBeenCalled();
   });
 
-  it('commentary agentMessage delta를 최종 응답과 분리한다', () => {
+  it('commentary agentMessage delta도 messageChunk로 승격한다', () => {
     const messageHandler = vi.fn();
-    const commentaryHandler = vi.fn();
     connection.on('messageChunk', messageHandler);
-    connection.on('commentaryChunk', commentaryHandler);
 
     child.stdout.emit(
       'data',
@@ -133,8 +128,7 @@ describe('CodexAppServerConnection events', () => {
       })}\n`,
     );
 
-    expect(commentaryHandler).toHaveBeenCalledWith('도구 확인 중', 'thread-1');
-    expect(messageHandler).not.toHaveBeenCalled();
+    expect(messageHandler).toHaveBeenCalledWith('도구 확인 중', 'thread-1');
   });
 
   it('MCP startup status notification을 상태 이벤트로 승격한다', () => {

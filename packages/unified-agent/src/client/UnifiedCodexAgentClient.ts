@@ -310,9 +310,6 @@ export class UnifiedCodexAgentClient extends EventEmitter implements IUnifiedAge
     this.connection.on('messageChunk', (text: string, sessionId: string) => {
       this.emitTyped('messageChunk', text, sessionId);
     });
-    this.connection.on('commentaryChunk', (text: string, sessionId: string) => {
-      this.emitTyped('commentaryChunk', text, sessionId);
-    });
     this.connection.on('thoughtChunk', (text: string, sessionId: string) => {
       this.emitTyped('thoughtChunk', text, sessionId);
     });

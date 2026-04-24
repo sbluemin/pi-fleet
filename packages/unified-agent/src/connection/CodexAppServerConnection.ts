@@ -124,7 +124,6 @@ export interface CodexAppServerConnectionOptions extends BaseConnectionOptions {
 export interface CodexAppServerEventMap {
   stateChange: [state: ConnectionState];
   messageChunk: [text: string, sessionId: string];
-  commentaryChunk: [text: string, sessionId: string];
   thoughtChunk: [text: string, sessionId: string];
   userMessageChunk: [text: string, sessionId: string];
   toolCall: [title: string, status: string, sessionId: string, data?: unknown];
@@ -145,7 +144,6 @@ export interface CodexAppServerEventMap {
 
 type CodexAppServerEvents = BaseConnectionEventMap & CodexAppServerEventMap;
 
-const CODEX_COMMENTARY_PHASE = 'commentary';
 const CODEX_MCP_READY_STATUS = 'ready';
 const CODEX_MCP_FAILED_STATUSES = new Set(['failed', 'error']);
 const DEFAULT_MCP_STARTUP_TIMEOUT = 60_000;
@@ -412,12 +410,7 @@ export class CodexAppServerConnection extends BaseConnection {
     switch (method) {
       case CODEX_NOTIFICATIONS.AGENT_MESSAGE_DELTA: {
         const notification = params as CodexAgentMessageDeltaNotification;
-        const phase = this.agentMessagePhases.get(notification.itemId);
-        if (phase === CODEX_COMMENTARY_PHASE) {
-          this.emit('commentaryChunk', notification.delta, this.requireThreadId());
-        } else {
-          this.emit('messageChunk', notification.delta, this.requireThreadId());
-        }
+        this.emit('messageChunk', notification.delta, this.requireThreadId());
         break;
       }
       case CODEX_NOTIFICATIONS.REASONING_TEXT_DELTA: {
