@@ -32,7 +32,11 @@ interface StatusOverlayControllerDeps {
   refreshAgentPanel: () => void;
   syncModelConfig: () => void;
   notifyStatusUpdate: () => void;
-  saveCliTypeOverrides: (overrides: Record<string, string>) => void;
+  updateCliTypeOverride: (
+    carrierId: string,
+    cliType: CarrierCliType,
+    defaultCliType: CarrierCliType,
+  ) => void;
 }
 
 const CLAUDE_CLI_TYPE: CarrierCliType = "claude";
@@ -86,48 +90,45 @@ export class StatusOverlayController implements Pick<
   ): Promise<CliTypeChangeResult> {
     const currentConfig = this.deps.getRegisteredCarrierConfig(carrierId);
     const currentCliType = currentConfig?.cliType as CarrierCliType | undefined;
-    if (currentCliType) {
-      const currentSelection = this.deps.getCurrentModelSelection(carrierId);
-      if (currentSelection) {
-        this.deps.savePerCliSettings(carrierId, currentCliType, {
-          model: currentSelection.model,
-          effort: currentSelection.effort,
-          budgetTokens: currentSelection.budgetTokens,
-          direct: currentSelection.direct,
-        });
-      }
-    }
-
-    this.deps.updateCarrierCliType(carrierId, newCliType);
-    this.deps.refreshAgentPanel();
-    this.persistCliOverrides();
-
-    const resolved = this.resolveCliSelection(carrierId, newCliType);
-
+    const defaultCliType = currentConfig?.defaultCliType as CarrierCliType | undefined;
+    let cliTypeChanged = false;
     try {
+      if (currentCliType) {
+        const currentSelection = this.deps.getCurrentModelSelection(carrierId);
+        if (currentSelection) {
+          this.deps.savePerCliSettings(carrierId, currentCliType, {
+            model: currentSelection.model,
+            effort: currentSelection.effort,
+            budgetTokens: currentSelection.budgetTokens,
+            direct: currentSelection.direct,
+          });
+        }
+      }
+
+      this.deps.updateCarrierCliType(carrierId, newCliType);
+      cliTypeChanged = true;
+      this.deps.refreshAgentPanel();
+      this.persistCarrierCliOverride(carrierId, newCliType, defaultCliType);
+
+      const resolved = this.resolveCliSelection(carrierId, newCliType);
       await this.deps.updateModelSelection(carrierId, {
         model: resolved.model,
         effort: resolved.effort ?? undefined,
         budgetTokens: resolved.budgetTokens ?? undefined,
         direct: this.deps.getPerCliSettings(carrierId, newCliType)?.direct,
       });
+      return {
+        carrierId,
+        newCliType,
+        selection: resolved,
+      };
     } catch (error) {
-      if (currentCliType && currentCliType !== newCliType) {
-        this.deps.updateCarrierCliType(carrierId, currentCliType);
-        this.deps.refreshAgentPanel();
-        this.persistCliOverrides();
-      }
+      this.rollbackCliTypeChange(carrierId, currentCliType, defaultCliType, cliTypeChanged);
       throw error;
     } finally {
       this.deps.syncModelConfig();
       this.deps.notifyStatusUpdate();
     }
-
-    return {
-      carrierId,
-      newCliType,
-      selection: resolved,
-    };
   }
 
   private resolveCliSelection(
@@ -154,15 +155,29 @@ export class StatusOverlayController implements Pick<
     };
   }
 
-  private persistCliOverrides(): void {
-    const overrides: Record<string, string> = {};
-    for (const carrierId of this.deps.getRegisteredOrder()) {
-      const config = this.deps.getRegisteredCarrierConfig(carrierId);
-      if (config && config.cliType !== config.defaultCliType) {
-        overrides[carrierId] = config.cliType;
-      }
+  private persistCarrierCliOverride(
+    carrierId: string,
+    cliType: CarrierCliType,
+    defaultCliType: CarrierCliType | undefined,
+  ): void {
+    if (!defaultCliType) return;
+    this.deps.updateCliTypeOverride(carrierId, cliType, defaultCliType);
+  }
+
+  private rollbackCliTypeChange(
+    carrierId: string,
+    currentCliType: CarrierCliType | undefined,
+    defaultCliType: CarrierCliType | undefined,
+    cliTypeChanged: boolean,
+  ): void {
+    if (!cliTypeChanged || !currentCliType) return;
+    try {
+      this.deps.updateCarrierCliType(carrierId, currentCliType);
+      this.deps.refreshAgentPanel();
+      this.persistCarrierCliOverride(carrierId, currentCliType, defaultCliType);
+    } catch {
+      // 원래 실패를 보존하기 위해 best-effort rollback 실패는 삼킵니다.
     }
-    this.deps.saveCliTypeOverrides(overrides);
   }
 
   private normalizeCliUpdates(

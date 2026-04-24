@@ -61,7 +61,7 @@ import {
   loadSquadronEnabled,
   saveSquadronEnabled,
   loadCliTypeOverrides,
-  saveCliTypeOverrides,
+  updateCliTypeOverride,
   getConfiguredTaskForceCarrierIds,
   getConfiguredTaskForceBackends,
 } from "./shipyard/store.js";
@@ -111,6 +111,7 @@ export {
   getAvailableModels,
   getEffortLevels,
   getDefaultBudgetTokens,
+  updateCliTypeOverride,
 } from "./shipyard/store.js";
 export type {
   ModelSelection,
@@ -331,7 +332,9 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
             },
             syncModelConfig,
             notifyStatusUpdate,
-            saveCliTypeOverrides,
+            updateCliTypeOverride: (carrierId, cliType, defaultCliType) => {
+              updateCliTypeOverride(carrierId, cliType, defaultCliType);
+            },
           });
 
           return new CarrierStatusOverlay(

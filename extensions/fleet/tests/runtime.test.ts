@@ -27,6 +27,9 @@ import {
   reconcileActiveModelSelections,
   updateModelSelection,
   updateAllModelSelections,
+  savePerCliSettings,
+  loadCliTypeOverrides,
+  updateCliTypeOverride,
 } from "../shipyard/store.js";
 
 let tmpDir: string;
@@ -189,6 +192,73 @@ describe("getModelConfig / saveSelectedModels", () => {
     expect(changed).toBe(false);
     expect(loaded.genesis?.model).toBe("gpt-5.4");
     expect(loaded.genesis?.effort).toBe("high");
+  });
+
+  it("단일 cliType override 저장은 기존 다른 override를 보존한다", () => {
+    initRuntime(tmpDir);
+    initStore(tmpDir);
+
+    updateCliTypeOverride("alpha", "codex", "claude");
+    updateCliTypeOverride("beta", "gemini", "codex");
+
+    expect(loadCliTypeOverrides()).toEqual({
+      alpha: "codex",
+      beta: "gemini",
+    });
+  });
+
+  it("단일 cliType override 삭제는 다른 override를 보존한다", () => {
+    initRuntime(tmpDir);
+    initStore(tmpDir);
+
+    updateCliTypeOverride("alpha", "codex", "claude");
+    updateCliTypeOverride("beta", "gemini", "codex");
+    updateCliTypeOverride("alpha", "claude", "claude");
+
+    expect(loadCliTypeOverrides()).toEqual({
+      beta: "gemini",
+    });
+  });
+
+  it("모델 저장은 기존 cliTypeOverrides를 보존한다", () => {
+    initRuntime(tmpDir);
+    initStore(tmpDir);
+
+    updateCliTypeOverride("alpha", "codex", "claude");
+    saveSelectedModels({ alpha: { model: "gpt-5.4" } });
+
+    expect(loadCliTypeOverrides()).toEqual({ alpha: "codex" });
+  });
+
+  it("per-CLI 설정 저장은 기존 cliTypeOverrides를 보존한다", () => {
+    initRuntime(tmpDir);
+    initStore(tmpDir);
+
+    updateCliTypeOverride("alpha", "codex", "claude");
+    savePerCliSettings("alpha", "claude", { model: "claude-opus-4-7" });
+
+    expect(loadCliTypeOverrides()).toEqual({ alpha: "codex" });
+  });
+
+  it("죽은 owner의 stale lock은 owner metadata 확인 후 회수한다", () => {
+    initRuntime(tmpDir);
+    initStore(tmpDir);
+    const lockDir = path.join(tmpDir, "states.json.lock");
+    fs.mkdirSync(lockDir);
+    fs.writeFileSync(
+      path.join(lockDir, "owner.json"),
+      JSON.stringify({
+        pid: 999999,
+        hostname: os.hostname(),
+        startedAt: Date.now() - 60000,
+      }),
+      "utf-8",
+    );
+
+    updateCliTypeOverride("alpha", "codex", "claude");
+
+    expect(loadCliTypeOverrides()).toEqual({ alpha: "codex" });
+    expect(fs.existsSync(lockDir)).toBe(false);
   });
 });
 

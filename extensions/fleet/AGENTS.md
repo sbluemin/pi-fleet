@@ -116,7 +116,7 @@ Consumer (carriers, external extensions)
 | `shipyard/squadron/prompts.ts` | `SQUADRON_MANIFEST` (`ToolPromptManifest`) 소유 |
 | `shipyard/taskforce/prompts.ts` | `TASKFORCE_MANIFEST` (`ToolPromptManifest`) 소유 |
 | `shipyard/squadron/types.ts` | Squadron domain types and interfaces |
-| `shipyard/store.ts` | Unified fleet persistence store — `initStore`, `loadModels`, `saveModels`, `updateModelSelection`, `getPerCliSettings`/`savePerCliSettings`, `loadSortieDisabled`, `saveSortieDisabled`, `loadSquadronEnabled`, `saveSquadronEnabled`, `loadCliTypeOverrides`, `saveCliTypeOverrides`. |
+| `shipyard/store.ts` | Unified fleet persistence store — `initStore`, `loadModels`, `saveModels`, `updateModelSelection`, `getPerCliSettings`/`savePerCliSettings`, `loadSortieDisabled`, `saveSortieDisabled`, `loadSquadronEnabled`, `saveSquadronEnabled`, `loadCliTypeOverrides`, `updateCliTypeOverride`. |
 
 | `bridge/carrier-ui/status-overlay.ts` | Status Overlay UI — Supports individual CLI change (`c`), batch CLI transition (`C`), global default restoration (`R`), and squadron toggle (`s`). |
 

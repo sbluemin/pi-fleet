@@ -66,5 +66,5 @@ On the first boot after the consolidation, `store.ts` checks for `selected-model
 - `getPerCliSettings(carrierId, cliType)` / `savePerCliSettings(carrierId, cliType, settings)`: Utilities for managing CLI-specific setting caches (`model`, `effort`, `budgetTokens`, `direct`).
 - `loadSortieDisabled()` / `saveSortieDisabled(ids)`: CRUD for sortie status.
 - `loadSquadronEnabled()` / `saveSquadronEnabled(ids)`: CRUD for squadron status.
-- `loadCliTypeOverrides()` / `saveCliTypeOverrides(overrides)`: CRUD for CLI type overrides.
+- `loadCliTypeOverrides()` / `updateCliTypeOverride(carrierId, cliType, defaultCliType)`: load persisted CLI type overrides and persist a single carrier override intent.
 - `getAvailableModels(cli)`: Catalog lookup for supported models.
