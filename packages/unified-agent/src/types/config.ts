@@ -6,7 +6,7 @@
 export type CliType = 'gemini' | 'claude' | 'codex';
 
 /** 통신 프로토콜 */
-export type ProtocolType = 'acp';
+export type ProtocolType = 'acp' | 'codex-app-server';
 
 /** 에이전트 모드 옵션 */
 export interface AgentMode {
@@ -44,6 +44,8 @@ export interface CliBackendConfig {
   acpArgs?: string[];
   /** npx 패키지 (브릿지인 경우) */
   npxPackage?: string;
+  /** app-server 시작 인자 (Codex native spawn용) */
+  appServerArgs?: string[];
   /** 사용 가능한 에이전트 모드 목록 (session/set_mode 지원 시) */
   modes?: AgentMode[];
 }
@@ -115,7 +117,8 @@ export interface UnifiedClientOptions extends ConnectionOptions {
   sessionId?: string;
   /** 세션 초기 시스템 지침.
    * Claude에서는 native system prompt에 append되며,
-   * Codex·Gemini에서는 세션의 최초 user turn 앞에 선행 text block으로 주입됨
+   * Codex에서는 app-server의 developerInstructions로 전달될 예정이고,
+   * Gemini에서는 세션의 최초 user turn 앞에 선행 text block으로 주입됨
    * (best-effort initial session instructions). */
   systemPrompt?: string;
   /** 에이전트에 연결할 MCP 서버 목록 (선택) */

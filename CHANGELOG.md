@@ -5,6 +5,37 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-04-24
+
+### Added
+- `PI_EXPERIMENTAL` environment flag to opt into experimental extensions during boot.
+- GPT-5.5 Codex model entry in `packages/unified-agent/models.json`.
+- Provider-specific unified-agent clients for Claude, Codex, and Gemini.
+- Codex app-server connection path with dedicated event and lifecycle coverage.
+- Unified-agent provider contract E2E coverage.
+- `/fleet:update` slash command in the welcome extension that instructs the active PI agent to pull the local `pi-fleet` checkout and apply the `SETUP.md` update steps.
+- Prominent full-width update alert banner rendered above the welcome box when the local branch is behind its remote; replaces the duplicate right-column `Update available` block while active, and is fully hidden when up-to-date or no upstream is configured.
+
+### Changed
+- Split the monolithic `UnifiedAgentClient` implementation into provider-specific clients.
+- Reworked ACP provider execution and stream handling around the new client contracts.
+- Updated unified-agent examples, README, and AGENTS guidance for the provider-client architecture.
+- Added `@anthropic-ai/claude-agent-sdk` as a root dependency.
+
+### Fixed
+- Echelon repo cloning now uses the OS-native temporary directory.
+- Admiral prompts now explicitly require the `pi-tools` MCP availability check.
+- Codex commentary events are routed as message chunks.
+- Fleet bridge panel widget synchronization now detaches stale panel contexts.
+- Welcome extension now renders the current branch name and Fleet version even when the local branch has no upstream configured.
+
+### Removed
+- Legacy `ProcessPool` implementation and related benchmark/pool tests.
+- Legacy raw ACP session E2E test in favor of provider-level E2E coverage.
+
+### Security
+- Welcome extension sanitizes C0 / DEL / C1 control characters from `gitUpdate.branch` and `gitUpdate.version` before rendering to prevent terminal escape injection via crafted branch names or `package.json` version values. The original `GitUpdateStatus` object is not mutated — sanitization is display-only.
+
 ## [0.1.1] - 2026-04-23
 
 ### Added
@@ -32,7 +63,7 @@ Initial release.
 
 ### Added
 - **unified-agent package** (`packages/unified-agent/`): unified CLI agent SDK supporting Claude, Codex, and Gemini
-  - Core components: `AcpConnection`, `UnifiedAgentClient`, `ProcessPool`, `ModelRegistry`
+  - Core components: `AcpConnection`, `UnifiedAgentClient`, `ModelRegistry`
 - **Core extensions** (`extensions/core/`):
   - `agentclientprotocol`: ACP↔MCP bridge and tool-call management
   - `hud`: status bar customization (colors, editor state, git status, etc.)

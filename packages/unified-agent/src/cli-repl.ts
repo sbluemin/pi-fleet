@@ -7,7 +7,7 @@ import { createInterface, type Interface as ReadlineInterface } from 'node:readl
 import type { Colors } from 'picocolors/types';
 
 import { CliRenderer } from './cli-renderer.js';
-import { UnifiedAgentClient } from './client/UnifiedAgentClient.js';
+import { UnifiedAgent, type IUnifiedAgentClient } from './client/IUnifiedAgentClient.js';
 import { getProviderModelIds, getReasoningEffortLevels } from './models/ModelRegistry.js';
 import type { CliType } from './types/config.js';
 import type { AcpPermissionRequestParams, AcpPermissionResponse } from './types/acp.js';
@@ -46,7 +46,7 @@ export async function startRepl(options: ReplOptions): Promise<void> {
   const { cli: selectedCli, session: sessionOpt, model: modelOpt, effort: effortOpt, cwd, yolo } = options;
   const ce = options.colorErr;
 
-  const client = new UnifiedAgentClient();
+  let client: IUnifiedAgentClient;
   const renderer = new CliRenderer({ color: options.color, colorErr: ce });
 
   // ─── 연결 ─────────────────────────────────────────────
@@ -55,6 +55,7 @@ export async function startRepl(options: ReplOptions): Promise<void> {
 
   let connectedCli: CliType;
   try {
+    client = await UnifiedAgent.build({ cli: selectedCli, sessionId: sessionOpt });
     const result = await client.connect({
       cwd,
       cli: selectedCli,
@@ -289,7 +290,7 @@ interface EffortCommandContext {
  */
 async function handleSlashCommand(
   input: string,
-  client: UnifiedAgentClient,
+  client: IUnifiedAgentClient,
   cli: CliType,
   ce: Colors,
   state: ReplState,

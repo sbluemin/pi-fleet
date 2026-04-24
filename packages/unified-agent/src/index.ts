@@ -5,9 +5,9 @@
  *
  * @example
  * ```typescript
- * import { UnifiedAgentClient } from '@sbluemin/unified-agent';
+ * import { UnifiedAgent } from '@sbluemin/unified-agent';
  *
- * const client = new UnifiedAgentClient();
+ * const client = await UnifiedAgent.build({ cli: 'gemini' });
  * client.on('messageChunk', (text) => process.stdout.write(text));
  * await client.connect({ cwd: '/my/workspace', cli: 'gemini' });
  * await client.sendMessage('이 프로젝트를 분석해줘');
@@ -16,12 +16,17 @@
 
 // === 통합 클라이언트 ===
 export {
-  UnifiedAgentClient,
-  type UnifiedClientEvents,
+  UnifiedAgent,
+  type UnifiedAgentBuildOptions,
   type ConnectResult,
   type ConnectionInfo,
   type IUnifiedAgentClient,
-} from './client/UnifiedAgentClient.js';
+  type UnifiedClientEvents,
+} from './client/IUnifiedAgentClient.js';
+
+export { UnifiedClaudeAgentClient } from './client/UnifiedClaudeAgentClient.js';
+export { UnifiedCodexAgentClient } from './client/UnifiedCodexAgentClient.js';
+export { UnifiedGeminiAgentClient } from './client/UnifiedGeminiAgentClient.js';
 
 // === 모델 레지스트리 ===
 export {
@@ -44,9 +49,6 @@ export { AcpConnection, createIdleTimeoutRace, type AcpConnectionOptions, type A
 
 // === CLI 감지 ===
 export { CliDetector } from './detector/CliDetector.js';
-
-// === 프로세스 풀 ===
-export { getProcessPool, ProcessPool, type ProcessPoolOptions, type WarmUpOptions } from './pool/ProcessPool.js';
 
 // === CLI 설정 ===
 export {

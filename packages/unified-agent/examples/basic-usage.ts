@@ -8,14 +8,13 @@
  * 실행: npx tsx examples/basic-usage.ts
  */
 
-import { UnifiedAgentClient } from '../src/index.js';
+import { UnifiedAgent } from '../src/index.js';
 
 async function main() {
-  const client = new UnifiedAgentClient();
-
   // ── 1. 사용 가능한 CLI 감지 ──
   console.log('🔍 사용 가능한 CLI 감지 중...\n');
-  const clis = await client.detectClis();
+  const detectorClient = UnifiedAgent.createClient('gemini');
+  const clis = await detectorClient.detectClis();
 
   for (const cli of clis) {
     const status = cli.available ? '✅' : '❌';
@@ -28,6 +27,9 @@ async function main() {
     console.log('\n❌ 사용 가능한 CLI가 없습니다.');
     return;
   }
+
+  const selectedCli = available[0].cli;
+  const client = UnifiedAgent.createClient(selectedCli);
 
   // ── 2. 이벤트 리스너 설정 ──
   client.on('stateChange', (state) => {
@@ -50,11 +52,14 @@ async function main() {
     console.log(`\n📋 [계획] ${plan}`);
   });
 
-  client.on('permissionRequest', (params, requestId) => {
+  client.on('permissionRequest', (params, resolve) => {
     console.log(`\n🔐 [권한 요청] ${params.description}`);
     // 첫 번째 옵션으로 자동 승인
-    if (params.options.length > 0) {
-      client.respondToPermission(requestId, params.options[0].optionId);
+    const option = params.options[0];
+    if (option) {
+      resolve({ outcome: { outcome: 'selected', optionId: option.optionId } });
+    } else {
+      resolve({ outcome: { outcome: 'cancelled' } });
     }
   });
 
@@ -68,7 +73,6 @@ async function main() {
   });
 
   // ── 3. 연결 ──
-  const selectedCli = available[0].cli;
   console.log(`\n🚀 ${selectedCli}에 연결 중...\n`);
 
   try {

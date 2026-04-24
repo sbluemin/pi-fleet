@@ -4,11 +4,15 @@ const mockState = vi.hoisted(() => {
   const client = {
     on: vi.fn(),
     off: vi.fn(),
+    connect: vi.fn(async () => ({
+      protocol: "acp",
+      session: { sessionId: "acp-session-1" },
+    })),
     sendMessage: vi.fn(() => new Promise<void>(() => {})),
     cancelPrompt: vi.fn(async () => {}),
     endSession: vi.fn(async () => {}),
     disconnect: vi.fn(async () => {}),
-    getConnectionInfo: vi.fn(() => ({ state: "ready" })),
+    getConnectionInfo: vi.fn(() => ({ state: "ready", sessionId: "acp-session-1" })),
   };
 
   return {
@@ -27,7 +31,9 @@ vi.mock("@mariozechner/pi-ai", () => ({
 }));
 
 vi.mock("@sbluemin/unified-agent", () => ({
-  UnifiedAgentClient: class {},
+  UnifiedAgent: {
+    build: vi.fn(async () => mockState.client),
+  },
   getModelsRegistry: () => ({
     providers: {
       claude: {
@@ -51,13 +57,7 @@ vi.mock("@sbluemin/unified-agent", () => ({
 }));
 
 vi.mock("./executor.js", () => ({
-  acquireSession: vi.fn(async () => ({
-    client: mockState.client,
-    sessionId: "acp-session-1",
-    connectionInfo: { sessionId: "acp-session-1" },
-    release: vi.fn(),
-  })),
-  releaseSession: vi.fn(),
+  applyPostConnectConfig: vi.fn(async () => {}),
 }));
 
 vi.mock("./provider-events.js", () => ({
@@ -137,6 +137,7 @@ describe("provider-stream", () => {
   afterEach(() => {
     mockState.client.on.mockClear();
     mockState.client.off.mockClear();
+    mockState.client.connect.mockClear();
     mockState.client.sendMessage.mockClear();
     mockState.client.cancelPrompt.mockClear();
     mockState.client.endSession.mockClear();

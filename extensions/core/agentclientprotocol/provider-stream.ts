@@ -1,7 +1,7 @@
 /**
  * core/agentclientprotocol/provider-stream — ACP 기반 streamSimple 구현
  *
- * UnifiedAgentClient를 통해 Gemini/Codex/Claude CLI 백엔드를 pi TUI에 통합.
+ * UnifiedAgent provider client를 통해 Gemini/Codex/Claude CLI 백엔드를 pi TUI에 통합.
  * Virtual Tool 방식: ACP CLI가 투명 스트리밍 백엔드. pi tool 루프 우회.
  * 신규 세션 시 pi 대화내역을 XML 구조화 히스토리로 첫 프롬프트에 주입한다.
  * CLI 전용 systemPrompt는 connect options.systemPrompt로 executor에서 직접 주입한다.
@@ -18,8 +18,8 @@ import type {
   Tool,
 } from "@mariozechner/pi-ai";
 import crypto from "crypto";
-import { UnifiedAgentClient } from "@sbluemin/unified-agent";
-import type { CliType, McpServerConfig } from "@sbluemin/unified-agent";
+import type { CliType, IUnifiedAgentClient, McpServerConfig, UnifiedClientOptions } from "@sbluemin/unified-agent";
+import { UnifiedAgent } from "@sbluemin/unified-agent";
 
 import {
   type ActivePromptState,
@@ -39,8 +39,7 @@ import {
   getCliSystemPrompt,
   getCliRuntimeContext,
 } from "./provider-types.js";
-import { acquireSession, releaseSession, applyPostConnectConfig } from "./executor.js";
-import { isClientAlive } from "./pool.js";
+import { applyPostConnectConfig } from "./executor.js";
 import { createEventMapper } from "./provider-events.js";
 import { getLogAPI } from "../log/bridge.js";
 import {
@@ -513,7 +512,7 @@ async function ensureSession(
       session.lastSystemPromptHash !== systemPromptHash;
     const toolsChanged = session.toolHash && currentToolHash &&
       session.toolHash !== currentToolHash;
-    const deadClient = !!session.client && !isClientAlive(session.client);
+    const deadClient = !!session.client && !isProviderClientAlive(session.client);
     const needsRecovery = session.needsRecovery || deadClient;
 
     if (cliChanged || promptDrifted || toolsChanged || needsRecovery) {
@@ -529,7 +528,6 @@ async function ensureSession(
       debug(`세션 폐기: ${reason}`, `(${session.cli} → ${cli})`);
       await session.client?.endSession().catch(() => {});
       await session.client?.disconnect().catch(() => {});
-      releaseSession(session.sessionKey);
       session.client = null;
       if (session.mcpSessionToken) {
         clearPendingForSession(session.mcpSessionToken);
@@ -553,7 +551,6 @@ async function ensureSession(
         // setModel 실패 — 세션 폐기 후 재생성으로 fallback
         debug(`setModel 실패, 세션 재생성으로 fallback:`, errorMessage(err));
         await disconnectSession(session);
-        releaseSession(session.sessionKey);
         removeSession(state, session);
         session = undefined;
       }
@@ -621,21 +618,17 @@ async function ensureSession(
 
   try {
     debug(session?.sessionId ? `session/load 복원 시도: ${session.sessionId.slice(0, 8)}` : `새 연결 시작: cli=${cli}`);
-    // Admiral host 응답 생성 경로는 executor.acquireSession의 host policy를 통해 전역 systemPrompt를 상속받는다.
-    const acquired = await acquireSession({
-      key,
-      cliType: cli,
+    // Admiral host 응답 생성 경로는 전역 systemPrompt를 connect 옵션으로 직접 전달한다.
+    const client = await UnifiedAgent.build({ cli });
+    const connectResult = await client.connect(buildProviderConnectOptions(
+      cli,
       cwd,
-      model: backendModel,
+      backendModel,
       mcpServers,
-      yoloMode: true,
-      env: { MCP_TOOL_TIMEOUT: '1800000' },
-      promptIdleTimeout: DEFAULT_PROMPT_IDLE_TIMEOUT,
-      effort: effortOverrides?.effort,
-      budgetTokens: effortOverrides?.budgetTokens,
-    });
-    newSession.client = acquired.client;
-    newSession.sessionId = acquired.sessionId || acquired.connectionInfo.sessionId || null;
+    ));
+    await applyPostConnectConfig(client, cli, effortOverrides);
+    newSession.client = client;
+    newSession.sessionId = connectResult.session?.sessionId ?? client.getConnectionInfo().sessionId ?? null;
     registerSession(state, newSession);
     installToolCallRouter(state, newSession);
     setSessionLaunchConfig(newSession.sessionKey, {
@@ -643,15 +636,15 @@ async function ensureSession(
       ...(effortOverrides?.effort ? { effort: effortOverrides.effort } : {}),
       ...(effortOverrides?.budgetTokens ? { budgetTokens: effortOverrides.budgetTokens } : {}),
     });
-    acquired.release();
     if (newSession.sessionId) {
       debug(`세션 생성 완료: ${newSession.sessionId.slice(0, 8)}`);
     }
     return newSession;
   } catch (err) {
     // 실패 시 정리
+    await newSession.client?.disconnect().catch(() => {});
+    newSession.client?.removeAllListeners();
     if (mcpActive) removeToolsForSession(sessionToken);
-    releaseSession(key);
     throw err;
   }
 }
@@ -1096,9 +1089,9 @@ function setupAbortHandling(
   return { wasAborted, cleanupAbort };
 }
 
-/** UnifiedAgentClient에 이벤트 리스너 등록 — 해제 함수 반환 */
+/** Unified Agent provider client에 이벤트 리스너 등록 — 해제 함수 반환 */
 function wireListeners(
-  client: UnifiedAgentClient,
+  client: IUnifiedAgentClient,
   mapper: ReturnType<typeof createEventMapper>,
   session: AcpSessionState,
   mcpToken?: string,
@@ -1209,7 +1202,6 @@ async function clearSessionsAndPreSpawn(state: AcpProviderState): Promise<void> 
   for (const session of state.sessions.values()) {
     clearSessionRoutingState(state, session);
     await disconnectSession(session);
-    releaseSession(session.sessionKey);
     clearBridgeScopeSessionBySessionKey(session.sessionKey);
     clearSessionLaunchConfig(session.sessionKey);
   }
@@ -1219,4 +1211,39 @@ async function clearSessionsAndPreSpawn(state: AcpProviderState): Promise<void> 
   state.bridgeScopeSessionKeys.clear();
   state.sessionLaunchConfigs.clear();
   clearAllTools();
+}
+
+function buildProviderConnectOptions(
+  cli: CliType,
+  cwd: string,
+  backendModel: string,
+  mcpServers?: McpServerConfig[],
+): UnifiedClientOptions {
+  const connectOptions: UnifiedClientOptions = {
+    cwd,
+    cli,
+    model: backendModel,
+    autoApprove: true,
+    clientInfo: { name: "pi-unified-agent-provider", version: "1.0.0" },
+    timeout: 0,
+    yoloMode: true,
+    env: { MCP_TOOL_TIMEOUT: "1800000" },
+    promptIdleTimeout: DEFAULT_PROMPT_IDLE_TIMEOUT,
+  };
+
+  const systemPrompt = getCliSystemPrompt();
+  if (systemPrompt) {
+    connectOptions.systemPrompt = systemPrompt;
+  }
+
+  if (mcpServers) {
+    connectOptions.mcpServers = mcpServers;
+  }
+
+  return connectOptions;
+}
+
+function isProviderClientAlive(client: IUnifiedAgentClient): boolean {
+  const info = client.getConnectionInfo();
+  return info.state === "ready" || info.state === "connected";
 }

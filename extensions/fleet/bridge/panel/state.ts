@@ -5,7 +5,6 @@
  * getState()를 통해 공유 상태에 접근합니다.
  */
 
-import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { DEFAULT_BODY_H, formatPanelMultiColHint } from "../../constants.js";
 import { getSessionStore } from "../../../core/agentclientprotocol/runtime.js";
 import { ensureVisibleRun, setRunSessionId } from "../streaming/stream-store.js";
@@ -26,7 +25,6 @@ export interface AgentPanelState {
   streaming: boolean;
   frame: number;
   animTimer: ReturnType<typeof setInterval> | null;
-  lastCtx: ExtensionContext | null;
   /** 패널 로컬 상세 뷰 대상 carrier ID (null = N칼럼 뷰) */
   detailCarrierId: string | null;
   bottomHint: string;
@@ -62,7 +60,6 @@ export function getState(): AgentPanelState {
       streaming: false,
       frame: 0,
       animTimer: null,
-      lastCtx: null,
       detailCarrierId: null,
       bottomHint: formatPanelMultiColHint(),
       modelConfig: {},
@@ -84,6 +81,7 @@ export function getState(): AgentPanelState {
   if (!s.toggleCallbacks) s.toggleCallbacks = [];
   if (s.bodyH === undefined) s.bodyH = DEFAULT_BODY_H;
   if (s.cursorColumn === undefined) s.cursorColumn = -1;
+  if ("lastCtx" in s) delete (s as AgentPanelState & { lastCtx?: unknown }).lastCtx;
 
   // cols가 비어있는데 캐리어가 이미 등록된 경우 lazy 재생성
   // 초기화 타이밍 경합(state 생성 시점 < 캐리어 등록 시점)으로 발생하는 빈 패널을 복구한다

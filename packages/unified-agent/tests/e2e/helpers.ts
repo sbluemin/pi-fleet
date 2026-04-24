@@ -3,8 +3,9 @@
  */
 
 import { execSync, spawn, spawnSync } from 'child_process';
+import * as http from 'node:http';
 import { resolve } from 'path';
-import { UnifiedAgentClient } from '../../src/index.js';
+import { UnifiedAgent, type IUnifiedAgentClient } from '../../src/index.js';
 import type { CliType } from '../../src/types/config.js';
 
 /** CLI JSON 출력 결과 타입 */
@@ -55,12 +56,12 @@ export function withTimeout<T>(promise: Promise<T>, ms: number, label: string): 
   ]);
 }
 
-/** SDK로 ACP 연결 후 sessionId를 반환하는 헬퍼 */
+/** SDK로 연결 후 sessionId를 반환하는 헬퍼 */
 export async function connectClient(
   cli: CliType,
   opts?: { model?: string; sessionId?: string },
-): Promise<{ client: UnifiedAgentClient; sessionId: string | null }> {
-  const client = new UnifiedAgentClient();
+): Promise<{ client: IUnifiedAgentClient; sessionId: string | null }> {
+  const client = await UnifiedAgent.build({ cli, sessionId: opts?.sessionId });
 
   // error 리스너 등록 (미등록 시 Unhandled error crash 방지)
   client.on('error', () => {});
@@ -78,13 +79,13 @@ export async function connectClient(
     `${cli} 연결`,
   );
 
-  const sessionId = result.session?.sessionId ?? null;
+  const sessionId = result.session?.sessionId ?? client.getConnectionInfo().sessionId ?? null;
   return { client, sessionId };
 }
 
 /** SDK 클라이언트로 프롬프트를 전송하고 messageChunk를 수집하여 전체 응답을 반환 */
 export async function sendAndCollect(
-  client: UnifiedAgentClient,
+  client: IUnifiedAgentClient,
   prompt: string,
 ): Promise<{ response: string; chunks: string[] }> {
   const chunks: string[] = [];
@@ -178,6 +179,113 @@ export function probeCliModelAvailability(
 
   // 알려진 가용성 문제가 아니면 실제 테스트에서 드러나도록 실행 가능으로 간주합니다.
   return { available: true };
+}
+
+// ─── 테스트용 MCP 서버 ────────────────────────────────────
+
+export interface TestMcpServer {
+  url: string;
+  close: () => Promise<void>;
+}
+
+/**
+ * 테스트용 MCP HTTP 서버를 시작합니다.
+ * `add_numbers` 도구를 제공하여 MCP 호출 검증에 사용합니다.
+ */
+export async function startTestMcpServer(): Promise<TestMcpServer> {
+  const server = http.createServer((req, res) => {
+    if (req.method !== 'POST') {
+      res.writeHead(405).end();
+      return;
+    }
+
+    const chunks: Buffer[] = [];
+    req.on('data', (chunk: Buffer) => chunks.push(chunk));
+    req.on('end', () => {
+      const body = JSON.parse(Buffer.concat(chunks).toString());
+      const response = handleMcpRequest(body);
+      if (!response) {
+        res.writeHead(202);
+        res.end();
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(response));
+    });
+  });
+
+  return new Promise((resolve) => {
+    server.listen(0, '127.0.0.1', () => {
+      const addr = server.address() as { port: number };
+      const url = `http://127.0.0.1:${addr.port}`;
+      resolve({
+        url,
+        close: () => new Promise<void>((res) => server.close(() => res())),
+      });
+    });
+  });
+}
+
+function handleMcpRequest(body: { jsonrpc: string; id?: number; method: string; params?: Record<string, unknown> }) {
+  const { id, method, params } = body;
+
+  switch (method) {
+    case 'initialize':
+      return {
+        jsonrpc: '2.0',
+        id,
+        result: {
+          protocolVersion: '2025-03-26',
+          capabilities: { tools: { listChanged: false } },
+          serverInfo: { name: 'test-mcp-server', version: '1.0.0' },
+        },
+      };
+
+    case 'notifications/initialized':
+      return null;
+
+    case 'tools/list':
+      return {
+        jsonrpc: '2.0',
+        id,
+        result: {
+          tools: [
+            {
+              name: 'add_numbers',
+              description: '두 숫자를 더합니다.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  a: { type: 'number', description: '첫 번째 숫자' },
+                  b: { type: 'number', description: '두 번째 숫자' },
+                },
+                required: ['a', 'b'],
+              },
+            },
+          ],
+        },
+      };
+
+    case 'tools/call': {
+      const args = (params?.arguments ?? {}) as { a?: number; b?: number };
+      const a = args.a ?? 0;
+      const b = args.b ?? 0;
+      return {
+        jsonrpc: '2.0',
+        id,
+        result: {
+          content: [{ type: 'text', text: `${a + b}` }],
+        },
+      };
+    }
+
+    default:
+      return {
+        jsonrpc: '2.0',
+        id,
+        error: { code: -32601, message: `Method not found: ${method}` },
+      };
+  }
 }
 
 function isKnownModelUnavailable(message: string): boolean {

@@ -2,10 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 import type { AcpSessionUpdateParams } from '../../src/types/acp.js';
 import { AcpConnection } from '../../src/connection/AcpConnection.js';
 
-type TestableAcpConnection = AcpConnection & {
+interface TestableAcpConnection {
+  on: (event: 'availableCommandsUpdate', handler: (...args: unknown[]) => void) => TestableAcpConnection;
   processSessionUpdate: (notification: AcpSessionUpdateParams) => void;
   promptKeepAlive: (() => void) | null;
-};
+}
 
 describe('AcpConnection session updates', () => {
   it('available_commands_update를 전용 이벤트로 승격한다', () => {

@@ -1,6 +1,6 @@
 /**
- * E2E: Codex ACP 테스트
- * Codex CLI를 ACP 프로토콜로 연결하여 프롬프트, 모델, effort, 세션 재개를 검증합니다.
+ * E2E: Codex native app-server 테스트
+ * Codex CLI를 native app-server 프로토콜로 연결하여 프롬프트, 모델, effort, 세션 재개를 검증합니다.
  */
 
 import { describe, it, expect, afterEach } from 'vitest';
@@ -9,20 +9,19 @@ import {
   connectClient,
   sendAndCollect,
   runCli,
-  withTimeout,
+  startTestMcpServer,
   SIMPLE_PROMPT,
   SESSION_REMEMBER_PROMPT,
   SESSION_RECALL_PROMPT,
 } from './helpers.js';
-import { getProcessPool } from '../../src/index.js';
-import type { UnifiedAgentClient } from '../../src/index.js';
-import type { CliJsonResult } from './helpers.js';
+import { UnifiedAgent, type IUnifiedAgentClient } from '../../src/index.js';
+import type { TestMcpServer, CliJsonResult } from './helpers.js';
 
 const CLI = 'codex';
 const installed = isCliInstalled(CLI);
 
-describe.skipIf(!installed)('E2E: Codex ACP', () => {
-  let client: UnifiedAgentClient | null = null;
+describe.skipIf(!installed)('E2E: Codex native app-server', () => {
+  let client: IUnifiedAgentClient | null = null;
 
   afterEach(async () => {
     if (client) {
@@ -36,11 +35,12 @@ describe.skipIf(!installed)('E2E: Codex ACP', () => {
   // ═══════════════════════════════════════════════
 
   describe('기본 연결 & 프롬프트', () => {
-    it('SDK: ACP 연결 → 프롬프트 → 응답 검증', async () => {
+    it('SDK: native app-server 연결 → 프롬프트 → 응답 검증', async () => {
       const { client: c, sessionId } = await connectClient('codex');
       client = c;
 
       expect(sessionId).toBeTruthy();
+      expect(client.getConnectionInfo().protocol).toBe('codex-app-server');
 
       const { response } = await sendAndCollect(client, SIMPLE_PROMPT);
       expect(response).toContain('2');
@@ -84,7 +84,7 @@ describe.skipIf(!installed)('E2E: Codex ACP', () => {
       const { response } = await sendAndCollect(client, SIMPLE_PROMPT);
       expect(response).toContain('2');
 
-      // disconnect → 프로세스를 Pool에 반환 (Claude/Codex) 또는 kill (Gemini)
+      // disconnect → Codex native 프로세스 종료
       await client.disconnect();
 
       // 연결 상태 초기화 확인
@@ -96,10 +96,95 @@ describe.skipIf(!installed)('E2E: Codex ACP', () => {
       // 재전송 시 에러 발생 확인
       await expect(client.sendMessage(SIMPLE_PROMPT)).rejects.toThrow();
 
-      // Pool에 반환된 프로세스 정리
-      await getProcessPool().drain();
-
       client = null;
+    }, 180_000);
+  });
+
+  // ═══════════════════════════════════════════════
+  // 도구 호출 자동 승인
+  // ═══════════════════════════════════════════════
+
+  describe('도구 호출 자동 승인', () => {
+    it('SDK: 도구 호출이 필요한 프롬프트 → 자동 승인 → 응답 수신 (hang 없음)', async () => {
+      const { client: c } = await connectClient('codex');
+      client = c;
+
+      const toolCalls: string[] = [];
+      client.on('toolCall', (title: string) => {
+        toolCalls.push(title);
+      });
+
+      const { response } = await sendAndCollect(
+        client,
+        '현재 디렉토리에서 ls 명령을 실행하고 결과를 알려줘.',
+      );
+
+      expect(response.length).toBeGreaterThan(0);
+      expect(toolCalls.length).toBeGreaterThan(0);
+    }, 180_000);
+
+    it('CLI: 도구 호출이 필요한 프롬프트 → JSON 모드 → 응답 수신', async () => {
+      const { stdout, exitCode } = await runCli(
+        ['--json', '-c', 'codex', '현재 디렉토리에서 ls 명령을 실행하고 파일 목록을 알려줘.'],
+      );
+
+      expect(exitCode).toBe(0);
+      const result: CliJsonResult = JSON.parse(stdout.trim());
+      expect(result.response.length).toBeGreaterThan(0);
+    }, 180_000);
+  });
+
+  // ═══════════════════════════════════════════════
+  // MCP 서버 연동
+  // ═══════════════════════════════════════════════
+
+  describe('MCP 서버 연동', () => {
+    let mcpServer: TestMcpServer | null = null;
+
+    afterEach(async () => {
+      if (mcpServer) {
+        await mcpServer.close();
+        mcpServer = null;
+      }
+    });
+
+    it('SDK: MCP 도구(add_numbers) 호출 → 결과 반영된 응답 수신', async () => {
+      mcpServer = await startTestMcpServer();
+
+      const c = await UnifiedAgent.build({ cli: 'codex' });
+      client = c;
+      client.on('error', () => {});
+
+      await client.connect({
+        cwd: process.cwd(),
+        cli: 'codex',
+        autoApprove: true,
+        clientInfo: { name: 'E2E-MCP-Test', version: '1.0.0' },
+        mcpServers: [{
+          type: 'http',
+          name: 'test-math',
+          url: mcpServer.url,
+        }],
+      });
+
+      const toolCalls: string[] = [];
+      client.on('toolCall', (title: string) => {
+        toolCalls.push(title);
+      });
+
+      const chunks: string[] = [];
+      client.on('messageChunk', (text: string) => {
+        chunks.push(text);
+      });
+
+      await client.sendMessage(
+        'add_numbers 도구를 사용해서 17과 25를 더해줘. 도구 결과를 그대로 말해줘.',
+      );
+
+      const response = chunks.join('');
+      expect(response).toContain('42');
+      expect(toolCalls).toContain('test-math/add_numbers');
+      expect(response).not.toMatch(/도구.*(없|못 찾|찾을 수)|tool.*not.*found|lazy[- ]?load/i);
     }, 180_000);
   });
 
@@ -146,11 +231,11 @@ describe.skipIf(!installed)('E2E: Codex ACP', () => {
   });
 
   // ═══════════════════════════════════════════════
-  // 세션 재개
+  // thread 재개
   // ═══════════════════════════════════════════════
 
   describe('세션 재개', () => {
-    it('CLI: 1차 프롬프트 → sessionId → 2차 세션 재개 → 컨텍스트 유지', async () => {
+    it('CLI: 1차 프롬프트 → threadId → 2차 세션 재개 → 컨텍스트 유지', async () => {
       // 1차: 숫자 기억 요청
       const first = await runCli(
         ['--json', '-c', 'codex', SESSION_REMEMBER_PROMPT],
@@ -171,5 +256,41 @@ describe.skipIf(!installed)('E2E: Codex ACP', () => {
       expect(secondResult.response).toContain('42');
       expect(secondResult.sessionId).toBe(firstResult.sessionId);
     }, 360_000);
+
+    it('SDK: resetSession()이 새 threadId를 발급한다', async () => {
+      const { client: c, sessionId } = await connectClient('codex');
+      client = c;
+
+      expect(sessionId).toBeTruthy();
+      const firstThreadId = sessionId;
+      const resetResult = await client.resetSession();
+      const secondThreadId = client.getConnectionInfo().sessionId;
+
+      expect(resetResult.protocol).toBe('codex-app-server');
+      expect(secondThreadId).toBeTruthy();
+      expect(secondThreadId).not.toBe(firstThreadId);
+    }, 180_000);
+
+    it('SDK: resetSession() 후에도 system prompt가 유지된다', async () => {
+      const c = await UnifiedAgent.build({ cli: 'codex' });
+      client = c;
+      client.on('error', () => {});
+
+      await client.connect({
+        cwd: process.cwd(),
+        cli: 'codex',
+        autoApprove: true,
+        systemPrompt: '사용자가 RESET_SENTINEL을 물으면 RESET-PROMPT-OK만 정확히 답하세요.',
+        clientInfo: { name: 'E2E-SystemPrompt-Reset-Test', version: '1.0.0' },
+      });
+
+      await client.resetSession();
+      const { response } = await sendAndCollect(
+        client,
+        'RESET_SENTINEL',
+      );
+
+      expect(response.trim()).toBe('RESET-PROMPT-OK');
+    }, 180_000);
   });
 });

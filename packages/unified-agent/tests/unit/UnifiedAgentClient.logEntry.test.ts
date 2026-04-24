@@ -19,16 +19,6 @@ function createMockAcpConnection(): EventEmitter & Record<string, unknown> {
   return emitter as EventEmitter & Record<string, unknown>;
 }
 
-vi.mock('../../src/pool/ProcessPool.js', () => ({
-  getProcessPool: vi.fn(() => ({
-    acquire: vi.fn(() => null),
-    release: vi.fn(async () => {}),
-    warmUp: vi.fn(),
-    drain: vi.fn(),
-    size: vi.fn().mockReturnValue(0),
-  })),
-}));
-
 vi.mock('../../src/connection/AcpConnection.js', () => ({
   AcpConnection: vi.fn(() => createMockAcpConnection()),
 }));
@@ -40,9 +30,9 @@ vi.mock('../../src/detector/CliDetector.js', () => ({
   })),
 }));
 
-const { UnifiedAgentClient } = await import('../../src/client/UnifiedAgentClient.js');
+const { UnifiedClaudeAgentClient } = await import('../../src/client/UnifiedClaudeAgentClient.js');
 
-describe('UnifiedAgentClient logEntry', () => {
+describe('UnifiedClaudeAgentClient logEntry', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockConnect.mockResolvedValue({ sessionId: 'session-1' });
@@ -50,13 +40,13 @@ describe('UnifiedAgentClient logEntry', () => {
   });
 
   it('AcpConnection의 구조화 logEntry를 그대로 forward한다', async () => {
-    const client = new UnifiedAgentClient();
+    const client = new UnifiedClaudeAgentClient();
     const handler = vi.fn();
 
     client.on('logEntry', handler);
     await client.connect({ cwd: '/workspace', cli: 'claude' });
 
-    const acpConnection = (client as unknown as { acpConnection: EventEmitter }).acpConnection;
+    const acpConnection = (client as unknown as { connection: EventEmitter }).connection;
     acpConnection.emit('logEntry', {
       message: 'bridge closed',
       source: 'stderr',

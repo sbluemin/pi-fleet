@@ -312,13 +312,48 @@ Path: `examples/extensions/` (Relative to pi root)
 
 Extensions are organized in layers. **Dependencies must only flow in one direction — from higher layers toward lower layers.**
 
+## Experimental Extensions
+
+Experimental extensions are opt-in feature directories gated by boot configuration.
+
+### Naming and Required Files
+
+- **Directory naming** — Use `experimental-{feature-name}/` for every experimental extension.
+- **Local policy required** — Every `experimental-*` directory must include its own `AGENTS.md`.
+- **`package.json` is conditional** — Create `package.json` only when the extension needs external npm dependencies.
+
+### Boot Gating Contract
+
+- **Required boot check** — Each `experimental-*/index.ts` must read `globalThis["__fleet_boot_config__"]` and check the `experimental` flag.
+- **Disabled path** — If `experimental !== true`, return early from the default export before registering UI, tools, commands, or hooks.
+- **Early return pattern** — Keep the disabled path explicit and local to `index.ts` so the extension stays inert when the flag is off.
+
+Example:
+
+```typescript
+export default function registerExperimental(pi: ExtensionAPI) {
+  const boot = (globalThis as any)["__fleet_boot_config__"];
+  if (!boot?.experimental) return;
+
+  // 실험 기능 등록
+}
+```
+
+### Dependency and Load Order Rules
+
+- **Dependency direction** — `experimental-*` may import from `core/` only.
+- **Forbidden direct imports** — `experimental-*` must not import from `fleet/` or `metaphor/`.
+- **Load order** — Extensions are expected to load in this order: `boot` → `core` → `diagnostics` → `experimental-*` → `fleet` → `grand-fleet` → `metaphor`.
+
 ### Dependency Direction
 
 ```
-fleet/ (unified feature)  →  metaphor/  →  core/
-  ├── admiral/               (PERSONA)      (infrastructure + utility)
+fleet/ (unified feature)         →  metaphor/  →  core/
+  ├── admiral/                      (PERSONA)      (infrastructure + utility)
   ├── bridge/
   └── carriers/
+
+experimental-*/ (opt-in feature) →  core/
 ```
 
 - **Allowed**: A layer may import from any layer below it (direct or transitive).
@@ -335,6 +370,7 @@ fleet/ (unified feature)  →  metaphor/  →  core/
 | Layer | May import from | Must NOT import from |
 |-------|----------------|----------------------|
 | `core/` | external packages only | `metaphor/`, `fleet/` |
+| `experimental-*` | `core/` | `fleet/`, `metaphor/` |
 | `metaphor/` | `core/` | `fleet/` |
 | `fleet/` (feature) | `metaphor/`, `core/` | - |
 | `fleet/admiral/` | `core/settings`, `core/keybind`, `core/agentclientprotocol/provider-types`, `metaphor/`, `fleet/shipyard/` | `fleet/index.ts`, `fleet/internal/` |

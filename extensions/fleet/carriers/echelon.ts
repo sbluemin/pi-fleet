@@ -25,6 +25,7 @@ const CARRIER_METADATA: CarrierMetadata = {
   permissions: [
     "Full access to the codebase and gh CLI for GitHub API interactions.",
     "Agent decides whether API-level exploration suffices or local clone is needed for deeper analysis.",
+    "When cloning a repository, ALWAYS create a temporary directory via the OS-native facility (e.g., mktemp -d) and clone into it. NEVER clone into the current working directory or any project path. Clean up the cloned temporary directory after analysis is complete.",
     "If the request fails (timeout/rate limit), retry up to 3 times before reporting failure.",
   ],
   requestBlocks: [

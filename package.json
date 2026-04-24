@@ -1,6 +1,6 @@
 {
   "name": "pi-fleet",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "workspaces": [
     "packages/unified-agent",
@@ -13,5 +13,8 @@
   "devDependencies": {
     "@sinclair/typebox": "^0.34.41",
     "typescript": "^6.0.2"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.119"
   }
 }
