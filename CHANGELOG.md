@@ -5,6 +5,11 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-04-24
+
+### Removed
+- Removed the obsolete root-level `models.json`; model registry data remains in `packages/unified-agent/models.json`.
+
 ## [0.1.2] - 2026-04-24
 
 ### Added
