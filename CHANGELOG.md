@@ -5,6 +5,9 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Added
+- Codex CLI: registered the new `gpt-5.5` model in the `unified-agent` model registry (`packages/unified-agent/models.json`)
+
 ## [0.1.1] - 2026-04-23
 
 ### Added
