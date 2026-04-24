@@ -8,13 +8,13 @@
  *    확장 간에 공유되지 않습니다. globalThis를 통해 풀을 공유합니다.
  */
 
-import { UnifiedAgentClient } from "@sbluemin/unified-agent";
+import type { IUnifiedAgentClient } from "@sbluemin/unified-agent";
 
 // ─── 타입 ────────────────────────────────────────────────
 
 /** 풀에 보관되는 클라이언트 엔트리 */
 export interface PooledClient {
-  client: UnifiedAgentClient;
+  client: IUnifiedAgentClient;
   /** 현재 요청 처리 중 여부 */
   busy: boolean;
   /** 마지막으로 알려진 세션 ID (재연결 시 복원용) */
@@ -41,7 +41,7 @@ export function getClientPool(): Map<string, PooledClient> {
 // ─── 헬퍼 ────────────────────────────────────────────────
 
 /** 연결 상태가 활성(재사용 가능)인지 판별 */
-export function isClientAlive(client: UnifiedAgentClient): boolean {
+export function isClientAlive(client: IUnifiedAgentClient): boolean {
   const info = client.getConnectionInfo();
   return info.state === "ready" || info.state === "connected";
 }
@@ -63,7 +63,7 @@ export function cleanIdleClients(): void {
  */
 export async function disconnectClient(
   carrierId: string,
-  expectedClient?: UnifiedAgentClient,
+  expectedClient?: IUnifiedAgentClient,
 ): Promise<boolean> {
   const pool = getClientPool();
   const entry = pool.get(carrierId);

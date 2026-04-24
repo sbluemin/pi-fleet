@@ -1,12 +1,16 @@
 /**
  * IUnifiedAgentClient - 통합 에이전트 클라이언트 공개 인터페이스
  *
- * UnifiedAgentClient가 외부에 노출하는 API 계약을 정의합니다.
+ * CLI별 특수화 클라이언트가 외부에 노출하는 API 계약을 정의합니다.
  * 이벤트 맵, 연결 결과, public 메서드 시그니처를 포함합니다.
  */
 
 import type { PromptResponse } from '@agentclientprotocol/sdk';
 
+import { UnifiedClaudeAgentClient } from './UnifiedClaudeAgentClient.js';
+import { UnifiedCodexAgentClient } from './UnifiedCodexAgentClient.js';
+import { UnifiedGeminiAgentClient } from './UnifiedGeminiAgentClient.js';
+import { CliDetector } from '../detector/CliDetector.js';
 import type {
   CliType,
   ProtocolType,
@@ -42,6 +46,8 @@ export interface UnifiedClientEvents {
   userMessageChunk: [text: string, sessionId: string];
   /** AI 응답 텍스트 청크 (스트리밍) */
   messageChunk: [text: string, sessionId: string];
+  /** Codex commentary 청크 (최종 응답과 분리) */
+  commentaryChunk: [text: string, sessionId: string];
   /** AI 사고 과정 청크 */
   thoughtChunk: [text: string, sessionId: string];
   /** 도구 호출 */
@@ -98,6 +104,14 @@ export interface ConnectionInfo {
   state: ConnectionState;
 }
 
+/** 빌더가 provider client를 선택할 때 사용하는 최소 옵션 */
+export interface UnifiedAgentBuildOptions {
+  /** CLI 선택 (미지정 시 자동 감지) */
+  cli?: CliType;
+  /** 세션 재개 시 CLI 명시를 강제하기 위한 기존 세션 ID */
+  sessionId?: string;
+}
+
 // ─── 클라이언트 인터페이스 ──────────────────────────────────
 
 /**
@@ -137,6 +151,13 @@ export interface IUnifiedAgentClient {
     event: K,
     listener: (...args: UnifiedClientEvents[K]) => void,
   ): this;
+
+  /**
+   * 이벤트 리스너를 모두 해제합니다.
+   *
+   * @param event - 이벤트 이름 (생략 시 전체 이벤트)
+   */
+  removeAllListeners(event?: keyof UnifiedClientEvents): this;
 
   // ─── 연결 관리 ──────────────────────────────────────
 
@@ -258,3 +279,45 @@ export interface IUnifiedAgentClient {
    */
   resetSession(cwd?: string): Promise<ConnectResult>;
 }
+
+/** CLI별 특수화 클라이언트를 생성하는 SDK 진입점 */
+export const UnifiedAgent = {
+  createClient(cli: CliType): IUnifiedAgentClient {
+    switch (cli) {
+      case 'claude':
+        return new UnifiedClaudeAgentClient();
+      case 'codex':
+        return new UnifiedCodexAgentClient();
+      case 'gemini':
+        return new UnifiedGeminiAgentClient();
+    }
+  },
+
+  async build(options: UnifiedAgentBuildOptions = {}): Promise<IUnifiedAgentClient> {
+    if (options.sessionId && !options.cli) {
+      throw new Error('세션 재개 시 cli 지정이 필요합니다.');
+    }
+
+    if (options.cli) {
+      return this.createClient(options.cli);
+    }
+
+    const preferred = await new CliDetector().getPreferred();
+    if (!preferred) {
+      throw new Error(
+        '사용 가능한 CLI가 없습니다. gemini, claude, codex 중 하나를 설치해주세요.',
+      );
+    }
+
+    return this.createClient(preferred.cli);
+  },
+
+  async connect(options: UnifiedClientOptions): Promise<IUnifiedAgentClient> {
+    const client = await this.build({
+      cli: options.cli,
+      sessionId: options.sessionId,
+    });
+    await client.connect(options);
+    return client;
+  },
+};

@@ -6,8 +6,9 @@
 import type { Colors } from 'picocolors/types';
 
 import { CliRenderer } from './cli-renderer.js';
-import { UnifiedAgentClient } from './client/UnifiedAgentClient.js';
+import { UnifiedAgent } from './client/IUnifiedAgentClient.js';
 import { getReasoningEffortLevels } from './models/ModelRegistry.js';
+import type { IUnifiedAgentClient } from './client/IUnifiedAgentClient.js';
 import type { CliType } from './types/config.js';
 
 // ─── 타입 ───────────────────────────────────────────────
@@ -46,41 +47,43 @@ export async function runOneShot(options: OneShotOptions): Promise<void> {
   const { prompt, cli: selectedCli, session: sessionOpt, model, effort: effortOpt, cwd, yolo, json: jsonMode, color: c, colorErr: ce } = options;
 
   const startTime = Date.now();
-  const client = new UnifiedAgentClient();
   const renderer = new CliRenderer({ color: c, colorErr: ce });
+  let client: IUnifiedAgentClient | null = null;
   let fullResponse = '';
   let isLivePrompt = false;
 
-  // 이벤트 리스너 설정 (세션 재개 시 replay 이벤트는 무시)
-  client.on('messageChunk', (text) => {
-    if (!isLivePrompt) return;
-    fullResponse += text;
-    if (!jsonMode) renderer.renderMessageChunk(text);
-  });
-
-  // error 리스너는 모드 무관하게 항상 등록 (미등록 시 Unhandled 'error' event crash)
-  client.on('error', (err) => {
-    if (!jsonMode) renderer.renderError(err);
-  });
-
-  if (!jsonMode) {
-    client.on('thoughtChunk', (text) => {
-      if (!isLivePrompt) return;
-      renderer.renderThoughtChunk(text);
-    });
-
-    client.on('toolCall', (title, status, _sid, data) => {
-      if (!isLivePrompt) return;
-      renderer.renderToolCall(title, status, data);
-    });
-
-    client.on('toolCallUpdate', (title, status, _sid, data) => {
-      if (!isLivePrompt) return;
-      renderer.renderToolCallUpdate(title, status, data);
-    });
-  }
-
   try {
+    client = await UnifiedAgent.build({ cli: selectedCli, sessionId: sessionOpt });
+
+    // 이벤트 리스너 설정 (세션 재개 시 replay 이벤트는 무시)
+    client.on('messageChunk', (text) => {
+      if (!isLivePrompt) return;
+      fullResponse += text;
+      if (!jsonMode) renderer.renderMessageChunk(text);
+    });
+
+    // error 리스너는 모드 무관하게 항상 등록 (미등록 시 Unhandled 'error' event crash)
+    client.on('error', (err) => {
+      if (!jsonMode) renderer.renderError(err);
+    });
+
+    if (!jsonMode) {
+      client.on('thoughtChunk', (text) => {
+        if (!isLivePrompt) return;
+        renderer.renderThoughtChunk(text);
+      });
+
+      client.on('toolCall', (title, status, _sid, data) => {
+        if (!isLivePrompt) return;
+        renderer.renderToolCall(title, status, data);
+      });
+
+      client.on('toolCallUpdate', (title, status, _sid, data) => {
+        if (!isLivePrompt) return;
+        renderer.renderToolCallUpdate(title, status, data);
+      });
+    }
+
     if (!jsonMode) {
       const resumeLabel = sessionOpt ? `, resume: ${sessionOpt.slice(0, 8)}…` : '';
       const cliLabel = selectedCli ?? '자동 감지';
@@ -137,7 +140,7 @@ export async function runOneShot(options: OneShotOptions): Promise<void> {
       );
     }
   } catch (err) {
-    const sid = client.getConnectionInfo().sessionId;
+    const sid = client?.getConnectionInfo().sessionId;
     if (!jsonMode) {
       const sessionInfo = sid ? ` ${ce.dim(`(세션: ${sid})`)}` : '';
       process.stderr.write(`\n${ce.red('오류')}: ${(err as Error).message}${sessionInfo}\n`);
@@ -148,7 +151,7 @@ export async function runOneShot(options: OneShotOptions): Promise<void> {
     }
     process.exitCode = 1;
   } finally {
-    await client.disconnect();
+    await client?.disconnect();
     process.exit(process.exitCode ?? 0);
   }
 }

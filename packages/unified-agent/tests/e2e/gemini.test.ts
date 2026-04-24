@@ -18,8 +18,7 @@ import {
   SESSION_REMEMBER_PROMPT,
   SESSION_RECALL_PROMPT,
 } from './helpers.js';
-import { getProcessPool } from '../../src/index.js';
-import type { UnifiedAgentClient } from '../../src/index.js';
+import type { IUnifiedAgentClient } from '../../src/index.js';
 import type { CliJsonResult } from './helpers.js';
 
 const CLI = 'gemini';
@@ -27,7 +26,7 @@ const DEFAULT_MODEL = 'gemini-3-flash-preview';
 const installed = isCliInstalled(CLI);
 
 describe.skipIf(!installed)('E2E: Gemini ACP', () => {
-  let client: UnifiedAgentClient | null = null;
+  let client: IUnifiedAgentClient | null = null;
 
   afterEach(async () => {
     if (client) {
@@ -89,7 +88,7 @@ describe.skipIf(!installed)('E2E: Gemini ACP', () => {
       const { response } = await sendAndCollect(client, SIMPLE_PROMPT);
       expect(response).toContain('2');
 
-      // disconnect → 프로세스를 Pool에 반환 (Claude/Codex) 또는 kill (Gemini)
+      // disconnect → 프로세스 종료
       await client.disconnect();
 
       // 연결 상태 초기화 확인
@@ -100,9 +99,6 @@ describe.skipIf(!installed)('E2E: Gemini ACP', () => {
 
       // 재전송 시 에러 발생 확인
       await expect(client.sendMessage(SIMPLE_PROMPT)).rejects.toThrow();
-
-      // Pool에 반환된 프로세스 정리
-      await getProcessPool().drain();
 
       client = null;
     }, 180_000);

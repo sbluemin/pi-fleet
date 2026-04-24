@@ -4,7 +4,7 @@
 
 ## Overview
 
-Unified Agent provides two ways to control three major CLI agents — Gemini, Claude, and Codex — all communicating over the ACP (Agent Client Protocol):
+Unified Agent provides two ways to control three major CLI agents — Gemini, Claude, and Codex — under a single interface.
 
 - **CLI Binary** — One-shot prompt execution from the command line
 - **TypeScript SDK** — Full programmatic control with event-based streaming
@@ -15,7 +15,7 @@ Unified Agent provides two ways to control three major CLI agents — Gemini, Cl
 |-----|----------|---------------|
 | **Gemini** | ACP | `gemini --acp` |
 | **Claude** | ACP | `npx --package=@agentclientprotocol/claude-agent-acp@0.29.2 claude-agent-acp` |
-| **Codex** | ACP | `npx --package=@zed-industries/codex-acp@0.11.1 codex-acp` |
+| **Codex** | `codex-app-server` | `codex app-server --listen stdio://` |
 
 ### Prerequisites
 
@@ -148,7 +148,7 @@ On error:
 
 ### Reasoning Effort Support
 
-- **Codex**: supported
+- **Codex**: supported via native `codex-app-server` turn config
 - **Claude (ACP via `claude-agent-acp`)**: unsupported, `ait -c claude -e high ...` is ignored with a notice
 - **Gemini**: unsupported, `ait -c gemini -e high ...` is ignored with a notice
 
@@ -182,9 +182,9 @@ In `package.json`:
 ### Quick Start
 
 ```typescript
-import { UnifiedAgentClient } from '@sbluemin/unified-agent';
+import { UnifiedAgent } from '@sbluemin/unified-agent';
 
-const client = new UnifiedAgentClient();
+const client = await UnifiedAgent.build();
 
 // Set up event listeners
 client.on('messageChunk', (text) => process.stdout.write(text));
@@ -219,6 +219,8 @@ const result = await client.connect({
   clientInfo: { name: 'MyApp', version: '1.0.0' },
 });
 ```
+
+For Codex, `systemPrompt` is passed to the native app-server as `developerInstructions` during thread creation rather than being prefixed onto the first user turn.
 
 #### `sendMessage(content: string | AcpContentBlock[]): Promise<PromptResponse>`
 
@@ -256,21 +258,6 @@ Returns the list of available models for the connected CLI.
 
 Closes the connection and terminates the child process.
 
-### Process Management (ProcessPool)
-
-Unified Agent uses an internal `ProcessPool` to minimize CLI startup latency, especially for heavy backends like **Codex**.
-
-- **Automatic Pooling**: Connections are automatically pooled when possible. When you call `disconnect()`, the process is returned to the pool instead of being killed.
-- **Warm-up**: Use `getProcessPool().warmUp()` to pre-start instances before the first request.
-- **Pool Bypass (Codex)**: If you provide `mcpServers` or `configOverrides` in `connect()`, the pool is bypassed and a fresh process is spawned to ensure your custom configuration is applied correctly.
-
-```typescript
-import { getProcessPool } from '@sbluemin/unified-agent';
-
-// Pre-start a Codex instance
-await getProcessPool().warmUp({ cli: 'codex', count: 1 });
-```
-
 ### Events
 
 | Event | Parameters | Description |
@@ -299,9 +286,10 @@ await getProcessPool().warmUp({ cli: 'codex', count: 1 });
 ## Architecture
 
 ```
-UnifiedAgentClient
-  +-- AcpConnection (Gemini, Claude, Codex)
-        +-- BaseConnection (spawn + JSON-RPC 2.0 over stdio)
+UnifiedAgent
+  +-- UnifiedClaudeAgentClient
+  +-- UnifiedGeminiAgentClient
+  +-- UnifiedCodexAgentClient
 ```
 
 ## License

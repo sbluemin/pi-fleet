@@ -32,7 +32,7 @@ Initial release.
 
 ### Added
 - **unified-agent package** (`packages/unified-agent/`): unified CLI agent SDK supporting Claude, Codex, and Gemini
-  - Core components: `AcpConnection`, `UnifiedAgentClient`, `ProcessPool`, `ModelRegistry`
+  - Core components: `AcpConnection`, `UnifiedAgentClient`, `ModelRegistry`
 - **Core extensions** (`extensions/core/`):
   - `agentclientprotocol`: ACP↔MCP bridge and tool-call management
   - `hud`: status bar customization (colors, editor state, git status, etc.)

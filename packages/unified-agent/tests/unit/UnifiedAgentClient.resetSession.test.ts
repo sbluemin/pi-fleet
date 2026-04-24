@@ -39,7 +39,7 @@ vi.mock('../../src/detector/CliDetector.js', () => ({
   })),
 }));
 
-const { UnifiedAgentClient } = await import('../../src/client/UnifiedAgentClient.js');
+const { UnifiedGeminiAgentClient } = await import('../../src/client/UnifiedGeminiAgentClient.js');
 
 // ─── 헬퍼 ────────────────────────────────────────────────
 
@@ -52,9 +52,9 @@ const newSession: NewSessionResponse = {
 } as NewSessionResponse;
 
 /** 클라이언트를 연결 상태로 만드는 헬퍼 */
-async function createConnectedClient(cwd = '/workspace'): Promise<InstanceType<typeof UnifiedAgentClient>> {
+async function createConnectedClient(cwd = '/workspace'): Promise<InstanceType<typeof UnifiedGeminiAgentClient>> {
   mockConnect.mockResolvedValue(initialSession);
-  const client = new UnifiedAgentClient();
+  const client = new UnifiedGeminiAgentClient();
   await client.connect({ cwd, cli: 'gemini' });
   vi.clearAllMocks();
   // reconnect mock 재설정
@@ -71,7 +71,7 @@ describe('resetSession()', () => {
   });
 
   it('연결 없이 resetSession() 호출 → 명확한 에러', async () => {
-    const client = new UnifiedAgentClient();
+    const client = new UnifiedGeminiAgentClient();
 
     await expect(client.resetSession()).rejects.toThrow('연결되어 있지 않습니다');
   });

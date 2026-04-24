@@ -5,7 +5,7 @@
  */
 
 import type { CliType } from "@sbluemin/unified-agent";
-import type { UnifiedAgentClient } from "@sbluemin/unified-agent";
+import type { IUnifiedAgentClient } from "@sbluemin/unified-agent";
 import { getModelsRegistry } from "@sbluemin/unified-agent";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -27,7 +27,7 @@ export interface AcpSessionState {
   /** provider scope 키 */
   scopeKey: string;
   /** Unified Agent 클라이언트 인스턴스 */
-  client: UnifiedAgentClient | null;
+  client: IUnifiedAgentClient | null;
   /** ACP 세션 ID */
   sessionId: string | null;
   /** 작업 디렉토리 */

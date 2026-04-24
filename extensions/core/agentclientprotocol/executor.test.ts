@@ -96,7 +96,10 @@ const mockState = vi.hoisted(() => {
 });
 
 vi.mock("@sbluemin/unified-agent", () => ({
-  UnifiedAgentClient: mockState.MockUnifiedAgentClient,
+  UnifiedAgent: {
+    build: vi.fn(async () => new mockState.MockUnifiedAgentClient()),
+    createClient: vi.fn(() => new mockState.MockUnifiedAgentClient()),
+  },
   getReasoningEffortLevels: vi.fn((cli: string) => {
     void cli;
     return mockState.reasoningEffortLevels;
@@ -147,8 +150,7 @@ vi.mock("./provider-types.js", () => ({
   getSessionLaunchConfig: vi.fn((key: string) => mockState.launchConfigs.get(key)),
 }));
 
-import { acquireSession, executeOneShot, executeWithPool } from "./executor.js";
-import { getSessionLaunchConfig, setSessionLaunchConfig } from "./provider-types.js";
+import { executeOneShot, executeWithPool } from "./executor.js";
 
 describe("executor", () => {
   beforeEach(() => {
@@ -266,84 +268,6 @@ describe("executor", () => {
     }));
   });
 
-  it("acquireSession 신규 연결에서 opts.effort가 falsy면 sticky로 setConfigOption을 호출하지 않는다", async () => {
-    const acquired = await acquireSession({
-      key: "session-new",
-      cliType: "codex",
-      cwd: "/tmp/pi-fleet",
-      model: "gpt-5.4",
-    });
-
-    const client = mockState.instances[0];
-    expect(client.setConfigOption).not.toHaveBeenCalled();
-    acquired.release();
-  });
-
-  it("acquireSession fresh reconnect에서 보존된 launch metadata effort를 자동 재적용한다", async () => {
-    setSessionLaunchConfig("session-reconnect", {
-      modelId: "acp:codex:gpt-5.4",
-      effort: "high",
-    });
-    mockState.sessionStoreState["session-reconnect"] = "saved-session";
-    mockState.clientPlans.push({
-      connectErrors: [new Error("unknown session: saved-session")],
-    });
-    mockState.clientPlans.push({
-      connectResults: [{
-        protocol: "mcp",
-        session: { sessionId: "fresh-session", models: ["gpt-5.4"] },
-      }],
-    });
-
-    const acquired = await acquireSession({
-      key: "session-reconnect",
-      cliType: "codex",
-      cwd: "/tmp/pi-fleet",
-      model: "gpt-5.4",
-    });
-
-    const client = mockState.instances[mockState.instances.length - 1];
-    expect(client.setConfigOption).toHaveBeenCalledWith("reasoning_effort", "high");
-    acquired.release();
-  });
-
-  it("acquireSession은 dead-session 계열 resume 실패에서만 fresh fallback한다", async () => {
-    mockState.sessionStoreState["session-dead"] = "saved-session";
-    mockState.clientPlans.push({
-      connectErrors: [new Error("unknown session: saved-session")],
-    });
-    mockState.clientPlans.push({
-      connectResults: [{ protocol: "mcp", session: { sessionId: "fresh-session" } }],
-    });
-
-    const acquired = await acquireSession({
-      key: "session-dead",
-      cliType: "codex",
-      cwd: "/tmp/pi-fleet",
-      model: "gpt-5.4",
-    });
-
-    expect(mockState.instances).toHaveLength(2);
-    expect(acquired.sessionId).toBe("fresh-session");
-    acquired.release();
-  });
-
-  it("acquireSession은 capability mismatch resume 실패를 fresh fallback으로 오판하지 않는다", async () => {
-    mockState.sessionStoreState["session-capability"] = "saved-session";
-    mockState.clientPlans.push({
-      connectErrors: [new Error("연결된 에이전트가 session/load를 지원하지 않습니다")],
-    });
-
-    await expect(acquireSession({
-      key: "session-capability",
-      cliType: "gemini",
-      cwd: "/tmp/pi-fleet",
-      model: "gemini-2.5-flash",
-    })).rejects.toThrow("session/load를 지원하지 않습니다");
-
-    expect(mockState.instances).toHaveLength(1);
-  });
-
   it("executeWithPool은 capability mismatch resume 실패를 fresh fallback으로 오판하지 않는다", async () => {
     mockState.sessionStoreState["carrier-capability"] = "saved-session";
     mockState.clientPlans.push({
@@ -363,44 +287,4 @@ describe("executor", () => {
     expect(mockState.instances).toHaveLength(1);
   });
 
-  it("setSessionLaunchConfig는 미지정 값을 유지하고 명시 값만 갱신한다", async () => {
-    const first = await acquireSession({
-      key: "session-launch",
-      cliType: "codex",
-      cwd: "/tmp/pi-fleet",
-      model: "gpt-5.4",
-      effort: "medium",
-      budgetTokens: 2048,
-    });
-    first.release();
-
-    const second = await acquireSession({
-      key: "session-launch",
-      cliType: "codex",
-      cwd: "/tmp/pi-fleet",
-      model: "gpt-5.4",
-    });
-    second.release();
-
-    expect(getSessionLaunchConfig("session-launch")).toEqual({
-      modelId: "acp:codex:gpt-5.4",
-      effort: "medium",
-      budgetTokens: 2048,
-    });
-
-    const third = await acquireSession({
-      key: "session-launch",
-      cliType: "codex",
-      cwd: "/tmp/pi-fleet",
-      model: "gpt-5.4",
-      effort: "high",
-    });
-    third.release();
-
-    expect(getSessionLaunchConfig("session-launch")).toEqual({
-      modelId: "acp:codex:gpt-5.4",
-      effort: "high",
-      budgetTokens: 2048,
-    });
-  });
 });

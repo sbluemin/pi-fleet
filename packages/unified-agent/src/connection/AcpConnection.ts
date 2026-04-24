@@ -108,7 +108,7 @@ export class AcpConnection extends BaseConnection {
   /** 현재 프롬프트의 idle timeout 리셋 콜백 (null이면 프롬프트 미실행 중) */
   private promptKeepAlive: (() => void) | null = null;
 
-  /** Pool health check용 자식 프로세스 참조 */
+  /** 자식 프로세스 참조 */
   get childProcess(): ChildProcess | null {
     return this.child;
   }
@@ -158,7 +158,6 @@ export class AcpConnection extends BaseConnection {
 
   /**
    * spawn + initialize만 수행합니다 (세션 미생성).
-   * Pool이 warm 상태의 AcpConnection을 보유할 수 있도록 합니다.
    *
    * @param workspace - 작업 디렉토리 경로 (initialize에 필요)
    */

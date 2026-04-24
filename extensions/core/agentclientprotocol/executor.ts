@@ -6,8 +6,8 @@
  * PI API 타입을 사용하지 않습니다.
  */
 
-import { getReasoningEffortLevels, UnifiedAgentClient } from "@sbluemin/unified-agent";
-import type { CliType, McpServerConfig, UnifiedClientOptions } from "@sbluemin/unified-agent";
+import { getReasoningEffortLevels, UnifiedAgent } from "@sbluemin/unified-agent";
+import type { CliType, IUnifiedAgentClient, UnifiedClientOptions } from "@sbluemin/unified-agent";
 import type {
   ExecuteOptions,
   ExecuteResult,
@@ -17,10 +17,7 @@ import type {
 } from "./types.js";
 import { disconnectClient, getClientPool, isClientAlive, type PooledClient } from "./pool.js";
 import {
-  buildModelId,
-  getCliSystemPrompt,
   getSessionLaunchConfig,
-  setSessionLaunchConfig,
 } from "./provider-types.js";
 import { getSessionStore } from "./runtime.js";
 import { getLogAPI } from "../log/bridge.js";
@@ -45,56 +42,6 @@ type InternalExecuteOptions = ExecuteOptions & {
   /** carrier 경로의 connect-time system prompt handoff */
   connectSystemPrompt?: string | null;
 };
-
-/** acquireSession 옵션 */
-export interface AcquireOptions {
-  /** 풀 키 (carrierId에 한정되지 않는 일반 키) */
-  key: string;
-  /** CLI 바이너리 타입 */
-  cliType: CliType;
-  /** 작업 디렉토리 */
-  cwd: string;
-  /** 명시적 모델 ID */
-  model?: string;
-  /** connect 시 주입할 MCP 서버 목록 */
-  mcpServers?: McpServerConfig[];
-  /** Abort 시그널 */
-  signal?: AbortSignal;
-  /**
-   * Reasoning effort 레벨 (예: "low" | "medium" | "high").
-   *
-   * 시맨틱 (sticky):
-   * - 명시 시: setConfigOption("reasoning_effort", value)로 세션에 적용하고 launch metadata에 저장.
-   * - 미지정 시: 기존 세션/풀 엔트리의 값이 유지됨 (호출이 발생하지 않음).
-   * - fresh reconnect 시: 명시 값이 없으면 보존된 launch metadata effort로 자동 폴백되어 재적용.
-   * - 리셋이 필요하면 호출자가 명시적 레벨을 전달해야 함.
-   * - CLI 지원 여부는 unified-agent의 getReasoningEffortLevels(cli)로 사전 검사되며,
-   *   미지원 CLI에서는 호출 자체가 스킵됨.
-   */
-  effort?: string;
-  /** Claude thinking budget tokens */
-  budgetTokens?: number;
-  /** 프롬프트 유휴 타임아웃 (ms) */
-  promptIdleTimeout?: number;
-  /** CLI config override 목록 */
-  configOverrides?: string[];
-  /** 커스텀 환경변수 (cleanEnvironment에 병합) */
-  env?: Record<string, string>;
-  /** YOLO 모드 (자동 승인), 기본값 true */
-  yoloMode?: boolean;
-}
-
-/** acquireSession 반환값 */
-export interface AcquiredSession {
-  /** 연결된 UnifiedAgentClient */
-  client: UnifiedAgentClient;
-  /** 현재 활성 session ID */
-  sessionId: string;
-  /** 연결 메타 정보 */
-  connectionInfo: ConnectionInfo;
-  /** 클라이언트를 풀에 반환하며 busy를 해제 */
-  release: () => void;
-}
 
 // ─── 상수 ────────────────────────────────────────────────
 
@@ -165,13 +112,13 @@ export async function executeWithPool(opts: InternalExecuteOptions): Promise<Exe
     }
   }
 
-  let client: UnifiedAgentClient;
+  let client: IUnifiedAgentClient;
 
   if (poolEntry) {
     client = poolEntry.client;
     poolEntry.busy = true;
   } else {
-    client = new UnifiedAgentClient();
+    client = await UnifiedAgent.build({ cli: cliType });
     if (!isTemporary) {
       const newEntry: PooledClient = { client, busy: true };
       clientPool.set(carrierId, newEntry);
@@ -337,7 +284,7 @@ export async function executeWithPool(opts: InternalExecuteOptions): Promise<Exe
         try { await client.disconnect(); } catch {}
         detachListeners();
         detachCoreStderrLogging();
-        client = new UnifiedAgentClient();
+        client = await UnifiedAgent.build({ cli: cliType });
         detachCoreStderrLogging = attachCoreStderrLogging(client, `acp-exec:${carrierId}`);
         if (!isTemporary) {
           poolEntry = { client, busy: true };
@@ -458,7 +405,7 @@ export async function executeWithPool(opts: InternalExecuteOptions): Promise<Exe
 
 /**
  * 비풀 일회성 실행
- * 매번 새 UnifiedAgentClient를 생성 → 실행 → disconnect
+ * 매번 새 Unified Agent provider client를 생성 → 실행 → disconnect
  * 세션 매핑을 사용하지 않습니다.
  */
 export async function executeOneShot(opts: InternalExecuteOptions): Promise<ExecuteResult> {
@@ -473,7 +420,7 @@ export async function executeOneShot(opts: InternalExecuteOptions): Promise<Exec
 
   opts.onStatusChange?.("connecting");
 
-  const client = new UnifiedAgentClient();
+  const client = await UnifiedAgent.build({ cli: cliType });
   const detachCoreStderrLogging = attachCoreStderrLogging(client, `acp-exec:${opts.carrierId}`);
   let aborted = false;
 
@@ -574,192 +521,6 @@ export async function executeOneShot(opts: InternalExecuteOptions): Promise<Exec
   }
 
   return { responseText, thoughtText, toolCalls, connectionInfo, status, error };
-}
-
-/**
- * 풀에서 세션을 획득합니다.
- * 공통 연결 및 resume 흐름만 수행하며, 프롬프트 전송은 호출자가 담당합니다.
- */
-export async function acquireSession(opts: AcquireOptions): Promise<AcquiredSession> {
-  const { key, cliType, cwd, signal } = opts;
-  const clientPool = getClientPool();
-  const store = getSessionStore();
-
-  // 1. 풀에서 클라이언트를 가져오거나 새로 만듭니다.
-  let poolEntry = clientPool.get(key);
-
-  if (poolEntry) {
-    if (poolEntry.busy) {
-      throw new Error(`Session ${key} is busy`);
-    }
-    if (!isClientAlive(poolEntry.client)) {
-      clientPool.delete(key);
-      poolEntry = undefined;
-    }
-  }
-
-  let client: UnifiedAgentClient;
-
-  if (poolEntry) {
-    client = poolEntry.client;
-    poolEntry.busy = true;
-  } else {
-    client = new UnifiedAgentClient();
-    const newEntry: PooledClient = { client, busy: true };
-    clientPool.set(key, newEntry);
-    poolEntry = newEntry;
-    client.on("exit", () => {
-      const current = clientPool.get(key);
-      if (current?.client === client) clientPool.delete(key);
-    });
-  }
-
-  let detachCoreStderrLogging = attachCoreStderrLogging(client, `acp-exec:${key}`);
-
-  // 2. connect 전에 abort를 확인합니다.
-  if (signal?.aborted) {
-    detachCoreStderrLogging();
-    poolEntry.busy = false;
-    throw new Error("Aborted");
-  }
-
-  const connectionInfo: ConnectionInfo = {};
-
-  try {
-    let needsConnect = !isClientAlive(client);
-
-    if (!needsConnect && hasSystemPromptDrift(client, getCliSystemPrompt())) {
-      debugSystemPromptDrift("acquireSession", key, cliType);
-      store.clear(key);
-      if (poolEntry) {
-        delete poolEntry.sessionId;
-      }
-      await client.disconnect();
-      needsConnect = true;
-    }
-
-    if (needsConnect) {
-      // Admiral host 경로 — 전역 systemPrompt 상속
-      const connectOpts = buildConnectOptions(cliType, cwd, {
-        model: opts.model,
-        promptIdleTimeout: opts.promptIdleTimeout,
-      }, getCliSystemPrompt());
-
-      connectOpts.yoloMode = opts.yoloMode !== false;
-      if (opts.promptIdleTimeout !== undefined) {
-        connectOpts.promptIdleTimeout = opts.promptIdleTimeout;
-      }
-      if (opts.mcpServers) connectOpts.mcpServers = opts.mcpServers;
-      if (opts.configOverrides) connectOpts.configOverrides = opts.configOverrides;
-      if (opts.env) connectOpts.env = opts.env;
-
-      const savedSessionId = store.get(key) ?? poolEntry?.sessionId;
-      if (savedSessionId) {
-        connectOpts.sessionId = savedSessionId;
-      }
-
-      let connectResult;
-      try {
-        connectResult = await client.connect(connectOpts);
-      } catch (connectError) {
-        if (signal?.aborted) throw connectError;
-        if (!savedSessionId) throw connectError;
-        if (classifyResumeFailure(connectError) !== "dead-session") {
-          throw connectError;
-        }
-
-        store.clear(key);
-        if (poolEntry) delete poolEntry.sessionId;
-        delete connectOpts.sessionId;
-
-        try {
-          await client.disconnect();
-        } catch {}
-        client.removeAllListeners();
-        detachCoreStderrLogging();
-        client = new UnifiedAgentClient();
-        detachCoreStderrLogging = attachCoreStderrLogging(client, `acp-exec:${key}`);
-        poolEntry = { client, busy: true };
-        clientPool.set(key, poolEntry);
-        client.on("exit", () => {
-          const current = clientPool.get(key);
-          if (current?.client === client) clientPool.delete(key);
-        });
-
-        connectResult = await client.connect(connectOpts);
-      }
-
-      connectionInfo.protocol = connectResult.protocol;
-      connectionInfo.sessionId = connectResult.session?.sessionId ?? undefined;
-
-      const sessionAny = connectResult.session as Record<string, unknown> | undefined;
-      if (sessionAny?.models && Array.isArray(sessionAny.models) && sessionAny.models.length > 0) {
-        connectionInfo.model = String(sessionAny.models[0]);
-      }
-
-      if (poolEntry && connectionInfo.sessionId) {
-        poolEntry.sessionId = connectionInfo.sessionId;
-      }
-      if (connectionInfo.sessionId) {
-        store.set(key, connectionInfo.sessionId);
-      }
-
-      await applyPostConnectConfig(client, cliType, resolveLaunchOverrides(key, {
-        effort: opts.effort,
-        budgetTokens: opts.budgetTokens,
-      }));
-    } else {
-      const info = client.getConnectionInfo();
-      connectionInfo.protocol = info.protocol ?? undefined;
-      connectionInfo.sessionId = info.sessionId ?? undefined;
-
-      if (poolEntry && connectionInfo.sessionId) {
-        poolEntry.sessionId = connectionInfo.sessionId;
-      }
-      if (connectionInfo.sessionId) {
-        store.set(key, connectionInfo.sessionId);
-      }
-
-      if (opts.effort || opts.budgetTokens) {
-        await applyPostConnectConfig(client, cliType, {
-          effort: opts.effort,
-          budgetTokens: opts.budgetTokens,
-        });
-      }
-    }
-
-    if (opts.model) {
-      setSessionLaunchConfig(key, {
-        modelId: buildModelId(cliType, opts.model),
-        ...(opts.effort ? { effort: opts.effort } : {}),
-        ...(opts.budgetTokens ? { budgetTokens: opts.budgetTokens } : {}),
-      });
-    }
-  } catch (err) {
-    detachCoreStderrLogging();
-    poolEntry.busy = false;
-    throw err;
-  }
-
-  detachCoreStderrLogging();
-
-  const release = () => {
-    if (poolEntry) poolEntry.busy = false;
-  };
-
-  return {
-    client,
-    sessionId: connectionInfo.sessionId ?? "",
-    connectionInfo,
-    release,
-  };
-}
-
-/** 세션을 풀에 반환하며 busy 상태를 해제합니다. */
-export function releaseSession(key: string): void {
-  const pool = getClientPool();
-  const entry = pool.get(key);
-  if (entry) entry.busy = false;
 }
 
 function extractToolResultText(data?: ToolCallLike): string | undefined {
@@ -876,7 +637,7 @@ function buildConnectOptions(
 }
 
 function hasSystemPromptDrift(
-  client: UnifiedAgentClient,
+  client: IUnifiedAgentClient,
   expectedSystemPrompt: string | null | undefined,
 ): boolean {
   return normalizeSystemPrompt(client.getCurrentSystemPrompt()) !== normalizeSystemPrompt(expectedSystemPrompt);
@@ -895,7 +656,7 @@ function debugSystemPromptDrift(scope: string, key: string, cliType: CliType): v
  * 호출자가 주입한 effort/budgetTokens 값을 그대로 사용합니다.
  */
 export async function applyPostConnectConfig(
-  client: UnifiedAgentClient,
+  client: IUnifiedAgentClient,
   cli: CliType,
   overrides?: { effort?: string; budgetTokens?: number },
 ): Promise<void> {
@@ -967,7 +728,7 @@ function classifyResumeFailure(error: unknown): ResumeFailureKind {
   return "unknown";
 }
 
-function attachCoreStderrLogging(client: UnifiedAgentClient, source: string): () => void {
+function attachCoreStderrLogging(client: IUnifiedAgentClient, source: string): () => void {
   const log = getLogAPI();
   const onLogEntry = (entry: { message: string; cli?: string; sessionId?: string }) => {
     const normalized = normalizeDiagnosticStderr(entry.message);

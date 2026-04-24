@@ -2,7 +2,7 @@
 
 ## 프로젝트 개요
 
-Gemini CLI, Claude Code, Codex CLI를 ACP 프로토콜로 통합하는 최소 의존성 지향 TypeScript SDK.
+Gemini CLI, Claude Code, Codex CLI를 단일 인터페이스로 통합하는 최소 의존성 지향 TypeScript SDK.
 
 ## 기술 스택
 
@@ -27,11 +27,13 @@ src/
 │   └── config.ts               # CLI 설정/감지 타입
 ├── connection/
 │   ├── BaseConnection.ts       # 추상 기반 (spawn + JSON-RPC stdio)
-│   └── AcpConnection.ts        # ACP 프로토콜 구현 (공식 SDK ClientSideConnection 래핑)
-├── pool/
-│   └── ProcessPool.ts          # 프로세스 재사용 및 웜업 (Codex 성능 최적화)
+│   ├── AcpConnection.ts        # ACP 프로토콜 구현 (공식 SDK ClientSideConnection 래핑)
+│   └── CodexAppServerConnection.ts # Codex app-server v2 네이티브 JSON-RPC 구현
 ├── client/
-│   └── UnifiedAgentClient.ts   # 통합 클라이언트 (최상위 API)
+│   ├── IUnifiedAgentClient.ts  # 공개 API 계약 + UnifiedAgent 빌더
+│   ├── UnifiedClaudeAgentClient.ts # Claude 전용 클라이언트
+│   ├── UnifiedGeminiAgentClient.ts # Gemini 전용 클라이언트
+│   └── UnifiedCodexAgentClient.ts  # Codex 전용 클라이언트
 ├── detector/
 │   └── CliDetector.ts          # CLI 자동 감지
 ├── models/
@@ -47,9 +49,9 @@ src/
 tests/
 └── e2e/                        # CLI별 E2E 테스트 (실제 CLI 실행)
     ├── helpers.ts              # 공용 헬퍼 함수
-    ├── claude.acp.test.ts      # Claude ACP E2E
-    ├── codex.acp.test.ts       # Codex ACP E2E
-    └── gemini.acp.test.ts      # Gemini ACP E2E
+    ├── claude.test.ts           # Claude E2E
+    ├── codex.test.ts            # Codex E2E
+    └── gemini.test.ts           # Gemini E2E
 ```
 
 ## 핵심 명령어
@@ -59,9 +61,9 @@ tests/
 npm run lint
 
 # CLI별 E2E 테스트 (실제 CLI 필요, 로컬에서만)
-npx vitest run tests/e2e/claude.acp.test.ts
-npx vitest run tests/e2e/codex.acp.test.ts
-npx vitest run tests/e2e/gemini.acp.test.ts
+npx vitest run tests/e2e/claude.test.ts
+npx vitest run tests/e2e/codex.test.ts
+npx vitest run tests/e2e/gemini.test.ts
 
 # 전체 테스트
 npm test
@@ -122,7 +124,7 @@ ait (gemini) ❯ {입력}           # effort 미지원 시 생략
 
 ### 테스트
 - **E2E 테스트** (`tests/e2e/`): CLI별 + 프로토콜별 독립 파일. 실제 CLI를 spawn하므로 인증된 로컬 환경에서만 실행.
-- 파일명 규칙: `<cli>.acp.test.ts` (예: `claude.acp.test.ts`, `codex.acp.test.ts`)
+- 파일명 규칙: `<cli>.test.ts` (예: `claude.test.ts`, `codex.test.ts`).
 - `describe.skipIf(!isCliInstalled('xxx'))` 패턴으로 설치되지 않은 CLI 자동 건너뛰기.
 - 테스트 타임아웃: 180,000ms (3분), 세션 재개: 360,000ms (6분).
 
@@ -130,26 +132,23 @@ ait (gemini) ❯ {입력}           # effort 미지원 시 생략
 - **런타임 의존성 최소화**: `@agentclientprotocol/sdk`(공식 ACP SDK) + `zod`(스키마 검증) + `picocolors`(CLI 전용 스타일링).
 - 개발 도구만 devDependencies에 추가: `typescript`, `tsup`, `vitest`, `@types/node`.
 
-## CLI별 ACP 지원 현황
+## CLI별 프로토콜 지원 현황
 
 | CLI | 프로토콜 | spawn 방식 | set_config_option | set_mode |
 |-----|----------|------------|-------------------|----------|
-| Gemini | ACP | `gemini --experimental-acp` | ❌ | ❌ |
-| Claude | ACP (npx bridge) | `npx @agentclientprotocol/claude-agent-acp@0.24.2` | ✅ | ✅ |
-| Codex | ACP (npx bridge) | `npx @zed-industries/codex-acp@^0.10.0` | ✅ | ✅ |
+| Gemini | ACP | `gemini --acp` | ❌ | ❌ |
+| Claude | ACP (npx bridge) | `npx --package=@agentclientprotocol/claude-agent-acp@0.29.2 claude-agent-acp` | ✅ | ✅ |
+| Codex | `codex-app-server` | `codex app-server --listen stdio://` | pending override로 다음 turn/thread에 반영 | pending mode를 다음 thread 정책으로 해석 |
 
 ## 아키텍처 의사결정
 
-1. **ACP 단일 프로토콜**: 모든 CLI를 ACP 프로토콜로 통합. `UnifiedAgentClient`로 추상화.
-2. **공식 ACP SDK 기반**: `@agentclientprotocol/sdk`의 `ClientSideConnection`을 래핑하여 프로토콜 통신 위임.
-3. **Config-driven**: CLI 차이는 `CliConfigs.ts`의 설정으로 관리. 코드 분기 최소화.
+1. **CLI별 특수화 클라이언트**: `UnifiedAgent` 빌더가 provider client를 선택하고, `UnifiedClaudeAgentClient` / `UnifiedGeminiAgentClient` / `UnifiedCodexAgentClient`가 각 CLI 특수화를 직접 보유합니다.
+2. **ACP SDK는 Claude/Gemini에만 사용**: Codex는 `CodexAppServerConnection`에서 stdio JSON-RPC를 직접 처리합니다.
+3. **Config-driven + provider seam**: 공통 계약은 유지하되 CLI 차이는 `CliConfigs.ts`와 내부 connection seam으로 캡슐화합니다.
 4. **Event-driven Streaming**: `EventEmitter` 기반 실시간 응답 처리 (`messageChunk`, `toolCall` 등).
-5. **Process Management (ProcessPool)**:
-   - **프로세스 재사용**: `Codex` 등 기동이 무거운 CLI의 성능을 위해 `ProcessPool`을 사용해 프로세스를 재사용합니다.
-   - **Pool Bypass (Codex)**: `mcpServers`나 `configOverrides`와 같이 세션별 고유 설정이 제공되면, 풀링된 프로세스를 사용하지 않고 새 프로세스를 spawn하여 설정 충돌을 방지합니다.
-6. **Graceful Process Management**: 2단계 종료 (SIGTERM → SIGKILL), 환경변수 정제로 자식 프로세스 간섭 방지.
-7. **System Prompt Injection (Hybrid)**:
+5. **Graceful Process Management**: 2단계 종료 (SIGTERM → SIGKILL), 환경변수 정제로 자식 프로세스 간섭 방지.
+6. **System Prompt Injection (Provider-aware)**:
    - **Claude**: `AcpConnection`이 `session/new` 호출 시 `_meta.systemPrompt.append`로 native system prompt에 append합니다. `claude-agent-acp` 브릿지가 이를 처리합니다.
-   - **Codex/Gemini**: `UnifiedAgentClient`가 `firstPromptPending` 상태를 관리하며, 새 세션 직후 첫 `sendMessage()` 성공 시 선행 text `ContentBlock` 프리픽싱 후 consume합니다. true system-role 보장은 아닙니다.
-   - **Pool 재사용 및 Drift 감지**: `ProcessPool` 재사용 시 `currentSystemPrompt` 스냅샷과 `getCliSystemPrompt()`를 비교(trim 정규화 포함)하여 다를 경우 `resetSession()`을 강제하여 새 프롬프트가 적용되도록 합니다.
+   - **Codex**: `systemPrompt`를 thread 생성 시 `developerInstructions`로 전달합니다. 첫 user turn 프리픽싱은 사용하지 않습니다.
+   - **Gemini**: `UnifiedGeminiAgentClient`가 `firstPromptPending` 상태를 관리하며, 새 세션 직후 첫 `sendMessage()` 성공 시 선행 text `ContentBlock` 프리픽싱 후 consume합니다. true system-role 보장은 아닙니다.
    - **세션 유지 계약**: `resetSession()` 후 새 세션에는 다시 arm되지만, `sessionId` 기반 **resume/load 경로에서는 자동 재주입이나 drift 감지가 일어나지 않습니다.** 대화의 연속성을 위해 원 세션의 프롬프트를 유지하는 best-effort 정책을 따르며, 의도적인 변경이 필요하면 상위에서 `resetSession()`을 호출해야 합니다.

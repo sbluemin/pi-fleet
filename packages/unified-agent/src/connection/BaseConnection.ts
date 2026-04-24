@@ -3,9 +3,9 @@
  * child_process.spawn으로 CLI를 실행하고, 공식 ACP SDK용 Stream을 생성합니다.
  */
 
-import { ChildProcess, spawn } from 'child_process';
+import { ChildProcess, spawn } from 'node:child_process';
 import { EventEmitter } from 'events';
-import { Readable, Writable } from 'stream';
+import { Readable, Writable } from 'node:stream';
 import { ndJsonStream, type Stream } from '@agentclientprotocol/sdk';
 import type { ConnectionState, StructuredLogEntry } from '../types/common.js';
 import { isWindows } from '../utils/env.js';

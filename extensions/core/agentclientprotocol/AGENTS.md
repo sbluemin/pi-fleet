@@ -47,8 +47,8 @@ Unified ACP infrastructure for pi-fleet, providing both the carrier execution en
 | `types.ts` | Shared | Common ACP and execution types shared across flat agent/provider boundaries. |
 | `session-store.ts` | Shared | SessionMapStore for PI session to carrier session persistence. |
 | `runtime.ts` | Shared | Runtime initialization, `.data/` ownership, session store lifecycle. |
-| `pool.ts` | Shared | `UnifiedAgentClient` connection pooling and disconnect helpers. |
-| `executor.ts` | Shared | Execution engine for pooled session acquisition and command routing. |
+| `pool.ts` | Shared | Carrier execution Unified Agent client pooling and disconnect helpers. |
+| `executor.ts` | Shared | Carrier execution engine and one-shot command routing. |
 | `provider-types.ts` | Provider | host/provider 경로 전용 전역 CLI 시스템 프롬프트의 단일 소스(`setCliSystemPrompt`/`getCliSystemPrompt`). `executor.buildConnectOptions`가 이 전역 상태를 조회하여 `unified-agent`에 전달합니다. |
 | `provider-register.ts` | Provider | Core 엔트리 포인트. ACP 프로바이더와 세션 라이프사이클 훅을 등록합니다. |
 | `thinking-level-patch.ts` | Provider | PI의 hardcoded thinking level 계산을 Fleet ACP 모델에 한해 보정하는 런타임 patch. models.json의 reasoningEffort.levels를 source of truth로 사용하여 `minimal` 제거, `xhigh` 노출, invalid level 보정을 담당합니다. |
@@ -98,7 +98,7 @@ PI 사용자가 Shift+Tab으로 선택한 thinking level은 `SimpleStreamOptions
 - PI `ThinkingBudgets`에 `"xhigh"` 키가 없으므로 `"high"` 버킷으로 폴백
 - `budgetTokens`는 Claude 전용 (`applyPostConnectConfig`에서 `cli === "claude"`일 때만 적용)
 
-전달 체인: `streamAcp` → `resolveEffortFromOptions()` → `ensureSession(effortOverrides)` → `acquireSession({ effort, budgetTokens })` → `applyPostConnectConfig()` → `setConfigOption()` RPC.
+전달 체인: `streamAcp` → `resolveEffortFromOptions()` → `ensureSession(effortOverrides)` → `UnifiedAgent.connect()` → `applyPostConnectConfig()` → `setConfigOption()` RPC.
 
 ### Carrier 개발자 가이드
 
@@ -111,7 +111,7 @@ PI 사용자가 Shift+Tab으로 선택한 thinking level은 `SimpleStreamOptions
 | **First request** | host/provider 경로에서는 CLI 프로세스를 생성하고, `connect` 시 전역 단일 소스(`getCliSystemPrompt`)의 `systemPrompt`를 `unified-agent`에 전달합니다 (Claude: native append, Codex/Gemini: 첫 sendMessage prefix). Carrier 도구 실행 경로는 이를 상속하지 않으며, MCP 서버 URL과 세션별 인증 토큰 주입만 수행합니다. |
 | **Model change within same CLI family** | Reuse the current process and switch backend model without recreating the whole session when the backend supports it. |
 | **Model change across CLI families** | Dispose the old session/process pair and create a fresh CLI session. |
-| **pi `/new`** | Clear live sessions and processes, reset pre-spawn state, then lazily recreate on the next request. |
+| **pi `/new`** | Clear live sessions and processes, then lazily recreate on the next request. |
 | **pi shutdown / restart** | Sessions are ephemeral and tied to the live process lifecycle. Persistence of session mappings for resume is no longer supported; fresh sessions are created on restart. |
 
 ### Provider and Event Mapper Contract

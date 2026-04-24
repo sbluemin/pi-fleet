@@ -40,28 +40,24 @@ describe('CliConfigs', () => {
       expect(config.useNpx).toBe(true);
     });
 
-    it('Codex도 npx --package 형태로 브리지를 실행한다', () => {
+    it('Codex는 native app-server를 직접 spawn한다', () => {
       const config = createSpawnConfig('codex', {
         cwd: '/tmp/workspace',
       });
 
-      expect(config.command).toContain('npx');
-      expect(config.args).not.toContain('--prefer-offline');
-      expect(config.args).toContain('--package=@zed-industries/codex-acp@0.11.1');
-      expect(config.args).toContain('codex-acp');
-      expect(config.args).toContain('-c');
-      expect(config.args).toContain('service_tier="fast"');
-      expect(config.useNpx).toBe(true);
+      expect(config.command).toBe('codex');
+      expect(config.args).toEqual(['app-server', '--listen', 'stdio://']);
+      expect(config.useNpx).toBe(false);
     });
 
-    it('Codex configOverrides가 -c 인자로 병합된다', () => {
+    it('Codex configOverrides가 있어도 spawn 인자는 native app-server를 유지한다', () => {
       const config = createSpawnConfig('codex', {
         cwd: '/tmp/workspace',
         configOverrides: ['mcp_servers.pi-tools.tool_timeout_sec=1800'],
       });
 
-      expect(config.args).toContain('service_tier="fast"');
-      expect(config.args).toContain('mcp_servers.pi-tools.tool_timeout_sec=1800');
+      expect(config.command).toBe('codex');
+      expect(config.args).toEqual(['app-server', '--listen', 'stdio://']);
     });
   });
 
