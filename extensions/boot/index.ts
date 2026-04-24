@@ -9,10 +9,12 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 export default function registerBoot(_pi: ExtensionAPI) {
   const role = process.env.PI_GRAND_FLEET_ROLE;
+  const experimental = process.env.PI_EXPERIMENTAL === "1";
   const isAdmiralty = role === "admiralty";
   const isFleet = role === "fleet";
 
   (globalThis as any)["__fleet_boot_config__"] = {
+    experimental,
     fleet: !isAdmiralty,
     grandFleet: isAdmiralty || isFleet,
     role: isAdmiralty ? "admiralty" : isFleet ? "fleet" : null,
