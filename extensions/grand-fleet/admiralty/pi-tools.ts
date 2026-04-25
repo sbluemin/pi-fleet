@@ -13,6 +13,7 @@ import type { AdmiraltyServer } from "../ipc/server.js";
 import type { CarrierMap, ConnectedFleet, FleetStatus, MissionId } from "../types.js";
 import type { FleetRegistry } from "./fleet-registry.js";
 import { syncRosterWidget } from "./roster-widget.js";
+import { getAdmiraltyRegistry, getAdmiraltyServer } from "./runtime.js";
 
 interface DeployParams {
   designation: string;
@@ -145,17 +146,6 @@ const RecallParamsSchema = Type.Object({
     description: "철수시킬 함대 식별자",
   }),
 });
-
-let runtimeRegistry: (() => FleetRegistry) | null = null;
-let runtimeServer: (() => AdmiraltyServer) | null = null;
-
-export function setAdmiraltyRuntime(
-  getRegistry: () => FleetRegistry,
-  getServer: () => AdmiraltyServer,
-): void {
-  runtimeRegistry = getRegistry;
-  runtimeServer = getServer;
-}
 
 export function registerAdmiraltyTools(
   pi: ExtensionAPI,
@@ -384,10 +374,7 @@ export function registerAdmiraltyTools(
 }
 
 function requireRuntime(): { registry: FleetRegistry; server: AdmiraltyServer } {
-  if (!runtimeRegistry || !runtimeServer) {
-    throw new Error("Grand Fleet command runtime이 초기화되지 않았습니다.");
-  }
-  return { registry: runtimeRegistry(), server: runtimeServer() };
+  return { registry: getAdmiraltyRegistry(), server: getAdmiraltyServer() };
 }
 
 async function deployFleet(

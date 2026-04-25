@@ -14,6 +14,10 @@
  * `<reporting_obligations>`)로 감싸지고 `---` 구분자로 분리된다. worldview 토글이
  * 켜진 경우에만 metaphor 패키지의 persona/tone이 role 앞뒤로 주입되고, role 및
  * 그 이후 fleet identity/보고 계약 섹션은 항상 포함된다.
+ *
+ * `buildFleetAcpSystemPrompt()`는 grand-fleet가 소유한 local composition seam이다.
+ * `extensions/fleet/**`를 import하지 않고 기본 Fleet ACP 의미와 Grand Fleet Context를
+ * 같은 파일 안에서 조립한다.
  */
 
 import {
@@ -217,6 +221,62 @@ The \`summary\` parameter should include:
 - Open issues (if any)
 `;
 
+const FLEET_ACP_ROLE_PROMPT = String.raw`
+# Fleet ACP Role
+You are the workspace Admiral (제독) operating through the Fleet ACP provider.
+You execute the Admiral of the Navy's local request inside this workspace, preserve the user's scope,
+and coordinate available local Captains (함장들) only when delegation materially improves the result.
+`;
+
+const FLEET_ACP_ACTION_GUIDELINES_PROMPT = String.raw`
+# Fleet Action Guidelines
+- Treat the latest user request as authoritative unless a Grand Fleet mission context is appended.
+- Read the relevant files before editing and preserve user or peer changes already in the worktree.
+- Prefer narrow, high-confidence edits over speculative rewrites.
+- Continue through implementation, verification, and concise reporting when the task is executable.
+- When requirements are ambiguous, ask before changing behavior or widening scope.
+`;
+
+const FLEET_ACP_CARRIER_ROUTING_PROMPT = String.raw`
+# Carrier Roster And Routing
+- Carrier state is observed from the local Fleet runtime snapshot when available.
+- Active, standby, unavailable, and taskforce-configured carrier metadata is routing context, not an order to delegate.
+- Use local Carrier orchestration only for work that benefits from parallel execution, focused review, or specialized implementation.
+- Do not assume other Fleets exist unless a Grand Fleet Context section is appended.
+`;
+
+const FLEET_ACP_PROTOCOL_PROMPT = String.raw`
+# Protocol And Standing Orders
+- Fleet Action is the default local operating mode.
+- Preserve the standing-order intent: practical delegation, recursive investigation for root cause, and explicit verification.
+- Keep role boundaries clear: the workspace Admiral coordinates local work; Captains execute delegated sub-missions.
+- Do not bypass scope, safety, or review constraints to satisfy speed.
+`;
+
+const FLEET_ACP_RUNTIME_CONTEXT_PROMPT = String.raw`
+# Runtime Context Tags
+- Runtime context tags may be prepended to user requests by the ACP provider.
+- Treat tags as operational metadata: active protocol, mode, carrier/runtime state, or request framing.
+- Do not quote or expose internal tags unless they are directly relevant to debugging.
+- User text inside request wrappers remains the actual request to satisfy.
+`;
+
+const FLEET_ACP_REQUEST_DIRECTIVE_PROMPT = String.raw`
+# request_directive Guidance
+- If a request directive is present, follow its scope, output format, verification, and escalation rules.
+- Do not silently skip required plan steps, QA checkpoints, or reporting fields.
+- Escalate genuine blockers rather than inventing an unstated workflow.
+- Keep final reports grounded in changed files and command results.
+`;
+
+const FLEET_ACP_TOOL_POLICY_PROMPT = String.raw`
+# Tool And Delegation Policy
+- Use tools deliberately and report meaningful command outcomes.
+- Prefer repository-local helpers and existing extension APIs over new abstractions.
+- Do not use Grand Fleet Admiralty tools from Fleet mode unless explicitly provided by the role.
+- Preserve public command names, tool names, environment variables, and provider boundaries.
+`;
+
 // ─────────────────────────────────────────────────────────
 // 함수
 // ─────────────────────────────────────────────────────────
@@ -326,6 +386,34 @@ Your operational zone is: \`${operationalZone}\``;
   parts.push(`<reporting_obligations>\n${FLEET_REPORTING_OBLIGATIONS_PROMPT.trim()}\n</reporting_obligations>`);
 
   return parts.join("\n\n---\n\n");
+}
+
+/**
+ * Fleet ACP 시스템 프롬프트를 조립한다.
+ *
+ * 연결 상태에서는 base Fleet ACP 의미 뒤에 Grand Fleet Context를 append한다.
+ * 연결 해제/종료 시에는 base-only 프롬프트로 되돌릴 수 있도록 같은 seam을 사용한다.
+ */
+export function buildFleetAcpSystemPrompt(
+  fleetId: FleetId,
+  designation: string,
+  operationalZone: string,
+  options: { includeGrandFleetContext: boolean },
+): string {
+  const base = [
+    `<fleet_acp_role>\n${FLEET_ACP_ROLE_PROMPT.trim()}\n</fleet_acp_role>`,
+    `<fleet_action_guidelines>\n${FLEET_ACP_ACTION_GUIDELINES_PROMPT.trim()}\n</fleet_action_guidelines>`,
+    `<carrier_roster_routing>\n${FLEET_ACP_CARRIER_ROUTING_PROMPT.trim()}\n</carrier_roster_routing>`,
+    `<protocol_standing_orders>\n${FLEET_ACP_PROTOCOL_PROMPT.trim()}\n</protocol_standing_orders>`,
+    `<runtime_context_tags>\n${FLEET_ACP_RUNTIME_CONTEXT_PROMPT.trim()}\n</runtime_context_tags>`,
+    `<request_directive_guidance>\n${FLEET_ACP_REQUEST_DIRECTIVE_PROMPT.trim()}\n</request_directive_guidance>`,
+    `<tool_delegation_policy>\n${FLEET_ACP_TOOL_POLICY_PROMPT.trim()}\n</tool_delegation_policy>`,
+  ].join("\n\n---\n\n");
+  if (!options.includeGrandFleetContext) {
+    return base;
+  }
+
+  return `${base}\n\n---\n\n${buildFleetContextPrompt(fleetId, designation, operationalZone)}`;
 }
 
 /**

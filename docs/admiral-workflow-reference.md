@@ -12,26 +12,40 @@
 
 ---
 
-## 1. Role hierarchy
+## 1. Role hierarchy (Grand Fleet 4-Tier)
+
+Grand Fleet 도입으로 PI 시스템은 4단계의 해군 위계 구조를 따릅니다:
 
 ```
-Admiral of the Navy   = the user (project owner) — the source of all PI TUI input.
+Tier 1: Admiral of the Navy (ATN, 대원수)
+        = 사용자 (User) — 모든 전략적 목표의 기점.
    │
    │ orders
    ▼
-Admiral               = the main LLM session running inside PI host (claude/codex/gemini).
-   │                    ─ This is "you", the reader of this document.
-   │ tool_use
+Tier 2: Fleet Admiral (사령관)
+        = Admiralty LLM 페르소나 (extensions/grand-fleet/admiralty)
+        ─ 다수 함대(Fleet)를 조율하고 보고를 합성하는 중앙 지휘소.
+        ─ 직접 파일을 수정하지 않으며, 오직 함대 파견 및 명령 라우팅만 수행.
+   │
+   │ dispatch / broadcast
    ▼
-Captain / Carrier     = a separate ACP CLI process (its own LLM instance).
-                        ─ Eight Captain personas (Nimitz · Kirov · Genesis · Ohio · Sentinel ·
-                          Vanguard · Tempest · Chronicle) are defined under carriers/.
+Tier 3: Admiral (제독)
+        = 개별 PI 인스턴스 (Host PI / extensions/fleet)
+        ─ "you", 이 문서의 주 독자. 특정 워크스페이스(함대)의 작전 계획 수립자.
+        ─ 수신된 미션을 독자적인 Carrier 포메이션을 통해 수행.
+   │
+   │ tool_use (sortie/squadron/taskforce)
+   ▼
+Tier 4: Captain (함장) / Carrier
+        = 별도 ACP CLI 프로세스 (extensions/fleet/carriers)
+        ─ 여덟 가지 특화 페르소나 (Nimitz · Kirov · Sentinel 등)로 실무 수행.
 ```
 
 Key asymmetry:
-- **Exactly one Admiral** instance exists. It is "active" only while it is streaming a turn.
-- **Many Carrier** instances may exist concurrently, each with its own ACP session.
-- The Admiral's active-run lifecycle and a Carrier's active-run lifecycle are **independent**.
+- **Exactly one Fleet Admiral** (Admiralty) exists in a Grand Fleet session.
+- **Many Admiral** (Fleet) instances may exist, each bound to a specific subdirectory/workspace.
+- **Many Carrier** instances may exist per Admiral.
+- Admiralty와 Fleet 간의 통신은 JSON-RPC over Unix Domain Socket을 통해 이루어집니다.
 
 ---
 
