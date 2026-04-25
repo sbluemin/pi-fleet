@@ -40,26 +40,27 @@ Triggered when the task involves structural changes, new modules, cross-layer de
 
 ### Phase 3 — Work Plan
 
-Apply the **Oracle vs Athena Decision Flow** from the Delegation Policy to determine the planning path:
+Apply the **Nimitz → Kirov → Ohio 3-Step Strike Pipeline** from the Delegation Policy to determine the planning path:
 
-**Admiral-direct planning** (do NOT sortie Athena):
+**Admiral-direct planning** (do NOT sortie Kirov):
 - Single Carrier execution with ≤3 dependent steps.
 - Requirements already specific (what, where, acceptance criteria all known).
 - No cross-Carrier dependencies or sequencing concerns.
 - Admiral drafts a brief inline plan: objective, target file(s)/module(s), Carrier assignment, done-criteria.
 
-**Athena sortie** — at least one of the following must be true:
+**Kirov sortie** — at least one of the following must be true:
 - 2+ Carriers must coordinate with inter-task dependencies.
 - 4+ dependent steps or explicit phased execution / parallel waves needed.
 - Material requirement ambiguity remains (≥2 open questions blocking execution).
 - Admiral of the Navy (대원수) explicitly requests a structured plan or PRD decomposition.
+- The plan_file resulting from Kirov is handed to Ohio for execution.
 
-If boundary, prefer Admiral-direct — Athena can always be sortied later if the plan proves insufficient during Phase 4.
+If boundary, prefer Admiral-direct — Kirov can always be sortied later if the plan proves insufficient during Phase 4.
 
 "Dependent steps" means meaningful handoff or dependency units, not micro-operations. Do not count read→edit→test as 3 steps — that is one unit of work.
 
 In either case, identify which Carrier(s) will handle each step.
-Present the plan to the Admiral of the Navy (대원수) for approval only when Athena was sortied or when the plan changes user-visible behavior across multiple modules; otherwise execution may proceed directly.
+Present the plan to the Admiral of the Navy (대원수) for approval only when Kirov was sortied or when the plan changes user-visible behavior across multiple modules; otherwise execution may proceed directly.
 
 ### Phase 4 — Execution
 - Execute the plan by delegating to the designated Carrier(s) through their assigned Captain (함장).

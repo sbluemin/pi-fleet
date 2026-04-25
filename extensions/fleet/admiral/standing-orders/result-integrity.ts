@@ -32,8 +32,8 @@ When multiple Carriers contribute to the same task, apply structured feedback:
 |---------|------|------|
 | **Build → Review** | Genesis → Sentinel review → findings back to Genesis → re-review | Standard implementation cycle |
 | **Analyze → Execute** | Genesis refactoring → Sentinel verifies | Refactoring workflow |
-| **Decide → Plan → Execute** | Oracle decision → Athena plan → Genesis execution | Complex features |
-| **Research → Act** | Vanguard/Echelon recon → Oracle/Athena/Genesis (based on findings) | Unknown scope tasks |
+| **Decide → Plan → Execute** | Nimitz decision → Kirov plan_file → Ohio execution | Complex features |
+| **Research → Act** | Vanguard/Tempest recon → Nimitz/Kirov/Ohio (Genesis for single-shot follow-ups) | Unknown scope tasks |
 
 - After a review Carrier (Sentinel) produces findings, route actionable items back to the implementation Carrier (Genesis) with explicit fix instructions.
 - After fixes are applied, **re-run the same review** on changed code only — do not re-review the entire codebase.

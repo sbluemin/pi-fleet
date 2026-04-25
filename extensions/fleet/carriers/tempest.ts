@@ -1,8 +1,8 @@
 /**
- * carriers/echelon — Echelon carrier (CVN-07)
- * @specialization 외부 통신망(GitHub API) 감청 및 원격 코드 첩보 수집 — 외부 GitHub 레포지토리 심층 탐색 · gh API 리서치 · 클론 기반 딥다이브
+ * carriers/tempest — Tempest carrier (CVN-07)
+ * @specialization 전방 구축함 · 외부 통신망(GitHub API) 감청 및 원격 코드 체보 수집 — 외부 GitHub 레포지토리 심층 탐색 · gh API 리서치 · 클론 기반 딝다이브
  *
- * Echelon carrier를 프레임워크에 등록합니다.
+ * Tempest carrier를 프레임워크에 등록합니다.
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -11,15 +11,15 @@ import { registerSingleCarrier } from "../shipyard/carrier/register.js";
 
 const CARRIER_METADATA: CarrierMetadata = {
   // ── Tier 1: Routing ──
-  title: "Captain · Chief Intelligence Officer",
-  summary: "GitHub intelligence — external repo investigation via API and clone-based deep analysis. As the Captain (함장) of this Carrier, Echelon commands remote intelligence collection across upstream repositories and external codebases.",
+  title: "Captain · External Intelligence Strike",
+  summary: "GitHub intelligence — external repo investigation via API and clone-based deep analysis. As the Captain (함장) of this Carrier, Tempest sprints across foreign waters to collect remote intelligence from upstream repositories and external codebases.",
   whenToUse: [
     "external GitHub repo investigation",
     "library internals analysis",
     "API usage examples from open-source",
     "upstream dependency deep-dives",
   ],
-  whenNotToUse: "local codebase exploration (→vanguard), code modification (→genesis), design decisions (→oracle)",
+  whenNotToUse: "local codebase exploration (→vanguard), code modification (→genesis), design decisions (→nimitz)",
 
   // ── Tier 2: Composition ──
   permissions: [
@@ -48,6 +48,6 @@ const CARRIER_METADATA: CarrierMetadata = {
     `Keep the report concise — bullets and short lines only. No narrative paragraphs.`,
 };
 
-export function registerEchelonCarrier(pi: ExtensionAPI): void {
-  registerSingleCarrier(pi, "gemini", CARRIER_METADATA, { slot: 6, id: "echelon", displayName: "Echelon" });
+export function registerTempestCarrier(pi: ExtensionAPI): void {
+  registerSingleCarrier(pi, "gemini", CARRIER_METADATA, { slot: 7, id: "tempest", displayName: "Tempest" });
 }

@@ -3,7 +3,7 @@
 > **A Multi-LLM Orchestration Kit**
 >
 > A custom extension fleet based on [pi-coding-agent](https://github.com/badlogic/pi-mono).
-> The core purpose is to operate 9 carriers — Claude Code, Codex CLI, and Gemini CLI — through a single unified interface.
+> The core purpose is to operate 8 carriers — Claude Code, Codex CLI, and Gemini CLI — through a single unified interface.
 
 ## Structure
 
@@ -42,19 +42,20 @@ Beyond simple parallel API calls, the system adopts a **naval fleet metaphor** t
 
 ## Architecture — Agent Workflow
 
-PI is the **host agent** (orchestrator). Genesis, Sentinel, and Vanguard are **sub-agents** that execute independently via ACP protocol.
+PI is the **host agent** (orchestrator). Registered Carriers are **sub-agents** that execute independently via ACP protocol.
 
 ### Speakers
 
 | Speaker | Role |
 |---------|------|
 | **PI** (host) | Orchestrator — routes requests, invokes tools, synthesizes cross-reports |
-| **Genesis** (sub) | CVN-01 Chief Engineer (Codex CLI via ACP) |
-| **Athena** (sub) | CVN-02 Strategic Planning Officer (Claude Code CLI via ACP) |
-| **Oracle** (sub) | CVN-09 Strategic Technical Advisor — read-only (Claude Code CLI via ACP) |
+| **Nimitz** (sub) | CVN-09 Strategic Command & Judgment — read-only (Claude Code CLI via ACP) |
+| **Kirov** (sub) | CVN-02 Operational Planning Bridge (Claude Code CLI via ACP) |
+| **Genesis** (sub) | CVN-01 Chief Engineer — single-shot implementation under Admiral direction (Codex CLI via ACP) |
+| **Ohio** (sub) | CVN-10 Multi-Wave Strike Execution — receives `plan_file` from Kirov; sole plan-driven executor (Codex CLI via ACP) |
 | **Sentinel** (sub) | CVN-04 The Inquisitor / QA & Security Lead (Codex CLI via ACP) |
 | **Vanguard** (sub) | CVN-06 Scout Specialist (Codex CLI via ACP) |
-| **Echelon** (sub) | CVN-07 Chief Intelligence Officer (Gemini CLI via ACP) |
+| **Tempest** (sub) | CVN-07 Forward External Intelligence Strike (Gemini CLI via ACP) |
 | **Chronicle** (sub) | CVN-08 Chief Knowledge Officer — documentation, change-impact summaries, and release communication (Gemini CLI via ACP) |
 
 ### Execution Modes

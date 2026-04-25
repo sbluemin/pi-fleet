@@ -34,14 +34,15 @@ A **Carrier** is an execution instance of a CLI tool with isolated configuration
 
 ## Carriers
 
-Seven built-in Carriers, each with a distinct operational role:
+Eight built-in Carriers, each with a distinct operational role:
 
-- **Genesis** — Chief Engineer. Implementation, integration, and code delivery.
-- **Athena** — Strategic Planning Officer. Requirements clarification and structured work planning.
-- **Oracle** — Strategic Technical Advisor. Read-only architecture decisions and trade-off analysis.
+- **Nimitz** — Strategic Command & Judgment. Read-only architecture decisions and trade-off adjudication.
+- **Kirov** — Operational Planning Bridge. Clarifies requirements and authors plan_file under .fleet/plans/*.md for Ohio.
+- **Genesis** — Chief Engineer. Single-shot implementation under Admiral direction.
+- **Ohio** — Multi-Wave Strike Execution. Consumes Kirov-authored plan_file and executes wave-by-wave to completion.
 - **Sentinel** — QA & Security Lead. Code review, defect detection, and vulnerability hunting.
 - **Vanguard** — Scout Specialist. Codebase exploration, symbol tracing, and web research.
-- **Echelon** — Chief Intelligence Officer. GitHub intelligence and external repo analysis.
+- **Tempest** — Forward External Intelligence Strike. GitHub intelligence and external repo analysis.
 - **Chronicle** — Chief Knowledge Officer. Documentation, changelogs, and change-impact reporting.
 
 ## Features

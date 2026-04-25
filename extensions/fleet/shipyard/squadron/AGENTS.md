@@ -10,6 +10,21 @@ Carrier Squadron logic for parallel execution of same-type carriers.
 - **Instance Cap**: Enforces a hard limit of **5 concurrent instances** to prevent resource exhaustion.
 - **Tool Synthesis**: Squadron tools are dynamically synthesized based on the underlying carrier's prompt guidelines and capabilities.
 
+## Squadron-eligible carriers
+
+Squadron mode operates over the 8 Tactical Steel personas registered by the fleet:
+
+- **Nimitz** — Strategic Command & Judgment (read-only).
+- **Kirov** — Operational Planning Bridge (plan_file authoring).
+- **Genesis** — Chief Engineer (single-shot implementation).
+- **Ohio** — Multi-Wave Strike Execution (sole `plan_file` consumer).
+- **Sentinel** — The Inquisitor (QA & security).
+- **Vanguard** — Scout Specialist (local reconnaissance).
+- **Tempest** — Forward External Intelligence Strike (GitHub recon).
+- **Chronicle** — Chief Knowledge Officer (documentation).
+
+Individual carrier metadata is defined under `extensions/fleet/carriers/*.ts`; this manifest only governs squadron orchestration semantics.
+
 ## Module Structure
 
 | File | Role |
@@ -21,7 +36,7 @@ Carrier Squadron logic for parallel execution of same-type carriers.
 
 ## Execution Flow
 
-1. **Trigger**: PI calls the synthesized squadron tool (e.g., `squadron_athena`).
+1. **Trigger**: PI calls the synthesized squadron tool (e.g., `squadron_kirov`).
 2. **Decomposition**: `squadron.ts` receives the task and prepares up to 5 parallel requests.
 3. **Execution**: Each request is routed through `operation-runner.ts` using `executeOneShot: true`.
 4. **Aggregation**: Results from all instances are collected, formatted, and returned to the caller as a unified response.

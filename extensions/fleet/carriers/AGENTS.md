@@ -1,6 +1,6 @@
 # carriers
 
-Default carrier definition library — defines individual carriers (genesis, athena, sentinel, vanguard, echelon, chronicle, oracle) that `carriers/index.ts` registers during boot, with `fleet/index.ts` calling that boot module. Chronicle additionally owns change-impact documentation and release communication within the documentation domain.
+Default carrier definition library — defines individual carriers (genesis, kirov, nimitz, sentinel, vanguard, tempest, chronicle, ohio) that `carriers/index.ts` registers during boot, with `fleet/index.ts` calling that boot module. The documentation carrier additionally owns change-impact documentation and release communication within the documentation domain.
 
 ## Role
 
@@ -15,13 +15,14 @@ This library is responsible solely for **defining carrier instances** for the ca
 carriers/
 ├── AGENTS.md          ← This file
 ├── index.ts           ← Internal boot module called by `fleet/index.ts`
-├── genesis.ts         ← CVN-01 Chief Engineer (Codex CLI)
-├── athena.ts          ← CVN-02 Strategic Planning Officer (Claude Code)
-├── oracle.ts          ← CVN-09 Read-Only Strategic Technical Advisor (Claude Code)
-├── sentinel.ts        ← CVN-04 The Inquisitor / QA & Security Lead (Codex CLI)
-├── vanguard.ts        ← CVN-06 Scout Specialist (Codex CLI)
-├── echelon.ts         ← CVN-07 Chief Intelligence Officer (Gemini CLI)
-└── chronicle.ts       ← CVN-08 Chief Knowledge Officer (Gemini CLI · docs + change-impact reporting)
+├── nimitz.ts          ← Nimitz CVN-09 Strategic Command & Judgment — read-only (Claude Code)
+├── kirov.ts           ← Kirov CVN-02 Operational Planning Bridge (Claude Code)
+├── genesis.ts         ← Genesis CVN-01 Chief Engineer (Codex CLI)
+├── ohio.ts            ← Ohio CVN-10 Multi-Wave Strike Execution (Codex CLI · receives Kirov plan_file; sole plan-driven executor)
+├── sentinel.ts        ← Sentinel CVN-04 The Inquisitor / QA & Security Lead (Codex CLI)
+├── vanguard.ts        ← Vanguard CVN-06 Scout Specialist (Codex CLI)
+├── tempest.ts         ← Tempest CVN-07 Forward External Intelligence Strike (Gemini CLI)
+└── chronicle.ts       ← Chronicle CVN-08 Chief Knowledge Officer (Gemini CLI · docs + change-impact reporting)
 ```
 
 ## Dependency Rules

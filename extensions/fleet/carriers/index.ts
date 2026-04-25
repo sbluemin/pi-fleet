@@ -1,19 +1,21 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import { registerAthenaCarrier } from "./athena.js";
 import { registerChronicleCarrier } from "./chronicle.js";
-import { registerEchelonCarrier } from "./echelon.js";
 import { registerGenesisCarrier } from "./genesis.js";
-import { registerOracleCarrier } from "./oracle.js";
+import { registerKirovCarrier } from "./kirov.js";
+import { registerNimitzCarrier } from "./nimitz.js";
+import { registerOhioCarrier } from "./ohio.js";
 import { registerSentinelCarrier } from "./sentinel.js";
+import { registerTempestCarrier } from "./tempest.js";
 import { registerVanguardCarrier } from "./vanguard.js";
 
 export function registerFleetCarriers(pi: ExtensionAPI): void {
   registerGenesisCarrier(pi);
-  registerAthenaCarrier(pi);
-  registerOracleCarrier(pi);
+  registerKirovCarrier(pi);
+  registerNimitzCarrier(pi);
   registerSentinelCarrier(pi);
   registerVanguardCarrier(pi);
-  registerEchelonCarrier(pi);
+  registerTempestCarrier(pi);
   registerChronicleCarrier(pi);
+  registerOhioCarrier(pi);
 }

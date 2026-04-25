@@ -34,14 +34,15 @@ pi-fleet는 LLM 에이전트를 해군 **함대(Fleet)** 내의 **항공모함(C
 
 ## Carriers
 
-7개의 기본 Carrier가 각각 고유한 작전 역할을 수행합니다:
+8개의 기본 Carrier가 각각 고유한 작전 역할을 수행합니다:
 
-- **Genesis** — Chief Engineer. 구현, 통합, 코드 전달.
-- **Athena** — Strategic Planning Officer. 요구사항 명확화 및 구조화된 작업 계획.
-- **Oracle** — Strategic Technical Advisor. 읽기 전용 아키텍처 결정 및 트레이드오프 분석.
+- **Nimitz** — 전략 지휘·판단. 읽기 전용 아키텍처 결정·트레이드오프 재결.
+- **Kirov** — 작전 기획 브리지. 요구사항 명확화 및 Ohio에 전달할 plan_file 작성(.fleet/plans/*.md).
+- **Genesis** — 수석 엔지니어. 제독 직접 지휘 하의 단발 구현.
+- **Ohio** — 다단 파상 타격 집행. Kirov가 작성한 plan_file을 받아 웨이브 단위로 실행.
 - **Sentinel** — QA & Security Lead. 코드 리뷰, 결함 탐지, 취약점 헌팅.
 - **Vanguard** — Scout Specialist. 코드베이스 탐색, 심볼 추적, 웹 리서치.
-- **Echelon** — Chief Intelligence Officer. GitHub 인텔리전스 및 외부 저장소 분석.
+- **Tempest** — 전방 외부 체보 타격. GitHub 인텔리전스 및 외부 레포 분석.
 - **Chronicle** — Chief Knowledge Officer. 문서화, 변경 로그, 변경 영향 보고.
 
 ## 기능

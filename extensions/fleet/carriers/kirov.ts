@@ -1,8 +1,8 @@
 /**
- * carriers/athena — Athena carrier (CVN-02)
- * @specialization 전략 참모 — 요구사항 명확화 · 사전 갭 분석 · PRD 실현 계획 · 병렬 작업 파동 설계 특화
+ * carriers/kirov — Kirov carrier (CVN-02)
+ * @specialization 중대형 미사일 순양함 · 작전 기획 브리지 — 요구사항 명확화 · 사전 갭 분석 · PRD 실현 계획 · 병렬 작업 파동 설계
  *
- * Athena carrier를 프레임워크에 등록합니다.
+ * Kirov carrier를 프레임워크에 등록합니다.
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -11,27 +11,27 @@ import { registerSingleCarrier } from "../shipyard/carrier/register.js";
 
 const CARRIER_METADATA: CarrierMetadata = {
   // ── Tier 1: Routing ──
-  title: "Captain · Strategic Planning Officer",
-  summary: "Clarifies requirements, closes pre-execution gaps, and turns a PRD or goal into an executable markdown work plan with task waves, dependencies, and QA checkpoints. As the Captain (함장) of this Carrier, Athena commands the planning deck and prepares execution-ready plans for the fleet.",
+  title: "Captain · Operational Planning Bridge",
+  summary: "Clarifies requirements, closes pre-execution gaps, and turns a PRD or goal into an executable markdown plan_file with task waves, dependencies, and QA checkpoints. As the Captain (함장) of this Carrier, Kirov commands the operational planning bridge and authors precision strike plans handed off to Ohio for execution.",
   whenToUse: [
     "tasks requiring 2+ Carriers to coordinate with inter-task dependencies",
     "tasks requiring 4+ dependent steps, explicit execution waves, or agent-executable QA checkpoints",
     "requirements that remain materially ambiguous (≥2 open questions) after the Admiral's brief classification pass",
     "explicit Admiral of the Navy (대원수) requests for a structured plan, PRD decomposition, or execution checklist",
   ],
-  whenNotToUse: "single-Carrier tasks with ≤3 dependent steps and clear acceptance criteria (→Admiral plans directly), direct code implementation (→genesis), final architecture arbitration or deep trade-off decisions (→oracle), sorties needing reconnaissance before planning (→vanguard/echelon first)",
+  whenNotToUse: "single-Carrier tasks with ≤3 dependent steps and clear acceptance criteria (→Admiral plans directly), direct code implementation single-shot (→genesis) or plan-driven (→ohio), final architecture arbitration or deep trade-off decisions (→nimitz), sorties needing reconnaissance before planning (→vanguard/tempest first)",
 
   // ── Tier 2: Composition ──
   permissions: [
     "Read access to full codebase for context gathering — must NOT modify source code, configs, or any non-markdown file.",
     "Write access strictly limited to .fleet/plans/*.md and .fleet/drafts/*.md.",
     "May launch background explore/librarian sub-agents for context gathering, and a pre-plan gap analysis sub-agent.",
-    "Must escalate unresolved architecture choices, system-design trade-offs, and technical path decisions to Oracle instead of silently deciding them.",
+    "Must escalate unresolved architecture choices, system-design trade-offs, and technical path decisions to Nimitz instead of silently deciding them.",
     "Use incremental write protocol: Write() skeleton first, then Edit() in 2-4 task batches.",
   ],
   requestBlocks: [
     { tag: "goal", hint: "What the user wants to build, fix, or achieve — specific feature, PRD, behavior, and any stated constraints.", required: true },
-    { tag: "context", hint: "Relevant codebase context — files, modules, patterns, prior Oracle decisions, or implementation realities the planner should respect.", required: false },
+    { tag: "context", hint: "Relevant codebase context — files, modules, patterns, prior Nimitz decisions, or implementation realities the planner should respect.", required: false },
     { tag: "constraints", hint: "Business rules, tech stack requirements, scope boundaries, fixed decisions, or explicit exclusions the plan must respect.", required: false },
     { tag: "intent_type", hint: "If known: Refactoring | Build from Scratch | Mid-sized | Collaborative | Architecture Follow-through | Research-to-Plan.", required: false },
   ],
@@ -49,18 +49,18 @@ const CARRIER_METADATA: CarrierMetadata = {
     `  **QA Checkpoints** — Agent-executable verification points tied to the plan.\n` +
     `  **Guardrails Applied** — MUST/MUST NOT directives and AI-slop risks flagged by gap analysis review.\n` +
     `  **Defaults Applied** — Overridable assumptions embedded in the plan.\n` +
-    `  **Escalate to Oracle** — Architecture or trade-off questions that require Oracle before execution.\n` +
+    `  **Escalate to Nimitz** — Architecture or trade-off questions that require Nimitz before execution.\n` +
     `  **Decisions Needed** — Open non-architecture questions that block execution.\n` +
     `Keep the summary concise — bullets and short lines only. No narrative paragraphs.`,
   principles: [
     "Clarify only to unlock planning — ask the minimum questions needed to produce a reliable execution plan.",
     "Convert ambiguity into execution structure: tasks, dependencies, assumptions, guardrails, and QA checkpoints.",
     "Invoke pre-plan gap analysis as a mandatory pre-generation step before writing the plan.",
-    "Escalate architecture and deep trade-off decisions to Oracle instead of silently fixing them inside the plan.",
-    "Optimize for handoff quality — Genesis should be able to start implementation directly from the resulting plan.",
+    "Escalate architecture and deep trade-off decisions to Nimitz instead of silently fixing them inside the plan.",
+    "Optimize for handoff quality — Ohio should be able to start execution directly from the resulting plan_file.",
   ],
 };
 
-export function registerAthenaCarrier(pi: ExtensionAPI): void {
-  registerSingleCarrier(pi, "claude", CARRIER_METADATA, { slot: 2, id: "athena", displayName: "Athena" });
+export function registerKirovCarrier(pi: ExtensionAPI): void {
+  registerSingleCarrier(pi, "claude", CARRIER_METADATA, { slot: 2, id: "kirov", displayName: "Kirov" });
 }

@@ -34,7 +34,7 @@ export interface CarrierMetadata {
   summary: string;
   /** 긍정 호출 조건 (N개, 짧은 구문) */
   whenToUse: string[];
-  /** 부정 조건 한줄 (e.g., "architecture decisions (→oracle), bug hunting (→sentinel)") */
+  /** 부정 조건 한줄 (e.g., "architecture decisions (→nimitz), bug hunting (→sentinel)") */
   whenNotToUse: string;
 
   // ── Tier 2: Composition (→ 실행 시 request에 자동 주입) ──

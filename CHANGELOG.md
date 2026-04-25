@@ -5,6 +5,24 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [Unreleased] — Tactical Steel rebranding + Ohio commission
+
+### Added
+- New `Ohio` carrier (CVN-10, Codex CLI) — sole receiver of `plan_file` (under `.fleet/plans/*.md`), executes WBS waves end-to-end.
+
+### Changed
+- Renamed `Oracle` → `Nimitz` (CVN-09, Strategic Command & Judgment, read-only).
+- Renamed `Athena` → `Kirov` (CVN-02, Operational Planning Bridge, plan_file author).
+- Renamed `Echelon` → `Tempest` (CVN-07, Forward External Intelligence Strike).
+- Genesis reverted to single-shot implementation; `plan_file` request block and related principles removed.
+- Admiral delegation doctrine replaced "Oracle vs Athena Decision Flow" with "Nimitz → Kirov → Ohio 3-Step Strike Pipeline".
+
+### Removed
+- `oracle.ts`, `athena.ts`, `echelon.ts` carrier definitions (replaced by `nimitz.ts`, `kirov.ts`, `tempest.ts`).
+
+### Notes
+- `states.json` entries keyed by retired carrier IDs are dropped at next boot (no migration code added).
+
 ## [0.1.3] - 2026-04-24
 
 ### Removed
