@@ -50,16 +50,16 @@ export const SORTIE_MANIFEST: ToolPromptManifest = {
   description:
     `Register fire-and-forget carrier jobs for task execution — single or multiple(parallel).` +
     ` This is the only tool for delegating tasks to carrier agents.` +
-    ` It returns a job_id immediately; results arrive through [carrier:result] push or carrier_jobs lookup.` +
+    ` It returns a job_id immediately; results arrive through [carrier:result] push; carrier_jobs is fallback/explicit lookup only.` +
     ` Use it whenever you want to delegate implementation, analysis, exploration, or any coding task to one or more carriers.` +
     ` Always bundle all intended carriers into one call — never split a parallel batch into multiple sequential calls.`,
   promptSnippet:
-    `carriers_sortie — Register 1+ carrier jobs for task delegation. Results arrive later via [carrier:result] or carrier_jobs.`,
+    `carriers_sortie — Register 1+ carrier jobs for task delegation. Results arrive later via [carrier:result]; carrier_jobs is fallback/explicit lookup only.`,
   whenToUse: [
     `carriers_sortie is the only way to delegate tasks to carrier agents.` +
       ` Always use this tool — never attempt to invoke carriers directly.`,
     `You can launch a single carrier or multiple carriers in parallel — when launching multiple carriers, you MUST include all of them in a single carriers_sortie call.` +
-      ` This tool provides unified progress tracking and registers detached work; use carrier_jobs for later lookup.`,
+      ` This tool provides unified progress tracking and registers detached work; carrier_jobs is fallback/explicit lookup only.`,
   ],
   whenNotToUse: [],
   usageGuidelines: [
@@ -80,6 +80,8 @@ export const SORTIE_MANIFEST: ToolPromptManifest = {
       ` If you need two different workloads handled by carriers of the same type, assign each to a different carrier ID within the same call's carriers array.`,
     `Launch response schema is { job_id, accepted, error? } and never includes synchronous result content.` +
       ` Full output is available only through carrier_jobs(action:"result", format:"full") and is read-once.`,
+    `Do not poll, wait-check, or call carrier_jobs merely to see whether the job is done.` +
+      ` Continue independent work if available; otherwise stop tool use and wait passively for the [carrier:result] follow-up push.`,
   ],
   guardrails: [
     `Multiple agents may be working on this codebase at the same time on a single filesystem and branch.` +

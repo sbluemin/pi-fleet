@@ -1,1 +1,1 @@
-export { bootBridge } from "./acp-shell/boot.js";
+export { bootBridge, ensureBridgeKeybinds } from "./acp-shell/boot.js";

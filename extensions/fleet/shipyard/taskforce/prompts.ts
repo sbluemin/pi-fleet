@@ -35,7 +35,7 @@ export const TASKFORCE_MANIFEST: ToolPromptManifest = {
     ` Runs the same task under the chosen carrier's persona on each configured backend and returns a job_id immediately.` +
     ` Use this when you need to compare approaches, detect blind spots, or build consensus across models.`,
   promptSnippet:
-    `carrier_taskforce — Register cross-backend validation jobs. Results arrive later via [carrier:result] or carrier_jobs.`,
+    `carrier_taskforce — Register cross-backend validation jobs. Results arrive later via [carrier:result]; carrier_jobs is fallback/explicit lookup only.`,
   whenToUse: [
     "Use carrier_taskforce when cross-model validation is needed: comparing solution approaches, catching model-specific blind spots, building consensus, or when a single backend may be insufficient.",
     "Pick the carrier whose role or persona best fits the task.",
@@ -49,8 +49,10 @@ export const TASKFORCE_MANIFEST: ToolPromptManifest = {
     `The carrier parameter selects which carrier's role and prompt context to apply.` +
       ` Each carrier's configured backends (≥2) will execute the same request under that persona.`,
     `The launch response is { job_id, accepted, error? } and never includes synchronous result content.` +
-      ` Results arrive by [carrier:result] push or carrier_jobs lookup, labelled by backend name (e.g., [Claude], [Codex], [Gemini]).` +
+      ` Results arrive by [carrier:result] push, labelled by backend name (e.g., [Claude], [Codex], [Gemini]); carrier_jobs is fallback/explicit lookup only.` +
       ` Each backend runs independently — a failure in one does not abort the others.`,
+    `Do not poll, wait-check, or call carrier_jobs merely to see whether the job is done.` +
+      ` Continue independent work if available; otherwise stop tool use and wait passively for the [carrier:result] follow-up push.`,
   ],
 };
 

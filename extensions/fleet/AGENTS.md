@@ -51,6 +51,11 @@ The number of carriers is determined at runtime by the carrier modules registere
 
 ```
 index.ts               ← extension entry point + public Facade re-exports + admiral/bridge/carrier wiring
+boot.ts                ← boot guard, data directory, runtime/store/service-status init callback injection, pre-registration restore
+boot-reconciliation.ts ← post-carrier-registration model/squadron/taskforce reconciliation
+pi-events.ts           ← Fleet-owned PI lifecycle event pipeline; calls explicit Admiral/Bridge feature APIs
+pi-tools.ts            ← Fleet PI tool, renderer, and job summary cache registration
+pi-commands.ts         ← Fleet-level slash command registration
 operation-runner.ts    ← unified execution entry point (internal — exposed via index.ts)
 admiral/               ← Admiral prompt-policy library (prompts, protocols, standing-orders, widget, request-directive)
 bridge/                ← Integrated Fleet Bridge package (ACP overlay shell + Agent Panel + Carrier UI overlays + Renderer + Streaming store)
@@ -75,14 +80,15 @@ shipyard/store.ts      ← Unified fleet persistence store (states.json)
 - **Shared domain types** are distributed to their owning subpackages: `bridge/streaming/types.ts` owns `ColBlock`, `ColStatus`, `CollectedStreamData`; `bridge/panel/types.ts` owns `AgentCol`; `bridge/carrier-ui/types.ts` owns overlay domain types. Common types (`ProviderKey`, `HealthStatus`, `ServiceSnapshot`) are imported directly from **`core/agentclientprotocol/types.ts`**.
 - **One-way dependency**: The **`core`** layer (including `core/agentclientprotocol/`) must never reference the **`fleet`** layer. `fleet` → `core` is the only allowed direction.
 - **Carrier definitions live under `fleet/carriers/`** and are wired only through `fleet/carriers/index.ts`, which is booted from `fleet/index.ts`. Framework internals (`shipyard/*`, `bridge/panel/*`, `bridge/render/*`, `bridge/streaming/*`) must remain unaware of carrier persona modules.
-- **Only `fleet/index.ts` may import from `fleet/carriers/index.ts`, `fleet/admiral/index.ts`, and `fleet/bridge/index.ts` for top-level wiring.**
+- **Top-level wiring imports**: `fleet/index.ts` imports `fleet/carriers/index.ts`, `fleet/admiral/index.ts`, and `fleet/bridge/index.ts` for boot wiring. `pi-events.ts` may import explicit event-facing APIs from `admiral/index.ts` and `bridge/index.ts` because it owns the Fleet PI lifecycle event pipeline.
 - **Subpackage modules reference siblings directly** — e.g., `bridge/panel/config.ts` imports from `shipyard/carrier/framework.ts` without going through the facade.
 - **`index.ts` is the only public facade**: It owns extension wiring plus export-only public re-exports. Keep business logic in `shipyard/carrier/`, `bridge/panel/`, `bridge/render/`, `bridge/streaming/`, `shipyard/squadron/`, and `operation-runner.ts`.
-- **Service status lives in core**: Service status monitoring (polling, rendering) lives in **`core/agentclientprotocol/service-status/`**. During the Wave 4 transition, `fleet/index.ts` continues to inject the callback into the current core service-status store implementation so UI refreshes remain decoupled from core.
+- **Service status lives in core**: Service status monitoring (polling, rendering) lives in **`core/agentclientprotocol/service-status/`**. `boot.ts` injects the Agent Panel service-status callbacks during runtime initialization, and `pi-events.ts` attaches/detaches the active status context during PI lifecycle events.
 - **Persistence is dual-layered**:
   - **Core persistence** (`core/agentclientprotocol/runtime.ts`) manages the data directory and **session-only** maps (mapping host PI session IDs to individual carrier session IDs).
   - **Fleet persistence** (`shipyard/store.ts`) manages the **fleet-wide state** in a single `states.json` file. This includes model selection, `sortieDisabled`, `squadronEnabled` status, and `cliTypeOverrides`.
-- `shipyard/store.ts` is the single source of truth for persistent fleet configuration. `initStore(dataDir)` must be called in `fleet/index.ts` immediately after `initRuntime(dataDir)`. All writes to `states.json` use an atomic tmp+rename pattern to prevent corruption.
+- `shipyard/store.ts` is the single source of truth for persistent fleet configuration. `boot.ts` must call `initStore(dataDir)` immediately after `initRuntime(dataDir)`. All writes to `states.json` use an atomic tmp+rename pattern to prevent corruption.
+- **Boot Order Compliance**: `boot.ts` handles the pre-registration restore, while `boot-reconciliation.ts` handles post-registration state pruning. This separation ensures that persistent overrides (like `cliType`) are applied correctly during carrier registration.
 
 ### Unified Execution Pipeline
 
@@ -107,37 +113,41 @@ Consumer (carriers, external extensions)
 
 | File | Role |
 |------|------|
-| `index.ts` | Entry point + public Facade — wiring, initialization, session events, dependency injection, export-only public re-exports |
+| `index.ts` | Entry point + public Facade — boot orchestration, feature registration, dependency injection, export-only public re-exports |
+| `boot.ts` | Fleet boot guard, `~/.pi/fleet` data directory resolution, runtime/store/service-status callback initialization, pre-registration state restore |
+| `boot-reconciliation.ts` | One-shot post-carrier-registration reconciliation for model selections, stale squadron IDs, and Task Force configured carriers |
+| `pi-events.ts` | Fleet-owned `pi.on(...)` registrations and lifecycle event order; calls explicit Admiral/Bridge feature APIs (e.g., `syncAdmiralAcpSystemPrompt`, `ensureBridgeKeybinds`) |
+| `pi-tools.ts` | Fleet PI tool, custom renderer, and job summary cache registration |
+| `pi-commands.ts` | Fleet-level slash commands with no narrower owner (e.g., `fleet:agent:status`, `fleet:jobs:verbose`) |
 | `types.ts` | Public types + globalThis bridge key/interface for `requestUnifiedAgent` |
 | `constants.ts` | Shared constants (colors, spinners, border characters, panel colors) |
 | `bridge/streaming/types.ts` | Streaming domain types — ColBlock, ColStatus, CollectedStreamData |
 | `bridge/panel/types.ts` | Panel domain types — AgentCol |
 | `bridge/carrier-ui/types.ts` | Overlay domain types — CarrierCliType, ModelSelection, OverlayState, etc. |
 | `operation-runner.ts` | Unified execution layer (internal) — `runAgentRequest`, `exposeAgentApi`. Single `executeWithPool` call site. Auto panel/widget sync |
-| `shipyard/carrier/types.ts` | Carrier framework types — CarrierConfig, internal state types (오버레이 전용 타입은 bridge/carrier-ui/types.ts로 분리) |
-| `shipyard/carrier/framework.ts` | Carrier framework SDK — `registerCarrier`, `updateCarrierCliType`, `setPendingCliTypeOverrides`. Manages globalThis shared state, registration order, and message renderer registration. |
-| `shipyard/carrier/register.ts` | Single-carrier registration — `registerSingleCarrier`. Performs dynamic cliType reference and `defaultCliType` auto-configuration. |
+| `shipyard/carrier/types.ts` | Carrier framework types — CarrierConfig, internal state types |
+| `shipyard/carrier/framework.ts` | Carrier framework SDK — `registerCarrier`, `updateCarrierCliType`, `setPendingCliTypeOverrides`. Manages globalThis shared state and registration order. |
+| `shipyard/carrier/register.ts` | Single-carrier registration — `registerSingleCarrier`. Performs dynamic cliType reference. |
 | `shipyard/carrier/prompts.ts` | `SORTIE_MANIFEST` (`ToolPromptManifest`) 소유 |
-| `shipyard/carrier/sortie.ts` | Carrier Sortie tool — sole carrier delegation PI tool. Through **call instance isolation (sortieKey)** and **runId-based streaming filtering**, it displays unified progress/results without UI interference even when multiple calls run simultaneously. |
+| `shipyard/carrier/sortie.ts` | Carrier Sortie tool logic — through **call instance isolation (sortieKey)**, it displays unified progress without UI interference. |
 | `shipyard/squadron/index.ts` | Squadron module entry point — registration and public API |
 | `shipyard/squadron/squadron.ts` | Squadron execution logic — manages parallel `executeOneShot` calls. |
-| `shipyard/taskforce/taskforce.ts` | Task Force execution logic — cross-backend parallel `executeOneShot` for configured CLIs. |
+| `shipyard/taskforce/taskforce.ts` | Task Force execution logic — cross-backend parallel `executeOneShot`. |
 | `shipyard/squadron/prompts.ts` | `SQUADRON_MANIFEST` (`ToolPromptManifest`) 소유 |
 | `shipyard/taskforce/prompts.ts` | `TASKFORCE_MANIFEST` (`ToolPromptManifest`) 소유 |
 | `shipyard/carrier_jobs/prompts.ts` | `CARRIER_JOBS_MANIFEST` (`ToolPromptManifest`) 소유 |
 | `shipyard/carrier_jobs/jobs.ts` | Carrier Jobs meta tool — `status`, `result`, `cancel`, `list` action dispatcher. |
-| `shipyard/_shared/job-stream-archive.ts` | Centralized detached job output archive logic — manages TTL, capacity, and read-once policy. |
-| `shipyard/squadron/types.ts` | Squadron domain types and interfaces |
-| `shipyard/store.ts` | Unified fleet persistence store — `initStore`, `loadModels`, `saveModels`, `updateModelSelection`, `getPerCliSettings`/`savePerCliSettings`, `loadSortieDisabled`, `saveSortieDisabled`, `loadSquadronEnabled`, `saveSquadronEnabled`, `loadCliTypeOverrides`, `updateCliTypeOverride`. |
-
-| `bridge/carrier-ui/status-overlay.ts` | Status Overlay UI — Supports individual CLI change (`c`), batch CLI transition (`C`), global default restoration (`R`), and squadron toggle (`s`). |
-
-| `bridge/carrier-ui/status-renderer.ts` | Carrier status segment renderer — renders carrier icon + name + status-based color + `[SQ]` tag for active squadrons. |
-| `shipyard/carrier/model-ui.ts` | Model selection UI — model selection TUI component + keybind/command registration |
-| `bridge/panel/state.ts` | Panel global state management — provides functionality to directly look up the column index of a specific carrier via `findColIndex(carrierId)`. |
-| `bridge/acp-shell/*` | ACP overlay shell modules (command, handler, types, boot) |
-| `bridge/panel/*` | Panel state/lifecycle/widget modules |
-| `bridge/streaming/*` | Stream store/widget modules |
-| `bridge/render/*` | Renderer modules |
-| **core/agentclientprotocol/** | **(Core Infrastructure)** — See `extensions/core/agentclientprotocol/AGENTS.md` for details |
-| **carriers/** | Default carrier definition library consumed by `fleet/carriers/index.ts` and booted by `fleet/index.ts` |
+| `shipyard/_shared/job-stream-archive.ts` | Centralized detached job output archive logic. |
+| `shipyard/store.ts` | Unified fleet persistence store (`states.json`). |
+| `bridge/carrier-ui/status-overlay-keybind.ts` | Alt+O keybind registration and Status Overlay controller wiring. |
+| `bridge/carrier-ui/status-overlay.ts` | Status Overlay UI implementation. |
+| `bridge/carrier-ui/status-renderer.ts` | Carrier status segment renderer. |
+| `shipyard/carrier/model-ui.ts` | Model selection UI and keybind/command registration. |
+| `bridge/panel/state.ts` | Panel global state management. |
+| `bridge/acp-shell/*` | ACP overlay shell modules. |
+| `bridge/panel/*` | Panel state/lifecycle/widget modules. |
+| `bridge/streaming/*` | Stream store and widget modules. |
+| `bridge/streaming/direct-chat-session.ts` | Direct-chat-only session persistence on shutdown. |
+| `bridge/render/*` | Renderer modules. |
+| **core/agentclientprotocol/** | **(Core Infrastructure)** — Provider execution, session maps, MCP bridge. |
+| **carriers/** | Default carrier definition library. |

@@ -11,7 +11,7 @@ Carrier Squadron management for parallel execution of same-type carriers.
 
 ## Tool Manifest
 
-- **SORTIE_MANIFEST**: Defines the `carrier_squadron` tool prompt and schema.
+- **SQUADRON_MANIFEST**: Defines the `carrier_squadron` tool prompt and schema.
 - **Guidelines**: Squadron tools should be used for tasks that can be broken down into independent subtasks suitable for parallel processing.
 
 ## Rules

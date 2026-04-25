@@ -1,4 +1,4 @@
-import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 import { getKeybindAPI } from "../../../core/keybind/bridge.js";
 import { launchBridgeShell } from "./handler.js";
@@ -10,19 +10,13 @@ import {
   BRIDGE_KEYBIND_CATEGORY,
 } from "./types.js";
 
-interface BridgeBootApi {
-  onSessionStart(ctx: ExtensionContext): void;
+export function bootBridge(pi: ExtensionAPI): void {
+  registerBridgeCommand(pi);
+  ensureBridgeKeybinds();
 }
 
-export function bootBridge(pi: ExtensionAPI): BridgeBootApi {
-  registerBridgeCommand(pi);
+export function ensureBridgeKeybinds(): void {
   registerBridgeKeybind();
-
-  return {
-    onSessionStart(_ctx: ExtensionContext) {
-      registerBridgeKeybind();
-    },
-  };
 }
 
 function registerBridgeCommand(pi: ExtensionAPI): void {

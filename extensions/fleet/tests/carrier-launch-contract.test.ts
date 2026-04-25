@@ -68,7 +68,8 @@ describe("carrier launch contract", () => {
     expect(accepted).toMatch(/^<system-reminder>/);
     expect(accepted).toContain("background execution");
     expect(accepted).toContain("follow-up push");
-    expect(accepted).toContain("Do not poll carrier_jobs");
+    expect(accepted).toContain("Do not poll, wait-check, or call carrier_jobs merely to see whether the job is done");
+    expect(accepted).toContain("stop tool use and wait passively for the [carrier:result] follow-up push");
     expect(accepted).toContain('{"job_id":"sortie:call-1","accepted":true}');
 
     const rejected = formatLaunchResponseText({ job_id: "sortie:call-1", accepted: false, error: "carrier busy" }, false);

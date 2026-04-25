@@ -11,92 +11,28 @@
  * └──────────────────────────────────────────────────────┘
  */
 
-import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
-import type { CliType } from "@sbluemin/unified-agent";
-import * as path from "node:path";
-import * as os from "node:os";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 import {
   onStatusUpdate,
-  getRegisteredOrder,
-  getRegisteredCarrierConfig,
-  notifyStatusUpdate,
-  resolveCarrierDisplayName,
-  disableSortieCarrier,
-  enableSortieCarrier,
-  isSortieCarrierEnabled,
-  getSortieDisabledIds,
-  setSortieDisabledCarriers,
-  setTaskForceConfiguredCarriers,
-  updateCarrierCliType,
-  setPendingCliTypeOverrides,
-  enableSquadronCarrier,
-  disableSquadronCarrier,
-  isSquadronCarrierEnabled,
-  getSquadronEnabledIds,
-  setSquadronEnabledCarriers,
 } from "./shipyard/carrier/framework.js";
-import {
-  initRuntime,
-  onHostSessionChange,
-} from "../core/agentclientprotocol/runtime.js";
-import {
-  initStore,
-  loadModels as getModelConfig,
-  updateModelSelection,
-  getTaskForceModelConfig,
-  updateTaskForceModelSelection,
-  resetTaskForceModelSelection,
-  getPerCliSettings,
-  savePerCliSettings,
-  reconcileActiveModelSelections,
-  getAvailableModels,
-  getEffortLevels,
-  getDefaultBudgetTokens,
-  loadSortieDisabled,
-  saveSortieDisabled,
-  loadSquadronEnabled,
-  saveSquadronEnabled,
-  loadCliTypeOverrides,
-  updateCliTypeOverride,
-  getConfiguredTaskForceCarrierIds,
-  getConfiguredTaskForceBackends,
-} from "./shipyard/store.js";
-import { cleanIdleClients } from "../core/agentclientprotocol/pool.js";
-import { setCliRuntimeContext, setCliSystemPrompt } from "../core/agentclientprotocol/provider-types.js";
 import { registerModelCommands, syncModelConfig } from "./shipyard/carrier/model-ui.js";
-import { exposeAgentApi } from "./operation-runner.js";
-import { detachJobArchive } from "./shipyard/_shared/job-stream-archive.js";
-import { configureJobSummaryCache } from "./shipyard/_shared/lru-cache.js";
-import { CARRIER_RESULT_CUSTOM_TYPE, carrierResultRenderer } from "./shipyard/_shared/push-renderer.js";
-import { bindPanelBackgroundJobAnimation, detachAgentPanelUi, refreshAgentPanel } from "./bridge/panel/lifecycle.js";
+import { bindPanelBackgroundJobAnimation } from "./bridge/panel/lifecycle.js";
 import { registerAgentPanelShortcut } from "./bridge/panel/shortcuts.js";
-import { setAgentPanelServiceLoading, setAgentPanelServiceStatus } from "./bridge/panel/config.js";
-import { initServiceStatus, attachStatusContext, detachStatusContext, refreshStatusNow, getServiceSnapshots, refreshStatusQuiet } from "../core/agentclientprotocol/service-status/store.js";
-import { buildSortieToolConfig } from "./shipyard/carrier/sortie.js";
-import { buildCarrierJobsToolConfig } from "./shipyard/carrier_jobs/index.js";
-import { setCarrierJobsVerbose, toggleCarrierJobsVerbose } from "./shipyard/carrier_jobs/verbose-toggle.js";
-import { buildTaskForceToolConfig } from "./shipyard/taskforce/index.js";
-import { buildSquadronToolConfig } from "./shipyard/squadron/index.js";
-import {
-  TASKFORCE_CLI_TYPES,
-  type TaskForceCliType,
-} from "./shipyard/taskforce/types.js";
-import { TaskForceConfigOverlay } from "./bridge/carrier-ui/taskforce-config-overlay.js";
-import type { TaskForceOverlayCallbacks } from "./bridge/carrier-ui/taskforce-config-overlay.js";
-import { CarrierStatusOverlay } from "./bridge/carrier-ui/status-overlay.js";
-import { StatusOverlayController } from "./bridge/carrier-ui/status-overlay-controller.js";
-import type {
-  CarrierCliType,
-  CarrierStatusEntry,
-  CliModelInfo,
-  ModelSelection as OverlayModelSelection,
-} from "./bridge/carrier-ui/types.js";
-import { getKeybindAPI } from "../core/keybind/bridge.js";
 import { bootAdmiral } from "./admiral/index.js";
+import {
+  initializeFleetRuntime,
+  resolveFleetDataDir,
+  restoreFleetPreRegistrationState,
+  shouldBootFleet,
+} from "./boot.js";
+import { scheduleFleetBootReconciliation } from "./boot-reconciliation.js";
 import { bootBridge } from "./bridge/index.js";
+import { registerCarrierStatusKeybind } from "./bridge/carrier-ui/status-overlay-keybind.js";
 import { registerFleetCarriers } from "./carriers/index.js";
+import { registerFleetPiCommands } from "./pi-commands.js";
+import { wireFleetPiEvents } from "./pi-events.js";
+import { registerFleetPiTools } from "./pi-tools.js";
 export type { CollectedStreamData } from "./bridge/streaming/types.js";
 
 export { runAgentRequest } from "./operation-runner.js";
@@ -160,396 +96,28 @@ export type { SingleCarrierOptions } from "./shipyard/carrier/register.js";
 export type { CarrierMetadata, RequestBlock } from "./shipyard/carrier/types.js";
 
 export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
-  const bootCfg = (globalThis as any)["__fleet_boot_config__"];
-  if (bootCfg?.fleet === false) return;
+  if (!shouldBootFleet()) return;
 
-  // ── Fleet 런타임 초기화 (영속 파일은 ~/.pi/fleet/ 하위에 저장) ──
-  // os.homedir() 직접 사용으로 PI_CODING_AGENT_DIR override와 무관하게 경로를 고정한다.
-  const dataDir = path.join(os.homedir(), ".pi", "fleet");
-  initRuntime(dataDir);
-  initStore(dataDir);
-  initServiceStatus({
-    setLoading: setAgentPanelServiceLoading,
-    setStatus: setAgentPanelServiceStatus,
-  });
+  const dataDir = resolveFleetDataDir();
+  initializeFleetRuntime(dataDir);
+  restoreFleetPreRegistrationState();
 
-  exposeAgentApi();
-
-  // ── Sortie 비활성 상태 복원 ──
-  // 부팅 시에는 carrier 등록 전이므로 validIds 필터 없이 전체 로드.
-  const restoredDisabled = loadSortieDisabled();
-  if (restoredDisabled.length > 0) {
-    setSortieDisabledCarriers(restoredDisabled);
-  }
-
-  // ── Squadron 활성 상태 복원 ──
-  const restoredSquadron = loadSquadronEnabled();
-  if (restoredSquadron.length > 0) {
-    setSquadronEnabledCarriers(restoredSquadron);
-  }
-
-  // ── cliType 오버라이드 복원 ──
-  // 부팅 시 carrier 미등록 상태이므로 validIds 없이 전체 로드 후 pending으로 저장.
-  // registerCarrier() 호출 시 자동 적용됨.
-  const restoredCliTypeOverrides = loadCliTypeOverrides();
-  if (Object.keys(restoredCliTypeOverrides).length > 0) {
-    setPendingCliTypeOverrides(restoredCliTypeOverrides as Record<string, CliType>);
-  }
-
-  const admiral = bootAdmiral(pi);
-  const bridge = bootBridge(pi);
+  bootAdmiral(pi);
+  bootBridge(pi);
   bindPanelBackgroundJobAnimation();
 
   registerFleetCarriers(pi);
+  scheduleFleetBootReconciliation();
 
-  const sortieToolConfig = buildSortieToolConfig(pi);
-  if (sortieToolConfig) pi.registerTool(sortieToolConfig);
-  const taskForceToolConfig = buildTaskForceToolConfig(pi);
-  if (taskForceToolConfig) pi.registerTool(taskForceToolConfig);
-  const squadronToolConfig = buildSquadronToolConfig(pi);
-  if (squadronToolConfig) pi.registerTool(squadronToolConfig);
-  configureJobSummaryCache(50, detachJobArchive);
-  pi.registerMessageRenderer(CARRIER_RESULT_CUSTOM_TYPE, carrierResultRenderer);
-  pi.registerTool(buildCarrierJobsToolConfig());
-
-  // ── 부팅 후 1회 초기화: 모델 정합성 검증 + stale ID 정리 + taskforce 상태 동기화 ──
-  setTimeout(() => {
-    // 모델 선택 정합성 검증
-    const cliTypesByCarrier = Object.fromEntries(
-      getRegisteredOrder()
-        .map((carrierId) => {
-          const config = getRegisteredCarrierConfig(carrierId);
-          return config ? [carrierId, config.cliType] : null;
-        })
-        .filter((entry): entry is [string, CliType] => entry !== null),
-    );
-    if (Object.keys(cliTypesByCarrier).length > 0 && reconcileActiveModelSelections(cliTypesByCarrier)) {
-      syncModelConfig();
-    }
-    // stale squadron ID 정리 (등록된 carrier와 교집합만 유지)
-    const registeredSet = new Set(getRegisteredOrder());
-    const validSquadronIds = getSquadronEnabledIds().filter((id) => registeredSet.has(id));
-    if (validSquadronIds.length !== getSquadronEnabledIds().length) {
-      setSquadronEnabledCarriers(validSquadronIds);
-      saveSquadronEnabled(validSquadronIds);
-    }
-    // taskforce 상태 동기화
-    const tfIds = getConfiguredTaskForceCarrierIds(getRegisteredOrder());
-    setTaskForceConfiguredCarriers(tfIds);
-    notifyStatusUpdate();
-  }, 0);
+  registerFleetPiTools(pi);
 
   syncModelConfig();
   registerAgentPanelShortcut();
   registerModelCommands(pi);
-
-  const keybind = getKeybindAPI();
-  // ── 캐리어 함대 현황 오버레이 (Alt+O) ──
-
-  let activeStatusPopup: Promise<void> | null = null;
-  let dismissStatusPopup: (() => void) | null = null;
-
-  keybind.register({
-    extension: "fleet",
-    action: "carrier-status",
-    defaultKey: "alt+o",
-    description: "캐리어 함대 현황 오버레이",
-    category: "Fleet Bridge",
-    handler: async (ctx) => {
-      if (!ctx.hasUI) return;
-
-      if (activeStatusPopup) {
-        dismissStatusPopup?.();
-        return;
-      }
-
-      const carrierIds = getRegisteredOrder();
-      const modelConfig = getModelConfig();
-      const entries: CarrierStatusEntry[] = [];
-
-      for (const id of carrierIds) {
-        const config = getRegisteredCarrierConfig(id);
-        if (!config) continue;
-
-        const cliType = config.cliType;
-        const selection = modelConfig[id];
-        const provider = getAvailableModels(cliType);
-        const model = selection?.model || provider.defaultModel;
-        const isDefault = !selection?.model;
-        const effort = selection?.effort ?? null;
-        const budgetTokens = selection?.budgetTokens ?? null;
-        const meta = config.carrierMetadata;
-        const role = meta?.title ?? null;
-
-        entries.push({
-          carrierId: id,
-          slot: config.slot,
-          cliType,
-          defaultCliType: config.defaultCliType as CarrierCliType,
-          displayName: resolveCarrierDisplayName(id),
-          model,
-          isDefault,
-          effort,
-          budgetTokens,
-          role,
-          roleDescription: meta ? `${meta.title} — ${meta.summary}` : null,
-          isSortieEnabled: isSortieCarrierEnabled(id),
-          isSquadronEnabled: isSquadronCarrierEnabled(id),
-          taskForceBackendCount: getConfiguredTaskForceBackends(id).length,
-        });
-      }
-
-      activeStatusPopup = ctx.ui.custom(
-        (tui: any, theme: any, _keybindings: any, done: () => void) => {
-          dismissStatusPopup = done;
-          const handleModelUpdated = (): void => {
-            syncModelConfig();
-            notifyStatusUpdate();
-          };
-
-          const getCliModelInfo = (cliType: CarrierCliType): CliModelInfo => {
-            const provider = getAvailableModels(cliType as CliType);
-            const effortLevels = getEffortLevels(cliType as CliType) ?? [];
-            return {
-              ...provider,
-              defaultBudgetTokens: Object.fromEntries(
-                effortLevels.map((level) => [level, getDefaultBudgetTokens(level)]),
-              ),
-            };
-          };
-
-          const overlayController = new StatusOverlayController({
-            getEntries: () => entries,
-            getRegisteredOrder,
-            getRegisteredCarrierConfig: (carrierId: string) => getRegisteredCarrierConfig(carrierId),
-            getCurrentModelSelection: (carrierId: string) => getModelConfig()[carrierId],
-            getAvailableModels: getCliModelInfo,
-            getPerCliSettings: (carrierId: string, cliType: CarrierCliType) => getPerCliSettings(carrierId, cliType),
-            savePerCliSettings: (carrierId: string, cliType: CarrierCliType, selection) => {
-              savePerCliSettings(carrierId, cliType, selection);
-            },
-            updateCarrierCliType: (carrierId: string, cliType: CarrierCliType) => {
-              updateCarrierCliType(carrierId, cliType as CliType);
-            },
-            updateModelSelection: async (carrierId: string, selection) => {
-              await updateModelSelection(carrierId, selection);
-            },
-            refreshAgentPanel: () => {
-              refreshAgentPanel(ctx);
-            },
-            syncModelConfig,
-            notifyStatusUpdate,
-            updateCliTypeOverride: (carrierId, cliType, defaultCliType) => {
-              updateCliTypeOverride(carrierId, cliType, defaultCliType);
-            },
-          });
-
-          return new CarrierStatusOverlay(
-            tui,
-            theme,
-            entries,
-            {
-              getEntries: () => entries,
-              changeCliType: (carrierId: string, newCliType: CarrierCliType) => {
-                return overlayController.changeCliType(carrierId, newCliType);
-              },
-              changeCliTypes: async (updates: Array<{ carrierId: string; newCliType: CarrierCliType }>) => {
-                return overlayController.changeCliTypes(updates);
-              },
-              resetCliTypesToDefault: async () => {
-                return overlayController.resetCliTypesToDefault();
-              },
-              saveModelSelection: async (carrierId: string, selection: OverlayModelSelection) => {
-                await updateModelSelection(carrierId, selection);
-                handleModelUpdated();
-              },
-              toggleSortieEnabled: (carrierId: string) => {
-                if (isSortieCarrierEnabled(carrierId)) {
-                  disableSortieCarrier(carrierId);
-                } else {
-                  enableSortieCarrier(carrierId);
-                }
-                saveSortieDisabled(getSortieDisabledIds());
-                notifyStatusUpdate();
-              },
-              toggleSquadronEnabled: (carrierId: string) => {
-                if (isSquadronCarrierEnabled(carrierId)) {
-                  disableSquadronCarrier(carrierId);
-                } else {
-                  enableSquadronCarrier(carrierId);
-                }
-                const registeredSet = new Set(getRegisteredOrder());
-                saveSquadronEnabled(getSquadronEnabledIds().filter((id) => registeredSet.has(id)));
-                refreshAgentPanel(ctx);
-                notifyStatusUpdate();
-              },
-              getAvailableModels: getCliModelInfo,
-              getServiceSnapshots: () =>
-                new Map(
-                  getServiceSnapshots().map((snapshot) => [snapshot.provider as CarrierCliType, { status: snapshot.status }]),
-                ),
-              getDefaultCliType: () => "claude",
-              openTaskForce: (carrierId: string) => {
-                dismissStatusPopup?.();
-                const carrierConfig = getRegisteredCarrierConfig(carrierId);
-                if (!carrierConfig) {
-                  ctx.ui.notify(`등록되지 않은 carrier입니다: ${JSON.stringify(carrierId)}`, "error");
-                  return;
-                }
-                const carrierDisplayName = carrierConfig?.displayName ?? carrierId;
-                const allowedTaskForceCliTypes = new Set<string>(TASKFORCE_CLI_TYPES);
-                const requireTaskForceCliType = (cliType: string): TaskForceCliType => {
-                  if (!allowedTaskForceCliTypes.has(cliType)) {
-                    throw new Error(`Unsupported Task Force backend: ${cliType}`);
-                  }
-                  return cliType as TaskForceCliType;
-                };
-
-                const tfCallbacks: TaskForceOverlayCallbacks = {
-                  getAvailableModels: (cliType: string) => getAvailableModels(requireTaskForceCliType(cliType)),
-                  getEffortLevels: (cliType: string) => getEffortLevels(requireTaskForceCliType(cliType)),
-                  getDefaultBudgetTokens,
-                  getBackendConfig: (cliType: string) => {
-                    const resolvedCliType = requireTaskForceCliType(cliType);
-                    const tfConfig = getTaskForceModelConfig(carrierId, resolvedCliType);
-                    const modelConfigNow = getModelConfig();
-                    const isCustom = !!(modelConfigNow[carrierId]?.taskforce?.[resolvedCliType]);
-                    const provider = getAvailableModels(resolvedCliType);
-                    return {
-                      model: tfConfig?.model ?? provider.defaultModel,
-                      effort: tfConfig?.effort ?? null,
-                      isCustom,
-                    };
-                  },
-                  updateBackendConfig: async (cliType: string, selection) => {
-                    updateTaskForceModelSelection(
-                      carrierId,
-                      requireTaskForceCliType(cliType),
-                      selection,
-                    );
-                    const tfIds = getConfiguredTaskForceCarrierIds(getRegisteredOrder());
-                    setTaskForceConfiguredCarriers(tfIds);
-                    notifyStatusUpdate();
-                  },
-                  resetBackendConfig: (cliType: string) => {
-                    resetTaskForceModelSelection(carrierId, requireTaskForceCliType(cliType));
-                    const tfIds = getConfiguredTaskForceCarrierIds(getRegisteredOrder());
-                    setTaskForceConfiguredCarriers(tfIds);
-                    notifyStatusUpdate();
-                  },
-                };
-                void ctx.ui.custom(
-                  (tui2: any, theme2: any, _kb2: any, done2: () => void) =>
-                    new TaskForceConfigOverlay(tui2, theme2, carrierId, carrierDisplayName, tfCallbacks, done2),
-                  {
-                    overlay: true,
-                    overlayOptions: { width: "60%", maxHeight: "55%", anchor: "center", margin: 1 },
-                  },
-                );
-              },
-            },
-            done,
-          );
-        },
-        {
-          overlay: true,
-          overlayOptions: {
-            width: "70%",
-            maxHeight: "60%",
-            anchor: "center",
-            margin: 1,
-          },
-        },
-      );
-
-      try {
-        refreshStatusQuiet();
-        await activeStatusPopup;
-      } finally {
-        activeStatusPopup = null;
-        dismissStatusPopup = null;
-      }
-    },
-  });
-
-  const onSessionChange = (ctx: ExtensionContext) => {
-    onHostSessionChange(ctx.sessionManager.getSessionId());
-    cleanIdleClients();
-    refreshAgentPanel(ctx);
-    attachStatusContext(ctx);
-  };
-
-  pi.on("before_agent_start", () => {
-    admiral.onBeforeAgentStart();
-  });
-
-  pi.on("session_start", (_event, ctx) => {
-    onSessionChange(ctx);
-    syncModelConfig();
-    admiral.onSessionStart(ctx);
-    bridge.onSessionStart(ctx);
-  });
-
-  pi.on("session_tree", (_event, ctx) => {
-    onSessionChange(ctx);
-    syncModelConfig();
-    admiral.onSessionTree();
-  });
-
-  pi.on("session_shutdown", async (_event, ctx) => {
-    detachAgentPanelUi();
-    detachStatusContext();
-    clearAcpPrompts();
-
-    const sessionFile = ctx.sessionManager.getSessionFile();
-    if (!sessionFile) return;
-
-    const entries = ctx.sessionManager.getEntries();
-    const hasDirectChat = entries.some((e) => e.type === "custom_message");
-    if (!hasDirectChat) return;
-
-    const hasAssistant = entries.some(
-      (e) => e.type === "message" && (e as any).message?.role === "assistant",
-    );
-    if (hasAssistant) return;
-
-    const header = ctx.sessionManager.getHeader();
-    if (!header) return;
-
-    const dir = path.dirname(sessionFile);
-    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-
-    let content = JSON.stringify(header) + "\n";
-    for (const entry of entries) {
-      content += JSON.stringify(entry) + "\n";
-    }
-    writeFileSync(sessionFile, content);
-  });
+  registerCarrierStatusKeybind(pi);
+  wireFleetPiEvents(pi);
 
   onStatusUpdate(() => { syncModelConfig(); });
 
-  pi.registerCommand("fleet:agent:status", {
-    description: "지원 CLI 서비스 상태를 즉시 새로고침",
-    handler: async (_args, ctx) => {
-      await refreshStatusNow(ctx);
-    },
-  });
-
-  pi.registerCommand("fleet:jobs:verbose", {
-    description: "carrier_jobs 렌더링 상세 모드 토글",
-    handler: async (args, ctx) => {
-      const value = args.trim().toLowerCase();
-      const enabled = value === "on"
-        ? (setCarrierJobsVerbose(true), true)
-        : value === "off"
-          ? (setCarrierJobsVerbose(false), false)
-          : toggleCarrierJobsVerbose();
-      ctx.ui.notify(`Carrier Jobs verbose: ${enabled ? "ON" : "OFF"}`, "info");
-    },
-  });
-}
-
-function clearAcpPrompts(): void {
-  setCliSystemPrompt(null);
-  setCliRuntimeContext(null);
+  registerFleetPiCommands(pi);
 }

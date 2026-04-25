@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { PROTOCOL_PREAMBLE } from "../admiral/prompts.js";
 import { DELEGATION_POLICY } from "../admiral/standing-orders/delegation-policy.js";
@@ -8,12 +10,16 @@ import { SQUADRON_MANIFEST, buildSquadronSchema } from "../shipyard/squadron/pro
 import { TASKFORCE_MANIFEST, buildTaskForceSchema } from "../shipyard/taskforce/prompts.js";
 import { CARRIER_RESULT_CUSTOM_TYPE } from "../shipyard/_shared/push-renderer.js";
 
+const testDir = dirname(fileURLToPath(import.meta.url));
+
 describe("carrier prompt doctrine", () => {
   it("contains fire-and-forget doctrine and carrier_jobs read-once guidance", () => {
     expect(PROTOCOL_PREAMBLE).toContain("[carrier:result]");
     expect(PROTOCOL_PREAMBLE).toContain("carrier_jobs");
     expect(PROTOCOL_PREAMBLE).toContain("read-once");
-    expect(PROTOCOL_PREAMBLE).toContain("Do not poll carrier_jobs immediately after a carrier launch");
+    expect(PROTOCOL_PREAMBLE).toContain("Do not poll, wait-check, or call carrier_jobs merely to see whether the job is done");
+    expect(PROTOCOL_PREAMBLE).toContain("stop tool use and wait passively for the [carrier:result] follow-up push");
+    expect(PROTOCOL_PREAMBLE).toContain("carrier_jobs is only a fallback path when the push is missing or an explicit lookup is required");
     expect(DELEGATION_POLICY.prompt).toContain("Lookup/control detached carrier jobs");
   });
 
@@ -24,14 +30,29 @@ describe("carrier prompt doctrine", () => {
     expect(CARRIER_JOBS_MANIFEST.id).toBe("carrier_jobs");
     expect(CARRIER_JOBS_MANIFEST.usageGuidelines.join("\n")).not.toContain("Available Carriers");
     expect(CARRIER_JOBS_MANIFEST.usageGuidelines.join("\n")).toContain("finalized-only");
-    expect(CARRIER_JOBS_MANIFEST.whenNotToUse.join("\n")).toContain("Do not poll carrier_jobs immediately after a carrier launch");
+    expect(CARRIER_JOBS_MANIFEST.whenNotToUse.join("\n")).toContain("Do not poll, wait-check, or call carrier_jobs merely to see whether a launched job is done");
     expect(CARRIER_JOBS_MANIFEST.usageGuidelines.join("\n")).toContain("follow-up push");
+  });
+
+  it("keeps carrier_jobs as fallback or explicit lookup only across async carrier tools", () => {
+    const dispatchManifests = [SORTIE_MANIFEST, SQUADRON_MANIFEST, TASKFORCE_MANIFEST];
+
+    for (const manifest of dispatchManifests) {
+      const text = JSON.stringify(manifest);
+      expect(text).toContain("carrier_jobs is fallback/explicit lookup only");
+      expect(text).toContain("Do not poll, wait-check, or call carrier_jobs merely to see whether the job is done");
+      expect(text).toContain("stop tool use and wait passively");
+    }
+
+    const jobsText = JSON.stringify(CARRIER_JOBS_MANIFEST);
+    expect(jobsText).toContain("not a polling tool");
+    expect(jobsText).toContain("fallback channel for missing pushes or explicit lookups");
+    expect(jobsText).toContain("stop tool use and wait passively");
   });
 
   it("registers the hidden carrier result custom renderer contract", async () => {
     const fs = await import("node:fs");
-    const path = await import("node:path");
-    const indexSource = fs.readFileSync(path.join(process.cwd(), "index.ts"), "utf8");
+    const indexSource = fs.readFileSync(join(testDir, "..", "pi-tools.ts"), "utf8");
     expect(CARRIER_RESULT_CUSTOM_TYPE).toBe("carrier-result");
     expect(indexSource).toContain("pi.registerMessageRenderer(CARRIER_RESULT_CUSTOM_TYPE, carrierResultRenderer)");
   });

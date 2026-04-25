@@ -31,9 +31,9 @@ export const SQUADRON_MANIFEST: ToolPromptManifest = {
   title: "carrier_squadron Tool Guidelines",
   description:
     `Register a fire-and-forget job that fans out subtasks to parallel instances of the same carrier for divide-and-conquer execution.` +
-    ` It returns a job_id immediately; results arrive through [carrier:result] push or carrier_jobs lookup.`,
+    ` It returns a job_id immediately; results arrive through [carrier:result] push; carrier_jobs is fallback/explicit lookup only.`,
   promptSnippet:
-    `carrier_squadron — Register parallel same-carrier subtask jobs. Results arrive later via [carrier:result] or carrier_jobs.`,
+    `carrier_squadron — Register parallel same-carrier subtask jobs. Results arrive later via [carrier:result]; carrier_jobs is fallback/explicit lookup only.`,
   whenToUse: [
     "Use carrier_squadron when a task can be decomposed into independent subtasks that benefit from parallel execution on the same carrier type.",
     "Use it for analyzing multiple files independently, running the same check across different modules, or batch-processing items.",
@@ -57,7 +57,9 @@ export const SQUADRON_MANIFEST: ToolPromptManifest = {
       ` If a provided \`<plan_file>\` is missing, unreadable, or invalid, Ohio must report the issue and request re-direction rather than guessing or silently re-planning.`,
     `PI splits the task into subtasks — the tool only fans out execution.` +
       ` The launch response is { job_id, accepted, error? } and never includes synchronous result content.` +
-      ` Final interpretation is PI's responsibility after [carrier:result] push or carrier_jobs lookup.`,
+      ` Final interpretation is PI's responsibility after [carrier:result] push; carrier_jobs is fallback/explicit lookup only.`,
+    `Do not poll, wait-check, or call carrier_jobs merely to see whether the job is done.` +
+      ` Continue independent work if available; otherwise stop tool use and wait passively for the [carrier:result] follow-up push.`,
   ],
 };
 

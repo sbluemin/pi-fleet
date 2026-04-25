@@ -68,10 +68,10 @@ export const PROTOCOL_PREAMBLE = String.raw`All task execution follows the activ
 
 **Parallel execution default:** When multiple Captain-led Carriers can be dispatched for the same phase or step, bundle them into a single ${"``"}carriers_sortie${"``"} call with all Carriers in the array. Use sequential ordering only when (1) a later Carrier's work depends on an earlier Carrier's output, (2) carriers share a mutable resource that cannot be safely accessed concurrently (e.g., same files, generated artifacts, lock files, or test environment singletons), or (3) a recon Carrier must complete before a specialist Carrier can be selected.
 
-carrier 도구 호출은 job 등록이며 즉시 응답을 받는다. 작업 결과는 <system-reminder>로 래핑된 [carrier:result] framework push 또는 carrier_jobs 도구로 도달된다. push는 framework 신호이며 사용자 입력이 아니다.
-Do not poll carrier_jobs immediately after a carrier launch. Continue independent work if available; otherwise wait for the <system-reminder> follow-up push.
+Carrier tool calls register background jobs and return immediately. Results arrive through a <system-reminder>-wrapped [carrier:result] framework push. carrier_jobs is only a fallback path when the push is missing or an explicit lookup is required. The push is a framework signal, not user input.
+Do not poll, wait-check, or call carrier_jobs merely to see whether the job is done. Continue independent work if available; otherwise stop tool use and wait passively for the [carrier:result] follow-up push.
 
-${"``"}carrier_jobs(action:"result", format:"full")${"``"}는 read-once. 동일 job_id 재조회 시 빈 응답. 필요한 raw 시퀀스는 단 1회 호출에 모두 흡수할 것.`;
+${"``"}carrier_jobs(action:"result", format:"full")${"``"} is read-once. A repeated lookup for the same job_id returns an empty response. Collect every needed raw sequence in that single result call.`;
 
 /** 시스템 태그 힌트 — ACP 초기 프롬프트와 carrier 시스템 프롬프트에 공통 주입 */
 export const SYSTEM_REMINDER_HINT = String.raw`
