@@ -28,11 +28,21 @@ cd pi-fleet
 # Install all workspace dependencies from the repository root.
 # The root postinstall hook also builds packages/unified-agent.
 npm install
+
+# Register the fleet wrapper commands globally.
+npm link
 ```
 
 > The repository uses npm workspaces, and the root install is the single setup entry point.
 >
 > `npm install` installs the workspace dependencies for `packages/unified-agent`, `extensions/core`, and `extensions/fleet`, then builds `packages/unified-agent/dist/` via the root `postinstall` hook so the extensions can consume `@sbluemin/unified-agent` immediately.
+>
+> `npm link` registers the global wrapper commands from this checkout:
+>
+> - `fleet` — launches `pi` with the standard Fleet mode.
+> - `gfleet` — launches `pi` with Grand Fleet mode enabled for the child process.
+> - `fleet-dev` — launches standard Fleet mode and loads each `extensions/*/index.ts` entry directly.
+> - `gfleet-dev` — launches Grand Fleet mode and loads each `extensions/*/index.ts` entry directly.
 >
 > `extensions/core/shell` and `extensions/core/agentclientprotocol` are internal modules of the `extensions/core` workspace, so they no longer require separate `npm install` commands.
 

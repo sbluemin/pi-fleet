@@ -10,6 +10,12 @@
   "scripts": {
     "postinstall": "npm run build -w packages/unified-agent"
   },
+  "bin": {
+    "fleet": "bin/fleet.js",
+    "gfleet": "bin/gfleet.js",
+    "fleet-dev": "bin/fleet-dev.js",
+    "gfleet-dev": "bin/gfleet-dev.js"
+  },
   "devDependencies": {
     "@sinclair/typebox": "^0.34.41",
     "typescript": "^6.0.2"
