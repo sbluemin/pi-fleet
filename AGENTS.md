@@ -15,7 +15,9 @@
 | `extensions/fleet/admiral/` | Admiral prompt-policy library — prompts, protocols, standing orders, request directive, widget |
 | `extensions/fleet/bridge/` | Bridge library — active ACP provider overlay shell launcher |
 | `extensions/fleet/carriers/` | Carrier registration library — default carrier definitions (refer to its own `AGENTS.md`) |
-| `extensions/core/` | Infrastructure + utility extensions — agent infra, hud, keybind, settings, welcome, shell, improve-prompt, summarize, thinking-timer, provider-guard (refer to its own `AGENTS.md`) |
+| `extensions/core/` | Infrastructure + utility extensions — agent infra, hud, keybind, settings, welcome, shell, improve-prompt, thinking-timer, provider-guard (refer to its own `AGENTS.md`) |
+| `extensions/metaphor/` | Metaphor extension — 4계층 해군 PERSONA/TONE worldview 관리와 세션 작전명 자동 생성(operation naming) 기능을 제공 |
+| `extensions/metaphor/operation-name/` | Operation naming module — 최초 사용자 요청을 `Operation › {codename}` 형식의 해군 작전명으로 자동 명명 (위젯에서 prefix는 dim, codename은 accent 색상으로 분리 표시) |
 
 > Currently, there is no `pi/` directory — symlink setup is not required.
 
@@ -187,11 +189,10 @@ Each extension maps to exactly one domain. Use the domain below for all commands
 |-----------|--------|-----------|
 | `fleet/` | `agent` | Sub-agent orchestration features |
 | `fleet/admiral/` | `admiral` | Host-agent prompt policy, protocols, and operational doctrine |
-| `metaphor/` | `metaphor` | Naval Fleet "Persona" prompts and worldview management |
+| `metaphor/` | `metaphor` | Naval Fleet "Persona" prompts, worldview management, and operation naming |
 | `fleet/carriers/` | `carrier` | Individual carrier registration and configuration |
 | `core/hud/` | `hud` | HUD / editor display features |
 | `core/improve-prompt/` | `prompt` | Meta-prompt model and reasoning settings |
-| `core/summarize/` | `summary` | Session summarization settings |
 When adding a **new extension**, assign a domain that reflects the **feature category**, not the directory prefix (`core-`, etc.).
 
 ### Feature Naming

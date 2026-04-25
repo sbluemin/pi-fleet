@@ -22,7 +22,6 @@ Infrastructure extension for pi-fleet. `core/index.ts` is the only extension ent
 | `welcome/` | Welcome overlay displayed on session start (Detects and displays Git remote update status) |
 | `log/` | Reusable logging — file log + footer display + globalThis API for other extensions |
 | `improve-prompt/` | Meta-prompting and reasoning level controls |
-| `summarize/` | Auto one-line session summary widget |
 | `thinking-timer/` | Inline elapsed-time display for Thinking blocks |
 | `provider-guard/` | Always-on guard — disables specified built-in providers and auto-fallbacks away from blocked placeholder models on session_start / model_select |
 
@@ -52,7 +51,6 @@ Infrastructure extension for pi-fleet. `core/index.ts` is the only extension ent
 | `settings/` | `settings` | Settings management |
 | `welcome/` | `welcome` | Welcome message |
 | `improve-prompt/` | `prompt` | Prompt improvement features |
-| `summarize/` | `summary` | Session summary features |
 | `thinking-timer/` | `timer` | Thinking block timer features |
 | `provider-guard/` | `guard` | Provider guard features |
 | `agentclientprotocol/` | `acp` | ACP infrastructure and provider features |

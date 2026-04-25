@@ -1,18 +1,20 @@
 /**
- * core-summarize/summarizer.ts — 핵심 비즈니스 로직
- *
- * LLM을 호출하여 사용자 프롬프트를 작업 관점의 짧은 제목으로 요약.
+ * operation-name/summarizer.ts — 작전명 생성 비즈니스 로직
  */
 
 import { completeSimple } from "@mariozechner/pi-ai";
-import type { Api, Model } from "@mariozechner/pi-ai";
+import type { Api, Model, ThinkingLevel } from "@mariozechner/pi-ai";
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 
-import { SYSTEM_PROMPT } from "./constants.js";
-import type { AutoSummarizeSettings } from "./settings.js";
+import type { ReasoningLevel } from "./constants.js";
+import { SYSTEM_PROMPT } from "./prompts.js";
+import type { OperationNameSettings } from "./settings.js";
 
-const MAX_LENGTH = 20;
+const MAX_LENGTH = 40;
 const MAX_INPUT_LENGTH = 200;
+const OPERATION_LABEL = "Operation";
+const OPERATION_SEPARATOR = "›";
+export const OPERATION_PREFIX = `${OPERATION_LABEL} ${OPERATION_SEPARATOR} `;
 const BIDI_CONTROL_REGEX = /[\u202A-\u202E\u2066-\u2069]/g;
 const ANSI_REGEX = /\x1b\[[0-9;]*[A-Za-z]/g;
 const OSC_REGEX = /\x1b\][^\u0007\x1b]*(?:\u0007|\x1b\\)/g;
@@ -38,7 +40,7 @@ const SECRET_PATTERNS = [
 /** 설정 파일 기반 모델 resolve */
 export function resolveModel(
   ctx: ExtensionContext,
-  settings: AutoSummarizeSettings,
+  settings: OperationNameSettings,
 ): Model<Api> | null {
   const { provider, model: modelId } = settings;
   const resolved =
@@ -49,11 +51,12 @@ export function resolveModel(
   return resolved ?? null;
 }
 
-/** LLM 작업 제목 생성 (≤20자) */
-export async function generateTaskTitle(
+/** LLM 작전명 생성 */
+export async function generateOperationName(
   ctx: ExtensionContext,
   model: Model<Api>,
   userPrompt: string,
+  reasoning: ReasoningLevel,
 ): Promise<string | null> {
   try {
     const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
@@ -73,7 +76,7 @@ export async function generateTaskTitle(
         messages: [
           {
             role: "user",
-            content: `Summarize this user request as a task label (max ${MAX_LENGTH} chars):\n\n${preparedPrompt}`,
+            content: `Generate an operation codename for this request (max ${MAX_LENGTH} chars total, including the "${OPERATION_PREFIX}" prefix):\n\n${preparedPrompt}`,
             timestamp: Date.now(),
           },
         ],
@@ -82,6 +85,7 @@ export async function generateTaskTitle(
         ...(auth.apiKey && { apiKey: auth.apiKey }),
         ...(auth.headers && { headers: auth.headers }),
         maxTokens: 60,
+        ...(reasoning !== "off" && { reasoning: reasoning as ThinkingLevel }),
       },
     );
 
@@ -97,9 +101,12 @@ export async function generateTaskTitle(
     const firstLine = sanitizeSummary(text.split("\n")[0]!.trim());
     if (!firstLine) return null;
 
-    return firstLine.length > MAX_LENGTH
-      ? firstLine.slice(0, MAX_LENGTH - 1) + "…"
-      : firstLine;
+    const withPrefix = ensureOperationPrefix(firstLine);
+    if (!withPrefix) return null;
+
+    return withPrefix.length > MAX_LENGTH
+      ? withPrefix.slice(0, MAX_LENGTH - 1) + "…"
+      : withPrefix;
   } catch {
     return null;
   }
@@ -132,4 +139,10 @@ function sanitizeSummary(summary: string): string {
     .replace(CONTROL_REGEX, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function ensureOperationPrefix(summary: string): string | null {
+  const codename = summary.replace(/^operation\s*[›»▸‣·—\-:|]?\s*/i, "").trim();
+  if (!codename) return null;
+  return `${OPERATION_PREFIX}${codename}`;
 }

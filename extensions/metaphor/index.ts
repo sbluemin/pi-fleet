@@ -1,12 +1,13 @@
 /**
- * metaphor — PERSONA/TONE worldview 토글 전용 확장
+ * metaphor — PERSONA/TONE worldview 토글 + 세션 작전명 자동 생성 확장
  *
- * 이 확장은 metaphor settings 상태와 토글 커맨드만 소유한다.
+ * 이 확장은 metaphor settings 상태, 토글 커맨드, 작전명 자동 생성 기능을 소유한다.
  * 실제 프롬프트 조립은 다른 패키지의 builder가 담당한다.
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
+import registerOperationName from "./operation-name/register.js";
 import { isWorldviewEnabled, setWorldviewEnabled } from "./worldview.js";
 
 /**
@@ -29,4 +30,5 @@ export function registerMetaphor(pi: ExtensionAPI): void {
 
 export default function (pi: ExtensionAPI) {
   registerMetaphor(pi);
+  registerOperationName(pi);
 }

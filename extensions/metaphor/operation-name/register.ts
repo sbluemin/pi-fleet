@@ -1,60 +1,59 @@
 /**
- * core-summarize — 세션 한 줄 자동 요약 확장 진입점
+ * operation-name/register.ts — 세션 작전명 자동 생성 확장 진입점
  *
  * 배선(wiring)만 담당: 이벤트 핸들러, 커맨드 등록.
- *
- * ┌──────────────────────────────────────────────────────┐
- * │  이벤트 흐름                                          │
- * │   input (매 턴) → 사용자 프롬프트 → 비차단 작업 제목 생성 │
- * │   /fleet:summary:settings  → 모델 설정                │
- * └──────────────────────────────────────────────────────┘
  */
 
 import type { Api, Model } from "@mariozechner/pi-ai";
 import type { ExtensionAPI, Theme } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
+import type { ReasoningLevel } from "./constants.js";
+import { REASONING_LEVELS, REASONING_LABELS, REASONING_COLORS, isValidReasoning } from "./constants.js";
 import { loadSettings, saveSettings } from "./settings.js";
-import type { AutoSummarizeSettings } from "./settings.js";
-import { resolveModel, generateTaskTitle } from "./summarizer.js";
-import { getSettingsAPI } from "../settings/bridge.js";
+import type { OperationNameSettings } from "./settings.js";
+import { generateOperationName, OPERATION_PREFIX, resolveModel } from "./summarizer.js";
+import { getSettingsAPI } from "../../core/settings/bridge.js";
 
-const SUMMARIZE_STATUS_KEY = "core-summarize-status";
+const OPERATION_NAME_STATUS_KEY = "metaphor-operation-name-status";
 const SESSION_ID_LENGTH = 8;
 const SUMMARY_SEPARATOR = "›";
 
-export default function (pi: ExtensionAPI) {
-  let pendingInitialSummary = false;
-
-  // ── 팝업 섹션 등록 ──
+export function registerOperationName(pi: ExtensionAPI): void {
+  const initialSettings = loadSettings();
+  let currentReasoning: ReasoningLevel =
+    initialSettings.reasoning && isValidReasoning(initialSettings.reasoning)
+      ? initialSettings.reasoning
+      : "off";
+  let operationNameAttempted = false;
 
   const settingsApi = getSettingsAPI();
   settingsApi?.registerSection({
-    key: "core-summarize",
-    displayName: "Auto Summarize",
+    key: "metaphor-operation-name",
+    displayName: "Operation Naming",
     getDisplayFields() {
       const s = loadSettings();
       const sessionName = pi.getSessionName();
       return [
         { label: "Model", value: s.model || "session model", color: s.model ? "accent" : "dim" },
         { label: "Provider", value: s.provider || "session model", color: s.provider ? "accent" : "dim" },
-        { label: "Session", value: sessionName || "요약 대기", color: sessionName ? "accent" : "dim" },
+        { label: "Reasoning", value: REASONING_LABELS[currentReasoning], color: REASONING_COLORS[currentReasoning] },
+        { label: "Session", value: sessionName || "작전 명명 대기", color: sessionName ? "accent" : "dim" },
       ];
     },
   });
 
-  // ── 이벤트 핸들러 ──
-
   pi.on("session_start", async (_event, ctx) => {
-    pendingInitialSummary = false;
+    operationNameAttempted = false;
 
-    const summary = pi.getSessionName()?.trim();
-    if (!summary) {
-      ctx.ui.setWidget(SUMMARIZE_STATUS_KEY, undefined);
+    const operationName = pi.getSessionName()?.trim();
+    if (!operationName) {
+      ctx.ui.setWidget(OPERATION_NAME_STATUS_KEY, undefined);
       return;
     }
 
-    setSummaryWidget(ctx, getCurrentSessionId(ctx), summary);
+    setSummaryWidget(ctx, getCurrentSessionId(ctx), operationName);
+    operationNameAttempted = true;
   });
 
   pi.on("input", async (event, ctx) => {
@@ -63,47 +62,40 @@ export default function (pi: ExtensionAPI) {
 
     const userText = (event as any).text?.trim();
     if (!userText) return;
-
-    // 슬래시 명령은 요약 대상 제외
     if (userText.startsWith("/")) return;
+    if (operationNameAttempted) return;
+    if (pi.getSessionName()?.trim()) {
+      operationNameAttempted = true;
+      return;
+    }
 
-    if (pendingInitialSummary) return;
-    if (pi.getSessionName()?.trim()) return;
+    operationNameAttempted = true;
 
     const settings = loadSettings();
     const model = resolveModel(ctx, settings);
     if (!model) return;
 
-    pendingInitialSummary = true;
+    const requestSessionId = getCurrentSessionId(ctx);
 
-    void generateTaskTitle(ctx, model, userText)
-      .then((summary) => {
-        if (!summary) return;
-        if (pi.getSessionName()?.trim()) return;
-        pi.setSessionName(summary);
-        setSummaryWidget(ctx, getCurrentSessionId(ctx), summary);
-      })
-      .finally(() => {
-        if (!pi.getSessionName()?.trim()) {
-          pendingInitialSummary = false;
-        }
-      });
+    void generateOperationName(ctx, model, userText, currentReasoning).then((operationName) => {
+      if (!operationName) return;
+      if (!isSameSession(requestSessionId, getCurrentSessionId(ctx))) return;
+      if (pi.getSessionName()?.trim()) return;
+      pi.setSessionName(operationName);
+      setSummaryWidget(ctx, getCurrentSessionId(ctx), operationName);
+    });
   });
 
-  // ── 커맨드 등록 ──
-
-  pi.registerCommand("fleet:summary:settings", {
-    description: "자동 요약 설정 (모델 선택)",
+  pi.registerCommand("fleet:metaphor:operation", {
+    description: "작전명 자동 생성 설정 (모델 + reasoning 레벨)",
     handler: async (_args, ctx) => {
       const currentSettings = loadSettings();
-
-      // 1단계: 모델 소스 선택
       const sourceOptions = [
         `세션 모델 사용 (ctx.model)${!currentSettings.provider ? " [current]" : ""}`,
         `모델 직접 선택${currentSettings.provider ? " [current]" : ""}`,
       ];
       const sourceChoice = await ctx.ui.select(
-        "요약 모델 소스:",
+        "작전명 생성 모델 소스:",
         sourceOptions,
       );
       if (sourceChoice === undefined) {
@@ -111,7 +103,7 @@ export default function (pi: ExtensionAPI) {
         return;
       }
 
-      const newSettings: AutoSummarizeSettings = {};
+      const newSettings: OperationNameSettings = { reasoning: currentReasoning };
 
       if (sourceChoice.startsWith("모델 직접 선택")) {
         const allModels = ctx.modelRegistry.getAvailable();
@@ -123,7 +115,6 @@ export default function (pi: ExtensionAPI) {
           return;
         }
 
-        // 프로바이더별 그룹핑
         const providerMap = new Map<string, Model<Api>[]>();
         for (const m of allModels) {
           const group = providerMap.get(m.provider) ?? [];
@@ -131,7 +122,6 @@ export default function (pi: ExtensionAPI) {
           providerMap.set(m.provider, group);
         }
 
-        // 프로바이더 선택
         const providers = [...providerMap.keys()];
         const providerOptions = providers.map((p) => {
           const count = providerMap.get(p)!.length;
@@ -150,8 +140,6 @@ export default function (pi: ExtensionAPI) {
 
         const selectedProvider = providerChoice.split(" (")[0]!;
         const models = providerMap.get(selectedProvider)!;
-
-        // 모델 선택
         const modelOptions = models.map((m) => {
           const marker =
             m.provider === currentSettings.provider &&
@@ -175,7 +163,21 @@ export default function (pi: ExtensionAPI) {
         newSettings.model = selectedModelId;
       }
 
-      // 저장
+      const reasoningOptions = REASONING_LEVELS.map((level) => {
+        const marker = level === currentReasoning ? " ✓" : "";
+        return `${REASONING_LABELS[level]}${marker}`;
+      });
+
+      const reasoningChoice = await ctx.ui.select("Reasoning 레벨:", reasoningOptions);
+      if (reasoningChoice === undefined) {
+        ctx.ui.notify("설정이 취소되었습니다.", "warning");
+        return;
+      }
+
+      const reasoningIdx = reasoningOptions.indexOf(reasoningChoice);
+      currentReasoning = REASONING_LEVELS[reasoningIdx]!;
+      newSettings.reasoning = currentReasoning;
+
       saveSettings(newSettings);
 
       const modelSummary =
@@ -183,20 +185,17 @@ export default function (pi: ExtensionAPI) {
           ? `${newSettings.provider}/${newSettings.model}`
           : "세션 모델";
       ctx.ui.notify(
-        `설정 저장 완료: 모델=${modelSummary}`,
+        `설정 저장 완료: 모델=${modelSummary}, reasoning=${REASONING_LABELS[currentReasoning]}`,
         "info",
       );
     },
   });
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// 내부 헬퍼
-// ═══════════════════════════════════════════════════════════════════════════
+export default registerOperationName;
 
-/** 요약 위젯을 belowEditor에 등록합니다. */
 function setSummaryWidget(ctx: any, sessionId: string | undefined, summary: string): void {
-  ctx.ui.setWidget(SUMMARIZE_STATUS_KEY, (_tui: any, theme: Theme) => ({
+  ctx.ui.setWidget(OPERATION_NAME_STATUS_KEY, (_tui: any, theme: Theme) => ({
     render: (width: number) => [centerLine(buildSummaryLine(theme, sessionId, summary, width), width)],
     invalidate() {},
   }), { placement: "belowEditor" });
@@ -211,7 +210,13 @@ function buildSummaryLine(
   const trimmedSummary = summary.trim();
   if (!trimmedSummary) return "";
 
-  const summaryText = theme.fg("muted", trimmedSummary);
+  let summaryText: string;
+  if (trimmedSummary.startsWith(OPERATION_PREFIX)) {
+    const codename = trimmedSummary.slice(OPERATION_PREFIX.length);
+    summaryText = `${theme.fg("dim", OPERATION_PREFIX)}${theme.fg("accent", codename)}`;
+  } else {
+    summaryText = theme.fg("muted", trimmedSummary);
+  }
   const shortSessionId = sessionId?.slice(0, SESSION_ID_LENGTH);
   if (!shortSessionId) {
     return truncateToWidth(summaryText, width);
@@ -230,6 +235,13 @@ function buildSummaryLine(
 
 function getCurrentSessionId(ctx: any): string | undefined {
   return ctx.sessionManager?.getSessionId?.();
+}
+
+function isSameSession(
+  requestSessionId: string | undefined,
+  currentSessionId: string | undefined,
+): boolean {
+  return requestSessionId === currentSessionId;
 }
 
 function centerLine(line: string, width: number): string {
