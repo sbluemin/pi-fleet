@@ -5,12 +5,20 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
-## [Unreleased] — Tactical Steel rebranding + Ohio commission
+## [0.1.3] - 2026-04-25
+
+Tactical Steel rebranding + Ohio commission.
 
 ### Added
+- **Asynchronous Carrier Operations**: `carriers_sortie`, `carrier_taskforce`, and `carrier_squadron` now operate in fire-and-forget mode.
+- **New `carrier_jobs` Meta Tool**: Introduced for managing detached carrier jobs with actions: `status`, `result`, `cancel`, and `list`.
+- **Job Stream Archive**: Centralized storage for detached job outputs with 3-hour TTL and 8MB/2000-block capacity limits.
+- **Result Push Mechanism**: Framework now pushes `[carrier:result]` signals to notify the Admiral of job completion.
 - New `Ohio` carrier (CVN-10, Codex CLI) — sole receiver of `plan_file` (under `.fleet/plans/*.md`), executes WBS waves end-to-end.
 
 ### Changed
+- **Tool Contract Refactoring**: Carrier tools now return a `job_id` immediately instead of waiting for full execution.
+- **Read-Once Result Policy**: Full archived results via `carrier_jobs` are now invalidated after the first successful retrieval to manage memory footprint.
 - Renamed `Oracle` → `Nimitz` (CVN-09, Strategic Command & Judgment, read-only).
 - Renamed `Athena` → `Kirov` (CVN-02, Operational Planning Bridge, plan_file author).
 - Renamed `Echelon` → `Tempest` (CVN-07, Forward External Intelligence Strike).
@@ -18,25 +26,11 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 - Admiral delegation doctrine replaced "Oracle vs Athena Decision Flow" with "Nimitz → Kirov → Ohio 3-Step Strike Pipeline".
 
 ### Removed
+- Removed the obsolete root-level `models.json`; model registry data remains in `packages/unified-agent/models.json`.
 - `oracle.ts`, `athena.ts`, `echelon.ts` carrier definitions (replaced by `nimitz.ts`, `kirov.ts`, `tempest.ts`).
 
 ### Notes
 - `states.json` entries keyed by retired carrier IDs are dropped at next boot (no migration code added).
-
-## [0.1.3] - 2026-04-25
-
-### Added
-- **Asynchronous Carrier Operations**: `carriers_sortie`, `carrier_taskforce`, and `carrier_squadron` now operate in fire-and-forget mode.
-- **New `carrier_jobs` Meta Tool**: Introduced for managing detached carrier jobs with actions: `status`, `result`, `cancel`, and `list`.
-- **Job Stream Archive**: Centralized storage for detached job outputs with 3-hour TTL and 8MB/2000-block capacity limits.
-- **Result Push Mechanism**: Framework now pushes `[carrier:result]` signals to notify the Admiral of job completion.
-
-### Changed
-- **Tool Contract Refactoring**: Carrier tools now return a `job_id` immediately instead of waiting for full execution.
-- **Read-Once Result Policy**: Full archived results via `carrier_jobs` are now invalidated after the first successful retrieval to manage memory footprint.
-
-### Removed
-- Removed the obsolete root-level `models.json`; model registry data remains in `packages/unified-agent/models.json`.
 
 ## [0.1.2] - 2026-04-24
 
