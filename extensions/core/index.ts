@@ -2,7 +2,6 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 import registerAcpProvider from "./agentclientprotocol/provider-register.js";
 import registerHud from "./hud/register.js";
-import registerImprovePrompt from "./improve-prompt/register.js";
 import registerKeybind from "./keybind/register.js";
 import registerLog from "./log/register.js";
 import registerProviderGuard from "./provider-guard/register.js";
@@ -18,7 +17,6 @@ export default function registerCore(pi: ExtensionAPI) {
   registerWelcome(pi);
   registerHud(pi);
   registerShell(pi);
-  registerImprovePrompt(pi);
   registerThinkingTimer(pi);
   registerProviderGuard(pi);
   registerAcpProvider(pi);

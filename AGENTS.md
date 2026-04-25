@@ -15,9 +15,10 @@
 | `extensions/fleet/admiral/` | Admiral prompt-policy library — prompts, protocols, standing orders, request directive, widget |
 | `extensions/fleet/bridge/` | Bridge library — active ACP provider overlay shell launcher |
 | `extensions/fleet/carriers/` | Carrier registration library — default carrier definitions (refer to its own `AGENTS.md`) |
-| `extensions/core/` | Infrastructure + utility extensions — agent infra, hud, keybind, settings, welcome, shell, improve-prompt, thinking-timer, provider-guard (refer to its own `AGENTS.md`) |
-| `extensions/metaphor/` | Metaphor extension — 4계층 해군 PERSONA/TONE worldview 관리와 세션 작전명 자동 생성(operation naming) 기능을 제공 |
-| `extensions/metaphor/operation-name/` | Operation naming module — 최초 사용자 요청을 `Operation › {codename}` 형식의 해군 작전명으로 자동 명명 (위젯에서 prefix는 dim, codename은 accent 색상으로 분리 표시) |
+| `extensions/core/` | Infrastructure + utility extensions — agent infra, hud, keybind, settings, welcome, shell, thinking-timer, provider-guard (refer to its own `AGENTS.md`) |
+| `extensions/metaphor/` | Metaphor framework extension — 4계층 해군 PERSONA/TONE worldview 관리, 세션 작전명 자동 명명(operation naming), 지령 재다듬기(directive refinement) 기능을 제공 |
+| `extensions/metaphor/operation-name/` | Operation naming module — 최초 사용자 요청을 `Operation › {codename}` 형식의 해군 작전명으로 자동 명명 |
+| `extensions/metaphor/directive-refinement/` | Directive refinement module — 사용자 입력 초안을 3섹션 형식의 작전 지령으로 재다듬기 |
 
 > Currently, there is no `pi/` directory — symlink setup is not required.
 
@@ -192,7 +193,8 @@ Each extension maps to exactly one domain. Use the domain below for all commands
 | `metaphor/` | `metaphor` | Naval Fleet "Persona" prompts, worldview management, and operation naming |
 | `fleet/carriers/` | `carrier` | Individual carrier registration and configuration |
 | `core/hud/` | `hud` | HUD / editor display features |
-| `core/improve-prompt/` | `prompt` | Meta-prompt model and reasoning settings |
+| `metaphor/operation-name/` | `metaphor:operation` | Session operation naming settings |
+| `metaphor/directive-refinement/` | `metaphor:directive` | Directive refinement (3-section) settings |
 When adding a **new extension**, assign a domain that reflects the **feature category**, not the directory prefix (`core-`, etc.).
 
 ### Feature Naming

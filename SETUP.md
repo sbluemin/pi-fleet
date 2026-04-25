@@ -63,7 +63,8 @@ Add the `extensions` field to your pi settings file, pointing to the extension d
 > Replace `<path-to-pi-fleet>` with the actual path where you cloned the repository.
 >
 > - `extensions/` — unified extension root. pi discovers the nested extension entry points under this directory.
-> - `extensions/core/` — single infrastructure extension whose root `index.ts` wires keybind, settings, log, welcome, hud, shell, improve-prompt, thinking-timer, provider-guard, and acp-provider modules
+> - `extensions/core/` — single infrastructure extension whose root `index.ts` wires keybind, settings, log, welcome, hud, shell, thinking-timer, provider-guard, and acp-provider modules
+- `extensions/metaphor/` — metaphor framework extension (PERSONA/TONE management, operation naming, and directive refinement)
 > - `extensions/fleet/` — agent orchestration extension (carrier framework SDK, Admiral/Bridge/Carrier wiring, Agent Panel, unified pipeline)
 > - `extensions/fleet/admiral/` — Admiral prompt-policy library consumed by `fleet/index.ts`
 > - `extensions/fleet/bridge/` — active ACP provider bridge library consumed by `fleet/index.ts`

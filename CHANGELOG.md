@@ -6,8 +6,13 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ## [Unreleased]
 
 ### Changed
+- **Metaphor Domain Integration**: Unified `improve-prompt` into `directive-refinement` and migrated it to the `metaphor` extension domain.
+    - New Settings Path: `metaphor.directiveRefinement` (replaces legacy `core-improve-prompt`).
+    - New Slash Command: `fleet:metaphor:directive`.
+    - Integrated **3-section (3섹션)** Output Format: Refined directives now follow a structured "Directive / Rationale / Residual Risks" markdown schema.
+    - Updated documentation (`AGENTS.md`, `SETUP.md`) to reflect the new naval hierarchy domain boundaries.
 - Reorganized keybind overlay categories for better clarity:
-    - `Alt+M` (core-improve-prompt `meta-prompt`): `Meta Prompt` → `Core`.
+    - `Alt+M` (metaphor-directive-refinement `refine-directive`): `Meta Prompt` → `Metaphor`.
     - `Alt+T` (bridge `launch`): `Bridge` → `Fleet Bridge`.
     - `Alt+O` (fleet `carrier-status`): `Fleet` → `Fleet Bridge`.
 - Updated Fleet Bridge status bar hints (`PANEL_MULTI_COL_HINT` and `PANEL_DETAIL_HINT`) by removing retired `alt+x cancel` and `alt+shift+m model` references.

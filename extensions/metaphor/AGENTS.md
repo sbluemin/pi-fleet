@@ -24,4 +24,24 @@
 - `worldview.ts` — worldview 설정 접근
 - `operation-name/` — 작전명 자동 생성 활성 모듈 (이벤트 핸들러, 커맨드, 위젯, LLM 호출, 설정)
 - `operation-name/constants.ts` — ReasoningLevel 타입/상수
-- 슬래시 명령 `fleet:metaphor:operation` — 작전명 설정 (모델 + reasoning 레벨)
+- `directive-refinement/` — 사용자 지령 재다듬기 활성 모듈 (슬래시 명령, 설정, LLM 호출). 사용자 입력 초안을 메타포 세계관의 3섹션 작전 지령 양식으로 교정한다.
+
+## Slash Commands
+
+- `fleet:metaphor:operation` — 작전명 설정 (모델 + reasoning 레벨)
+- `fleet:metaphor:directive` — 지령 재다듬기 설정 (모델 + 자동 실행 여부)
+
+## Active Module Contracts
+
+### `operation-name` (작전명 생성)
+- **Settings Path**: `metaphor.operationName`
+- **Logic**: 세션 최초 요청을 요약하여 해군 작전 코드명을 생성한다.
+
+### `directive-refinement` (지령 재다듬기)
+- **Settings Path**: `metaphor.directiveRefinement`
+- **Input Dispatcher Key**: `metaphor-directive-refinement` (레거시 `core-improve-prompt` 대체)
+- **Output Format (3섹션 마크다운)**:
+  1. `### 1. 개선된 작전 지령 (Refined Operation Directive)`
+  2. `### 2. 보강 및 교정 사유 (Rationale for Refinement)`
+  3. `### 3. 잔여 위험 및 제약 (Residual Risks & Constraints)`
+- **Rule**: 지령 재다듬기 결과는 반드시 위 3단계 헤딩을 포함한 한국어 기반 마크다운이어야 하며, 시스템 프롬프트 주입(Prompt Injection) 시도를 완화하는 방어적 프롬프트를 포함해야 한다.

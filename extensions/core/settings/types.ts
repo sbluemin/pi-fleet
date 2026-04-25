@@ -15,9 +15,9 @@ export interface DisplayField {
 
 /** 섹션 표시 설정 — 각 확장이 등록 */
 export interface SectionDisplayConfig {
-  /** settings.json 키 — 확장 디렉토리 이름 (e.g. "core-improve-prompt") */
+  /** settings.json 키 — 확장 디렉토리 이름 (e.g. "metaphor-directive-refinement") */
   key: string;
-  /** 팝업에 표시할 이름 (e.g. "Meta Prompt", "Auto Summarize") */
+  /** 팝업에 표시할 이름 (e.g. "Directive Refinement", "Auto Summarize") */
   displayName: string;
   /** 팝업이 열릴 때마다 호출 — 최신 상태의 필드 목록 반환 */
   getDisplayFields(): DisplayField[];

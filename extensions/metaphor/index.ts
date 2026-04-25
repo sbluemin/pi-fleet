@@ -7,6 +7,7 @@
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
+import registerDirectiveRefinement from "./directive-refinement/register.js";
 import registerOperationName from "./operation-name/register.js";
 import { isWorldviewEnabled, setWorldviewEnabled } from "./worldview.js";
 
@@ -30,5 +31,6 @@ export function registerMetaphor(pi: ExtensionAPI): void {
 
 export default function (pi: ExtensionAPI) {
   registerMetaphor(pi);
+  registerDirectiveRefinement(pi);
   registerOperationName(pi);
 }

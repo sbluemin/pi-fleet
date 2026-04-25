@@ -1,8 +1,6 @@
 /**
- * core-improve-prompt/constants.ts — 타입, 상수, 검증
+ * directive-refinement/constants.ts — 타입, 상수, 검증
  */
-
-// ── Reasoning 레벨 ──
 
 export type ReasoningLevel = "off" | "low" | "medium" | "high";
 
@@ -23,10 +21,8 @@ export const REASONING_COLORS: Record<ReasoningLevel, string> = {
   high: "error",
 };
 
+export const REFINE_DIRECTIVE_COMMAND = "fleet:metaphor:directive";
+
 export function isValidReasoning(val: string): val is ReasoningLevel {
   return REASONING_LEVELS.includes(val as ReasoningLevel);
 }
-
-// ── 시스템 프롬프트 (prompts.ts에서 관리) ──
-
-export { SYSTEM_INSTRUCTION } from "./prompts.js";

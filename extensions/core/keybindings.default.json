@@ -17,7 +17,7 @@
   "bridge": {
     "launch": "alt+t"
   },
-  "core-improve-prompt": {
-    "meta-prompt": "alt+m"
+  "metaphor-directive-refinement": {
+    "refine-directive": "alt+m"
   }
 }

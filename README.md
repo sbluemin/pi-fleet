@@ -58,7 +58,7 @@ Eight built-in Carriers, each with a distinct operational role:
 ### HUD
 
 - Integrated editor with status bar and footer
-- Meta-prompting and reasoning level controls
+- Metaphor-based directive refinement (3-section) and session operation naming
 - Auto session summary and thinking timer
 
 ### Fleet Bridge
