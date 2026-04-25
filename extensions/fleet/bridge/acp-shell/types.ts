@@ -29,7 +29,7 @@ export const BRIDGE_DEFAULT_KEY = "alt+t";
 export const BRIDGE_SCOPE = "default";
 export const BRIDGE_EXTENSION_ID = "bridge";
 export const BRIDGE_ACTION_ID = "launch";
-export const BRIDGE_KEYBIND_CATEGORY = "Bridge";
+export const BRIDGE_KEYBIND_CATEGORY = "Fleet Bridge";
 export const BRIDGE_TITLE_PREFIX = "ACP Bridge";
 
 export type InteractiveShellBridge = ShellPopupBridge | undefined;

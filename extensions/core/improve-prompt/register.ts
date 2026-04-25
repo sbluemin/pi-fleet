@@ -154,7 +154,7 @@ export default function (pi: ExtensionAPI) {
     action: "meta-prompt",
     defaultKey: "alt+m",
     description: "메타 프롬프팅으로 현재 입력을 개선 (스피너 + ESC 취소)",
-    category: "Meta Prompt",
+    category: "Core",
     handler: async (ctx) => {
       const editorText = ctx.ui.getEditorText();
       const trimmed = editorText?.trim();
@@ -175,22 +175,4 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-  keybind.register({
-    extension: "core-improve-prompt",
-    action: "reasoning-cycle",
-    defaultKey: "alt+r",
-    description: "메타 프롬프트 reasoning 레벨 사이클 (off→low→medium→high)",
-    category: "Meta Prompt",
-    handler: async (ctx) => {
-      const idx = REASONING_LEVELS.indexOf(currentReasoning);
-      currentReasoning = REASONING_LEVELS[(idx + 1) % REASONING_LEVELS.length]!;
-      const settings = loadSettings();
-      settings.reasoning = currentReasoning;
-      saveSettings(settings);
-      ctx.ui.notify(
-        `Meta-prompt reasoning → ${REASONING_LABELS[currentReasoning]}`,
-        "info",
-      );
-    },
-  });
 }

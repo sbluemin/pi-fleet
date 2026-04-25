@@ -5,6 +5,19 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Changed
+- Reorganized keybind overlay categories for better clarity:
+    - `Alt+M` (core-improve-prompt `meta-prompt`): `Meta Prompt` → `Core`.
+    - `Alt+T` (bridge `launch`): `Bridge` → `Fleet Bridge`.
+    - `Alt+O` (fleet `carrier-status`): `Fleet` → `Fleet Bridge`.
+- Updated Fleet Bridge status bar hints (`PANEL_MULTI_COL_HINT` and `PANEL_DETAIL_HINT`) by removing retired `alt+x cancel` and `alt+shift+m model` references.
+
+### Removed
+- `Alt+S` (core-hud `stash`): Removed editor text stashing/restoration and associated session/agent lifecycle management.
+- `Alt+Shift+M` (fleet `model-change`): Removed shortcut for changing carrier models. Operators should use the `fleet:agent:models` slash command or the `Alt+O` settings overlay instead.
+- `Alt+R` (core-improve-prompt `reasoning-cycle`): Removed meta-prompt reasoning level cycle shortcut. Reasoning levels can still be adjusted via `fleet:prompt:settings`.
+- `Alt+X` (fleet `carrier-cancel`): Removed operation cancellation shortcut and retired the underlying abort controller infrastructure (`abortCarrierRun`, `RunnerState`).
+
 ## [0.1.3] - 2026-04-25
 
 Tactical Steel rebranding + Ohio commission.

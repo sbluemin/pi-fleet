@@ -74,12 +74,6 @@ interface ExecuteAgentCoreOptions {
   ) => void;
 }
 
-interface RunnerState {
-  abortControllers: Map<string, AbortController>;
-}
-
-const RUNNER_STATE_KEY = "__pi_fleet_operation_runner__";
-
 // ─── 공개 API ────────────────────────────────────────────
 
 /**
@@ -125,13 +119,6 @@ export async function runAgentRequestBackground(options: RunAgentRequestBackgrou
   });
 }
 
-export function abortCarrierRun(carrierId: string): boolean {
-  const controller = getRunnerState().abortControllers.get(carrierId);
-  if (!controller) return false;
-  controller.abort();
-  return true;
-}
-
 /**
  * 다른 확장에서 globalThis를 통해 접근할 공개 브릿지를 등록합니다.
  */
@@ -162,10 +149,6 @@ async function executeAgentCore(options: ExecuteAgentCoreOptions): Promise<Unifi
 
   const carrierId = options.carrierId;
   const colIndex = options.colIndex;
-  const runnerState = getRunnerState();
-  const localAbortController = new AbortController();
-  runnerState.abortControllers.set(carrierId, localAbortController);
-  const effectiveSignal = signal ? AbortSignal.any([signal, localAbortController.signal]) : localAbortController.signal;
 
   // 1. store에 새 run 생성 (첫 줄만 추출하여 헤더 미리보기로 저장)
   const requestPreview = request?.trim().split(/\r?\n/, 1)[0];
@@ -183,7 +166,7 @@ async function executeAgentCore(options: ExecuteAgentCoreOptions): Promise<Unifi
       effort: cliConfig?.effort,
       budgetTokens: cliConfig?.budgetTokens,
       connectSystemPrompt: options.connectSystemPrompt,
-      signal: effectiveSignal,
+      signal,
       onMessageChunk: (text: string) => {
         appendTextBlock(carrierId, sanitizeChunk(text));
         if (options.syncPanel) syncColFromStore(carrierId, colIndex);
@@ -265,22 +248,10 @@ async function executeAgentCore(options: ExecuteAgentCoreOptions): Promise<Unifi
     finalizeRun(carrierId, "err", { error: message, fallbackText: `Error: ${message}` });
     if (options.syncPanel) syncColFromStore(carrierId, colIndex);
     throw error;
-  } finally {
-    runnerState.abortControllers.delete(carrierId);
   }
 }
 
 /** executeWithPool의 AgentStatus를 공개 API의 최종 상태로 변환 */
-function getRunnerState(): RunnerState {
-  const root = globalThis as Record<string, unknown>;
-  const existing = root[RUNNER_STATE_KEY] as RunnerState | undefined;
-  if (existing) return existing;
-
-  const state: RunnerState = { abortControllers: new Map() };
-  root[RUNNER_STATE_KEY] = state;
-  return state;
-}
-
 function toFinalStatus(status: AgentStatus): UnifiedAgentRequestStatus {
   if (status === "done" || status === "aborted") {
     return status;

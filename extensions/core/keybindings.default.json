@@ -1,7 +1,4 @@
 {
-  "core-hud": {
-    "stash": "alt+s"
-  },
   "core-keybind": {
     "popup": "alt+."
   },
@@ -12,18 +9,15 @@
     "carrier-prev": "alt+h",
     "carrier-next": "alt+l",
     "carrier-activate": "ctrl+enter",
-    "cancel": "alt+x",
     "panel-toggle": "alt+p",
     "panel-grow": "alt+j",
     "panel-shrink": "alt+k",
-    "model-change": "alt+shift+m",
     "carrier-status": "alt+o"
   },
   "bridge": {
     "launch": "alt+t"
   },
   "core-improve-prompt": {
-    "meta-prompt": "alt+m",
-    "reasoning-cycle": "alt+r"
+    "meta-prompt": "alt+m"
   }
 }

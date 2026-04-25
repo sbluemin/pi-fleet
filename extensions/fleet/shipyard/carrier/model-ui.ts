@@ -14,7 +14,6 @@ import {
   getEffortLevels,
   getDefaultBudgetTokens,
   loadModels as getModelConfig,
-  updateModelSelection,
   updateAllModelSelections,
 } from "../store.js";
 import { setAgentPanelModelConfig } from "../../bridge/panel/config.js";
@@ -24,8 +23,6 @@ import {
   getRegisteredCarrierConfig,
   resolveCarrierDisplayName,
 } from "./framework.js";
-import { getFocusedCarrierId } from "../../bridge/panel/state.js";
-import { getKeybindAPI } from "../../../core/keybind/bridge.js";
 import {
   CLI_DISPLAY_NAMES,
 } from "../../constants.js";
@@ -36,66 +33,6 @@ export function syncModelConfig(): void {
 }
 
 export function registerModelCommands(pi: ExtensionAPI): void {
-  const keybind = getKeybindAPI();
-
-  keybind.register({
-    extension: "fleet",
-    action: "model-change",
-    defaultKey: "alt+shift+m",
-    description: "선택된 캐리어 모델/추론 설정 변경",
-    category: "Core",
-    handler: async (ctx) => {
-      // 상세 뷰 또는 커서 포커싱된 carrier를 우선 대상으로 선택
-      const focusedCarrierId = getFocusedCarrierId();
-      let targetCarrierId: string;
-      let targetCli: CliType;
-      let targetDisplayName: string;
-
-      if (focusedCarrierId) {
-        targetCarrierId = focusedCarrierId;
-        const resolvedCli = resolveCarrierCliType(focusedCarrierId);
-        if (!resolvedCli) {
-          ctx.ui.notify(`등록되지 않은 carrier입니다: ${focusedCarrierId}`, "error");
-          return;
-        }
-        targetCli = resolvedCli;
-        targetDisplayName = resolveCarrierDisplayName(focusedCarrierId);
-      } else {
-        const registeredIds = getRegisteredOrder();
-        const cliOptions = registeredIds.map((id) => {
-          const cfg = getRegisteredCarrierConfig(id);
-          const name = resolveCarrierDisplayName(id);
-          return `${name} (#${cfg?.slot ?? "?"})`;
-
-        });
-        const choice = await ctx.ui.select("모델을 변경할 캐리어 선택:", cliOptions);
-        if (choice === undefined) return;
-        const chosenId = registeredIds[cliOptions.indexOf(choice)]!;
-        targetCarrierId = chosenId;
-        const resolvedCli = resolveCarrierCliType(chosenId);
-        if (!resolvedCli) {
-          ctx.ui.notify(`등록되지 않은 carrier입니다: ${chosenId}`, "error");
-          return;
-        }
-        targetCli = resolvedCli;
-        targetDisplayName = resolveCarrierDisplayName(chosenId);
-      }
-
-      const selection = await selectModelForCli(targetCli, ctx, targetDisplayName, targetCarrierId);
-      if (!selection) return;
-
-      await updateModelSelection(targetCarrierId, selection);
-
-      let summary = `${targetDisplayName}=${selection.model}`;
-      if (selection.effort) summary += ` effort=${selection.effort}`;
-      if (selection.budgetTokens) summary += ` budget=${selection.budgetTokens}`;
-      ctx.ui.notify(`모델 설정 저장: ${summary}`, "info");
-
-      syncModelConfig();
-      notifyStatusUpdate();
-    },
-  });
-
   pi.registerCommand("fleet:agent:models", {
     description: "등록된 캐리어의 모델 선택 (slot 순)",
     handler: async (_args, ctx) => {

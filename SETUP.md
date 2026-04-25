@@ -81,5 +81,4 @@ Launch `pi` and run `/reload`, then check:
 - `Alt+H` / `Alt+L` to move cursor between carrier slots
 - `Ctrl+Enter` to activate the carrier at cursor (exclusive mode)
 - `Alt+P` to toggle the Agent Panel
-- `Alt+X` to cancel active carrier execution
 - Claude Code, Codex CLI, Gemini CLI are each authenticated

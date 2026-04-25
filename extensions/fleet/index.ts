@@ -7,8 +7,6 @@
  * │ alt+p → 에이전트 패널 토글                            │
  * │ alt+h/l → 인라인 슬롯 내비게이션 (←/→)               │
  * │ ctrl+enter → 선택 Carrier 상세 뷰 토글               │
- * │ alt+x → 선택 Carrier 실행 취소                       │
- * │ alt+shift+m → Carrier 모델/추론 설정 변경             │
  * │ alt+o → 캐리어 함대 현황 오버레이                      │
  * └──────────────────────────────────────────────────────┘
  */
@@ -101,7 +99,7 @@ import { bootBridge } from "./bridge/index.js";
 import { registerFleetCarriers } from "./carriers/index.js";
 export type { CollectedStreamData } from "./bridge/streaming/types.js";
 
-export { runAgentRequest, abortCarrierRun } from "./operation-runner.js";
+export { runAgentRequest } from "./operation-runner.js";
 
 export {
   loadModels as getModelConfig,
@@ -256,7 +254,7 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
     action: "carrier-status",
     defaultKey: "alt+o",
     description: "캐리어 함대 현황 오버레이",
-    category: "Fleet",
+    category: "Fleet Bridge",
     handler: async (ctx) => {
       if (!ctx.hasUI) return;
 

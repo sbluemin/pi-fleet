@@ -113,10 +113,10 @@ export const BODY_H_STEP = 2;
 // ─── Fleet Bridge 힌트 ──────────────────────────────────
 
 /** Fleet Bridge 멀티컬럼 뷰 하단 힌트 */
-export const PANEL_MULTI_COL_HINT = " alt+h/l move · ctrl+enter detail · alt+x cancel · alt+j/k · alt+p ";
+export const PANEL_MULTI_COL_HINT = " alt+h/l move · ctrl+enter detail · alt+j/k · alt+p ";
 
 /** Fleet Bridge 상세 뷰 하단 힌트 */
-export const PANEL_DETAIL_HINT = " alt+h/l back · alt+x cancel · alt+shift+m model · alt+j/k ";
+export const PANEL_DETAIL_HINT = " alt+h/l back · alt+j/k ";
 
 /** 패널 높이 표시를 포함한 멀티컬럼 뷰 하단 힌트 */
 export function formatPanelMultiColHint(bodyH?: number): string {
