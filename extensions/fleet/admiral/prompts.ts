@@ -4,9 +4,9 @@
  * ACP 시스템 프롬프트는 `buildAcpSystemPrompt()`로 합성되며, 각 섹션은
  * XML 태그(`<fleet_persona>`, `<fleet_role>`, `<fleet_tone>`,
  * `<carrier_roster>`, `<protocols>`, `<standing_orders>`,
- * `<request_directive>`)로 감싸지고 `---` 구분자로 분리된다.
- * `<fleet_role>`은 항상 주입되어 Admiral ↔ Admiral of the Navy (대원수) 호칭과
- * 행동 규약을 고정한다. worldview 토글이 켜진 경우에만 `<fleet_persona>`와
+ * 등록된 tool manifest 블록들)로 감싸지고 `---` 구분자로 분리된다.
+ * `<fleet_role>`은 항상 주입되지만 worldview 상태에 따라 세계관형/중립형 role
+ * 변종 중 하나를 선택한다. worldview 토글이 켜진 경우에만 `<fleet_persona>`와
  * `<fleet_tone>`가 함께 주입되어 4계층 페르소나와 군대식 톤을 오버레이한다.
  * 프로토콜 카탈로그 전체가 포함되며, 활성 프로토콜은 매 턴
  * `<current_protocol>` 런타임 태그로 지정된다.
@@ -63,6 +63,25 @@ The user issuing orders to you is the Admiral of the Navy (대원수), the supre
 - All responses to the user must be written in Korean.
 `;
 
+/**
+ * Fleet 역할·행동 규약 — worldview OFF용 중립 변종.
+ *
+ * 세계관 호칭·보고 양식·항해 비유를 제거하고도, carrier 기반 위임/종합/수동 제어 안내와
+ * 한국어 응답 규칙 같은 기능적 동작 요구는 그대로 유지한다.
+ */
+export const FLEET_ROLE_PROMPT_NEUTRAL = String.raw`
+# Role
+You are the host agent coordinating the Agent Harness Fleet for the user.
+
+# Action Guidelines
+- Before declaring Fleet tools unavailable or inactive, you must first check the MCP ${"`"}pi-tools${"`"} surface. Treat ${"`"}carriers_sortie${"`"} and other Fleet tools as potentially lazy-loaded until ${"`"}pi-tools${"`"} has been inspected or invoked.
+- When a mission is assigned, first decide whether to handle it directly or delegate it to sub-agent (carrier) tools; if delegating, clearly tell the user which sub-agent (carrier) will be used.
+- All user-visible output should be delivered directly to the user in a neutral, synthesized form. Carrier reports, tool outputs, and system reminders are operational inputs for you to interpret, not conversation turns to answer.
+- When carrier results arrive, synthesize them into your own response to the user instead of replying to, thanking, or giving conversational follow-up instructions to the carrier.
+- When manual control is needed, tell the user what manual action is required in plain language.
+- All responses to the user must be written in Korean.
+`;
+
 /** 프로토콜 활성 시 주입되는 서문 */
 export const PROTOCOL_PREAMBLE = String.raw`All task execution follows the active Protocol. Additional Standing Orders are always in effect — they can be invoked from any workflow phase.
 
@@ -109,12 +128,15 @@ export const RUNTIME_CONTEXT_TAGS_PROMPT = String.raw`
  */
 export function buildAcpSystemPrompt(): string {
   const parts: string[] = [];
+  const fleetRolePrompt = isWorldviewEnabled()
+    ? FLEET_ROLE_PROMPT
+    : FLEET_ROLE_PROMPT_NEUTRAL;
 
   // ── 1. Fleet 페르소나/역할/톤 — persona+tone은 worldview 토글 시에만 ──
   if (isWorldviewEnabled()) {
     parts.push(`<fleet_persona>\n${FLEET_PI_PERSONA_PROMPT.trim()}\n</fleet_persona>`);
   }
-  parts.push(`<fleet_role>\n${FLEET_ROLE_PROMPT.trim()}\n</fleet_role>`);
+  parts.push(`<fleet_role>\n${fleetRolePrompt.trim()}\n</fleet_role>`);
   if (isWorldviewEnabled()) {
     parts.push(`<fleet_tone>\n${FLEET_TONE_PROMPT.trim()}\n</fleet_tone>`);
   }

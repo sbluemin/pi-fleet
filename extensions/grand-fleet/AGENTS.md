@@ -72,7 +72,7 @@ grand-fleet/  →  core/ (임포트 허용)
 |------|------|
 | `index.ts` | 엔트리포인트 facade — 환경변수 분기 + globalThis 초기화 + 역할 dispatcher |
 | `types.ts` | 공용 타입, 상수, globalThis 키, 역할별 runtime state 타입 |
-| `prompts.ts` | Admiralty + Fleet 시스템 프롬프트 조립 SSOT (Local Composition Seam) |
+| `prompts.ts` | Admiralty + Fleet 시스템 프롬프트 조립 SSOT (Local Composition Seam) — worldview 상태에 따라 role 변종을 선택 |
 | `ipc/protocol.ts` | ndJSON 프레이밍 + 파싱 |
 | `ipc/server.ts` | Admiralty JSON-RPC 서버 |
 | `ipc/client.ts` | Fleet JSON-RPC 클라이언트 |

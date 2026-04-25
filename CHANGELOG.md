@@ -6,6 +6,8 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ## [Unreleased]
 
 ### Changed
+- **Worldview-aware `<fleet_role>`**: When the `metaphor.worldview` toggle is OFF, `buildAcpSystemPrompt()` now injects a neutral role prompt (`FLEET_ROLE_PROMPT_NEUTRAL`) that drops naval honorifics, report-form enforcement, and Bridge/Helm metaphors while preserving functional contracts (carrier delegation, pi-tools lazy-loading awareness, Korean-only responses). Persona/tone overlays remain gated by the same toggle.
+- **Worldview-aware Grand Fleet role prompts**: When the `metaphor.worldview` toggle is OFF, `extensions/grand-fleet/prompts.ts` now switches Admiralty/Fleet/Fleet ACP role variants to neutral prompts, neutralizes Admiralty designation guidance, and only injects Fleet persona/tone into ACP base prompts when Grand Fleet context is omitted so metaphor tone no longer leaks through worldview-disabled paths.
 - **Metaphor Domain Integration**: Unified `improve-prompt` into `directive-refinement` and migrated it to the `metaphor` extension domain.
     - New Settings Path: `metaphor.directiveRefinement` (replaces legacy `core-improve-prompt`).
     - New Slash Command: `fleet:metaphor:directive`.
