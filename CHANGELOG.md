@@ -23,7 +23,17 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 ### Notes
 - `states.json` entries keyed by retired carrier IDs are dropped at next boot (no migration code added).
 
-## [0.1.3] - 2026-04-24
+## [0.1.3] - 2026-04-25
+
+### Added
+- **Asynchronous Carrier Operations**: `carriers_sortie`, `carrier_taskforce`, and `carrier_squadron` now operate in fire-and-forget mode.
+- **New `carrier_jobs` Meta Tool**: Introduced for managing detached carrier jobs with actions: `status`, `result`, `cancel`, and `list`.
+- **Job Stream Archive**: Centralized storage for detached job outputs with 3-hour TTL and 8MB/2000-block capacity limits.
+- **Result Push Mechanism**: Framework now pushes `[carrier:result]` signals to notify the Admiral of job completion.
+
+### Changed
+- **Tool Contract Refactoring**: Carrier tools now return a `job_id` immediately instead of waiting for full execution.
+- **Read-Once Result Policy**: Full archived results via `carrier_jobs` are now invalidated after the first successful retrieval to manage memory footprint.
 
 ### Removed
 - Removed the obsolete root-level `models.json`; model registry data remains in `packages/unified-agent/models.json`.

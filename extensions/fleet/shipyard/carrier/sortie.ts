@@ -18,13 +18,22 @@
  * renderResult는 빈 컴포넌트를 반환하여 중복 표시를 방지합니다.
  */
 
-import type { ExtensionContext, Theme } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext, Theme } from "@mariozechner/pi-coding-agent";
 import type { CliType } from "@sbluemin/unified-agent";
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
 import { getLogAPI } from "../../../core/log/bridge.js";
 import { registerToolPromptManifest } from "../../admiral/tool-prompt-manifest/index.js";
-import { runAgentRequest } from "../../operation-runner.js";
+import { runAgentRequestBackground } from "../../operation-runner.js";
+import { toMessageArchiveBlock, toThoughtArchiveBlock } from "../_shared/archive-block-converter.js";
+import { acquireJobPermit } from "../_shared/concurrency-guard.js";
+import { registerJobAbortController, unregisterJobAbortControllers } from "../_shared/job-cancel-registry.js";
+import { buildCarrierJobId } from "../_shared/job-id.js";
+import { formatLaunchResponseText } from "../_shared/job-reminders.js";
+import { appendBlock, createJobArchive, finalizeJobArchive } from "../_shared/job-stream-archive.js";
+import type { CarrierJobLaunchResponse, CarrierJobSummary, CarrierJobStatus } from "../_shared/job-types.js";
+import { putJobSummary } from "../_shared/lru-cache.js";
+import { enqueueCarrierCompletionPush } from "../_shared/push.js";
 import { composeTier2Request } from "./prompts.js";
 import { getVisibleRun, getRunById } from "../../bridge/streaming/stream-store.js";
 import { renderBlockLines, blockLineToAnsi } from "../../bridge/render/block-renderer.js";
@@ -74,6 +83,18 @@ interface SortieResultDetails {
   results: CarrierSortieResult[];
   /** 총 경과시간 (ms) — 히스토리 복원 시 표시용 */
   elapsedMs?: number;
+}
+
+interface SortieBackgroundOptions {
+  pi: ExtensionAPI;
+  jobId: string;
+  sortieKey: string;
+  assignments: CarrierAssignment[];
+  state: SortieState;
+  signal: AbortSignal | undefined;
+  cwd: string;
+  permit: { release: (finished?: { status?: CarrierJobStatus; error?: string; finishedAt?: number }) => void };
+  startedAt: number;
 }
 
 /** renderCall에서 사용하는 최소 컨텍스트 */
@@ -156,7 +177,7 @@ const SORTIE_LOG_CATEGORY_ERROR = "fleet-sortie:error";
  * 이 팩토리는 등록 시 필요한 schema/guidelines/execute/render 등
  * 도구 기능 자체만을 제공합니다. 등록 불필요 시 null을 반환합니다.
  */
-export function buildSortieToolConfig() {
+export function buildSortieToolConfig(pi: ExtensionAPI) {
   const allCarriers = getRegisteredOrder();
   if (allCarriers.length < 1) return null; // Carrier가 없으면 등록 불필요
 
@@ -198,15 +219,16 @@ export function buildSortieToolConfig() {
       return { render() { return []; }, invalidate() {} };
     },
 
-    // ── execute: N개 Carrier 병렬 실행 ──
+    // ── execute: N개 Carrier 병렬 job 등록 ──
     async execute(
       id: string,
       params: { expected_carrier_count: number; carriers: CarrierAssignment[] },
       signal: AbortSignal | undefined,
-      onUpdate: any,
+      _onUpdate: any,
       ctx: ExtensionContext,
     ) {
       const t0 = Date.now();
+      const cwd = ctx.cwd;
       const assignments = params.carriers;
       getLogAPI().debug(
         SORTIE_LOG_CATEGORY_INVOKE,
@@ -259,12 +281,16 @@ export function buildSortieToolConfig() {
             SORTIE_LOG_CATEGORY_ERROR,
             `carrier unavailable carrier=${a.carrier} reason=${reason}`,
           );
-          return {
-            content: [{ type: "text" as const, text: `Carrier "${a.carrier}" is not available for sortie: ${reason}. Available carriers: ${available}` }],
-            details: { sortieKey: id, results: [] as CarrierSortieResult[] } as SortieResultDetails,
-          };
+          const jobId = buildCarrierJobId("sortie", id);
+          return launchResponseResult({
+            job_id: jobId,
+            accepted: false,
+            error: `Carrier "${a.carrier}" is not available for sortie: ${reason}. Available carriers: ${available}`,
+          });
         }
       }
+
+      const jobId = buildCarrierJobId("sortie", id);
 
       // 중복 carrier 검증
       const seen = new Set<string>();
@@ -283,154 +309,211 @@ export function buildSortieToolConfig() {
         `validated carriers=${assignments.length} ids=${assignments.map((a) => a.carrier).join(", ")}`,
       );
 
+      const permit = acquireJobPermit({
+        jobId,
+        tool: "carriers_sortie",
+        status: "active",
+        startedAt: t0,
+        carriers: assignments.map((assignment) => assignment.carrier),
+      });
+      if (!permit.accepted) {
+        return permit.error === "carrier busy"
+          ? launchResponseResult({ job_id: jobId, accepted: false, error: permit.error, current_job_id: permit.current_job_id })
+          : launchResponseResult({ job_id: jobId, accepted: false, error: permit.error });
+      }
+
+      createJobArchive(jobId, t0);
+      const jobController = new AbortController();
+      registerJobAbortController(jobId, jobController);
+
+      const effectiveSignal = signal
+        ? AbortSignal.any([signal, jobController.signal])
+        : jobController.signal;
+
       // 진행 상태 초기화 (id = PI tool call ID로 호출 인스턴스를 고유 식별)
       const sortieKey = id;
       const argsKey = buildArgsKey(assignments);
       const state = initSortieState(sortieKey, argsKey, assignments.map((a) => a.carrier));
 
-      // 진행률 업데이트 타이머 (200ms 간격으로 onUpdate 호출)
-      const updateTimer = setInterval(() => {
-        if (!onUpdate) return;
-        const partial = buildPartialUpdate(state, assignments);
-        onUpdate(partial);
-      }, 200);
+      void runSortieJobInBackground({
+        pi,
+        jobId,
+        sortieKey,
+        assignments,
+        state,
+        signal: effectiveSignal,
+        cwd,
+        permit,
+        startedAt: t0,
+      });
 
-      try {
-        // N개 Carrier 병렬 실행
-        const settledResults = await Promise.allSettled(
-          assignments.map(async (a) => {
-            const execStartedAt = Date.now();
-            const progress = state.carriers.get(a.carrier)!;
-            progress.status = "connecting";
-
-            const carrierConfig = getRegisteredCarrierConfig(a.carrier);
-            const cliType = carrierConfig?.cliType ?? a.carrier;
-            // ── Tier 2: permissions + principles를 request 앞에, outputFormat을 끝에 자동 주입 ──
-            const composedRequest = carrierConfig?.carrierMetadata
-              ? composeTier2Request(carrierConfig.carrierMetadata, a.request)
-              : a.request;
-            getLogAPI().debug(
-              SORTIE_LOG_CATEGORY_DISPATCH,
-              [
-                `carrier=${a.carrier} model=${cliType} promptChars=${composedRequest.length} run=${sortieKey}`,
-                "----- BEGIN REQUEST -----",
-                composedRequest,
-                "----- END REQUEST -----",
-              ].join("\n"),
-              { hideFromFooter: true, category: "prompt" },
-            );
-            try {
-              const result = await runAgentRequest({
-                cli: cliType as CliType,
-                carrierId: a.carrier,
-                request: composedRequest,
-                ctx,
-                connectSystemPrompt: buildCarrierSystemPrompt(),
-                signal,
-                onMessageChunk: (text: string) => {
-                  progress.status = "streaming";
-                  progress.lineCount++;
-                  // 첫 청크 수신 시 해당 carrier의 runId를 캡처 (스트리밍 콘텐츠 격리용)
-                  if (!state.runIds.has(a.carrier)) {
-                    const run = getVisibleRun(a.carrier);
-                    if (run) state.runIds.set(a.carrier, run.runId);
-                  }
-                },
-                onToolCall: (toolTitle: string, toolStatus: string) => {
-                  progress.status = "streaming";
-                  progress.toolCallCount++;
-                  if (!state.runIds.has(a.carrier)) {
-                    const run = getVisibleRun(a.carrier);
-                    if (run) state.runIds.set(a.carrier, run.runId);
-                  }
-                  getLogAPI().debug(SORTIE_LOG_CATEGORY_STREAM, `carrier=${a.carrier} type=toolCall title=${toolTitle} status=${toolStatus}`, { hideFromFooter: true });
-                },
-              });
-
-              progress.status = result.status === "done" ? "done" : "error";
-              getLogAPI().debug(
-                SORTIE_LOG_CATEGORY_EXEC,
-                `carrier=${a.carrier} success=${result.status === "done"} status=${result.status} elapsedMs=${Date.now() - execStartedAt}`,
-              );
-              return {
-                carrierId: a.carrier,
-                displayName: resolveCarrierDisplayName(a.carrier),
-                status: result.status,
-                responseText: result.responseText || "(no output)",
-                sessionId: result.sessionId,
-                error: result.error,
-                thinking: result.thinking,
-                toolCalls: result.toolCalls,
-              } as CarrierSortieResult;
-            } catch (error) {
-              getLogAPI().debug(
-                SORTIE_LOG_CATEGORY_EXEC,
-                `carrier=${a.carrier} success=false status=error elapsedMs=${Date.now() - execStartedAt}`,
-              );
-              throw error;
-            }
-          }),
-        );
-
-        // 완료 시각 기록
-        state.finishedAt = Date.now();
-
-        // 결과 수집
-        const results: CarrierSortieResult[] = settledResults.map((settled, i) => {
-          if (settled.status === "fulfilled") return settled.value;
-          // reject된 경우 에러 결과 생성
-          const errorMessage = settled.reason instanceof Error
-            ? settled.reason.message
-            : String(settled.reason);
-          const carrierId = assignments[i].carrier;
-          getLogAPI().debug(
-            SORTIE_LOG_CATEGORY_ERROR,
-            `carrier=${carrierId} message=${errorMessage}`,
-          );
-          return {
-            carrierId,
-            displayName: resolveCarrierDisplayName(carrierId),
-            status: "error" as const,
-            responseText: `Error: ${errorMessage}`,
-            error: errorMessage,
-          };
-        });
-
-        // 결과 캐시에 저장 (renderCall이 완료 후에도 참조 가능하도록)
-        const elapsedMs = state.finishedAt! - state.startedAt;
-        setResultCache(sortieKey, results, elapsedMs);
-        const successCount = results.filter((r) => r.status === "done").length;
-        const failureCount = results.length - successCount;
-        getLogAPI().debug(
-          SORTIE_LOG_CATEGORY_RESULT,
-          `run=${sortieKey} success=${successCount} failure=${failureCount} cacheSaved=true`,
-        );
-
-        // LLM에 전달할 텍스트 요약 (연속 빈 줄 압축으로 토큰 절약)
-        const contentText = results
-          .map((r) => {
-            const trimmed = r.responseText.replace(/\n{3,}/g, "\n\n").trim();
-            return `[${r.displayName}] (${r.status})\n${trimmed}`;
-          })
-          .join("\n\n---\n\n");
-
-        return {
-          content: [{ type: "text" as const, text: contentText }],
-          details: { sortieKey, results, elapsedMs } satisfies SortieResultDetails,
-        };
-      } finally {
-        getLogAPI().debug(
-          SORTIE_LOG_CATEGORY_INVOKE,
-          `execute end elapsedMs=${Date.now() - t0}`,
-        );
-        clearInterval(updateTimer);
-        clearSortieState(sortieKey);
-      }
+      getLogAPI().debug(SORTIE_LOG_CATEGORY_RESULT, `run=${sortieKey} accepted job=${jobId}`);
+      return launchResponseResult({ job_id: jobId, accepted: true });
     },
   };
 }
 
 // ─── 내부 헬퍼 ──────────────────────────────────────────
+
+async function runSortieJobInBackground(opts: SortieBackgroundOptions): Promise<void> {
+  let finalStatus: CarrierJobStatus = "done";
+  let finalError: string | undefined;
+  let results: CarrierSortieResult[] = [];
+  try {
+    const settledResults = await Promise.allSettled(
+      opts.assignments.map((assignment) => runSortieAssignment(assignment, opts)),
+    );
+    opts.state.finishedAt = Date.now();
+    results = settledResults.map((settled, index) => {
+      if (settled.status === "fulfilled") return settled.value;
+      return buildSortieErrorResult(opts.assignments[index]!.carrier, settled.reason);
+    });
+    finalStatus = computeFinalStatus(results);
+    const elapsedMs = opts.state.finishedAt - opts.state.startedAt;
+    setResultCache(opts.sortieKey, results, elapsedMs);
+    getLogAPI().debug(
+      SORTIE_LOG_CATEGORY_RESULT,
+      `run=${opts.sortieKey} success=${results.filter((r) => r.status === "done").length} failure=${results.filter((r) => r.status !== "done").length} cacheSaved=true`,
+    );
+  } catch (error) {
+    finalStatus = "error";
+    finalError = error instanceof Error ? error.message : String(error);
+  } finally {
+    const finishedAt = Date.now();
+    const summary = buildSortieJobSummary(opts.jobId, opts.startedAt, finishedAt, opts.assignments, results, finalStatus, finalError);
+    putJobSummary(summary, finishedAt);
+    finalizeJobArchive(opts.jobId, finalStatus, finishedAt);
+    enqueueCarrierCompletionPush(opts.pi, { jobId: opts.jobId, summary: summary.summary });
+    unregisterJobAbortControllers(opts.jobId);
+    opts.permit.release({ status: finalStatus, error: finalError, finishedAt });
+    clearSortieState(opts.sortieKey);
+    getLogAPI().debug(SORTIE_LOG_CATEGORY_INVOKE, `execute end elapsedMs=${finishedAt - opts.startedAt}`);
+  }
+}
+
+function computeFinalStatus(results: CarrierSortieResult[]): CarrierJobStatus {
+  if (results.some((result) => result.status === "aborted")) return "aborted";
+  if (results.some((result) => result.status === "error")) return "error";
+  return "done";
+}
+
+function launchResponseResult(response: CarrierJobLaunchResponse): { content: { type: "text"; text: string }[]; details: CarrierJobLaunchResponse } {
+  return {
+    content: [{ type: "text", text: formatLaunchResponseText(response, response.accepted) }],
+    details: response,
+  };
+}
+
+async function runSortieAssignment(
+  assignment: CarrierAssignment,
+  opts: SortieBackgroundOptions,
+): Promise<CarrierSortieResult> {
+  const execStartedAt = Date.now();
+  const progress = opts.state.carriers.get(assignment.carrier)!;
+  progress.status = "connecting";
+  const carrierConfig = getRegisteredCarrierConfig(assignment.carrier);
+  const cliType = carrierConfig?.cliType ?? assignment.carrier;
+  const composedRequest = carrierConfig?.carrierMetadata
+    ? composeTier2Request(carrierConfig.carrierMetadata, assignment.request)
+    : assignment.request;
+  getLogAPI().debug(
+    SORTIE_LOG_CATEGORY_DISPATCH,
+    [
+      `carrier=${assignment.carrier} model=${cliType} promptChars=${composedRequest.length} run=${opts.sortieKey}`,
+      "----- BEGIN REQUEST -----",
+      composedRequest,
+      "----- END REQUEST -----",
+    ].join("\n"),
+    { hideFromFooter: true, category: "prompt" },
+  );
+  try {
+    const result = await runAgentRequestBackground({
+      cli: cliType as CliType,
+      carrierId: assignment.carrier,
+      request: composedRequest,
+      cwd: opts.cwd,
+      connectSystemPrompt: buildCarrierSystemPrompt(),
+      signal: opts.signal,
+      onMessageChunk: (text: string) => {
+        progress.status = "streaming";
+        progress.lineCount++;
+        appendBlock(opts.jobId, toMessageArchiveBlock(assignment.carrier, text));
+        captureSortieRunId(opts.state, assignment.carrier);
+      },
+      onThoughtChunk: (text: string) => {
+        appendBlock(opts.jobId, toThoughtArchiveBlock(assignment.carrier, text));
+      },
+      onToolCall: (toolTitle: string, toolStatus: string, _rawOutput?: string, _toolCallId?: string) => {
+        progress.status = "streaming";
+        progress.toolCallCount++;
+        captureSortieRunId(opts.state, assignment.carrier);
+        getLogAPI().debug(SORTIE_LOG_CATEGORY_STREAM, `carrier=${assignment.carrier} type=toolCall title=${toolTitle} status=${toolStatus}`, { hideFromFooter: true });
+      },
+    });
+    progress.status = result.status === "done" ? "done" : "error";
+    getLogAPI().debug(SORTIE_LOG_CATEGORY_EXEC, `carrier=${assignment.carrier} success=${result.status === "done"} status=${result.status} elapsedMs=${Date.now() - execStartedAt}`);
+    return {
+      carrierId: assignment.carrier,
+      displayName: resolveCarrierDisplayName(assignment.carrier),
+      status: result.status,
+      responseText: result.responseText || "(no output)",
+      sessionId: result.sessionId,
+      error: result.error,
+      thinking: result.thinking,
+      toolCalls: result.toolCalls,
+    } as CarrierSortieResult;
+  } catch (error) {
+    getLogAPI().debug(SORTIE_LOG_CATEGORY_EXEC, `carrier=${assignment.carrier} success=false status=error elapsedMs=${Date.now() - execStartedAt}`);
+    throw error;
+  }
+}
+
+function captureSortieRunId(state: SortieState, carrierId: string): void {
+  if (state.runIds.has(carrierId)) return;
+  const run = getVisibleRun(carrierId);
+  if (run) state.runIds.set(carrierId, run.runId);
+}
+
+function buildSortieErrorResult(carrierId: string, reason: unknown): CarrierSortieResult {
+  const errorMessage = reason instanceof Error ? reason.message : String(reason);
+  getLogAPI().debug(SORTIE_LOG_CATEGORY_ERROR, `carrier=${carrierId} message=${errorMessage}`);
+  return {
+    carrierId,
+    displayName: resolveCarrierDisplayName(carrierId),
+    status: "error",
+    responseText: `Error: ${errorMessage}`,
+    error: errorMessage,
+  };
+}
+
+function buildSortieJobSummary(
+  jobId: string,
+  startedAt: number,
+  finishedAt: number,
+  assignments: CarrierAssignment[],
+  results: CarrierSortieResult[],
+  status: CarrierJobStatus,
+  error?: string,
+): CarrierJobSummary {
+  const successCount = results.filter((result) => result.status === "done").length;
+  const failureCount = results.length - successCount;
+  return {
+    jobId,
+    tool: "carriers_sortie",
+    status,
+    summary: buildSortieSummaryText(status, successCount, failureCount, error),
+    startedAt,
+    finishedAt,
+    carriers: assignments.map((assignment) => assignment.carrier),
+    error,
+  };
+}
+
+function buildSortieSummaryText(status: CarrierJobStatus, successCount: number, failureCount: number, error?: string): string {
+  if (status === "aborted") return `carriers_sortie aborted: ${successCount} done, ${failureCount} failed`;
+  if (error) return `carriers_sortie failed: ${error}`;
+  return `carriers_sortie completed: ${successCount} done, ${failureCount} failed`;
+}
 
 // ─── State Store (Map<sortieKey, SortieState>) ─────────
 
@@ -787,7 +870,7 @@ function renderCarrierContentLines(
 }
 
 /** onUpdate용 partial result 생성 */
-function buildPartialUpdate(
+export function buildPartialUpdate(
   state: SortieState,
   assignments: CarrierAssignment[],
 ): { content: { type: "text"; text: string }[]; details: SortieResultDetails } {

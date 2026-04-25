@@ -30,10 +30,10 @@ export const SQUADRON_MANIFEST: ToolPromptManifest = {
   tag: "carrier_squadron",
   title: "carrier_squadron Tool Guidelines",
   description:
-    `Fan out subtasks to parallel instances of the same carrier for divide-and-conquer execution.` +
-    ` Split a single large task into independent subtasks and run them simultaneously on the chosen carrier.`,
+    `Register a fire-and-forget job that fans out subtasks to parallel instances of the same carrier for divide-and-conquer execution.` +
+    ` It returns a job_id immediately; results arrive through [carrier:result] push or carrier_jobs lookup.`,
   promptSnippet:
-    `carrier_squadron — Fan out subtasks to parallel instances of the same carrier.`,
+    `carrier_squadron — Register parallel same-carrier subtask jobs. Results arrive later via [carrier:result] or carrier_jobs.`,
   whenToUse: [
     "Use carrier_squadron when a task can be decomposed into independent subtasks that benefit from parallel execution on the same carrier type.",
     "Use it for analyzing multiple files independently, running the same check across different modules, or batch-processing items.",
@@ -56,7 +56,8 @@ export const SQUADRON_MANIFEST: ToolPromptManifest = {
     `Do not pass absolute paths, general repo-relative files, or non-Markdown files via Ohio's \`<plan_file>\` tag in carrier_squadron subtasks.` +
       ` If a provided \`<plan_file>\` is missing, unreadable, or invalid, Ohio must report the issue and request re-direction rather than guessing or silently re-planning.`,
     `PI splits the task into subtasks — the tool only fans out execution.` +
-      ` Results are returned in structured format; final interpretation is PI's responsibility.`,
+      ` The launch response is { job_id, accepted, error? } and never includes synchronous result content.` +
+      ` Final interpretation is PI's responsibility after [carrier:result] push or carrier_jobs lookup.`,
   ],
 };
 

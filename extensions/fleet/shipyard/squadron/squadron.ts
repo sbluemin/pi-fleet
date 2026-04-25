@@ -9,12 +9,21 @@
  * - renderResult(): 완료 후 결과 캐시에서 렌더링
  */
 
-import type { ExtensionContext, Theme } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext, Theme } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
 import { getLogAPI } from "../../../core/log/bridge.js";
 import { executeOneShot } from "../../../core/agentclientprotocol/executor.js";
 import { registerToolPromptManifest } from "../../admiral/tool-prompt-manifest/index.js";
+import { toMessageArchiveBlock, toThoughtArchiveBlock } from "../_shared/archive-block-converter.js";
+import { acquireJobPermit } from "../_shared/concurrency-guard.js";
+import { registerJobAbortController, unregisterJobAbortControllers } from "../_shared/job-cancel-registry.js";
+import { buildCarrierJobId } from "../_shared/job-id.js";
+import { formatLaunchResponseText } from "../_shared/job-reminders.js";
+import { appendBlock, createJobArchive, finalizeJobArchive } from "../_shared/job-stream-archive.js";
+import type { CarrierJobLaunchResponse, CarrierJobSummary, CarrierJobStatus } from "../_shared/job-types.js";
+import { putJobSummary } from "../_shared/lru-cache.js";
+import { enqueueCarrierCompletionPush } from "../_shared/push.js";
 import { loadModels } from "../store.js";
 import {
   createRun,
@@ -73,6 +82,21 @@ interface SquadronRenderContext {
   lastComponent?: unknown;
 }
 
+interface SquadronBackgroundOptions {
+  pi: ExtensionAPI;
+  jobId: string;
+  carrierId: string;
+  requestKey: string;
+  sanitizedSubtasks: Array<{ title: string; request: string }>;
+  composedSubtasks: string[];
+  state: SquadronState;
+  signal: AbortSignal | undefined;
+  cwd: string;
+  carrierConfig: ReturnType<typeof getRegisteredCarrierConfig>;
+  permit: { release: (finished?: { status?: CarrierJobStatus; error?: string; finishedAt?: number }) => void };
+  startedAt: number;
+}
+
 // ─── 상수 ────────────────────────────────────────────────
 
 /** 밀리초를 사람이 읽기 쉬운 경과시간 문자열로 변환 */
@@ -111,7 +135,7 @@ const SQUADRON_LOG_CATEGORY_ERROR = "fleet-squadron:error";
  * 이 팩토리는 등록 시 필요한 schema/guidelines/execute/render 등
  * 도구 기능 자체만을 제공합니다. 등록 불필요 시 null을 반환합니다.
  */
-export function buildSquadronToolConfig() {
+export function buildSquadronToolConfig(pi: ExtensionAPI) {
   const allCarriers = getRegisteredOrder();
   if (allCarriers.length < 1) return null;
 
@@ -156,15 +180,16 @@ export function buildSquadronToolConfig() {
       return { render() { return []; }, invalidate() {} };
     },
 
-    // ── execute: 병렬 실행 ──
+    // ── execute: 병렬 job 등록 ──
     async execute(
       _id: string,
       params: { carrier: string; expected_subtask_count: number; subtasks: Array<{ title: string; request: string }> },
       signal: AbortSignal | undefined,
-      onUpdate: any,
+      _onUpdate: any,
       ctx: ExtensionContext,
     ) {
       const t0 = Date.now();
+      const cwd = ctx.cwd;
       const { carrier: carrierId, expected_subtask_count, subtasks } = params;
       getLogAPI().debug(
         SQUADRON_LOG_CATEGORY_INVOKE,
@@ -195,68 +220,113 @@ export function buildSquadronToolConfig() {
           : st.request,
       );
 
+      const jobId = buildCarrierJobId("squadron", _id);
+      const permit = acquireJobPermit({
+        jobId,
+        tool: "carrier_squadron",
+        status: "active",
+        startedAt: t0,
+        carriers: [carrierId],
+      });
+      if (!permit.accepted) {
+        return permit.error === "carrier busy"
+          ? launchResponseResult({ job_id: jobId, accepted: false, error: permit.error, current_job_id: permit.current_job_id })
+          : launchResponseResult({ job_id: jobId, accepted: false, error: permit.error });
+      }
+
+      createJobArchive(jobId, t0);
+      const jobController = new AbortController();
+      registerJobAbortController(jobId, jobController);
+      const effectiveSignal = signal
+        ? AbortSignal.any([signal, jobController.signal])
+        : jobController.signal;
+
       // 3. 진행 상태 초기화
       const requestKey = buildSquadronRequestKey(carrierId, sanitizedSubtasks);
       const state = initSquadronState(carrierId, requestKey, sanitizedSubtasks);
 
-      // 4. 200ms onUpdate 타이머
-      const updateTimer = setInterval(() => {
-        if (!onUpdate) return;
-        onUpdate(buildPartialUpdate(carrierId, state));
-      }, 200);
+      void runSquadronJobInBackground({
+        pi,
+        jobId,
+        carrierId,
+        requestKey,
+        sanitizedSubtasks,
+        composedSubtasks,
+        state,
+        signal: effectiveSignal,
+        cwd,
+        carrierConfig,
+        permit,
+        startedAt: t0,
+      });
 
-      try {
-        // 5. base 캐리어의 모델 설정 조회
-        const modelConfig = loadModels()[carrierId];
-        const cliType = carrierConfig?.cliType ?? "claude";
-
-        // 6. 병렬 실행 (executeOneShot × N)
-        const settledResults = await Promise.allSettled(
-          sanitizedSubtasks.map((st, index) =>
-            runSquadronInstance(index, st.title, composedSubtasks[index]!, {
-              carrierId,
-              cliType,
-              modelConfig,
-              state,
-              signal,
-              ctx,
-              requestKey,
-              totalSubtasks: sanitizedSubtasks.length,
-            }),
-          ),
-        );
-
-        // 완료 시각 기록
-        state.finishedAt = Date.now();
-
-        // 7. 결과 수집 + 캐시
-        const results = collectSquadronResults(settledResults, sanitizedSubtasks);
-        const elapsedMs = state.finishedAt - state.startedAt;
-        setResultCache(requestKey, carrierId, results, elapsedMs);
-        const successCount = results.filter((result) => result.status === "done").length;
-        const failureCount = results.length - successCount;
-        getLogAPI().debug(
-          SQUADRON_LOG_CATEGORY_RESULT,
-          `carrier=${carrierId} success=${successCount} failure=${failureCount} cacheSaved=true`,
-        );
-
-        return {
-          content: [{ type: "text" as const, text: buildSquadronContentText(results) }],
-          details: { carrierId, requestKey, results, elapsedMs } satisfies SquadronResultDetails,
-        };
-      } finally {
-        getLogAPI().debug(
-          SQUADRON_LOG_CATEGORY_INVOKE,
-          `execute end carrier=${carrierId} elapsedMs=${Date.now() - t0}`,
-        );
-        clearInterval(updateTimer);
-        clearSquadronState(requestKey);
-      }
+      getLogAPI().debug(SQUADRON_LOG_CATEGORY_RESULT, `carrier=${carrierId} accepted job=${jobId}`);
+      return launchResponseResult({ job_id: jobId, accepted: true });
     },
   };
 }
 
 // ─── 내부 상태 관리 ──────────────────────────────────────
+
+async function runSquadronJobInBackground(opts: SquadronBackgroundOptions): Promise<void> {
+  let finalStatus: CarrierJobStatus = "done";
+  let finalError: string | undefined;
+  let results: SquadronResult[] = [];
+  try {
+    const modelConfig = loadModels()[opts.carrierId];
+    const cliType = opts.carrierConfig?.cliType ?? "claude";
+    const settledResults = await Promise.allSettled(
+      opts.sanitizedSubtasks.map((st, index) =>
+        runSquadronInstance(index, st.title, opts.composedSubtasks[index]!, {
+          carrierId: opts.carrierId,
+          cliType,
+          modelConfig,
+          state: opts.state,
+          signal: opts.signal,
+          cwd: opts.cwd,
+          requestKey: opts.requestKey,
+          totalSubtasks: opts.sanitizedSubtasks.length,
+          jobId: opts.jobId,
+        }),
+      ),
+    );
+    opts.state.finishedAt = Date.now();
+    results = collectSquadronResults(settledResults, opts.sanitizedSubtasks);
+    const elapsedMs = opts.state.finishedAt - opts.state.startedAt;
+    setResultCache(opts.requestKey, opts.carrierId, results, elapsedMs);
+    finalStatus = computeFinalStatus(results);
+    getLogAPI().debug(
+      SQUADRON_LOG_CATEGORY_RESULT,
+      `carrier=${opts.carrierId} success=${results.filter((r) => r.status === "done").length} failure=${results.filter((r) => r.status !== "done").length} cacheSaved=true`,
+    );
+  } catch (error) {
+    finalStatus = "error";
+    finalError = error instanceof Error ? error.message : String(error);
+  } finally {
+    const finishedAt = Date.now();
+    const summary = buildSquadronJobSummary(opts.jobId, opts.startedAt, finishedAt, opts.carrierId, results, finalStatus, finalError);
+    putJobSummary(summary, finishedAt);
+    finalizeJobArchive(opts.jobId, finalStatus, finishedAt);
+    enqueueCarrierCompletionPush(opts.pi, { jobId: opts.jobId, summary: summary.summary });
+    unregisterJobAbortControllers(opts.jobId);
+    opts.permit.release({ status: finalStatus, error: finalError, finishedAt });
+    clearSquadronState(opts.requestKey);
+    getLogAPI().debug(SQUADRON_LOG_CATEGORY_INVOKE, `execute end carrier=${opts.carrierId} elapsedMs=${finishedAt - opts.startedAt}`);
+  }
+}
+
+function computeFinalStatus(results: SquadronResult[]): CarrierJobStatus {
+  if (results.some((result) => result.status === "aborted")) return "aborted";
+  if (results.some((result) => result.status === "error")) return "error";
+  return "done";
+}
+
+function launchResponseResult(response: CarrierJobLaunchResponse): { content: { type: "text"; text: string }[]; details: CarrierJobLaunchResponse } {
+  return {
+    content: [{ type: "text", text: formatLaunchResponseText(response, response.accepted) }],
+    details: response,
+  };
+}
 
 function formatCarrierIdForMessage(carrierId: string): string {
   return JSON.stringify(carrierId);
@@ -331,9 +401,10 @@ async function runSquadronInstance(
     modelConfig: { model?: string; effort?: string; budgetTokens?: number } | undefined;
     state: SquadronState;
     signal: AbortSignal | undefined;
-    ctx: ExtensionContext;
+    cwd: string;
     requestKey: string;
     totalSubtasks: number;
+    jobId: string;
   },
 ): Promise<SquadronResult> {
   const execStartedAt = Date.now();
@@ -361,7 +432,7 @@ async function runSquadronInstance(
       carrierId: syntheticId,
       cliType: opts.cliType as any,
       request,
-      cwd: opts.ctx.cwd,
+      cwd: opts.cwd,
       model: opts.modelConfig?.model,
       effort: opts.modelConfig?.effort,
       budgetTokens: opts.modelConfig?.budgetTokens,
@@ -374,9 +445,11 @@ async function runSquadronInstance(
         progress.status = "streaming";
         progress.lineCount++;
         appendTextBlock(syntheticId, sanitizeChunk(text));
+        appendBlock(opts.jobId, toMessageArchiveBlock(opts.carrierId, text, `subtask ${index}: ${title}`));
       },
       onThoughtChunk: (text: string) => {
         appendThoughtBlock(syntheticId, sanitizeChunk(text));
+        appendBlock(opts.jobId, toThoughtArchiveBlock(opts.carrierId, text, `subtask ${index}: ${title}`));
         getLogAPI().debug(SQUADRON_LOG_CATEGORY_STREAM, `carrier=${opts.carrierId} subtask=${index} type=thought\n${text}`, { hideFromFooter: true });
       },
       onToolCall: (toolTitle: string, toolStatus: string, _rawOutput?: string, toolCallId?: string) => {
@@ -462,17 +535,33 @@ function buildSquadronErrorResult(index: number, title: string, reason: unknown)
   };
 }
 
-function buildSquadronContentText(results: SquadronResult[]): string {
-  return results
-    .map((result) => {
-      const trimmed = sanitizeChunk(result.responseText).replace(/\n{3,}/g, "\n\n").trim() || "(no output)";
-      return [
-        `<<<SQUADRON:${result.index}:${result.title}:${result.status}>>>`,
-        trimmed,
-        `<<<END_SQUADRON:${result.index}:${result.title}>>>`,
-      ].join("\n");
-    })
-    .join("\n\n");
+function buildSquadronJobSummary(
+  jobId: string,
+  startedAt: number,
+  finishedAt: number,
+  carrierId: string,
+  results: SquadronResult[],
+  status: CarrierJobStatus,
+  error?: string,
+): CarrierJobSummary {
+  const successCount = results.filter((result) => result.status === "done").length;
+  const failureCount = results.length - successCount;
+  return {
+    jobId,
+    tool: "carrier_squadron",
+    status,
+    summary: buildSquadronSummaryText(status, successCount, failureCount, error),
+    startedAt,
+    finishedAt,
+    carriers: [carrierId],
+    error,
+  };
+}
+
+function buildSquadronSummaryText(status: CarrierJobStatus, successCount: number, failureCount: number, error?: string): string {
+  if (status === "aborted") return `carrier_squadron aborted: ${successCount} done, ${failureCount} failed`;
+  if (error) return `carrier_squadron failed: ${error}`;
+  return `carrier_squadron completed: ${successCount} done, ${failureCount} failed`;
 }
 
 // ─── State Store (Map<requestKey, SquadronState>) ──────
@@ -563,7 +652,7 @@ function getResultCache(requestKey: string): SquadronResultCacheEntry | null {
 
 // ─── partial 업데이트 ────────────────────────────────────
 
-function buildPartialUpdate(
+export function buildPartialUpdate(
   carrierId: string,
   state: SquadronState,
 ): { content: { type: "text"; text: string }[]; details: any } {

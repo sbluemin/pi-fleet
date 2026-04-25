@@ -48,17 +48,18 @@ export const SORTIE_MANIFEST: ToolPromptManifest = {
   tag: "carriers_sortie",
   title: "carriers_sortie Tool Guidelines",
   description:
-    `Launch carriers for task execution — single or multiple(parallel).` +
+    `Register fire-and-forget carrier jobs for task execution — single or multiple(parallel).` +
     ` This is the only tool for delegating tasks to carrier agents.` +
+    ` It returns a job_id immediately; results arrive through [carrier:result] push or carrier_jobs lookup.` +
     ` Use it whenever you want to delegate implementation, analysis, exploration, or any coding task to one or more carriers.` +
     ` Always bundle all intended carriers into one call — never split a parallel batch into multiple sequential calls.`,
   promptSnippet:
-    `carriers_sortie — Launch 1+ carriers for task delegation. The sole carrier delegation tool.`,
+    `carriers_sortie — Register 1+ carrier jobs for task delegation. Results arrive later via [carrier:result] or carrier_jobs.`,
   whenToUse: [
     `carriers_sortie is the only way to delegate tasks to carrier agents.` +
       ` Always use this tool — never attempt to invoke carriers directly.`,
     `You can launch a single carrier or multiple carriers in parallel — when launching multiple carriers, you MUST include all of them in a single carriers_sortie call.` +
-      ` This tool provides unified progress tracking and a consolidated result view.`,
+      ` This tool provides unified progress tracking and registers detached work; use carrier_jobs for later lookup.`,
   ],
   whenNotToUse: [],
   usageGuidelines: [
@@ -77,6 +78,8 @@ export const SORTIE_MANIFEST: ToolPromptManifest = {
     `Each carrier ID may appear at most once per carriers_sortie call.` +
       ` Duplicate carrier IDs in the same call are rejected by the system and cause the entire sortie to fail.` +
       ` If you need two different workloads handled by carriers of the same type, assign each to a different carrier ID within the same call's carriers array.`,
+    `Launch response schema is { job_id, accepted, error? } and never includes synchronous result content.` +
+      ` Full output is available only through carrier_jobs(action:"result", format:"full") and is read-once.`,
   ],
   guardrails: [
     `Multiple agents may be working on this codebase at the same time on a single filesystem and branch.` +
@@ -147,7 +150,7 @@ export function buildSortieToolSchema(enabledIds: string[]): TObject {
         minItems: 1,
         description:
           "Array of carrier assignments. Length must equal expected_carrier_count. " +
-          "When launching multiple carriers in parallel, ALL intended carriers MUST be listed together here in a SINGLE call — never split a parallel batch into multiple sequential calls. " +
+          "When launching multiple carriers in parallel, ALL intended carriers MUST be listed together here in a SINGLE fire-and-forget job registration call — never split a parallel batch into multiple sequential calls. " +
           "Example (single): [{\"carrier\": \"genesis\", \"request\": \"...\"}] " +
           "Example (parallel): [{\"carrier\": \"sentinel\", \"request\": \"...\"}, {\"carrier\": \"genesis\", \"request\": \"...\"}] " +
           "MUST be a native JSON array [...], NOT a stringified JSON string.",

@@ -22,15 +22,24 @@ The number of carriers is determined at runtime by the carrier modules registere
 - `registerCarrier` is the public API for carrier registration (re-exported via `index.ts`).
 - `registerSingleCarrier` is the convenience API for single CLI carrier registration (re-exported via `index.ts`, lives in `shipyard/carrier/register.ts`). It registers the carrier in the framework with **Captain (함장)** 페르소나 메타데이터를 포함하지만 PI 도구로 직접 등록되지는 않습니다.
 - **`Admiral (제독)`**의 전역 지침(SSOT)은 `admiral` 확장에서 관리하며, **PERSONA/TONE 소스는 `metaphor` 패키지를 사용합니다.** 모든 PI 도구(sortie, squadron, taskforce)의 교리는 `ToolPromptManifest`를 통해 동적으로 조립됩니다.
-- Calling `runAgentRequest()` **automatically syncs all UIs**: Agent Panel column, Streaming Widget (when panel collapsed), and stream-store data.
+- Calling foreground `runAgentRequest()` **automatically syncs all UIs**: Agent Panel column, Streaming Widget (when panel collapsed), and stream-store data.
+- Detached fire-and-forget jobs must call the ctx-free background runner. Background work must not capture admin `ExtensionContext`; it writes stream-store/global job state only and lets the next valid admin tick pull updates into Agent Panel/Streaming Widget.
 - **carrierId vs cliType**: `carrierId` (string) is the unique carrier identity used for pool keys, session keys, and panel column identity. `cliType` (CliType) is the CLI binary to execute. Multiple carriers can share the same `cliType` while maintaining fully isolated sessions and connections. **`cliType` can be dynamically changed and persisted at runtime, and `defaultCliType` preserves the original CLI type.**
 - **Slot-based ordering**: Each carrier's `slot` determines its panel column position and inline navigation order. Slots must be unique across all registered carriers. **When `cliType` changes, the sorting order and theme color of the corresponding CLI type are immediately reflected.**
 - **carriers_sortie call instance isolation**: The `carriers_sortie` tool uses `toolCallId` as the `sortieKey` to isolate state (progress, streaming content, result cache) per call. This prevents UI interference and redundant content output during concurrent/sequential calls.
 - **Carrier Squadron (Parallel Execution)**: Same-type carriers can be grouped into a **Squadron** (toggled via 'S' key in Status Overlay) for parallel task processing.
   - `squadronEnabled` carriers are **automatically excluded** from `carriers_sortie` to prevent session conflicts.
-  - Squadrons use `executeOneShot` for fire-and-forget execution (no persistent session/history).
+  - **Fire-and-forget**: Squadron jobs are registered as detached jobs and return a `job_id` immediately.
   - A hard cap of **5 concurrent instances** is enforced per squadron.
   - Active squadrons are indicated by a `[SQ]` tag in the Status Bar.
+- **Asynchronous Operations & Archiving**: `carriers_sortie`, `carrier_taskforce`, and `carrier_squadron` tools operate in fire-and-forget mode.
+  - **Immediate Response**: Tools return `{ job_id, accepted }` instantly.
+  - **Job Stream Archive**: Detached job outputs are stored in a process-memory archive (`JobStreamArchive`).
+  - **Limits**: 3-hour TTL (`CARRIER_JOB_TTL_MS`), 8MB/2000-block per job capacity (`MAX_TOTAL_BYTES`, `MAX_BLOCKS`), and a global concurrency cap of 5 detached jobs.
+  - **Read-Once Policy**: Full results retrieved via `carrier_jobs` are invalidated after the first read.
+- **Job lookup/control**: `carrier_jobs` is the only meta tool for `status`, `result`, `cancel`, and `list` actions. It reads from summary cache and `JobStreamArchive`, not the UI stream-store.
+- **Carrier result follow-up push**: framework pushes must use `pi.sendMessage` custom messages with `customType: "carrier-result"` and `display: false` so they wake the Admiral without rendering as user messages in Messages. The LLM context payload remains a `<system-reminder>`-wrapped `[carrier:result]` block. Framework push delivery must never be sent as a user-role message.
+- **Panel animation lifecycle**: animation ticks are governed by active Fleet work, not only Admiral streaming. Keep the panel animTimer alive while any detached background job is active, and let widget-sync gracefully skip stale or absent contexts.
 - **Dynamic CliType Overrides**: You can change the CLI type of a specific carrier at runtime via `updateCarrierCliType`. The changed state is saved in `states.json` and maintained after restart. **When switching CLI types, the current model, reasoning effort, and budget tokens are cached (`perCliSettings`) and automatically restored when returning to that CLI type (with validation against the new provider's capabilities).**
 - **Batch CLI Control**: Supports batch switching of all carriers belonging to a specific CLI type to another type (`Shift+C` in Status Overlay) and restoring all carriers to their source-level default CLI types (`Shift+R` in Status Overlay).
 - **Same carrierId concurrent calls are not supported** — UI layer manages one visible run per carrierId.
@@ -115,6 +124,9 @@ Consumer (carriers, external extensions)
 | `shipyard/taskforce/taskforce.ts` | Task Force execution logic — cross-backend parallel `executeOneShot` for configured CLIs. |
 | `shipyard/squadron/prompts.ts` | `SQUADRON_MANIFEST` (`ToolPromptManifest`) 소유 |
 | `shipyard/taskforce/prompts.ts` | `TASKFORCE_MANIFEST` (`ToolPromptManifest`) 소유 |
+| `shipyard/carrier_jobs/prompts.ts` | `CARRIER_JOBS_MANIFEST` (`ToolPromptManifest`) 소유 |
+| `shipyard/carrier_jobs/jobs.ts` | Carrier Jobs meta tool — `status`, `result`, `cancel`, `list` action dispatcher. |
+| `shipyard/_shared/job-stream-archive.ts` | Centralized detached job output archive logic — manages TTL, capacity, and read-once policy. |
 | `shipyard/squadron/types.ts` | Squadron domain types and interfaces |
 | `shipyard/store.ts` | Unified fleet persistence store — `initStore`, `loadModels`, `saveModels`, `updateModelSelection`, `getPerCliSettings`/`savePerCliSettings`, `loadSortieDisabled`, `saveSortieDisabled`, `loadSquadronEnabled`, `saveSquadronEnabled`, `loadCliTypeOverrides`, `updateCliTypeOverride`. |
 

@@ -11,7 +11,7 @@
 
 export { CORE_LOG_KEY } from "./types.js";
 import { CORE_LOG_KEY } from "./types.js";
-import type { CoreLogAPI, LogEntry } from "./types.js";
+import type { CoreLogAPI } from "./types.js";
 
 // ── globalThis에 no-op stub 등록 (모듈 재로드 시 유실 방지) ──
 // 가드: 이미 등록되어 있으면 덮어쓰지 않는다.

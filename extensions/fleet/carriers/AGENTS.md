@@ -58,6 +58,7 @@ carriers/  →  fleet/shipyard/carrier/ (framework SDK only)
 - **Each carrier file is independent** — defines its own persona, prompt metadata, and slot. Mutual imports between carriers are forbidden.
 - **Prompt text belongs to each carrier file** — intentionally maintain prompts in each carrier file to allow for role divergence. Do not consolidate into `prompts.ts` (this rule is an explicit exception to the `prompts.ts` base rule in `extensions/AGENTS.md`).
 - **Slot must be unique across all carriers** — duplicate `CarrierConfig.slot` values will cause ordering conflicts in the Agent Panel.
+- **Asynchronous Execution Doctrine**: All carrier tools (`sortie`, `taskforce`, `squadron`) invoked through the framework are **asynchronous (fire-and-forget)**. They return a `job_id` immediately; results must be retrieved via `[carrier:result]` push or `carrier_jobs` lookup.
 - **`cliType` is automatically assigned and dynamically changeable** — `registerSingleCarrier` automatically sets `defaultCliType` upon registration, and users can change (override) this at runtime.
 - **Only `carriers/index.ts` may import these files for boot-time registration** — `fleet/index.ts`는 `carriers/index.ts`만 호출하고, business logic은 각 carrier module 내부에 둔다.
 

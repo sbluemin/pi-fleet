@@ -17,6 +17,7 @@ import {
 import {
   resolveCarrierColor,
 } from "../../shipyard/carrier/framework.js";
+import { getActiveBackgroundJobCount } from "../../shipyard/_shared/concurrency-guard.js";
 import {
   renderPanelFull,
 } from "../render/panel-renderer.js";
@@ -59,7 +60,12 @@ export function syncCurrentWidget(): void {
     if (generation !== widgetSyncGeneration) return;
     const nextCtx = currentWidgetCtx;
     if (!nextCtx) return;
-    applyWidgetSync(nextCtx);
+    try {
+      applyWidgetSync(nextCtx);
+    } catch (error) {
+      if (!isStaleExtensionContextError(error)) throw error;
+      detachWidgetSync();
+    }
   });
 }
 
@@ -73,25 +79,25 @@ export function detachWidgetSync(): void {
 function readSessionId(ctx: ExtensionContext): string | null {
   try {
     return ctx.sessionManager.getSessionId();
-  } catch {
+  } catch (error) {
+    if (isStaleExtensionContextError(error)) detachWidgetSync();
     return null;
   }
 }
 
-function isStaleExtensionContextError(error: unknown): boolean {
+export function isStaleExtensionContextError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
   const message = error.message.toLowerCase();
+  if (message.includes("agent listener invoked outside active run")) return true;
   const mentionsExtensionCtx =
     message.includes("extensioncontext") ||
     message.includes("extension ctx") ||
     message.includes("extension context");
   const mentionsStaleSession =
-    message.includes("stale") &&
-    (
-      message.includes("session") ||
-      message.includes("replacement") ||
-      message.includes("reload")
-    );
+    message.includes("stale") ||
+    message.includes("session") ||
+    message.includes("replacement") ||
+    message.includes("reload");
   return (
     mentionsExtensionCtx &&
     mentionsStaleSession
@@ -108,7 +114,7 @@ function applyWidgetSync(ctx: ExtensionContext): void {
         const state = getState();
         const content = renderCarrierStatus({
           cols: makeFooterCols(),
-          streaming: state.streaming,
+          streaming: state.streaming || getActiveBackgroundJobCount() > 0,
           frame: state.frame,
         });
         if (!content) return [];

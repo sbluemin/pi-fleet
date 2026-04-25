@@ -69,11 +69,16 @@ import { cleanIdleClients } from "../core/agentclientprotocol/pool.js";
 import { setCliRuntimeContext, setCliSystemPrompt } from "../core/agentclientprotocol/provider-types.js";
 import { registerModelCommands, syncModelConfig } from "./shipyard/carrier/model-ui.js";
 import { exposeAgentApi } from "./operation-runner.js";
-import { detachAgentPanelUi, refreshAgentPanel } from "./bridge/panel/lifecycle.js";
+import { detachJobArchive } from "./shipyard/_shared/job-stream-archive.js";
+import { configureJobSummaryCache } from "./shipyard/_shared/lru-cache.js";
+import { CARRIER_RESULT_CUSTOM_TYPE, carrierResultRenderer } from "./shipyard/_shared/push-renderer.js";
+import { bindPanelBackgroundJobAnimation, detachAgentPanelUi, refreshAgentPanel } from "./bridge/panel/lifecycle.js";
 import { registerAgentPanelShortcut } from "./bridge/panel/shortcuts.js";
 import { setAgentPanelServiceLoading, setAgentPanelServiceStatus } from "./bridge/panel/config.js";
 import { initServiceStatus, attachStatusContext, detachStatusContext, refreshStatusNow, getServiceSnapshots, refreshStatusQuiet } from "../core/agentclientprotocol/service-status/store.js";
 import { buildSortieToolConfig } from "./shipyard/carrier/sortie.js";
+import { buildCarrierJobsToolConfig } from "./shipyard/carrier_jobs/index.js";
+import { setCarrierJobsVerbose, toggleCarrierJobsVerbose } from "./shipyard/carrier_jobs/verbose-toggle.js";
 import { buildTaskForceToolConfig } from "./shipyard/taskforce/index.js";
 import { buildSquadronToolConfig } from "./shipyard/squadron/index.js";
 import {
@@ -195,15 +200,19 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
 
   const admiral = bootAdmiral(pi);
   const bridge = bootBridge(pi);
+  bindPanelBackgroundJobAnimation();
 
   registerFleetCarriers(pi);
 
-  const sortieToolConfig = buildSortieToolConfig();
+  const sortieToolConfig = buildSortieToolConfig(pi);
   if (sortieToolConfig) pi.registerTool(sortieToolConfig);
-  const taskForceToolConfig = buildTaskForceToolConfig();
+  const taskForceToolConfig = buildTaskForceToolConfig(pi);
   if (taskForceToolConfig) pi.registerTool(taskForceToolConfig);
-  const squadronToolConfig = buildSquadronToolConfig();
+  const squadronToolConfig = buildSquadronToolConfig(pi);
   if (squadronToolConfig) pi.registerTool(squadronToolConfig);
+  configureJobSummaryCache(50, detachJobArchive);
+  pi.registerMessageRenderer(CARRIER_RESULT_CUSTOM_TYPE, carrierResultRenderer);
+  pi.registerTool(buildCarrierJobsToolConfig());
 
   // ── 부팅 후 1회 초기화: 모델 정합성 검증 + stale ID 정리 + taskforce 상태 동기화 ──
   setTimeout(() => {
@@ -525,6 +534,19 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
     description: "지원 CLI 서비스 상태를 즉시 새로고침",
     handler: async (_args, ctx) => {
       await refreshStatusNow(ctx);
+    },
+  });
+
+  pi.registerCommand("fleet:jobs:verbose", {
+    description: "carrier_jobs 렌더링 상세 모드 토글",
+    handler: async (args, ctx) => {
+      const value = args.trim().toLowerCase();
+      const enabled = value === "on"
+        ? (setCarrierJobsVerbose(true), true)
+        : value === "off"
+          ? (setCarrierJobsVerbose(false), false)
+          : toggleCarrierJobsVerbose();
+      ctx.ui.notify(`Carrier Jobs verbose: ${enabled ? "ON" : "OFF"}`, "info");
     },
   });
 }
