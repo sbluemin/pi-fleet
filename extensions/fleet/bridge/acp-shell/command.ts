@@ -51,7 +51,11 @@ function buildCodexCommand(context: BridgeLaunchContext): string {
   if (context.effort) {
     args.push("-c", shellQuote(`model_reasoning_effort="${context.effort}"`));
   }
-  return args.join(" ");
+  const command = args.join(" ");
+  if (!context.sessionId) {
+    return command;
+  }
+  return `${buildCodexArchivedSessionRestoreCommand(context.sessionId)}; ${command}`;
 }
 
 function buildGeminiCommand(context: BridgeLaunchContext): string {
@@ -67,4 +71,23 @@ function buildGeminiCommand(context: BridgeLaunchContext): string {
 
 function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+function buildCodexArchivedSessionRestoreCommand(sessionId: string): string {
+  const quotedPattern = shellQuote(`rollout-*-${sessionId}.jsonl`);
+  return [
+    "__fleet_codex_archived=$(find \"$HOME/.codex/archived_sessions\" -maxdepth 1 -name " + quotedPattern + " -print -quit 2>/dev/null)",
+    "if [ -n \"$__fleet_codex_archived\" ]; then",
+    "  __fleet_codex_base=$(basename \"$__fleet_codex_archived\")",
+    "  __fleet_codex_date=${__fleet_codex_base#rollout-}",
+    "  __fleet_codex_date=${__fleet_codex_date%%T*}",
+    "  __fleet_codex_year=${__fleet_codex_date%%-*}",
+    "  __fleet_codex_month_day=${__fleet_codex_date#*-}",
+    "  __fleet_codex_month=${__fleet_codex_month_day%%-*}",
+    "  __fleet_codex_day=${__fleet_codex_month_day#*-}",
+    "  __fleet_codex_target=\"$HOME/.codex/sessions/$__fleet_codex_year/$__fleet_codex_month/$__fleet_codex_day/$__fleet_codex_base\"",
+    "  [ -e \"$__fleet_codex_target\" ] || { mkdir -p \"$(dirname \"$__fleet_codex_target\")\" && cp \"$__fleet_codex_archived\" \"$__fleet_codex_target\"; }",
+    "fi",
+    "unset __fleet_codex_archived __fleet_codex_base __fleet_codex_date __fleet_codex_year __fleet_codex_month_day __fleet_codex_month __fleet_codex_day __fleet_codex_target",
+  ].join("; ");
 }

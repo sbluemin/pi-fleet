@@ -1,4 +1,7 @@
 import { EventEmitter } from 'events';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ChildProcess } from 'child_process';
 
@@ -315,6 +318,57 @@ describe('CodexAppServerConnection lifecycle', () => {
     expect(child.kill).toHaveBeenCalled();
   });
 
+  it('loadSession이 archived rollout을 path fallback으로 재개한다', async () => {
+    const codexHome = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-home-'));
+    const threadId = '019dc235-e9a5-78a3-ab26-6653be26ac17';
+    const archivedDir = path.join(codexHome, 'archived_sessions');
+    const rolloutPath = path.join(archivedDir, `rollout-2026-04-25T10-16-46-${threadId}.jsonl`);
+    fs.mkdirSync(archivedDir, { recursive: true });
+    fs.writeFileSync(rolloutPath, '');
+
+    try {
+      const connectPromise = connection.connect({ skipThreadStart: true });
+      child.stdout.emit(
+        'data',
+        `${jsonRpcResult(1, {
+          userAgent: 'codex/test',
+          codexHome,
+          platformFamily: 'unix',
+          platformOs: 'macos',
+        })}\n`,
+      );
+      await connectPromise;
+
+      const loadPromise = connection.loadSession(threadId);
+      await flushMicrotask();
+      child.stdout.emit('data', `${jsonRpcError(2, `no rollout found for thread id ${threadId}`)}\n`);
+      await flushMicrotask();
+      child.stdout.emit('data', `${jsonRpcResult(3, { thread: { id: threadId } })}\n`);
+
+      await loadPromise;
+
+      const resumeRequests = child.stdin.write.mock.calls
+        .map(([chunk]) => parseOutgoingChunk(chunk as string))
+        .filter((message) => message.method === 'thread/resume');
+      expect(resumeRequests).toHaveLength(2);
+      expect(resumeRequests[0]).toMatchObject({
+        params: {
+          threadId,
+          path: null,
+        },
+      });
+      expect(resumeRequests[1]).toMatchObject({
+        params: {
+          threadId,
+          path: rolloutPath,
+        },
+      });
+      expect(connection.sessionId).toBe(threadId);
+    } finally {
+      fs.rmSync(codexHome, { recursive: true, force: true });
+    }
+  });
+
   it('stderr를 log/logEntry로 전달한다', async () => {
     const logs: string[] = [];
     const entries: string[] = [];
@@ -407,6 +461,14 @@ function jsonRpcResult(id: number, result: unknown): string {
     jsonrpc: '2.0',
     id,
     result,
+  });
+}
+
+function jsonRpcError(id: number, message: string): string {
+  return JSON.stringify({
+    jsonrpc: '2.0',
+    id,
+    error: { message },
   });
 }
 

@@ -211,5 +211,29 @@ describe.skipIf(!installed)('E2E: Claude ACP', () => {
       expect(secondResult.response).toContain('42');
       expect(secondResult.sessionId).toBe(firstResult.sessionId);
     }, 360_000);
+
+    it('SDK: 1차 연결 → 프롬프트 → disconnect → 2차 세션 복귀(loadSession) → 컨텍스트 유지', async () => {
+      // 1차: SDK 연결 후 숫자 기억 요청
+      const { client: c1, sessionId: firstSessionId } = await connectClient('claude');
+      client = c1;
+
+      expect(firstSessionId).toBeTruthy();
+
+      const { response: firstResponse } = await sendAndCollect(client, SESSION_REMEMBER_PROMPT);
+      expect(firstResponse.length).toBeGreaterThan(0);
+
+      await client.disconnect();
+      client = null;
+
+      // 2차: 동일 sessionId로 loadSession 경로를 거쳐 컨텍스트 확인
+      const { client: c2, sessionId: secondSessionId } = await connectClient('claude', {
+        sessionId: firstSessionId,
+      });
+      client = c2;
+
+      const { response: secondResponse } = await sendAndCollect(client, SESSION_RECALL_PROMPT);
+      expect(secondResponse).toContain('42');
+      expect(secondSessionId).toBe(firstSessionId);
+    }, 360_000);
   });
 });

@@ -20,6 +20,7 @@ import {
   getSessionLaunchConfig,
 } from "./provider-types.js";
 import { getSessionStore } from "./runtime.js";
+import { classifyResumeFailure } from "./session-resume-utils.js";
 import { getLogAPI } from "../log/bridge.js";
 
 type ToolCallLike = {
@@ -27,16 +28,6 @@ type ToolCallLike = {
   rawOutput?: unknown;
   toolCallId?: string;
 };
-
-type ResumeFailureKind =
-  | "dead-session"
-  | "capability-mismatch"
-  | "auth"
-  | "transport"
-  | "model-config"
-  | "timeout"
-  | "abort"
-  | "unknown";
 
 type InternalExecuteOptions = ExecuteOptions & {
   /** carrier 경로의 connect-time system prompt handoff */
@@ -50,22 +41,6 @@ const CLIENT_INFO = { name: "pi-unified-agent", version: "1.0.0" } as const;
 
 /** 도구 호출 최대 보관 수 (메모리 보호) */
 const MAX_TOOL_CALLS_TO_KEEP = 30;
-
-const DEAD_SESSION_PATTERNS = [
-  /session not found/i,
-  /unknown session/i,
-  /invalid session/i,
-  /closed session/i,
-  /expired session/i,
-];
-
-const AUTH_PATTERNS = [
-  /auth/i,
-  /login/i,
-  /unauthorized/i,
-  /permission denied/i,
-  /invalid api key/i,
-];
 
 // ─── executeWithPool: 풀 기반 실행 ─────────────────────
 
@@ -250,11 +225,7 @@ export async function executeWithPool(opts: InternalExecuteOptions): Promise<Exe
         promptIdleTimeout: opts.promptIdleTimeout,
       }, opts.connectSystemPrompt ?? null);
 
-      // carrier connect prompt가 있으면 저장된 sessionId resume을 건너뛰어
-      // stale connect-time prompt 세션을 조용히 재사용하지 않도록 한다.
-      const savedSessionId = opts.connectSystemPrompt
-        ? undefined
-        : store.get(carrierId) ?? poolEntry?.sessionId;
+      const savedSessionId = store.get(carrierId) ?? poolEntry?.sessionId;
       if (savedSessionId) {
         connectOpts.sessionId = savedSessionId;
       }
@@ -702,32 +673,6 @@ function resolveLaunchOverrides(
   };
 }
 
-function classifyResumeFailure(error: unknown): ResumeFailureKind {
-  const message = extractErrorMessage(error);
-  if (message === "Aborted") {
-    return "abort";
-  }
-  if (DEAD_SESSION_PATTERNS.some((pattern) => pattern.test(message))) {
-    return "dead-session";
-  }
-  if (/loadSession.*지원하지 않/i.test(message) || /session\/load.*지원하지 않/i.test(message)) {
-    return "capability-mismatch";
-  }
-  if (AUTH_PATTERNS.some((pattern) => pattern.test(message))) {
-    return "auth";
-  }
-  if (/spawn|initialize|transport|econn|pipe|closed/i.test(message)) {
-    return "transport";
-  }
-  if (/model|config|mcp/i.test(message)) {
-    return "model-config";
-  }
-  if (/timeout|timed out|유휴 상태/i.test(message)) {
-    return "timeout";
-  }
-  return "unknown";
-}
-
 function attachCoreStderrLogging(client: IUnifiedAgentClient, source: string): () => void {
   const log = getLogAPI();
   const onLogEntry = (entry: { message: string; cli?: string; sessionId?: string }) => {
@@ -763,17 +708,4 @@ function normalizeDiagnosticStderr(message: string): string | null {
     return null;
   }
   return stripped;
-}
-
-function extractErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  if (typeof error === "string") {
-    return error;
-  }
-  if (error && typeof error === "object" && "message" in error && typeof (error as { message?: unknown }).message === "string") {
-    return (error as { message: string }).message;
-  }
-  return String(error);
 }

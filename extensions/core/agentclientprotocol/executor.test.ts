@@ -236,11 +236,11 @@ describe("executor", () => {
     }));
   });
 
-  it("executeWithPool은 connectSystemPrompt가 있으면 저장된 sessionId resume을 건너뛴다", async () => {
-    mockState.sessionStoreState["carrier-connect-prompt-fresh"] = "saved-session";
+  it("executeWithPool은 connectSystemPrompt가 있어도 저장된 sessionId resume을 시도한다", async () => {
+    mockState.sessionStoreState["carrier-connect-prompt-resume"] = "saved-session";
 
     await executeWithPool({
-      carrierId: "carrier-connect-prompt-fresh",
+      carrierId: "carrier-connect-prompt-resume",
       cliType: "codex",
       request: "hello",
       cwd: "/tmp/pi-fleet",
@@ -248,7 +248,7 @@ describe("executor", () => {
     } as any);
 
     const client = mockState.instances[0];
-    expect(client.connect).toHaveBeenCalledWith(expect.not.objectContaining({
+    expect(client.connect).toHaveBeenCalledWith(expect.objectContaining({
       sessionId: "saved-session",
     }));
   });

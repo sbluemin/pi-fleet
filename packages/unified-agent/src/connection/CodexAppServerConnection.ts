@@ -3,6 +3,8 @@
  */
 
 import type { ChildProcess } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { BaseConnection, type BaseConnectionOptions } from './BaseConnection.js';
 import type { AcpPermissionRequestParams, AcpPermissionResponse } from '../types/acp.js';
 import type {
@@ -15,6 +17,7 @@ import type {
   CodexCommandExecutionApprovalParams,
   CodexErrorNotification,
   CodexFileChangeApprovalParams,
+  CodexInitializeResult,
   CodexItemCompletedNotification,
   CodexItemStartedNotification,
   CodexJsonValue,
@@ -164,6 +167,7 @@ export class CodexAppServerConnection extends BaseConnection {
   private stdoutBuffer = '';
   private pendingModel: string | null = null;
   private pendingEffort: string | null = null;
+  private codexHome: string | null = null;
   private agentMessagePhases = new Map<string, string>();
   private mcpServerStatuses = new Map<string, CodexMcpServerStartupStatusNotification>();
 
@@ -227,7 +231,7 @@ export class CodexAppServerConnection extends BaseConnection {
     this.setState('initializing');
 
     try {
-      await this.sendRequest(
+      const initializeResult = await this.sendRequest<CodexInitializeResult>(
         CODEX_METHODS.INITIALIZE,
         {
           clientInfo: this.clientInfo,
@@ -237,6 +241,7 @@ export class CodexAppServerConnection extends BaseConnection {
         },
         this.initTimeout,
       );
+      this.codexHome = initializeResult.codexHome;
       this.setState('connected');
 
       if (options?.skipThreadStart) {
@@ -269,14 +274,16 @@ export class CodexAppServerConnection extends BaseConnection {
     threadId: string,
     options?: ResumeSessionOptions,
   ): Promise<CodexThreadResumeResponse> {
-    const response = await this.sendRequest<CodexThreadResumeResponse>(
-      CODEX_METHODS.THREAD_RESUME,
-      {
-        threadId,
-        model: options?.model ?? null,
-        config: options?.config ?? null,
-      },
-    );
+    let response: CodexThreadResumeResponse;
+    try {
+      response = await this.sendThreadResumeRequest(threadId, options);
+    } catch (error) {
+      const rolloutPath = this.findRolloutPathForThreadId(threadId);
+      if (!rolloutPath || !isMissingRolloutError(error, threadId)) {
+        throw error;
+      }
+      response = await this.sendThreadResumeRequest(threadId, options, rolloutPath);
+    }
     this.threadId = response.thread.id;
     this.turnId = null;
     this.setState('ready');
@@ -397,10 +404,12 @@ export class CodexAppServerConnection extends BaseConnection {
   }
 
   async disconnect(): Promise<void> {
-    await this.endSession().catch(() => {});
+    this.threadId = null;
+    this.turnId = null;
     this.rejectPendingRequests(new Error('Codex 연결이 종료되었습니다.'));
     this.rejectPendingMcpReadyWaiters(new Error('Codex 연결이 종료되었습니다.'));
     this.stdoutBuffer = '';
+    this.codexHome = null;
     await super.disconnect();
   }
 
@@ -825,6 +834,38 @@ export class CodexAppServerConnection extends BaseConnection {
     }
   }
 
+  private sendThreadResumeRequest(
+    threadId: string,
+    options?: ResumeSessionOptions,
+    rolloutPath?: string,
+  ): Promise<CodexThreadResumeResponse> {
+    return this.sendRequest<CodexThreadResumeResponse>(
+      CODEX_METHODS.THREAD_RESUME,
+      {
+        threadId,
+        path: rolloutPath ?? null,
+        model: options?.model ?? null,
+        config: options?.config ?? null,
+      },
+    );
+  }
+
+  private findRolloutPathForThreadId(threadId: string): string | null {
+    const codexHome = this.codexHome ?? this.env.CODEX_HOME ?? path.join(this.env.HOME ?? '', '.codex');
+    if (!codexHome) {
+      return null;
+    }
+
+    for (const rootName of ['sessions', 'archived_sessions']) {
+      const found = findRolloutPath(path.join(codexHome, rootName), threadId);
+      if (found) {
+        return found;
+      }
+    }
+
+    return null;
+  }
+
   private sendJsonRpc(message: JsonRpcRequest | JsonRpcNotification | JsonRpcSuccessResponse | JsonRpcErrorResponse): void {
     if (!this.child?.stdin) {
       throw new Error('Codex app-server 프로세스가 준비되지 않았습니다.');
@@ -890,4 +931,30 @@ export class CodexAppServerConnection extends BaseConnection {
     }
     return this.threadId;
   }
+}
+
+function isMissingRolloutError(error: unknown, threadId: string): boolean {
+  return error instanceof Error && error.message.includes(`no rollout found for thread id ${threadId}`);
+}
+
+function findRolloutPath(root: string, threadId: string): string | null {
+  if (!fs.existsSync(root)) {
+    return null;
+  }
+
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    const entryPath = path.join(root, entry.name);
+    if (entry.isDirectory()) {
+      const found = findRolloutPath(entryPath, threadId);
+      if (found) {
+        return found;
+      }
+      continue;
+    }
+    if (entry.isFile() && entry.name.endsWith('.jsonl') && entry.name.includes(threadId)) {
+      return entryPath;
+    }
+  }
+
+  return null;
 }

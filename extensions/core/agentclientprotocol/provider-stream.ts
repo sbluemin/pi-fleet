@@ -57,6 +57,8 @@ import {
   computeToolHash,
   getToolNamesForSession,
 } from "./provider-tools.js";
+import { getSessionStore, onHostSessionChange } from "./runtime.js";
+import { classifyResumeFailure, isDeadSessionError } from "./session-resume-utils.js";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types / Interfaces
@@ -81,14 +83,6 @@ interface ToolResultEnvelope {
 
 const SESSION_KEY_PREFIX = "acp";
 const SESSION_SCOPE_PREFIX = "session";
-const DEAD_SESSION_PATTERNS = [
-  /session not found/i,
-  /unknown session/i,
-  /invalid session/i,
-  /closed session/i,
-  /expired session/i,
-];
-
 const TRANSPORT_RECOVERY_PATTERNS = [
   /ACP connection closed/i,
   /connection closed/i,
@@ -140,11 +134,6 @@ function errorMessage(err: unknown): string {
     try { return JSON.stringify(err); } catch { /* noop */ }
   }
   return String(err);
-}
-
-function isDeadSessionError(err: unknown): boolean {
-  const message = errorMessage(err);
-  return DEAD_SESSION_PATTERNS.some((pattern) => pattern.test(message));
 }
 
 function isRecoverablePromptFailure(err: unknown): boolean {
@@ -307,9 +296,19 @@ function getSessionScopeKey(options: StreamOptionsLike | undefined, cwd: string)
   throw new Error(`ACP 세션 스코프 식별자가 없습니다 (cwd fallback 금지): ${cwd}`);
 }
 
+/** streamSimple 옵션에서 SessionMapStore가 사용할 PI 세션 파일 키를 추출 */
+function getStoreBindingSessionId(options: StreamOptionsLike | undefined): string | undefined {
+  return options?.piSessionId ?? options?.sessionId ?? options?.conversationId;
+}
+
 /** provider 세션 키 생성 — cwd 단독 키를 금지하고 cli를 항상 포함 */
 function getSessionKey(cli: CliType, scopeKey: string): string {
   return `${SESSION_KEY_PREFIX}:${cli}:${scopeKey}`;
+}
+
+/** PI 세션 파일 내부의 host/provider 세션 키 */
+function getHostSessionStoreKey(cli: CliType, _scopeKey: string): string {
+  return `host:${cli}`;
 }
 
 /** scope 키로 기존 세션 조회 */
@@ -526,7 +525,6 @@ async function ensureSession(
               ? "dead client 감지"
               : "dead-session recovery";
       debug(`세션 폐기: ${reason}`, `(${session.cli} → ${cli})`);
-      await session.client?.endSession().catch(() => {});
       await session.client?.disconnect().catch(() => {});
       session.client = null;
       if (session.mcpSessionToken) {
@@ -616,19 +614,54 @@ async function ensureSession(
     lastError: null,
   };
 
+  const store = getSessionStore();
+  const storeKey = getHostSessionStoreKey(cli, scopeKey);
+  const savedSessionId = store.get(storeKey) ?? undefined;
+  let client: IUnifiedAgentClient | null = null;
+  let resumedFromSavedSession = false;
+
   try {
-    debug(session?.sessionId ? `session/load 복원 시도: ${session.sessionId.slice(0, 8)}` : `새 연결 시작: cli=${cli}`);
+    debug(savedSessionId ? `session/load 복원 시도: ${savedSessionId.slice(0, 8)}` : `새 연결 시작: cli=${cli}`);
     // Admiral host 응답 생성 경로는 전역 systemPrompt를 connect 옵션으로 직접 전달한다.
-    const client = await UnifiedAgent.build({ cli });
-    const connectResult = await client.connect(buildProviderConnectOptions(
-      cli,
-      cwd,
-      backendModel,
-      mcpServers,
-    ));
+    client = await UnifiedAgent.build({ cli, sessionId: savedSessionId });
+    let connectResult;
+    try {
+      connectResult = await client.connect(buildProviderConnectOptions(
+        cli,
+        cwd,
+        backendModel,
+        mcpServers,
+        savedSessionId,
+      ));
+      resumedFromSavedSession = !!savedSessionId;
+    } catch (connectError) {
+      if (!savedSessionId) {
+        throw connectError;
+      }
+      if (classifyResumeFailure(connectError) !== "dead-session") {
+        throw connectError;
+      }
+
+      debug(`session/load 실패, fresh fallback: ${savedSessionId.slice(0, 8)} ${errorMessage(connectError)}`);
+      store.clear(storeKey);
+      await client.disconnect().catch(() => {});
+      client.removeAllListeners();
+      client = await UnifiedAgent.build({ cli });
+      resumedFromSavedSession = false;
+      connectResult = await client.connect(buildProviderConnectOptions(
+        cli,
+        cwd,
+        backendModel,
+        mcpServers,
+      ));
+    }
     await applyPostConnectConfig(client, cli, effortOverrides);
     newSession.client = client;
     newSession.sessionId = connectResult.session?.sessionId ?? client.getConnectionInfo().sessionId ?? null;
+    newSession.firstPromptSent = resumedFromSavedSession;
+    if (newSession.sessionId) {
+      store.set(storeKey, newSession.sessionId);
+    }
     registerSession(state, newSession);
     installToolCallRouter(state, newSession);
     setSessionLaunchConfig(newSession.sessionKey, {
@@ -642,25 +675,18 @@ async function ensureSession(
     return newSession;
   } catch (err) {
     // 실패 시 정리
-    await newSession.client?.disconnect().catch(() => {});
-    newSession.client?.removeAllListeners();
+    await (client ?? newSession.client)?.disconnect().catch(() => {});
+    (client ?? newSession.client)?.removeAllListeners();
     if (mcpActive) removeToolsForSession(sessionToken);
     throw err;
   }
 }
 
-/** 세션 연결 해제 — preserveSessionId가 true이면 sessionId를 보존 (resume용) */
+/** 세션 연결 해제 — provider lifecycle 정리는 backend 세션을 archive하지 않는다. */
 async function disconnectSession(
   session: AcpSessionState,
   preserveSessionId = false,
 ): Promise<void> {
-  try {
-    if (session.client && session.sessionId) {
-      await session.client.endSession().catch(() => {});
-    }
-  } catch {
-    // best-effort
-  }
   try {
     if (session.client) {
       await session.client.disconnect().catch(() => {});
@@ -773,6 +799,10 @@ export function streamAcp(
       errorMapper.finishWithError("error", errorMessage(err));
     });
     return errorMapper.stream;
+  }
+  const storeBindingSessionId = getStoreBindingSessionId(streamOptions);
+  if (storeBindingSessionId) {
+    onHostSessionChange(storeBindingSessionId);
   }
   // drift 감지: context.systemPrompt(pi 전체) 대신 CLI 전용 지침 해시 사용
   const systemPromptHash = hashSystemPrompt(getCliSystemPrompt() ?? undefined);
@@ -1188,13 +1218,13 @@ export async function cleanupAll(): Promise<void> {
  */
 export async function handleSessionStart(
   reason: "new" | "resume" | "fork",
-  _piSessionId?: string,
+  piSessionId?: string,
 ): Promise<void> {
   const state = getOrInitState();
 
-  // new/fork/resume 모두 기존 세션 정리 — 새 연결 시 히스토리로 컨텍스트 전달
+  // live process artifacts는 항상 재생성한다. 디스크 session-map은 runtime의 piSessionId 바인딩을 보존한다.
   await clearSessionsAndPreSpawn(state);
-  debug(`session_start(${reason}): 세션 + MCP 초기화`);
+  debug(`session_start(${reason}): 세션 + MCP 초기화`, piSessionId ? `piSessionId=${piSessionId}` : "piSessionId=unknown");
 }
 
 /** 세션, MCP tool registry, toolCall 라우팅 상태 일괄 정리 */
@@ -1218,6 +1248,7 @@ function buildProviderConnectOptions(
   cwd: string,
   backendModel: string,
   mcpServers?: McpServerConfig[],
+  sessionId?: string,
 ): UnifiedClientOptions {
   const connectOptions: UnifiedClientOptions = {
     cwd,
@@ -1238,6 +1269,10 @@ function buildProviderConnectOptions(
 
   if (mcpServers) {
     connectOptions.mcpServers = mcpServers;
+  }
+
+  if (sessionId) {
+    connectOptions.sessionId = sessionId;
   }
 
   return connectOptions;

@@ -9,6 +9,8 @@
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import * as os from "node:os";
+import * as path from "node:path";
 import { getModelsRegistry, type CliType } from "@sbluemin/unified-agent";
 
 import {
@@ -17,6 +19,7 @@ import {
   CLI_DEFAULTS,
   buildModelId,
 } from "./provider-types.js";
+import { initRuntime, onHostSessionChange } from "./runtime.js";
 import { streamAcp, cleanupAll, handleSessionStart } from "./provider-stream.js";
 import {
   installAcpThinkingLevelPatch,
@@ -54,11 +57,15 @@ const MODELS = Object.entries(getModelsRegistry().providers).flatMap(
   },
 );
 
+/** Fleet와 동일한 SessionMapStore 영속 경로 */
+const FLEET_DATA_DIR = path.join(os.homedir(), ".pi", "fleet");
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Extension Entry Point
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default function (pi: ExtensionAPI) {
+  initRuntime(FLEET_DATA_DIR);
   installAcpThinkingLevelPatch();
 
   // ── 세션 라이프사이클 ──
@@ -68,10 +75,15 @@ export default function (pi: ExtensionAPI) {
 
     if (event.reason === "new" || event.reason === "resume" || event.reason === "fork") {
       const piSessionId = ctx.sessionManager.getSessionId();
+      onHostSessionChange(piSessionId);
       handleSessionStart(event.reason, piSessionId).catch((err) => {
         console.error("[fleet-acp] session_start 처리 실패:", err);
       });
     }
+  });
+
+  pi.on("session_tree", (_event, ctx) => {
+    onHostSessionChange(ctx.sessionManager.getSessionId());
   });
 
   pi.on("model_select", (event) => {
