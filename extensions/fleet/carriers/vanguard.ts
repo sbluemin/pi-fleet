@@ -20,7 +20,11 @@ const CARRIER_METADATA: CarrierMetadata = {
     "fast file scanning",
     "multi-file reading tasks",
   ],
-  whenNotToUse: "ANY code modification or file editing (→genesis), design decisions (→nimitz), GitHub repo deep-dives (→tempest)",
+  whenNotToUse: [
+    "ANY code modification or file editing (→genesis)",
+    "design decisions (→nimitz)",
+    "GitHub repo deep-dives (→tempest)",
+  ],
 
   // ── Tier 2: Composition ──
   permissions: [

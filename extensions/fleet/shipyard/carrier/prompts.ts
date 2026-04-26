@@ -205,8 +205,13 @@ function buildCarrierRoster(carrierIds: string[]): string {
     lines.push(`- **${carrierId}** (${name} · ${meta.title}): ${meta.summary}`);
     // 2줄: 긍정 호출 조건
     lines.push(`  Use for: ${meta.whenToUse.join(", ")}.`);
-    // 3줄: 부정 조건
-    lines.push(`  NOT for: ${meta.whenNotToUse}`);
+    // 3줄이하: 부정 호출 조건 (멀티라인 불릿)
+    if (meta.whenNotToUse.length > 0) {
+      lines.push(`  NOT for:`);
+      for (const item of meta.whenNotToUse) {
+        lines.push(`    - ${item}`);
+      }
+    }
     // 4줄: 필수 요청 블록 — CLI가 반드시 준수해야 할 구조 (?는 optional)
     if (meta.requestBlocks.length > 0) {
       const tags = meta.requestBlocks

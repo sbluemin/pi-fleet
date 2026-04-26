@@ -19,7 +19,11 @@ const CARRIER_METADATA: CarrierMetadata = {
     "API usage examples from open-source",
     "upstream dependency deep-dives",
   ],
-  whenNotToUse: "local codebase exploration (→vanguard), code modification (→genesis), design decisions (→nimitz)",
+  whenNotToUse: [
+    "local codebase exploration (→vanguard)",
+    "code modification (→genesis)",
+    "design decisions (→nimitz)",
+  ],
 
   // ── Tier 2: Composition ──
   permissions: [

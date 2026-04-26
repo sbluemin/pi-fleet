@@ -248,7 +248,12 @@ function buildCarrierRoster(carrierIds: string[]): string {
     const name = config.displayName;
     lines.push(`- **${carrierId}** (${name} · ${meta.title}): ${meta.summary}`);
     lines.push(`  Use for: ${meta.whenToUse.join(", ")}.`);
-    lines.push(`  NOT for: ${meta.whenNotToUse}`);
+    if (meta.whenNotToUse.length > 0) {
+      lines.push(`  NOT for:`);
+      for (const item of meta.whenNotToUse) {
+        lines.push(`    - ${item}`);
+      }
+    }
     if (meta.requestBlocks.length > 0) {
       const tags = meta.requestBlocks
         .map((b) => b.required ? `<${b.tag}>` : `<${b.tag}?>`)

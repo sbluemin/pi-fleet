@@ -19,7 +19,12 @@ const CARRIER_METADATA: CarrierMetadata = {
     "refactors or migrations with ≥4 dependent steps",
     "cross-module coordinated changes following a Kirov plan",
   ],
-  whenNotToUse: "single-file edits or admiral-direct single-shot tasks (→genesis), architecture decisions (→nimitz), planning work itself (→kirov), reconnaissance before planning (→vanguard/tempest)",
+  whenNotToUse: [
+    "single-file edits or admiral-direct single-shot tasks (→genesis)",
+    "architecture decisions (→nimitz)",
+    "planning work itself (→kirov)",
+    "reconnaissance before planning (→vanguard/tempest)",
+  ],
 
   // ── Tier 2: Composition ──
   permissions: [

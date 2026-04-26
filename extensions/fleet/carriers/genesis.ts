@@ -22,7 +22,12 @@ const CARRIER_METADATA: CarrierMetadata = {
     "dead code removal and deduplication",
     "default carrier for coding tasks",
   ],
-  whenNotToUse: "architecture decisions without prior nimitz review, or non-trivial implementation lacking an execution plan from Kirov when planning is clearly needed. Post-build: QA & security (→sentinel), docs (→chronicle)",
+  whenNotToUse: [
+    "architecture decisions without prior nimitz review",
+    "non-trivial implementation lacking an execution plan from Kirov when planning is clearly needed",
+    "post-build QA & security (→sentinel)",
+    "post-build documentation (→chronicle)",
+  ],
 
   // ── Tier 2: Composition ──
   permissions: [

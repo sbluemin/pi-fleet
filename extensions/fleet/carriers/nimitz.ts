@@ -20,7 +20,13 @@ const CARRIER_METADATA: CarrierMetadata = {
     "code self-review (read-only)",
     "deep technical analysis and trade-off evaluation",
   ],
-  whenNotToUse: "any code modification, PRD/task decomposition, delivery planning, or markdown work-plan generation — strictly read-only. If recon is needed first, sortie vanguard/tempest before nimitz",
+  whenNotToUse: [
+    "CRITICAL — NEVER sortie nimitz without prior reconnaissance: if recon is needed, sortie vanguard/tempest FIRST. Treat this as a hard prerequisite, not a suggestion.",
+    "any code modification or file editing",
+    "PRD/task decomposition or delivery planning (→kirov)",
+    "markdown work-plan generation (→kirov)",
+    "strictly read-only — no implementation, no file writes",
+  ],
 
   // ── Tier 2: Composition ──
   permissions: [

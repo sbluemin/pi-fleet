@@ -19,7 +19,12 @@ const CARRIER_METADATA: CarrierMetadata = {
     "medium/large refactors, migrations, or cross-module work that should not start without a stable plan",
     "materially ambiguous requirements where planning must close gaps before execution",
   ],
-  whenNotToUse: "single-Carrier tasks with ≤3 dependent steps and clear acceptance criteria (→Admiral plans directly), direct code implementation single-shot (→genesis) or plan-driven (→ohio), final architecture arbitration or deep trade-off decisions requiring Admiral direction, sorties needing reconnaissance before planning (→vanguard/tempest first)",
+  whenNotToUse: [
+    "single-Carrier tasks with ≤3 dependent steps and clear acceptance criteria (→Admiral plans directly)",
+    "direct code implementation single-shot (→genesis) or plan-driven (→ohio)",
+    "final architecture arbitration or deep trade-off decisions requiring Admiral direction",
+    "sorties needing reconnaissance before planning (→vanguard/tempest first)",
+  ],
 
   // ── Tier 2: Composition ──
   permissions: [

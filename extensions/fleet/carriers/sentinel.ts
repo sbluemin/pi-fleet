@@ -25,7 +25,11 @@ const CARRIER_METADATA: CarrierMetadata = {
     "vulnerability hunting",
     "dependency risk analysis",
   ],
-  whenNotToUse: "before implementation (genesis) is done. New features (→genesis), refactoring (→genesis)",
+  whenNotToUse: [
+    "before implementation (genesis) is done",
+    "new features (→genesis)",
+    "refactoring (→genesis)",
+  ],
 
   // ── Tier 2: Composition ──
   permissions: [

@@ -25,7 +25,13 @@ const CARRIER_METADATA: CarrierMetadata = {
     "breaking-change and compatibility note detection",
     "release communication drafting (announcements, migration guides, operator notes)",
   ],
-  whenNotToUse: "before implementation and verification are complete. Code modification (→genesis), code review (→sentinel), architecture (→nimitz). Change-impact work that requires architectural judgment (→nimitz) or execution/release-scope planning decisions (→kirov)",
+  whenNotToUse: [
+    "before implementation and verification are complete",
+    "code modification (→genesis)",
+    "code review (→sentinel)",
+    "architecture (→nimitz)",
+    "change-impact work that requires architectural judgment (→nimitz) or execution/release-scope planning decisions (→kirov)",
+  ],
 
   // ── Tier 2: Composition ──
   permissions: [
