@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import { collectCaptureTranscript } from "./capture.js";
+import { collectCaptureSession } from "./capture.js";
 import { runDryDock } from "./drydock.js";
 import { approvePatch, listQueue, rejectPatch, showQueue } from "./patch.js";
 import { ensureMemoryRoot, resolveMemoryPaths } from "./paths.js";
@@ -62,8 +62,8 @@ export function registerMemoryCommands(pi: ExtensionAPI): void {
   pi.registerCommand("fleet:memory:capture", {
     description: "현재 세션 이력에서 Fleet Memory 캡처 프리뷰 후속 흐름 시작",
     handler: async (_args, ctx) => {
-      const transcript = collectCaptureTranscript(ctx);
-      if (!transcript) {
+      const session = collectCaptureSession(ctx);
+      if (!session) {
         ctx.ui.notify("현재 세션에서 캡처할 대화/작업 이력이 없어 Fleet Memory preview를 시작할 수 없습니다.", "warning");
         return;
       }
@@ -81,7 +81,7 @@ export function registerMemoryCommands(pi: ExtensionAPI): void {
 
       const directive = buildMemoryCaptureDirective({
         mode: choice === "AAR 전용 프리뷰" ? "aar_only" : "preview",
-        transcript,
+        session,
       });
 
       if (typeof pi.sendUserMessage !== "function") {

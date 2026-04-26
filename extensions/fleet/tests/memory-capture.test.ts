@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { collectCaptureTranscript } from "../memory/capture.js";
+import { collectCaptureSession } from "../memory/capture.js";
 import { registerMemoryCommands } from "../memory/commands.js";
 import { buildMemoryCaptureDirective } from "../memory/prompts.js";
 
-describe("memory capture transcript", () => {
-  it("extracts bounded conversation and tool events from the current branch", () => {
-    const transcript = collectCaptureTranscript(makeContext([
+describe("memory capture session", () => {
+  it("detects usable history from the current branch without serializing it", () => {
+    const session = collectCaptureSession(makeContext([
       {
         type: "message",
         message: {
@@ -33,21 +33,11 @@ describe("memory capture transcript", () => {
       },
     ] as any[]));
 
-    expect(transcript).not.toBeNull();
-    expect(transcript?.branchId).toBe("session-1");
-    expect(transcript?.messages).toEqual([
-      { role: "user", content: "Investigate memory capture flow" },
-      { role: "assistant", content: "Drafted an implementation outline" },
-    ]);
-    expect(transcript?.events).toEqual([
-      { type: "tool_call", content: 'memory_briefing {"topic":"capture"}' },
-      { type: "tool_result", content: 'memory_briefing {"ok":true}' },
-    ]);
-    expect(transcript?.operationSource).toContain("Branch: session-1");
+    expect(session).toEqual({ branchId: "session-1" });
   });
 
   it("returns null when the branch has no usable history", () => {
-    expect(collectCaptureTranscript(makeContext([] as any[]))).toBeNull();
+    expect(collectCaptureSession(makeContext([] as any[]))).toBeNull();
   });
 });
 
@@ -55,18 +45,15 @@ describe("memory capture directive", () => {
   it("builds an approval-gated preview directive", () => {
     const directive = buildMemoryCaptureDirective({
       mode: "preview",
-      transcript: {
-        branchId: "branch-1",
-        operationSource: "Branch: branch-1\n[user] capture this",
-        messages: [{ role: "user", content: "capture this" }],
-        events: [],
-      },
+      session: { branchId: "branch-1" },
     });
 
     expect(directive).toContain("Fleet Memory capture preview");
     expect(directive).toContain("Do not call `memory_ingest` or `memory_aar_propose`");
     expect(directive).toContain("candidate wiki entries");
-    expect(directive).toContain("Branch: branch-1");
+    expect(directive).toContain("Base the preview on the current conversation/session history");
+    expect(directive).toContain("branch `branch-1`");
+    expect(directive).not.toContain("<fleet_memory_capture_source>");
   });
 });
 

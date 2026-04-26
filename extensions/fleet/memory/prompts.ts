@@ -1,7 +1,7 @@
 import { Type } from "@sinclair/typebox";
 
 import type { ToolPromptManifest } from "../admiral/tool-prompt-manifest/index.js";
-import type { MemoryCaptureTranscript } from "./capture.js";
+import type { MemoryCaptureSession } from "./capture.js";
 
 export const MEMORY_INGEST_MANIFEST: ToolPromptManifest = {
   id: "memory_ingest",
@@ -99,7 +99,7 @@ export const MEMORY_PATCH_QUEUE_DESCRIPTION = MEMORY_PATCH_QUEUE_MANIFEST.descri
 
 export function buildMemoryCaptureDirective(input: {
   mode: "preview" | "aar_only";
-  transcript: MemoryCaptureTranscript;
+  session: MemoryCaptureSession;
 }): string {
   const modeLabel = input.mode === "aar_only" ? "AAR-only preview" : "capture preview";
   const nextAction = input.mode === "aar_only"
@@ -122,11 +122,8 @@ export function buildMemoryCaptureDirective(input: {
     "",
     nextAction,
     "",
-    "Use the bounded operation source below as the primary evidence set.",
-    "",
-    "<fleet_memory_capture_source>",
-    input.transcript.operationSource,
-    "</fleet_memory_capture_source>",
+    `Base the preview on the current conversation/session history already present in context for branch \`${input.session.branchId}\`.`,
+    "Do not restate the full transcript unless a short excerpt is strictly necessary to explain a conflict or warning.",
   ].join("\n");
 }
 
