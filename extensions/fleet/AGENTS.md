@@ -28,11 +28,14 @@ The number of carriers is determined at runtime by the carrier modules registere
 - **Slot-based ordering**: Each carrier's `slot` determines its panel column position and inline navigation order. Slots must be unique across all registered carriers. **When `cliType` changes, the sorting order and theme color of the corresponding CLI type are immediately reflected.**
 - **carriers_sortie call instance isolation**: The `carriers_sortie` tool uses `toolCallId` as the `sortieKey` to isolate state (progress, streaming content, result cache) per call. This prevents UI interference and redundant content output during concurrent/sequential calls.
 - **Carrier Squadron (Parallel Execution)**: Same-type carriers can be grouped into a **Squadron** (toggled via 'S' key in Status Overlay) for parallel task processing.
-  - `squadronEnabled` carriers are **automatically excluded** from `carriers_sortie` to prevent session conflicts.
+  - **Global Kill-switch**: If a carrier's sortie is manually disabled (`sortie off`), it is **automatically excluded** from all dispatch modes, including `carriers_sortie`, `carrier_squadron`, and `carrier_taskforce`.
+  - **Exclusion**: `squadronEnabled` carriers are also excluded from the base `carriers_sortie` tool to prevent session conflicts.
   - **Fire-and-forget**: Squadron jobs are registered as detached jobs and return a `job_id` immediately.
   - A hard cap of **5 concurrent instances** is enforced per squadron.
   - Active squadrons are indicated by a `[SQ]` tag in the Status Bar.
 - **Asynchronous Operations & Archiving**: `carriers_sortie`, `carrier_taskforce`, and `carrier_squadron` tools operate in fire-and-forget mode.
+  - **Sortie Guard**: All dispatch tools enforce the `sortie off` global kill-switch.
+  - **Runtime Context**: The ACP runtime context includes an `<offline_carriers>` tag containing comma-separated IDs of carriers with their sortie disabled, allowing the Admiral to perceive the offline state.
   - **Immediate Response**: Tools return `{ job_id, accepted }` instantly.
   - **Job Stream Archive**: Detached job outputs are stored in a process-memory archive (`JobStreamArchive`).
   - **Limits**: 3-hour TTL (`CARRIER_JOB_TTL_MS`), 8MB/2000-block per job capacity (`MAX_TOTAL_BYTES`, `MAX_BLOCKS`), and a global concurrency cap of 5 detached jobs.

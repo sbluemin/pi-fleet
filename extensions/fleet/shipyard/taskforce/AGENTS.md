@@ -17,6 +17,7 @@ Carrier Task Force management for cross-backend parallel validation.
 
 ## Rules
 
+- **Sortie Activation Check**: Rejects the request if the target carrier has its sortie manually disabled (`sortie off`).
 - **Busy Check**: Rejects the request if the target carrier is already busy.
 - **Backend Requirement**: Requires at least 2 configured backends to execute.
 - **Result Labels**: Each execution result must be tagged with its source backend name for the Admiral's interpretation.

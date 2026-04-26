@@ -16,6 +16,7 @@ Carrier Squadron management for parallel execution of same-type carriers.
 
 ## Rules
 
+- **Sortie Activation Check**: Rejects the request if any of the target carriers have their sortie manually disabled (`sortie off`). Uses the same "manually disabled" error message as the base sortie tool.
 - **Busy Check**: Rejects the request if any of the target carriers are already busy with an active job.
 - **Logging**: Uses `fleet-squadron:*` categories for lifecycle observability.
 - **Prompt Composition**: Dynamically builds the prompt for each carrier based on the squadron input.

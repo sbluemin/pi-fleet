@@ -20,7 +20,7 @@ Carrier Framework SDK — registration, activation, and tool delegation logic.
 - **Registration Pipeline**:
   - `registerCarrier()`: The primary API for registering full carrier configs.
   - `registerSingleCarrier()`: A convenience wrapper for CLI-based carriers, handling automatic `defaultCliType` assignment and persona metadata.
-- **Activation & Visibility**: Carriers can be toggled via `sortieDisabled`. Disabled carriers must be filtered out from the `carriers_sortie` tool's available carrier list in the prompt.
+- **Activation & Visibility**: The `sortie off` state acts as a **global kill-switch** for a carrier. Disabled carriers must be filtered out from the prompt lists of all dispatch tools (`carriers_sortie`, `carrier_squadron`, `carrier_taskforce`) and are rejected at the dispatch entry point.
 - **CLI Type Fluidity**: Supports runtime `cliType` overrides. When a carrier's CLI type changes, its associated theme colors and sorting order in the UI must update immediately.
 
 ## Module Structure

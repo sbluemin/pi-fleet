@@ -11,6 +11,7 @@
  *  - Carrier 상태 관리 (globalThis 공유 Map)
  *  - 등록 순서/메타데이터 보관
  *  - 렌더러 등록 (커스텀 or 기본)
+ *  - sortie off는 전역 kill-switch이며, squadron/taskforce active view도 이 Set을 차감해 구성
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -209,6 +210,16 @@ export function getSquadronEnabledIds(): string[] {
 }
 
 /**
+ * sortie off를 제외한 squadron 활성 carrier ID 목록을 반환합니다.
+ */
+export function getActiveSquadronIds(): string[] {
+  const gs = getState();
+  return gs.registeredOrder.filter(
+    (id) => gs.squadronEnabledCarriers.has(id) && !gs.sortieDisabledCarriers.has(id),
+  );
+}
+
+/**
  * squadron 활성화 목록을 일괄 설정합니다.
  */
 export function setSquadronEnabledCarriers(ids: string[]): void {
@@ -223,6 +234,16 @@ export function setSquadronEnabledCarriers(ids: string[]): void {
  */
 export function getTaskForceConfiguredIds(): string[] {
   return [...getState().taskforceConfiguredCarriers];
+}
+
+/**
+ * sortie off를 제외한 Task Force 설정 carrier ID 목록을 반환합니다.
+ */
+export function getActiveTaskForceIds(): string[] {
+  const gs = getState();
+  return gs.registeredOrder.filter(
+    (id) => gs.taskforceConfiguredCarriers.has(id) && !gs.sortieDisabledCarriers.has(id),
+  );
 }
 
 /**

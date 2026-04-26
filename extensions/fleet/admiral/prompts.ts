@@ -22,11 +22,12 @@ import { getActiveProtocol, getAllProtocols } from "./protocols/index.js";
 import { getAllStandingOrders } from "./standing-orders/index.js";
 import { getAllToolPromptManifests, renderToolPromptManifestTagBlock } from "./tool-prompt-manifest/index.js";
 import {
+  getActiveSquadronIds,
+  getActiveTaskForceIds,
   getRegisteredCarrierConfig,
   getRegisteredOrder,
   getSortieEnabledIds,
-  getSquadronEnabledIds,
-  getTaskForceConfiguredIds,
+  getSortieDisabledIds,
 } from "../shipyard/carrier/framework.js";
 
 // ─────────────────────────────────────────────────────────
@@ -102,8 +103,9 @@ export const RUNTIME_CONTEXT_TAGS_PROMPT = String.raw`
 ## Runtime Context Tags (in <system-reminder>)
 - ${"`"}<current_protocol>${"`"} — active protocol ID; apply matching protocol rules
 - ${"`"}<available_sortie_carriers>${"`"} — carrier IDs dispatchable via carriers_sortie
-- ${"`"}<available_squadron_carriers>${"`"} — carrier IDs in squadron mode (excluded from sortie)
-- ${"`"}<available_taskforce_carriers>${"`"} — carrier IDs with Task Force configured (≥2 backends)
+- ${"`"}<available_squadron_carriers>${"`"} — carrier IDs in squadron mode after subtracting sortie-off carriers
+- ${"`"}<available_taskforce_carriers>${"`"} — carrier IDs with Task Force configured (≥2 backends) after subtracting sortie-off carriers
+- ${"`"}<offline_carriers>${"`"} — sortie-off carrier IDs omitted from all available_* lists; omit this tag entirely when none are offline
 `;
 
 // ─────────────────────────────────────────────────────────
@@ -192,6 +194,7 @@ export function buildAcpSystemPrompt(): string {
  *  - `<available_sortie_carriers>`: sortie 가용 캐리어 ID 목록
  *  - `<available_squadron_carriers>`: squadron 모드 캐리어 ID 목록
  *  - `<available_taskforce_carriers>`: Task Force 설정 완료(2개 이상 백엔드) 캐리어 ID 목록
+ *  - `<offline_carriers>`: sortie off로 모든 available_* 목록에서 제외된 캐리어 ID 목록
  *
  * 빈 캐리어 목록은 `-` sentinel로 표기하여 모델의 상태 추론을 방지한다.
  * 사용자 요청 본문은 system-reminder 블록 바깥에 평문으로 이어붙인다.
@@ -199,15 +202,11 @@ export function buildAcpSystemPrompt(): string {
 export function buildAcpRuntimeContext(userRequest: string): string {
   const protocol = getActiveProtocol();
   const registeredIds = getRegisteredOrder();
-
-  // 순서 정규화: 모두 registeredOrder 기준으로 필터
   const sortieIds = getSortieEnabledIds();
-  const squadronIds = registeredIds.filter(
-    (id) => getSquadronEnabledIds().includes(id),
-  );
-  const taskforceIds = registeredIds.filter(
-    (id) => getTaskForceConfiguredIds().includes(id),
-  );
+  const squadronIds = getActiveSquadronIds();
+  const taskforceIds = getActiveTaskForceIds();
+  const disabledIds = new Set(getSortieDisabledIds());
+  const offlineIds = registeredIds.filter((id) => disabledIds.has(id));
 
   const fmt = (ids: string[]) => ids.length > 0 ? ids.join(",") : "-";
 
@@ -216,6 +215,9 @@ export function buildAcpRuntimeContext(userRequest: string): string {
     `<available_sortie_carriers>${fmt(sortieIds)}</available_sortie_carriers>`,
     `<available_squadron_carriers>${fmt(squadronIds)}</available_squadron_carriers>`,
     `<available_taskforce_carriers>${fmt(taskforceIds)}</available_taskforce_carriers>`,
+    ...(offlineIds.length > 0
+      ? [`<offline_carriers>${offlineIds.join(",")}</offline_carriers>`]
+      : []),
   ].join("\n");
 
   return `<system-reminder>\n${runtimeTags}\n</system-reminder>\n\n${userRequest}`;

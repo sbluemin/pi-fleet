@@ -18,12 +18,16 @@ This extension is the **top-level orchestrator** with a has-a relationship to `f
 
 ACP 모드에서는 시스템 프롬프트가 최초 1회만 전달되므로, 초기 프롬프트에 **전체 프로토콜 카탈로그**를 포함하고, 매 턴 `<current_protocol>` 태그로 활성 프로토콜을 지정한다. admiral은 `setCliRuntimeContext()`에 빌더 함수(`buildAcpRuntimeContext`)를 등록하고, provider-stream이 매 턴 user request 텍스트를 인자로 호출해 런타임 태그 + `<user_request>` 래핑이 포함된 완성 prefix를 얻는다.
 
+런타임 태그에는 현재 활성 프로토콜 외에도 함대 상태 정보가 포함됩니다:
+- `<current_protocol>`: 현재 활성화된 Admiral 프로토콜 ID.
+- `<offline_carriers>`: `sortie off` 상태인 캐리어 ID 목록 (콤마 구분). 비어있을 경우 태그가 생략됩니다.
+
 ## Responsibilities
 
 | Responsibility | Implementation |
 |----------------|----------------|
 | ACP CLI system prompt composition (`session_start`) | `index.ts` — `buildAcpSystemPrompt()` 결과를 `setCliSystemPrompt()`로 전달. 이는 `unified-agent`의 `connect` 옵션으로 소비되어 Claude(native append) 또는 Codex/Gemini(첫 prompt prefix) 방식으로 주입됩니다. |
-| ACP runtime context (`before_agent_start`, protocol switch) | `index.ts` — `setCliRuntimeContext(buildAcpRuntimeContext)` 빌더 등록. provider-stream이 매 턴 user request 텍스트를 인자로 호출해 런타임 태그 + `<user_request>` 래핑이 포함된 완성 prefix를 얻는다. |
+| ACP runtime context (`before_agent_start`, protocol switch) | `index.ts` — `setCliRuntimeContext(buildAcpRuntimeContext)` 빌더 등록. 매 턴 `<current_protocol>` 및 `<offline_carriers>`(존재 시) 태그를 포함한 컨텍스트를 주입합니다. |
 | **Asynchronous Result Handling** | `prompts.ts` — Admiral(제독)이 도구 호출 후 즉시 반환되는 `job_id`를 인식하고, `[carrier:result]` 푸시 신호를 기다리거나 `carrier_jobs` 도구로 결과를 명시적으로 획득하도록 지침을 제공합니다. |
 | Protocol 전환 | `index.ts` — `Alt+N` 키바인드, `fleet:admiral:protocol` 커맨드 (향후 추가 가능) |
 | Settings section ("Admiral") | `index.ts` — registers in Alt+/ popup, owns `admiral` settings key |

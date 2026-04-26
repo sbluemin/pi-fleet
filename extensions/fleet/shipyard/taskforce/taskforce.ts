@@ -27,7 +27,6 @@ import { putJobSummary } from "../_shared/lru-cache.js";
 import { enqueueCarrierCompletionPush } from "../_shared/push.js";
 import {
   getTaskForceModelConfig,
-  getConfiguredTaskForceCarrierIds,
   getConfiguredTaskForceBackends,
 } from "../store.js";
 import {
@@ -41,8 +40,10 @@ import {
 } from "../../bridge/streaming/stream-store.js";
 import { renderBlockLines, blockLineToAnsi } from "../../bridge/render/block-renderer.js";
 import {
+  getActiveTaskForceIds,
   getRegisteredOrder,
   getRegisteredCarrierConfig,
+  isSortieCarrierEnabled,
   resolveCarrierDisplayName,
 } from "../carrier/framework.js";
 import { buildCarrierSystemPrompt, composeTier2Request } from "../carrier/prompts.js";
@@ -145,7 +146,7 @@ export function buildTaskForceToolConfig(pi: ExtensionAPI) {
   registerToolPromptManifest(TASKFORCE_MANIFEST);
 
   // TF 편성이 가능한 캐리어만 스키마/가이드라인에 반영
-  const configuredCarriers = getConfiguredTaskForceCarrierIds(allCarriers);
+  const configuredCarriers = getActiveTaskForceIds();
   const guidelines = buildTaskForcePromptGuidelines(configuredCarriers);
 
   return {
@@ -194,6 +195,7 @@ export function buildTaskForceToolConfig(pi: ExtensionAPI) {
       );
 
       assertRegisteredCarrier(carrierId);
+      assertSortieEnabled(carrierId);
       const activeBackends = assertTaskForceFormable(carrierId);
       getLogAPI().debug(
         TASKFORCE_LOG_CATEGORY_VALIDATE,
@@ -311,6 +313,17 @@ function assertRegisteredCarrier(carrierId: string): void {
       `Unknown carrier: ${formatCarrierIdForMessage(carrierId)}. Registered carriers: ${registered}`,
     );
   }
+}
+
+function assertSortieEnabled(carrierId: string): void {
+  if (isSortieCarrierEnabled(carrierId)) return;
+  getLogAPI().debug(
+    TASKFORCE_LOG_CATEGORY_ERROR,
+    `carrier=${carrierId} sortieEnabled=false reason=manually disabled`,
+  );
+  throw new Error(
+    `Carrier ${formatCarrierIdForMessage(carrierId)} is not available for task force: manually disabled.`,
+  );
 }
 
 function assertTaskForceFormable(carrierId: string): TaskForceCliType[] {

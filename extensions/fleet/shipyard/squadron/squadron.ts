@@ -37,9 +37,10 @@ import {
 } from "../../bridge/streaming/stream-store.js";
 import { renderBlockLines, blockLineToAnsi } from "../../bridge/render/block-renderer.js";
 import {
+  getActiveSquadronIds,
   getRegisteredOrder,
   getRegisteredCarrierConfig,
-  getSquadronEnabledIds,
+  isSortieCarrierEnabled,
   isSquadronCarrierEnabled,
   resolveCarrierDisplayName,
 } from "../carrier/framework.js";
@@ -143,7 +144,7 @@ export function buildSquadronToolConfig(pi: ExtensionAPI) {
   registerToolPromptManifest(SQUADRON_MANIFEST);
 
   // squadron 활성 캐리어만 스키마/가이드라인에 반영
-  const enabledCarriers = getSquadronEnabledIds();
+  const enabledCarriers = getActiveSquadronIds();
   const guidelines = buildSquadronPromptGuidelines(enabledCarriers);
 
   return {
@@ -199,6 +200,7 @@ export function buildSquadronToolConfig(pi: ExtensionAPI) {
 
       // 1. 검증
       assertRegisteredCarrier(carrierId);
+      assertSortieEnabled(carrierId);
       assertSquadronEnabled(carrierId);
       assertSubtaskCount(expected_subtask_count, subtasks.length);
       assertSubtaskLimit(subtasks.length);
@@ -345,6 +347,17 @@ function assertRegisteredCarrier(carrierId: string): void {
       `Unknown carrier: ${formatCarrierIdForMessage(carrierId)}. Registered carriers: ${registered}`,
     );
   }
+}
+
+function assertSortieEnabled(carrierId: string): void {
+  if (isSortieCarrierEnabled(carrierId)) return;
+  getLogAPI().debug(
+    SQUADRON_LOG_CATEGORY_ERROR,
+    `carrier=${carrierId} sortieEnabled=false reason=manually disabled`,
+  );
+  throw new Error(
+    `Carrier ${formatCarrierIdForMessage(carrierId)} is not available for squadron: manually disabled.`,
+  );
 }
 
 function assertSquadronEnabled(carrierId: string): void {

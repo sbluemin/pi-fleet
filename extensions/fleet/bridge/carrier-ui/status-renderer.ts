@@ -39,9 +39,6 @@ const TF_BADGE_COLOR = "\x1b[38;2;100;180;255m";
 /** Squadron 편제 배지 색상 (보라 계열 — status-overlay와 동일) */
 const SQ_BADGE_COLOR = "\x1b[38;2;180;140;255m";
 
-/** Squadron 편제 배지 문자열 */
-const SQ_BADGE = `${SQ_BADGE_COLOR}[SQ]${ANSI_RESET}`;
-
 // ─── 메인 렌더 함수 ─────────────────────────────────────
 
 /**
@@ -53,20 +50,23 @@ export function renderCarrierStatus(input: CarrierStatusRenderInput): string | u
     const footerCol = input.streaming ? col : { ...col, status: "wait" as const };
     const disabled = !isSortieCarrierEnabled(col.cli);
     const name = resolveCarrierDisplayName(col.cli);
+    const taskForceBackendCount = getConfiguredTaskForceBackends(col.cli).length;
+    const tfBadgeColor = disabled ? DISABLED_COLOR : TF_BADGE_COLOR;
+    const sqBadgeColor = disabled ? DISABLED_COLOR : SQ_BADGE_COLOR;
+    const tfBadge = taskForceBackendCount >= 2
+      ? ` ${tfBadgeColor}[TF:${taskForceBackendCount}]${ANSI_RESET}`
+      : "";
+    const sqBadge = isSquadronCarrierEnabled(col.cli)
+      ? ` ${sqBadgeColor}[SQ]${ANSI_RESET}`
+      : "";
+    const badges = `${tfBadge}${sqBadge}`;
 
-    // sortie 비활성 캐리어: 아이콘·이름 모두 dim 처리 (TF 배지 미표시)
+    // sortie 비활성 캐리어: 아이콘·이름·배지 모두 dim 처리
     if (disabled) {
-      return `${statusIcon(footerCol, input.frame, true)} ${DISABLED_COLOR}${name}${ANSI_RESET}`;
+      return `${statusIcon(footerCol, input.frame, true)} ${DISABLED_COLOR}${name}${ANSI_RESET}${badges}`;
     }
-
     const cliColor = resolveCarrierColor(col.cli) || PANEL_COLOR;
     const isStreaming = footerCol.status === "conn" || footerCol.status === "stream";
-    const taskForceBackendCount = getConfiguredTaskForceBackends(col.cli).length;
-    const tfBadge = taskForceBackendCount >= 2
-      ? ` ${TF_BADGE_COLOR}[TF:${taskForceBackendCount}]${ANSI_RESET}`
-      : "";
-    const sqBadge = isSquadronCarrierEnabled(col.cli) ? ` ${SQ_BADGE}` : "";
-    const badges = `${tfBadge}${sqBadge}`;
     // 스트리밍 중: 아이콘 유지 + 이름에 파도 그라데이션
     return isStreaming
       ? `${statusIcon(footerCol, input.frame, false)} ${waveText(name, resolveCarrierRgb(col.cli), input.frame)}${badges}${ANSI_RESET}`
