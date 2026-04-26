@@ -40,26 +40,26 @@ Triggered when the task involves structural changes, new modules, cross-layer de
 
 ### Phase 3 — Work Plan
 
-Apply the **Oracle vs Athena Decision Flow** from the Delegation Policy to determine the planning path:
+Choose planning depth proportional to task complexity:
 
-**Admiral-direct planning** (do NOT sortie Athena):
-- Single Carrier execution with ≤3 dependent steps.
-- Requirements already specific (what, where, acceptance criteria all known).
+**Inline plan** (Admiral-direct):
+- Single-Carrier execution with ≤3 dependent steps.
+- Requirements already specific (what, where, acceptance criteria known).
 - No cross-Carrier dependencies or sequencing concerns.
-- Admiral drafts a brief inline plan: objective, target file(s)/module(s), Carrier assignment, done-criteria.
+- Admiral drafts a brief inline plan: objective, target(s), assigned Carrier, done-criteria.
 
-**Athena sortie** — at least one of the following must be true:
+**Structured plan** (delegated to a planning Carrier) — at least one must hold:
 - 2+ Carriers must coordinate with inter-task dependencies.
-- 4+ dependent steps or explicit phased execution / parallel waves needed.
+- 4+ dependent steps or explicit phased / parallel waves needed.
 - Material requirement ambiguity remains (≥2 open questions blocking execution).
 - Admiral of the Navy (대원수) explicitly requests a structured plan or PRD decomposition.
+- The resulting plan file is then handed to an execution Carrier.
 
-If boundary, prefer Admiral-direct — Athena can always be sortied later if the plan proves insufficient during Phase 4.
+When the boundary is unclear, prefer the inline plan — escalate to a structured plan later if execution stalls.
 
-"Dependent steps" means meaningful handoff or dependency units, not micro-operations. Do not count read→edit→test as 3 steps — that is one unit of work.
+"Dependent steps" mean meaningful handoff units, not micro-operations (read→edit→test counts as one unit).
 
-In either case, identify which Carrier(s) will handle each step.
-Present the plan to the Admiral of the Navy (대원수) for approval only when Athena was sortied or when the plan changes user-visible behavior across multiple modules; otherwise execution may proceed directly.
+Present the plan to the Admiral of the Navy (대원수) for approval only when a structured plan was produced, or when the work changes user-visible behavior across multiple modules; otherwise execution may proceed directly.
 
 ### Phase 4 — Execution
 - Execute the plan by delegating to the designated Carrier(s) through their assigned Captain (함장).
@@ -94,5 +94,10 @@ After finishing (or terminating early), include a brief phase summary in your fi
 - **Deep Dives triggered**: list which phase(s) triggered Deep Dive and the outcome (e.g., "Phase 1 — 2 speculative claims verified via Task Force")
 - **Skipped (conditional)**: list phases skipped with one-line reason each (e.g., "Phase 2 — no structural changes", "Phase 5 — code already clean")
 - **Skipped (early termination)**: if the workflow did not reach Phase 7, explain the blocker or reason for stopping
-This report ensures the Admiral of the Navy (대원수) can verify that no phase was silently dropped.`,
+- **Follow-up Plan**: Reason step-by-step about how the Admiral should proceed after this task — do not jump straight to the answer. Provide all three lines in order:
+  - **State**: one line on what this task changed and what remains pending.
+  - **Reasoning**: 1–2 lines — what follow-up options exist (sortie a Carrier, the Admiral handles it directly, request a directive from the Admiral of the Navy (대원수), or terminate), what alternatives were considered, and why the chosen option fits.
+  - **Conclusion**: one line stating the chosen action. If it involves a sortie, name the Carrier ID(s) from the active roster and the dispatch tool (carriers_sortie / carrier_squadron / carrier_taskforce). If it requires the 대원수's authority, mark it as a recommendation pending their directive.
+  Do not invent speculative next steps — "None — task terminal" is a valid conclusion.
+This report ensures the Admiral of the Navy (대원수) can verify that no phase was silently dropped, and can immediately authorize the next operation with the appropriate fleet.`,
 };

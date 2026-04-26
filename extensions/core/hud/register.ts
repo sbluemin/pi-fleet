@@ -8,7 +8,6 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 
-import { getKeybindAPI } from "../keybind/bridge.js";
 import type { HudEditorState, StatusLinePreset } from "./types.js";
 import { PRESETS } from "./presets.js";
 import { invalidateGitStatus, invalidateGitBranch } from "./git-status.js";
@@ -25,7 +24,6 @@ export default function hudEditor(pi: ExtensionAPI) {
     sessionStartTime: Date.now(),
     currentCtx: null,
     getThinkingLevelFn: null,
-    stashedEditorText: null,
     currentEditor: null,
     config: { preset: "sbluemin" },
     footerDataRef: null,
@@ -45,15 +43,6 @@ export default function hudEditor(pi: ExtensionAPI) {
 
     if (state.enabled && ctx.hasUI) {
       setupCustomEditor(ctx, state);
-    }
-
-    if (event.reason === "resume" || event.reason === "new") {
-      if (state.stashedEditorText !== null) {
-        state.stashedEditorText = null;
-        if (ctx.hasUI) {
-          ctx.ui.setStatus("stash", undefined);
-        }
-      }
     }
   });
 
@@ -78,22 +67,6 @@ export default function hudEditor(pi: ExtensionAPI) {
       setTimeout(() => state.tuiRef?.requestRender(), 100);
       setTimeout(() => state.tuiRef?.requestRender(), 300);
       setTimeout(() => state.tuiRef?.requestRender(), 500);
-    }
-  });
-
-  pi.on("agent_end", async (_event, ctx) => {
-    if (ctx.hasUI) {
-      // stash 자동 복원
-      if (state.stashedEditorText !== null) {
-        if (ctx.ui.getEditorText().trim() === "") {
-          ctx.ui.setEditorText(state.stashedEditorText);
-          state.stashedEditorText = null;
-          ctx.ui.setStatus("stash", undefined);
-          ctx.ui.notify("Stash restored", "info");
-        } else {
-          ctx.ui.notify("Stash preserved — Alt+S to swap", "info");
-        }
-      }
     }
   });
 
@@ -140,46 +113,4 @@ export default function hudEditor(pi: ExtensionAPI) {
     },
   });
 
-  // ── 단축키 등록 ──
-
-  const keybind = getKeybindAPI();
-  keybind.register({
-    extension: "core-hud",
-    action: "stash",
-    defaultKey: "alt+s",
-    description: "Stash/restore editor text",
-    category: "Core",
-    handler: async (ctx) => {
-      const rawText = state.currentEditor?.getExpandedText?.() ?? ctx.ui.getEditorText();
-      const hasText = rawText.trim().length > 0;
-      const hasStash = state.stashedEditorText !== null;
-
-      if (hasText && !hasStash) {
-        state.stashedEditorText = rawText;
-        ctx.ui.setEditorText("");
-        ctx.ui.setStatus("stash", "📋 stash");
-        ctx.ui.notify("Text stashed", "info");
-        return;
-      }
-
-      if (!hasText && hasStash) {
-        ctx.ui.setEditorText(state.stashedEditorText);
-        state.stashedEditorText = null;
-        ctx.ui.setStatus("stash", undefined);
-        ctx.ui.notify("Stash restored", "info");
-        return;
-      }
-
-      if (hasText && hasStash) {
-        const prev = state.stashedEditorText;
-        state.stashedEditorText = rawText;
-        ctx.ui.setEditorText(prev);
-        ctx.ui.setStatus("stash", "📋 stash");
-        ctx.ui.notify("Stash swapped", "info");
-        return;
-      }
-
-      ctx.ui.notify("Nothing to stash", "info");
-    },
-  });
 }

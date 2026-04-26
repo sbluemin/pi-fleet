@@ -79,11 +79,39 @@ export interface AdmiraltyRuntimeState {
     getRoster(): Array<{ id: FleetId; designation: string; zone: string; status: string }>;
     shutdown(): void;
   };
+  rosterListenerDisposer?: () => void;
   server: {
     start(): Promise<void>;
     close(): Promise<void>;
   };
   socketPath: string;
+}
+
+export interface FleetRuntimeState {
+  client: {
+    close(): void;
+    getState(): "disconnected" | "connecting" | "connected";
+    sendNotification(method: string, params: Record<string, unknown>): void;
+  } | null;
+  dispatcher?: {
+    generation: number;
+    sendMission(objective: string): void;
+  };
+  heartbeatTimer: ReturnType<typeof setInterval> | null;
+  lastHeartbeatAt: number | null;
+  lastStatusSignature: string | null;
+  missionTexts: string[];
+  presenter?: {
+    generation: number;
+    notify(message: string, level: "info" | "warning" | "error"): void;
+  };
+  promptSync?: {
+    generation: number;
+    setBaseOnly(): void;
+    setConnected(fleetId: FleetId, designation: string, operationalZone: string): void;
+  };
+  sessionGeneration: number;
+  statusSyncTimer: ReturnType<typeof setInterval> | null;
 }
 
 export interface CarrierInfo {
@@ -167,6 +195,7 @@ export interface GrandFleetState {
 
 export const GRAND_FLEET_STATE_KEY = "__grand_fleet_state__";
 export const GRAND_FLEET_ADMIRALTY_RUNTIME_KEY = "__grand_fleet_admiralty_runtime__";
+export const GRAND_FLEET_FLEET_RUNTIME_KEY = "__grand_fleet_fleet_runtime__";
 
 export const GRAND_FLEET_ERRORS = {
   FLEET_ALREADY_REGISTERED: {

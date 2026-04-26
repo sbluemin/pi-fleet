@@ -48,17 +48,18 @@ export const SORTIE_MANIFEST: ToolPromptManifest = {
   tag: "carriers_sortie",
   title: "carriers_sortie Tool Guidelines",
   description:
-    `Launch carriers for task execution — single or multiple(parallel).` +
+    `Register fire-and-forget carrier jobs for task execution — single or multiple(parallel).` +
     ` This is the only tool for delegating tasks to carrier agents.` +
+    ` It returns a job_id immediately; results arrive through [carrier:result] push; carrier_jobs is fallback/explicit lookup only.` +
     ` Use it whenever you want to delegate implementation, analysis, exploration, or any coding task to one or more carriers.` +
     ` Always bundle all intended carriers into one call — never split a parallel batch into multiple sequential calls.`,
   promptSnippet:
-    `carriers_sortie — Launch 1+ carriers for task delegation. The sole carrier delegation tool.`,
+    `carriers_sortie — Register 1+ carrier jobs for task delegation. Results arrive later via [carrier:result]; carrier_jobs is fallback/explicit lookup only.`,
   whenToUse: [
     `carriers_sortie is the only way to delegate tasks to carrier agents.` +
       ` Always use this tool — never attempt to invoke carriers directly.`,
     `You can launch a single carrier or multiple carriers in parallel — when launching multiple carriers, you MUST include all of them in a single carriers_sortie call.` +
-      ` This tool provides unified progress tracking and a consolidated result view.`,
+      ` This tool provides unified progress tracking and registers detached work; carrier_jobs is fallback/explicit lookup only.`,
   ],
   whenNotToUse: [],
   usageGuidelines: [
@@ -69,14 +70,18 @@ export const SORTIE_MANIFEST: ToolPromptManifest = {
     `When composing a carrier request, provide only background, context, objective, and constraints.` +
       ` Do NOT prescribe implementation details or step-by-step instructions — trust the carrier's own reasoning.` +
       ` Use the Tags listed for each carrier to structure your request.`,
-    `If Athena has already produced a plan file for Genesis, pass that path via Genesis's optional \`<plan_file>\` tag instead of re-describing the full plan inline.` +
+    `If Kirov has already produced a plan file for Ohio, pass that path via Ohio's optional \`<plan_file>\` tag instead of re-describing the full plan inline.` +
       ` That path must stay repo-relative and must point only to a Markdown plan under .fleet/plans/*.md.` +
       ` If no such file exists, preserve direct Admiral->Genesis execution by sending only the normal objective/scope/constraints context.`,
-    `Do not pass absolute paths, general repo-relative files, or non-Markdown files via Genesis's \`<plan_file>\` tag.` +
-      ` If a provided \`<plan_file>\` is missing, unreadable, or invalid, Genesis must report the issue and request re-direction rather than guessing or silently re-planning.`,
+    `Do not pass absolute paths, general repo-relative files, or non-Markdown files via Ohio's \`<plan_file>\` tag.` +
+      ` If a provided \`<plan_file>\` is missing, unreadable, or invalid, Ohio must report the issue and request re-direction rather than guessing or silently re-planning.`,
     `Each carrier ID may appear at most once per carriers_sortie call.` +
       ` Duplicate carrier IDs in the same call are rejected by the system and cause the entire sortie to fail.` +
       ` If you need two different workloads handled by carriers of the same type, assign each to a different carrier ID within the same call's carriers array.`,
+    `Launch response schema is { job_id, accepted, error? } and never includes synchronous result content.` +
+      ` Full output is available only through carrier_jobs(action:"result", format:"full") and is read-once.`,
+    `Do not poll, wait-check, or call carrier_jobs merely to see whether the job is done.` +
+      ` Continue independent work if available; otherwise stop tool use and wait passively for the [carrier:result] follow-up push.`,
   ],
   guardrails: [
     `Multiple agents may be working on this codebase at the same time on a single filesystem and branch.` +
@@ -147,7 +152,7 @@ export function buildSortieToolSchema(enabledIds: string[]): TObject {
         minItems: 1,
         description:
           "Array of carrier assignments. Length must equal expected_carrier_count. " +
-          "When launching multiple carriers in parallel, ALL intended carriers MUST be listed together here in a SINGLE call — never split a parallel batch into multiple sequential calls. " +
+          "When launching multiple carriers in parallel, ALL intended carriers MUST be listed together here in a SINGLE fire-and-forget job registration call — never split a parallel batch into multiple sequential calls. " +
           "Example (single): [{\"carrier\": \"genesis\", \"request\": \"...\"}] " +
           "Example (parallel): [{\"carrier\": \"sentinel\", \"request\": \"...\"}, {\"carrier\": \"genesis\", \"request\": \"...\"}] " +
           "MUST be a native JSON array [...], NOT a stringified JSON string.",
@@ -200,8 +205,13 @@ function buildCarrierRoster(carrierIds: string[]): string {
     lines.push(`- **${carrierId}** (${name} · ${meta.title}): ${meta.summary}`);
     // 2줄: 긍정 호출 조건
     lines.push(`  Use for: ${meta.whenToUse.join(", ")}.`);
-    // 3줄: 부정 조건
-    lines.push(`  NOT for: ${meta.whenNotToUse}`);
+    // 3줄이하: 부정 호출 조건 (멀티라인 불릿)
+    if (meta.whenNotToUse.length > 0) {
+      lines.push(`  NOT for:`);
+      for (const item of meta.whenNotToUse) {
+        lines.push(`    - ${item}`);
+      }
+    }
     // 4줄: 필수 요청 블록 — CLI가 반드시 준수해야 할 구조 (?는 optional)
     if (meta.requestBlocks.length > 0) {
       const tags = meta.requestBlocks

@@ -46,11 +46,11 @@ Unified ACP infrastructure for pi-fleet, providing both the carrier execution en
 |------|--------|------|
 | `types.ts` | Shared | Common ACP and execution types shared across flat agent/provider boundaries. |
 | `session-store.ts` | Shared | SessionMapStore for PI session to carrier session persistence. |
-| `runtime.ts` | Shared | Runtime initialization, `.data/` ownership, session store lifecycle. |
+| `runtime.ts` | Shared | Runtime initialization, `.data/` ownership, session store lifecycle. Uses the Fleet data directory (`~/.pi/fleet`) so carrier and host/provider paths share one session-map store. |
 | `pool.ts` | Shared | Carrier execution Unified Agent client pooling and disconnect helpers. |
 | `executor.ts` | Shared | Carrier execution engine and one-shot command routing. |
 | `provider-types.ts` | Provider | host/provider 경로 전용 전역 CLI 시스템 프롬프트의 단일 소스(`setCliSystemPrompt`/`getCliSystemPrompt`). `executor.buildConnectOptions`가 이 전역 상태를 조회하여 `unified-agent`에 전달합니다. |
-| `provider-register.ts` | Provider | Core 엔트리 포인트. ACP 프로바이더와 세션 라이프사이클 훅을 등록합니다. |
+| `provider-register.ts` | Provider | Core 엔트리 포인트. ACP 프로바이더와 세션 라이프사이클 훅을 등록하고, provider-only reload/resume에서도 `initRuntime(~/.pi/fleet)` + `onHostSessionChange(piSessionId)`를 보장합니다. `session_start`와 `session_tree` 모두 PI 세션 바인딩을 수행합니다. |
 | `thinking-level-patch.ts` | Provider | PI의 hardcoded thinking level 계산을 Fleet ACP 모델에 한해 보정하는 런타임 patch. models.json의 reasoningEffort.levels를 source of truth로 사용하여 `minimal` 제거, `xhigh` 노출, invalid level 보정을 담당합니다. |
 | `provider-stream.ts` | Provider | `streamSimple` 구현, 세션 재사용, 모델 전환, Persistence 연계. **이전의 `<system-instructions>` 직접 XML 주입 로직이 제거되었으며, host/provider 경로는 `unified-agent`의 `connect` 옵션을 통해 시스템 프롬프트를 처리합니다. Carrier 도구 실행 경로는 이를 상속하지 않습니다.** |
 | `provider-events.ts` | Provider | ACP event to pi `EventStream` mapper, including MCP tool-call and CLI built-in tool rendering. |
@@ -112,7 +112,7 @@ PI 사용자가 Shift+Tab으로 선택한 thinking level은 `SimpleStreamOptions
 | **Model change within same CLI family** | Reuse the current process and switch backend model without recreating the whole session when the backend supports it. |
 | **Model change across CLI families** | Dispose the old session/process pair and create a fresh CLI session. |
 | **pi `/new`** | Clear live sessions and processes, then lazily recreate on the next request. |
-| **pi shutdown / restart** | Sessions are ephemeral and tied to the live process lifecycle. Persistence of session mappings for resume is no longer supported; fresh sessions are created on restart. |
+| **pi shutdown / restart** | `.data/session-maps/<piSessionId>.json` is restored for the active PI session. Carrier and host/provider paths replay the stored real CLI/ACP `sessionId` via `connect({ sessionId })`; validated dead-session/not-found failures fall back to a fresh session and rewrite the mapping. |
 
 ### Provider and Event Mapper Contract
 
@@ -175,9 +175,12 @@ CLI-visible tools are split into two paths:
 
 `runtime.ts` owns the `.data/` base directory for this module.
 
-- Persistence of session-to-carrier mappings is limited to runtime continuity; long-term session resume across restarts is deprecated.
-- Stored data focus shifted to ephemeral session metadata and service snapshots.
-- Enhanced cleanup is enforced for `toolUse`, `abort`, and `promptComplete` events to prevent leaked state across turns.
+- `.data/session-maps/<piSessionId>.json` is the durable source of truth for PI-session-keyed resume mappings.
+- `provider-register.ts` initializes the same runtime directory as Fleet (`~/.pi/fleet`) and binds the active PI session on `session_start` / `session_tree` before provider streaming can read the store.
+- `provider-stream.ts` defensively re-binds the store from `SimpleStreamOptions` session identifiers before reading/writing `host:<cli>` so slash resume ordering cannot fall back to the noop store or a stale map file.
+- The JSON schema remains `Record<string, string>`: carrier path keys use `carrierId`; host/provider path keys use `host:<cli>` (for example `host:codex`).
+- MCP bearer tokens, tool registries, routers, FIFO queues, and live client objects are process-local artifacts. They are recreated for every resumed provider process and are never persisted.
+- Enhanced cleanup is enforced for `toolUse`, `abort`, and `promptComplete` events to prevent leaked live routing state across turns.
 
 ## Service Status Monitoring
 

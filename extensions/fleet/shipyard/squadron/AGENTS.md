@@ -1,28 +1,22 @@
-# fleet/shipyard/squadron
+# shipyard/squadron
 
-Carrier Squadron logic for parallel execution of same-type carriers.
+Carrier Squadron management for parallel execution of same-type carriers.
 
-## Core Rules
+## Doctrine
 
-- **Parallel Execution**: A Squadron groups multiple instances of the same carrier type to process sub-tasks in parallel.
-- **One-Shot Only**: Squadrons always use `executeOneShot`. They do not maintain persistent sessions or history, making them ideal for fire-and-forget task distribution.
-- **Sortie Exclusion**: When a carrier has `squadronEnabled: true`, it is automatically excluded from the standard `carriers_sortie` tool to prevent session/state conflicts.
-- **Instance Cap**: Enforces a hard limit of **5 concurrent instances** to prevent resource exhaustion.
-- **Tool Synthesis**: Squadron tools are dynamically synthesized based on the underlying carrier's prompt guidelines and capabilities.
+- **One-Shot Parallelism**: Executes multiple carriers of the same CLI type in parallel using `executeOneShot`.
+- **Atomic Dispatch**: Dispatches all requested carriers as a single unit.
+- **Detached Execution**: Following the fleet doctrine, `carrier_squadron` returns a single `job_id` for the entire batch and exits immediately.
+- **Aggregation**: Result summaries must aggregate individual carrier outcomes. If any carrier fails, the job status reflects the highest priority error.
 
-## Module Structure
+## Tool Manifest
 
-| File | Role |
-|------|------|
-| `index.ts` | Entry point. Handles squadron tool registration and lifecycle. |
-| `squadron.ts` | Main execution engine. Manages `runAgentRequest` calls for squadron instances, synthesizes prompts, and aggregates results. |
-| `prompts.ts` | `SQUADRON_MANIFEST` (`ToolPromptManifest`) 정의 및 등록. 도구 교리의 SSOT. |
-| `types.ts` | Domain types for squadron configuration and execution state. |
+- **SQUADRON_MANIFEST**: Defines the `carrier_squadron` tool prompt and schema.
+- **Guidelines**: Squadron tools should be used for tasks that can be broken down into independent subtasks suitable for parallel processing.
 
-## Execution Flow
+## Rules
 
-1. **Trigger**: PI calls the synthesized squadron tool (e.g., `squadron_athena`).
-2. **Decomposition**: `squadron.ts` receives the task and prepares up to 5 parallel requests.
-3. **Execution**: Each request is routed through `operation-runner.ts` using `executeOneShot: true`.
-4. **Aggregation**: Results from all instances are collected, formatted, and returned to the caller as a unified response.
-5. **UI**: Progress is tracked via the same streaming infrastructure, with active status indicated by the `[SQ]` tag in the Status Bar.
+- **Sortie Activation Check**: Rejects the request if any of the target carriers have their sortie manually disabled (`sortie off`). Uses the same "manually disabled" error message as the base sortie tool.
+- **Busy Check**: Rejects the request if any of the target carriers are already busy with an active job.
+- **Logging**: Uses `fleet-squadron:*` categories for lifecycle observability.
+- **Prompt Composition**: Dynamically builds the prompt for each carrier based on the squadron input.

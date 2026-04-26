@@ -25,7 +25,11 @@ const CARRIER_METADATA: CarrierMetadata = {
     "vulnerability hunting",
     "dependency risk analysis",
   ],
-  whenNotToUse: "before implementation (genesis) is done. New features (→genesis), refactoring (→genesis)",
+  whenNotToUse: [
+    "before implementation (genesis) is done",
+    "new features (→genesis)",
+    "refactoring (→genesis)",
+  ],
 
   // ── Tier 2: Composition ──
   permissions: [
@@ -63,5 +67,5 @@ const CARRIER_METADATA: CarrierMetadata = {
 };
 
 export function registerSentinelCarrier(pi: ExtensionAPI): void {
-  registerSingleCarrier(pi, "codex", CARRIER_METADATA, { slot: 4, id: "sentinel", displayName: "Sentinel" });
+  registerSingleCarrier(pi, "codex", CARRIER_METADATA, { slot: 5, id: "sentinel", displayName: "Sentinel" });
 }

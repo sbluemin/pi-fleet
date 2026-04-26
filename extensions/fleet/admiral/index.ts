@@ -13,33 +13,32 @@ import { getAllProtocols, getActiveProtocol, setActiveProtocol } from "./protoco
 import { registerProtocolWidget, updateProtocolWidget } from "./widget.js";
 import registerRequestDirective from "./request-directive.js";
 
-interface AdmiralBootApi {
-  onBeforeAgentStart(): void;
-  onSessionStart(ctx: ExtensionContext): void;
-  onSessionTree(): void;
-}
-
-export function bootAdmiral(pi: ExtensionAPI): AdmiralBootApi {
+export function bootAdmiral(pi: ExtensionAPI): void {
   const bootProtocol = getActiveProtocol();
   syncProtocolToHud(bootProtocol);
   registerAdmiralSettingsSection();
   registerRequestDirective(pi);
   registerProtocolKeybinds();
+}
 
-  return {
-    onBeforeAgentStart() {
-      syncAcpRuntimeContext();
-    },
-    onSessionStart(ctx: ExtensionContext) {
-      syncProtocolToHud(getActiveProtocol());
-      registerAdmiralSettingsSection();
-      registerProtocolWidget(ctx);
-      syncAcpSystemPrompt(ctx);
-    },
-    onSessionTree() {
-      registerAdmiralSettingsSection();
-    },
-  };
+export function syncAdmiralAcpRuntimeContext(): void {
+  syncAcpRuntimeContext();
+}
+
+export function syncAdmiralAcpSystemPrompt(ctx: ExtensionContext): void {
+  syncAcpSystemPrompt(ctx);
+}
+
+export function syncAdmiralProtocolHud(): void {
+  syncProtocolToHud(getActiveProtocol());
+}
+
+export function registerAdmiralSettings(): void {
+  registerAdmiralSettingsSection();
+}
+
+export function mountAdmiralProtocolWidget(ctx: ExtensionContext): void {
+  registerProtocolWidget(ctx);
 }
 
 function registerProtocolKeybinds(): void {

@@ -12,14 +12,19 @@ const mockState = vi.hoisted(() => {
     cancelPrompt: vi.fn(async () => {}),
     endSession: vi.fn(async () => {}),
     disconnect: vi.fn(async () => {}),
+    removeAllListeners: vi.fn(),
     getConnectionInfo: vi.fn(() => ({ state: "ready", sessionId: "acp-session-1" })),
   };
 
   return {
     client,
+    buildArgs: [] as unknown[],
     lastMapper: null as any,
     routerCalls: [] as Array<[string, unknown]>,
     clearPendingCalls: [] as string[],
+    sessionStoreState: {} as Record<string, string | undefined>,
+    persistedSessionMaps: {} as Record<string, Record<string, string | undefined> | undefined>,
+    boundPiSessionId: null as string | null,
   };
 });
 
@@ -32,7 +37,10 @@ vi.mock("@mariozechner/pi-ai", () => ({
 
 vi.mock("@sbluemin/unified-agent", () => ({
   UnifiedAgent: {
-    build: vi.fn(async () => mockState.client),
+    build: vi.fn(async (opts: unknown) => {
+      mockState.buildArgs.push(opts);
+      return mockState.client;
+    }),
   },
   getModelsRegistry: () => ({
     providers: {
@@ -58,6 +66,33 @@ vi.mock("@sbluemin/unified-agent", () => ({
 
 vi.mock("./executor.js", () => ({
   applyPostConnectConfig: vi.fn(async () => {}),
+}));
+
+vi.mock("./runtime.js", () => ({
+  onHostSessionChange: vi.fn((piSessionId: string) => {
+    mockState.boundPiSessionId = piSessionId;
+    mockState.sessionStoreState = { ...(mockState.persistedSessionMaps[piSessionId] ?? {}) };
+  }),
+  getSessionStore: vi.fn(() => ({
+    restore: vi.fn(),
+    get: vi.fn((key: string) => mockState.sessionStoreState[key]),
+    set: vi.fn((key: string, value: string) => {
+      mockState.sessionStoreState[key] = value;
+      if (mockState.boundPiSessionId) {
+        mockState.persistedSessionMaps[mockState.boundPiSessionId] = {
+          ...(mockState.persistedSessionMaps[mockState.boundPiSessionId] ?? {}),
+          [key]: value,
+        };
+      }
+    }),
+    clear: vi.fn((key: string) => {
+      delete mockState.sessionStoreState[key];
+      if (mockState.boundPiSessionId && mockState.persistedSessionMaps[mockState.boundPiSessionId]) {
+        delete mockState.persistedSessionMaps[mockState.boundPiSessionId]![key];
+      }
+    }),
+    getAll: vi.fn(() => ({ ...mockState.sessionStoreState })),
+  })),
 }));
 
 vi.mock("./provider-events.js", () => ({
@@ -130,22 +165,223 @@ vi.mock("./provider-tools.js", () => ({
   getToolNamesForSession: vi.fn(() => new Set(["custom-tool"])),
 }));
 
-import { streamAcp } from "./provider-stream.js";
+import { handleSessionStart, streamAcp } from "./provider-stream.js";
 import { GLOBAL_STATE_KEY, type AcpProviderState, type AcpSessionState } from "./provider-types.js";
+import { onHostSessionChange } from "./runtime.js";
 
 describe("provider-stream", () => {
   afterEach(() => {
     mockState.client.on.mockClear();
     mockState.client.off.mockClear();
-    mockState.client.connect.mockClear();
-    mockState.client.sendMessage.mockClear();
+    mockState.client.connect.mockReset();
+    mockState.client.sendMessage.mockReset();
     mockState.client.cancelPrompt.mockClear();
     mockState.client.endSession.mockClear();
     mockState.client.disconnect.mockClear();
+    mockState.client.removeAllListeners.mockClear();
+    mockState.client.getConnectionInfo.mockClear();
+    mockState.client.getConnectionInfo.mockImplementation(() => ({ state: "ready", sessionId: "acp-session-1" }));
+    mockState.client.connect.mockImplementation(async () => ({
+      protocol: "acp",
+      session: { sessionId: "acp-session-1" },
+    }));
+    mockState.client.sendMessage.mockImplementation(() => new Promise<void>(() => {}));
+    mockState.buildArgs.length = 0;
     mockState.lastMapper = null;
     mockState.routerCalls.length = 0;
     mockState.clearPendingCalls.length = 0;
+    mockState.sessionStoreState = {};
+    mockState.persistedSessionMaps = {};
+    mockState.boundPiSessionId = null;
     delete (globalThis as Record<symbol, unknown>)[GLOBAL_STATE_KEY];
+  });
+
+  it("cold host provider 연결 후 sessionId를 PI session-map에 저장한다", async () => {
+    streamAcp(
+      { id: "gpt-5.4", provider: "Fleet ACP", reasoning: true } as any,
+      {
+        systemPrompt: "system",
+        messages: [
+          { role: "user", content: "previous user" } as any,
+          { role: "assistant", content: "previous assistant" } as any,
+          { role: "user", content: "hello" } as any,
+        ],
+      } as any,
+      { cwd: "/tmp/pi-fleet", sessionId: "pi-cold" } as any,
+    );
+
+    await vi.waitFor(() => {
+      expect(mockState.client.connect).toHaveBeenCalledTimes(1);
+      expect(mockState.client.sendMessage).toHaveBeenCalledTimes(1);
+    });
+
+    expect(mockState.client.connect).toHaveBeenCalledWith(expect.not.objectContaining({
+      sessionId: expect.any(String),
+    }));
+    expect(mockState.client.sendMessage).toHaveBeenCalledWith(expect.stringContaining("<conversation-history>"));
+    expect(mockState.sessionStoreState["host:codex"]).toBe("acp-session-1");
+  });
+
+  it("저장된 host provider sessionId를 resume하면 첫 메시지를 follow-up으로 보낸다", async () => {
+    mockState.persistedSessionMaps["pi-warm"] = { "host:codex": "saved-session" };
+
+    streamAcp(
+      { id: "gpt-5.4", provider: "Fleet ACP", reasoning: true } as any,
+      {
+        systemPrompt: "system",
+        messages: [
+          { role: "user", content: "previous user" } as any,
+          { role: "assistant", content: "previous assistant" } as any,
+          { role: "user", content: "hello" } as any,
+        ],
+      } as any,
+      { cwd: "/tmp/pi-fleet", sessionId: "pi-warm" } as any,
+    );
+
+    await vi.waitFor(() => {
+      expect(mockState.client.connect).toHaveBeenCalledTimes(1);
+      expect(mockState.client.sendMessage).toHaveBeenCalledTimes(1);
+    });
+
+    expect(mockState.buildArgs).toEqual([expect.objectContaining({
+      cli: "codex",
+      sessionId: "saved-session",
+    })]);
+    expect(mockState.client.connect).toHaveBeenCalledWith(expect.objectContaining({
+      sessionId: "saved-session",
+    }));
+    expect(onHostSessionChange).toHaveBeenCalledWith("pi-warm");
+    expect(mockState.client.sendMessage).toHaveBeenCalledWith("hello");
+    expect(mockState.client.sendMessage).toHaveBeenCalledWith(expect.not.stringContaining("<conversation-history>"));
+    expect(mockState.sessionStoreState["host:codex"]).toBe("acp-session-1");
+  });
+
+  it("session_start 바인딩 없이 slash resume 이후 streamAcp가 PI session-map을 방어적으로 bind한다", async () => {
+    mockState.persistedSessionMaps["pi-slash-resume"] = { "host:codex": "saved-session" };
+
+    streamAcp(
+      { id: "gpt-5.4", provider: "Fleet ACP", reasoning: true } as any,
+      {
+        systemPrompt: "system",
+        messages: [
+          { role: "user", content: "previous user" } as any,
+          { role: "assistant", content: "previous assistant" } as any,
+          { role: "user", content: "hello" } as any,
+        ],
+      } as any,
+      { cwd: "/tmp/pi-fleet", sessionId: "pi-slash-resume" } as any,
+    );
+
+    await vi.waitFor(() => {
+      expect(mockState.client.connect).toHaveBeenCalledTimes(1);
+      expect(mockState.client.sendMessage).toHaveBeenCalledTimes(1);
+    });
+
+    expect(onHostSessionChange).toHaveBeenCalledWith("pi-slash-resume");
+    expect(mockState.client.connect).toHaveBeenCalledWith(expect.objectContaining({
+      sessionId: "saved-session",
+    }));
+    expect(mockState.client.sendMessage).toHaveBeenCalledWith("hello");
+    expect(mockState.client.sendMessage).toHaveBeenCalledWith(expect.not.stringContaining("<conversation-history>"));
+  });
+
+  it("저장된 host provider sessionId가 dead-session이면 clear 후 fresh fallback한다", async () => {
+    mockState.persistedSessionMaps["pi-fallback"] = { "host:codex": "stale-session" };
+    mockState.client.connect
+      .mockRejectedValueOnce(new Error("session not found: stale-session"))
+      .mockResolvedValueOnce({
+        protocol: "acp",
+        session: { sessionId: "fresh-session" },
+      });
+
+    streamAcp(
+      { id: "gpt-5.4", provider: "Fleet ACP", reasoning: true } as any,
+      {
+        systemPrompt: "system",
+        messages: [{ role: "user", content: "hello" } as any],
+      } as any,
+      { cwd: "/tmp/pi-fleet", sessionId: "pi-fallback" } as any,
+    );
+
+    await vi.waitFor(() => {
+      expect(mockState.client.connect).toHaveBeenCalledTimes(2);
+      expect(mockState.client.sendMessage).toHaveBeenCalledTimes(1);
+    });
+
+    expect(mockState.client.connect).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      sessionId: "stale-session",
+    }));
+    expect(mockState.client.connect).toHaveBeenNthCalledWith(2, expect.not.objectContaining({
+      sessionId: expect.any(String),
+    }));
+    expect(mockState.client.sendMessage).toHaveBeenCalledWith(expect.stringContaining("<user_request>"));
+    expect(mockState.sessionStoreState["host:codex"]).toBe("fresh-session");
+  });
+
+  it("저장된 host provider sessionId의 capability mismatch는 fresh fallback하지 않는다", async () => {
+    mockState.persistedSessionMaps["pi-capability"] = { "host:codex": "saved-session" };
+    mockState.client.connect.mockRejectedValueOnce(new Error("provider does not support session/load"));
+
+    streamAcp(
+      { id: "gpt-5.4", provider: "Fleet ACP", reasoning: true } as any,
+      {
+        systemPrompt: "system",
+        messages: [{ role: "user", content: "hello" } as any],
+      } as any,
+      { cwd: "/tmp/pi-fleet", sessionId: "pi-capability" } as any,
+    );
+
+    await vi.waitFor(() => {
+      expect(mockState.lastMapper.finishWithError).toHaveBeenCalledWith(
+        "error",
+        expect.stringContaining("does not support session/load"),
+      );
+    });
+
+    expect(mockState.client.connect).toHaveBeenCalledTimes(1);
+    expect(mockState.sessionStoreState["host:codex"]).toBe("saved-session");
+  });
+
+  it("session_start resume은 disk session-map을 지우지 않는다", async () => {
+    mockState.sessionStoreState["host:codex"] = "saved-session";
+
+    await handleSessionStart("resume", "pi-session-1");
+
+    expect(mockState.sessionStoreState["host:codex"]).toBe("saved-session");
+  });
+
+  it("session_start resume은 backend 세션을 archive하지 않고 연결만 닫는다", async () => {
+    const session: AcpSessionState = {
+      sessionKey: "acp:codex:session:pi:pi-resume",
+      scopeKey: "session:pi:pi-resume",
+      client: mockState.client as any,
+      sessionId: "saved-session",
+      cwd: "/tmp/pi-fleet",
+      lastSystemPromptHash: "hash",
+      cli: "codex",
+      firstPromptSent: true,
+      currentModel: "gpt-5.4",
+      toolHash: "tool-hash",
+      pendingToolCalls: [],
+      pendingToolCallNotifier: null,
+      activePrompt: null,
+      sessionGeneration: 0,
+      needsRecovery: false,
+      lastError: null,
+    };
+    const providerState: AcpProviderState = {
+      sessions: new Map([[session.sessionKey, session]]),
+      sessionKeysByScope: new Map([[session.scopeKey, new Set([session.sessionKey])]]),
+      toolCallToSessionKey: new Map(),
+      bridgeScopeSessionKeys: new Map(),
+      sessionLaunchConfigs: new Map(),
+    };
+    (globalThis as Record<symbol, unknown>)[GLOBAL_STATE_KEY] = providerState;
+
+    await handleSessionStart("resume", "pi-session-1");
+
+    expect(mockState.client.endSession).not.toHaveBeenCalled();
+    expect(mockState.client.disconnect).toHaveBeenCalledTimes(1);
   });
 
   it("toolResult 이후 즉시 다음 toolUse로 끊겨도 listener와 abort cleanup을 실행한다", async () => {

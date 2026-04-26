@@ -28,11 +28,21 @@ cd pi-fleet
 # Install all workspace dependencies from the repository root.
 # The root postinstall hook also builds packages/unified-agent.
 npm install
+
+# Register the fleet wrapper commands globally.
+npm link
 ```
 
 > The repository uses npm workspaces, and the root install is the single setup entry point.
 >
 > `npm install` installs the workspace dependencies for `packages/unified-agent`, `extensions/core`, and `extensions/fleet`, then builds `packages/unified-agent/dist/` via the root `postinstall` hook so the extensions can consume `@sbluemin/unified-agent` immediately.
+>
+> `npm link` registers the global wrapper commands from this checkout:
+>
+> - `fleet` — launches `pi` with the standard Fleet mode.
+> - `gfleet` — launches `pi` with Grand Fleet mode enabled for the child process.
+> - `fleet-dev` — launches standard Fleet mode and loads each `extensions/*/index.ts` entry directly.
+> - `gfleet-dev` — launches Grand Fleet mode and loads each `extensions/*/index.ts` entry directly.
 >
 > `extensions/core/shell` and `extensions/core/agentclientprotocol` are internal modules of the `extensions/core` workspace, so they no longer require separate `npm install` commands.
 
@@ -53,7 +63,8 @@ Add the `extensions` field to your pi settings file, pointing to the extension d
 > Replace `<path-to-pi-fleet>` with the actual path where you cloned the repository.
 >
 > - `extensions/` — unified extension root. pi discovers the nested extension entry points under this directory.
-> - `extensions/core/` — single infrastructure extension whose root `index.ts` wires keybind, settings, log, welcome, hud, shell, improve-prompt, summarize, thinking-timer, provider-guard, and acp-provider modules
+> - `extensions/core/` — single infrastructure extension whose root `index.ts` wires keybind, settings, log, welcome, hud, shell, thinking-timer, provider-guard, and acp-provider modules
+- `extensions/metaphor/` — metaphor framework extension (PERSONA/TONE management, operation naming, and directive refinement)
 > - `extensions/fleet/` — agent orchestration extension (carrier framework SDK, Admiral/Bridge/Carrier wiring, Agent Panel, unified pipeline)
 > - `extensions/fleet/admiral/` — Admiral prompt-policy library consumed by `fleet/index.ts`
 > - `extensions/fleet/bridge/` — active ACP provider bridge library consumed by `fleet/index.ts`
@@ -71,5 +82,4 @@ Launch `pi` and run `/reload`, then check:
 - `Alt+H` / `Alt+L` to move cursor between carrier slots
 - `Ctrl+Enter` to activate the carrier at cursor (exclusive mode)
 - `Alt+P` to toggle the Agent Panel
-- `Alt+X` to cancel active carrier execution
 - Claude Code, Codex CLI, Gemini CLI are each authenticated

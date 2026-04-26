@@ -47,6 +47,7 @@ export interface CodexThreadStartResponse {
 
 export interface CodexThreadResumeParams {
   threadId: string;
+  path?: string | null;
   model?: string | null;
   config?: Record<string, CodexJsonValue> | null;
   developerInstructions?: string | null;

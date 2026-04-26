@@ -5,7 +5,6 @@
  * - alt+h: 인라인 슬롯 내비게이션 (왼쪽)
  * - alt+l: 인라인 슬롯 내비게이션 (오른쪽)
  * - ctrl+enter: 커서 위치의 Carrier 상세 뷰 토글
- * - alt+x: 선택/상세 Carrier 실행 취소
  * - alt+j: 패널 높이 증가
  * - alt+k: 패널 높이 감소
  *
@@ -18,10 +17,9 @@ import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 
 import { getKeybindAPI } from "../../../core/keybind/bridge.js";
 import { BODY_H_STEP } from "../../constants.js";
-import { abortCarrierRun } from "../../operation-runner.js";
 import { toggleAgentPanel, showAgentPanel, setDetailView, getDetailCarrierId } from "./lifecycle.js";
 import { adjustPanelHeight } from "./config.js";
-import { getState, getFocusedCarrierId } from "./state.js";
+import { getState } from "./state.js";
 import { syncWidget } from "./widget-sync.js";
 
 export function registerAgentPanelShortcut(): void {
@@ -99,24 +97,6 @@ export function registerAgentPanelShortcut(): void {
       setDetailView(ctx, col.cli);
       s.cursorColumn = -1;
       showAgentPanel(ctx);
-    },
-  });
-
-  // ── Alt+X: 선택/상세 Carrier 실행 취소 ──
-  keybind.register({
-    extension: "fleet",
-    action: "carrier-cancel",
-    defaultKey: "alt+x",
-    description: "선택된 Carrier 실행 취소",
-    category: "Fleet Bridge",
-    handler: async (ctx) => {
-      const targetId = getFocusedCarrierId();
-      if (!targetId) return;
-      if (!abortCarrierRun(targetId)) {
-        ctx.ui.notify("취소할 실행이 없습니다.", "warning");
-        return;
-      }
-      ctx.ui.notify(`${targetId} 실행 취소 요청을 전송했습니다.`, "info");
     },
   });
 

@@ -34,14 +34,17 @@ A **Carrier** is an execution instance of a CLI tool with isolated configuration
 
 ## Carriers
 
-Seven built-in Carriers, each with a distinct operational role:
+> Per-carrier configuration (model selection, reasoning level, etc.) can be adjusted from the Fleet Bridge UI (`Alt+O`).
 
-- **Genesis** — Chief Engineer. Implementation, integration, and code delivery.
-- **Athena** — Strategic Planning Officer. Requirements clarification and structured work planning.
-- **Oracle** — Strategic Technical Advisor. Read-only architecture decisions and trade-off analysis.
+Eight built-in Carriers, each with a distinct operational role:
+
+- **Nimitz** — Strategic Command & Judgment. Read-only architecture decisions and trade-off adjudication.
+- **Kirov** — Operational Planning Bridge. Clarifies requirements and authors plan_file under .fleet/plans/*.md for Ohio.
+- **Genesis** — Chief Engineer. Single-shot implementation under Admiral direction.
+- **Ohio** — Multi-Wave Strike Execution. Consumes Kirov-authored plan_file and executes wave-by-wave to completion.
 - **Sentinel** — QA & Security Lead. Code review, defect detection, and vulnerability hunting.
 - **Vanguard** — Scout Specialist. Codebase exploration, symbol tracing, and web research.
-- **Echelon** — Chief Intelligence Officer. GitHub intelligence and external repo analysis.
+- **Tempest** — Forward External Intelligence Strike. GitHub intelligence and external repo analysis.
 - **Chronicle** — Chief Knowledge Officer. Documentation, changelogs, and change-impact reporting.
 
 ## Features
@@ -52,41 +55,45 @@ Seven built-in Carriers, each with a distinct operational role:
 - Per-carrier model and reasoning level configuration
 - Protocol system for different operational modes (Fleet Action, Positive Control)
 
-### Task Force
+### HUD
 
-- Cross-validate a carrier's response across multiple CLI backends simultaneously
-- Compare approaches, detect blind spots, and build multi-model consensus
+- Integrated editor with status bar and footer
+- Metaphor-based directive refinement (3-section) and session operation naming
+- Auto session summary and thinking timer
 
-### Agent Panel
+### Fleet Bridge
 
 - Real-time streaming UI for all active carriers
 - Inline navigation between carrier slots
 - Detail view toggle for focused monitoring
 
-### HUD
+### Carrier Sortie
 
-- Integrated editor with status bar and footer
-- Meta-prompting and reasoning level controls
-- Auto session summary and thinking timer
+- Fire-and-forget delegation to one or more carriers
+- Single-carrier dispatch as well as parallel multi-carrier dispatch in one call
+- Asynchronous result delivery via push notifications and `carrier_jobs` lookup
 
-## Keybindings
+### Squadron
 
-| Key | Action |
-|-----|--------|
-| `Alt+H` / `Alt+L` | Navigate to previous / next Carrier slot |
-| `Alt+P` | Toggle Agent Panel |
-| `Alt+J` / `Alt+K` | Grow / shrink Agent Panel height |
-| `Alt+S` | Stash / restore editor content |
-| `Alt+O` | Fleet Status & Model Config overlay |
-| `Alt+T` | Launch active ACP provider in overlay shell |
-| `Alt+X` | Cancel active Carrier execution |
-| `Alt+Shift+M` | Change Model & Reasoning for active Carrier |
-| `Alt+M` | Improve input via Meta-prompting |
-| `Alt+R` | Cycle Reasoning Level (Off → Low → Medium → High) |
-| `Alt+1` | Switch to Fleet Action Protocol |
-| `Alt+.` | Keybinding help overlay |
-| `Alt+/` | Settings overlay |
-| `Ctrl+Enter` | Toggle Carrier detail view |
+- Fan out independent subtasks to parallel instances of the same carrier
+- Divide-and-conquer execution for batch analysis or per-file processing
+- Up to 10 concurrent subtasks per dispatch
+
+### Task Force
+
+- Cross-validate a carrier's response across multiple CLI backends simultaneously
+- Compare approaches, detect blind spots, and build multi-model consensus
+
+## Commands
+
+After `npm link` (see [SETUP.md](SETUP.md)), four global commands are available:
+
+| Command | Description |
+|---------|-------------|
+| `fleet` | Launch standard Fleet mode |
+| `gfleet` | Launch Grand Fleet mode |
+| `fleet-dev` | Standard Fleet mode loading extensions from the current checkout |
+| `gfleet-dev` | Grand Fleet mode loading extensions from the current checkout |
 
 ## Setup
 

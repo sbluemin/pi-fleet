@@ -10,6 +10,7 @@
  */
 
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { getProviderModels, getReasoningEffortLevels } from "@sbluemin/unified-agent";
 import type { CliType } from "@sbluemin/unified-agent";
@@ -69,14 +70,30 @@ interface FleetStates {
   cliTypeOverrides?: Record<string, string>;
 }
 
+interface StoreLockOwner {
+  pid: number;
+  hostname: string;
+  startedAt: number;
+}
+
 // ─── 상수 ──────────────────────────────────────────────
 
 /** 통합 영속화 파일명 */
 const FILENAME = "states.json";
 
+const LOCK_DIRNAME = "states.json.lock";
+
+const LOCK_OWNER_FILENAME = "owner.json";
+
 const TASKFORCE_CLI_TYPES: readonly CliType[] = ["claude", "codex", "gemini"];
 
 const CONTROL_CHAR_PATTERN = /[\u0000-\u001f\u007f]/;
+
+const LOCK_RETRY_MS = 25;
+
+const LOCK_TIMEOUT_MS = 5000;
+
+const STALE_LOCK_MS = 30000;
 
 /** effort 레벨별 기본 budget_tokens (Claude 전용) */
 const CLAUDE_THINKING_BUDGETS: Record<string, number> = {
@@ -101,33 +118,7 @@ let storeDir: string | null = null;
  */
 export function initStore(dir: string): void {
   storeDir = dir;
-
-}
-
-// ─── 단일 게이트 I/O ────────────────────────────────────
-
-function readStates(): FleetStates {
-  if (!storeDir) return {};
-  const filePath = path.join(storeDir, FILENAME);
-  try {
-    if (!fs.existsSync(filePath)) return {};
-    return JSON.parse(fs.readFileSync(filePath, "utf-8")) as FleetStates;
-  } catch {
-    return {};
-  }
-}
-
-function writeStates(s: FleetStates): void {
-  if (!storeDir) return;
-  const filePath = path.join(storeDir, FILENAME);
-  const tmpPath = filePath + ".tmp";
-  try {
-    fs.writeFileSync(tmpPath, JSON.stringify(s, null, 2), "utf-8");
-    fs.renameSync(tmpPath, filePath);
-  } catch {
-    // 영속화 실패 무시 — 다음 저장 시점에 다시 시도
-    try { fs.unlinkSync(tmpPath); } catch { /* ignore */ }
-  }
+  fs.mkdirSync(dir, { recursive: true });
 }
 
 // ─── 모델 설정 영속화 ──────────────────────────────────
@@ -140,9 +131,9 @@ export function loadModels(): SelectedModelsConfig {
 
 /** 모델 설정을 저장합니다. */
 export function saveModels(config: SelectedModelsConfig): void {
-  const states = readStates();
-  states.models = sanitizeSelectedModelsConfig(config);
-  writeStates(states);
+  updateStates((states) => {
+    states.models = sanitizeSelectedModelsConfig(config);
+  });
 }
 
 /**
@@ -154,16 +145,15 @@ export async function updateModelSelection(
   carrierId: string,
   selection: ModelSelection,
 ): Promise<void> {
-  const s = readStates();
-  // 기존 설정에서 taskforce와 perCliSettings를 보존하면서 병합
-  const existing = s.models?.[carrierId];
-  const merged: ModelSelection = {
-    ...selection,
-    taskforce: selection.taskforce ?? existing?.taskforce,
-    perCliSettings: selection.perCliSettings ?? existing?.perCliSettings,
-  };
-  s.models = { ...s.models, [carrierId]: merged };
-  writeStates(s);
+  updateStates((states) => {
+    const existing = states.models?.[carrierId];
+    const merged: ModelSelection = {
+      ...selection,
+      taskforce: selection.taskforce ?? existing?.taskforce,
+      perCliSettings: selection.perCliSettings ?? existing?.perCliSettings,
+    };
+    states.models = { ...states.models, [carrierId]: merged };
+  });
   getSessionStore().clear(carrierId);
   await disconnectClient(carrierId);
 }
@@ -202,33 +192,32 @@ export async function updateAllModelSelections(
 export function reconcileActiveModelSelections(
   cliTypesByCarrier: Record<string, CliType>,
 ): boolean {
-  const states = readStates();
-  const models = sanitizeSelectedModelsConfig(states.models);
   let changed = false;
+  updateStates((states) => {
+    const models = sanitizeSelectedModelsConfig(states.models);
 
-  for (const [carrierId, cliType] of Object.entries(cliTypesByCarrier)) {
-    const current = models[carrierId];
-    if (!current) continue;
+    for (const [carrierId, cliType] of Object.entries(cliTypesByCarrier)) {
+      const current = models[carrierId];
+      if (!current) continue;
 
-    const resolved = resolveSelectionForCliType(current, cliType);
-    if (!resolved) continue;
+      const resolved = resolveSelectionForCliType(current, cliType);
+      if (!resolved) continue;
 
-    if (!isSameResolvedSelection(current, resolved)) {
-      const next: ModelSelection = { model: resolved.model };
-      if (resolved.direct !== undefined) next.direct = resolved.direct;
-      if (resolved.effort !== undefined) next.effort = resolved.effort;
-      if (resolved.budgetTokens !== undefined) next.budgetTokens = resolved.budgetTokens;
-      if (current.taskforce) next.taskforce = current.taskforce;
-      if (current.perCliSettings) next.perCliSettings = current.perCliSettings;
-      models[carrierId] = next;
-      changed = true;
+      if (!isSameResolvedSelection(current, resolved)) {
+        const next: ModelSelection = { model: resolved.model };
+        if (resolved.direct !== undefined) next.direct = resolved.direct;
+        if (resolved.effort !== undefined) next.effort = resolved.effort;
+        if (resolved.budgetTokens !== undefined) next.budgetTokens = resolved.budgetTokens;
+        if (current.taskforce) next.taskforce = current.taskforce;
+        if (current.perCliSettings) next.perCliSettings = current.perCliSettings;
+        models[carrierId] = next;
+        changed = true;
+      }
     }
-  }
 
-  if (!changed) return false;
-  states.models = models;
-  writeStates(states);
-  return true;
+    if (changed) states.models = models;
+  });
+  return changed;
 }
 
 // ─── CLI별 설정 캐시 ────────────────────────────────────
@@ -268,19 +257,19 @@ export function savePerCliSettings(
   const sanitizedKey = sanitizeConfigKey(cliType);
   if (!sanitizedKey) return;
 
-  const s = readStates();
-  if (!s.models) s.models = {};
-  if (!s.models[carrierId]) s.models[carrierId] = { model: "" };
+  updateStates((states) => {
+    if (!states.models) states.models = {};
+    if (!states.models[carrierId]) states.models[carrierId] = { model: "" };
 
-  const carrier = s.models[carrierId]!;
-  if (!carrier.perCliSettings) carrier.perCliSettings = {};
-  carrier.perCliSettings[sanitizedKey] = {
-    model: settings.model,
-    effort: settings.effort,
-    budgetTokens: settings.budgetTokens,
-    direct: settings.direct,
-  };
-  writeStates(s);
+    const carrier = states.models[carrierId]!;
+    if (!carrier.perCliSettings) carrier.perCliSettings = {};
+    carrier.perCliSettings[sanitizedKey] = {
+      model: settings.model,
+      effort: settings.effort,
+      budgetTokens: settings.budgetTokens,
+      direct: settings.direct,
+    };
+  });
 }
 
 // ─── Task Force 모델 설정 ───────────────────────────────
@@ -313,9 +302,11 @@ export function updateTaskForceModelSelection(
     throw new Error(`Invalid Task Force model selection for ${resolvedCliType}.`);
   }
 
-  const existing = loadModels();
-  ensureTaskForceConfig(existing, carrierId)[resolvedCliType] = sanitizedSelection;
-  saveModels(existing);
+  updateStates((states) => {
+    const models = sanitizeSelectedModelsConfig(states.models);
+    ensureTaskForceConfig(models, carrierId)[resolvedCliType] = sanitizedSelection;
+    states.models = models;
+  });
 }
 
 /**
@@ -326,13 +317,15 @@ export function resetTaskForceModelSelection(
   cliType: string,
 ): void {
   const resolvedCliType = toTaskForceCliType(cliType);
-  const existing = loadModels();
-  const carrierConfig = existing[carrierId];
-  if (!carrierConfig?.taskforce) return;
+  updateStates((states) => {
+    const models = sanitizeSelectedModelsConfig(states.models);
+    const carrierConfig = models[carrierId];
+    if (!carrierConfig?.taskforce) return;
 
-  delete carrierConfig.taskforce[resolvedCliType];
-  pruneEmptyTaskForceConfig(carrierConfig);
-  saveModels(existing);
+    delete carrierConfig.taskforce[resolvedCliType];
+    pruneEmptyTaskForceConfig(carrierConfig);
+    states.models = models;
+  });
 }
 
 /**
@@ -376,9 +369,9 @@ export function loadSortieDisabled(validIds?: Set<string>): string[] {
  * sortie 비활성 carrier ID 목록을 디스크에 저장합니다.
  */
 export function saveSortieDisabled(ids: string[]): void {
-  const states = readStates();
-  states.sortieDisabled = ids;
-  writeStates(states);
+  updateStates((states) => {
+    states.sortieDisabled = ids;
+  });
 }
 
 // ─── Squadron 상태 ──────────────────────────────────────
@@ -400,9 +393,9 @@ export function loadSquadronEnabled(validIds?: Set<string>): string[] {
  * squadron 활성화 carrier ID 목록을 디스크에 저장합니다.
  */
 export function saveSquadronEnabled(ids: string[]): void {
-  const states = readStates();
-  states.squadronEnabled = ids;
-  writeStates(states);
+  updateStates((states) => {
+    states.squadronEnabled = ids;
+  });
 }
 
 // ─── cliType 오버라이드 ─────────────────────────────────
@@ -413,25 +406,34 @@ export function saveSquadronEnabled(ids: string[]): void {
  */
 export function loadCliTypeOverrides(validIds?: Set<string>): Record<string, string> {
   const states = readStates();
-  const overrides = states.cliTypeOverrides;
-  if (!overrides || typeof overrides !== "object") return {};
-  const result: Record<string, string> = {};
-  for (const [id, value] of Object.entries(overrides)) {
-    if (typeof value !== "string") continue;
-    if (!VALID_CLI_TYPES.has(value)) continue;
-    if (validIds && !validIds.has(id)) continue;
-    result[id] = value;
-  }
-  return result;
+  const overrides = sanitizeCliTypeOverrides(states.cliTypeOverrides);
+  if (!validIds) return overrides;
+  return Object.fromEntries(
+    Object.entries(overrides).filter(([id]) => validIds.has(id)),
+  );
 }
 
 /**
- * cliType 오버라이드 맵을 디스크에 저장합니다.
+ * 단일 carrier의 cliType 오버라이드를 저장하거나 기본값이면 제거합니다.
  */
-export function saveCliTypeOverrides(overrides: Record<string, string>): void {
-  const states = readStates();
-  states.cliTypeOverrides = overrides;
-  writeStates(states);
+export function updateCliTypeOverride(
+  carrierId: string,
+  cliType: string,
+  defaultCliType: string,
+): void {
+  const sanitizedCarrierId = sanitizeConfigKey(carrierId);
+  if (!sanitizedCarrierId) return;
+  if (!VALID_CLI_TYPES.has(cliType) || !VALID_CLI_TYPES.has(defaultCliType)) return;
+
+  updateStates((states) => {
+    const overrides = sanitizeCliTypeOverrides(states.cliTypeOverrides);
+    if (cliType === defaultCliType) {
+      delete overrides[sanitizedCarrierId];
+    } else {
+      overrides[sanitizedCarrierId] = cliType;
+    }
+    states.cliTypeOverrides = overrides;
+  });
 }
 
 // ─── 프로바이더 카탈로그 (순수 함수) ────────────────────
@@ -458,7 +460,153 @@ export function getDefaultBudgetTokens(effort: string): number {
   return CLAUDE_THINKING_BUDGETS[effort] ?? 10000;
 }
 
-// ─── 내부 sanitize 헬퍼 ─────────────────────────────────
+// ─── 내부 헬퍼 ──────────────────────────────────────────
+
+function readStates(): FleetStates {
+  if (!storeDir) return {};
+  const filePath = path.join(storeDir, FILENAME);
+  try {
+    if (!fs.existsSync(filePath)) return {};
+    return JSON.parse(fs.readFileSync(filePath, "utf-8")) as FleetStates;
+  } catch {
+    return {};
+  }
+}
+
+function writeStates(s: FleetStates): void {
+  if (!storeDir) throw new Error("Fleet store is not initialized.");
+  fs.mkdirSync(storeDir, { recursive: true });
+  const filePath = path.join(storeDir, FILENAME);
+  const tmpPath = buildTempPath(filePath);
+  try {
+    fs.writeFileSync(tmpPath, JSON.stringify(s, null, 2), "utf-8");
+    fs.renameSync(tmpPath, filePath);
+  } catch (error) {
+    try { fs.unlinkSync(tmpPath); } catch { /* ignore */ }
+    throw error;
+  }
+}
+
+function updateStates(mutator: (states: FleetStates) => void): void {
+  if (!storeDir) return;
+  withStoreLock(() => {
+    const states = readStates();
+    mutator(states);
+    writeStates(states);
+  });
+}
+
+function withStoreLock<T>(operation: () => T): T {
+  if (!storeDir) return operation();
+  fs.mkdirSync(storeDir, { recursive: true });
+  const lockDir = path.join(storeDir, LOCK_DIRNAME);
+  const startedAt = Date.now();
+  while (true) {
+    try {
+      fs.mkdirSync(lockDir);
+      writeLockOwner(lockDir);
+      try {
+        return operation();
+      } finally {
+        releaseStoreLock(lockDir);
+      }
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code !== "EEXIST") throw error;
+      recoverStaleStoreLock(lockDir);
+      if (Date.now() - startedAt >= LOCK_TIMEOUT_MS) {
+        throw new Error(`Timed out waiting for fleet store lock: ${lockDir}`);
+      }
+      sleepSync(LOCK_RETRY_MS);
+    }
+  }
+}
+
+function releaseStoreLock(lockDir: string): void {
+  try {
+    fs.rmSync(lockDir, { recursive: true, force: true });
+  } catch {
+    // 다른 프로세스의 stale-lock 복구와 경합할 수 있으므로 해제 실패는 무시합니다.
+  }
+}
+
+function recoverStaleStoreLock(lockDir: string): void {
+  try {
+    const owner = readLockOwner(lockDir);
+    if (!owner || !isRecoverableLockOwner(owner)) return;
+    fs.rmSync(lockDir, { recursive: true, force: true });
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== "ENOENT") throw error;
+  }
+}
+
+function writeLockOwner(lockDir: string): void {
+  const owner: StoreLockOwner = {
+    pid: process.pid,
+    hostname: os.hostname(),
+    startedAt: Date.now(),
+  };
+  const ownerPath = path.join(lockDir, LOCK_OWNER_FILENAME);
+  try {
+    fs.writeFileSync(ownerPath, JSON.stringify(owner), "utf-8");
+  } catch (error) {
+    releaseStoreLock(lockDir);
+    throw error;
+  }
+}
+
+function readLockOwner(lockDir: string): StoreLockOwner | null {
+  const ownerPath = path.join(lockDir, LOCK_OWNER_FILENAME);
+  try {
+    return sanitizeLockOwner(JSON.parse(fs.readFileSync(ownerPath, "utf-8")));
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") return null;
+    throw error;
+  }
+}
+
+function isRecoverableLockOwner(owner: StoreLockOwner): boolean {
+  if (owner.hostname !== os.hostname()) return false;
+  if (Date.now() - owner.startedAt < STALE_LOCK_MS) return false;
+  return !isProcessAlive(owner.pid);
+}
+
+function isProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ESRCH") return false;
+    return true;
+  }
+}
+
+function sanitizeLockOwner(value: unknown): StoreLockOwner | null {
+  if (!isRecord(value)) return null;
+  const pid = value.pid;
+  const hostname = value.hostname;
+  const startedAt = value.startedAt;
+  if (!Number.isInteger(pid) || (pid as number) <= 0) return null;
+  if (typeof hostname !== "string" || !hostname) return null;
+  if (!Number.isFinite(startedAt) || (startedAt as number) <= 0) return null;
+  return {
+    pid: pid as number,
+    hostname,
+    startedAt: startedAt as number,
+  };
+}
+
+function sleepSync(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function buildTempPath(filePath: string): string {
+  const suffix = `${process.pid}.${Date.now()}.${Math.random().toString(16).slice(2)}`;
+  return `${filePath}.${suffix}.tmp`;
+}
 
 function sanitizeSelectedModelsConfig(raw: unknown): SelectedModelsConfig {
   if (!isRecord(raw)) return {};
@@ -573,6 +721,17 @@ function sanitizeTaskforceConfig(value: unknown): TaskForceConfig | undefined {
   }
 
   return Object.keys(taskforce).length > 0 ? taskforce : undefined;
+}
+
+function sanitizeCliTypeOverrides(value: unknown): Record<string, string> {
+  if (!isRecord(value)) return {};
+  const result: Record<string, string> = {};
+  for (const [id, cliType] of Object.entries(value)) {
+    const sanitizedId = sanitizeConfigKey(id);
+    if (!sanitizedId || typeof cliType !== "string" || !VALID_CLI_TYPES.has(cliType)) continue;
+    result[sanitizedId] = cliType;
+  }
+  return result;
 }
 
 function resolveSelectionForCliType(

@@ -5,6 +5,59 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-04-26
+
+Tactical Steel rebranding + Ohio commission.
+
+### Added
+- **Asynchronous Carrier Operations**: `carriers_sortie`, `carrier_taskforce`, and `carrier_squadron` now operate in fire-and-forget mode.
+- **New `carrier_jobs` Meta Tool**: Introduced for managing detached carrier jobs with actions: `status`, `result`, `cancel`, and `list`.
+- **Job Stream Archive**: Centralized storage for detached job outputs with 3-hour TTL and 8MB/2000-block capacity limits.
+- **Result Push Mechanism**: Framework now pushes `[carrier:result]` signals to notify the Admiral of job completion.
+- New `Ohio` carrier (CVN-10, Codex CLI) — sole receiver of `plan_file` (under `.fleet/plans/*.md`), executes WBS waves end-to-end.
+- Global executable commands (`fleet`, `gfleet`, `fleet-dev`, `gfleet-dev`).
+- CI workflow to auto-tag main pushes with CHANGELOG section as annotated message.
+- Pull request template (`.github/PULL_REQUEST_TEMPLATE.md`).
+- Admiral workflow reference documentation (`docs/admiral-workflow-reference.md`).
+
+### Changed
+- **Worldview-aware `<fleet_role>`**: When the `metaphor.worldview` toggle is OFF, `buildAcpSystemPrompt()` now injects a neutral role prompt (`FLEET_ROLE_PROMPT_NEUTRAL`) that drops naval honorifics, report-form enforcement, and Bridge/Helm metaphors while preserving functional contracts (carrier delegation, pi-tools lazy-loading awareness, Korean-only responses). Persona/tone overlays remain gated by the same toggle.
+- **Worldview-aware Grand Fleet role prompts**: When the `metaphor.worldview` toggle is OFF, `extensions/grand-fleet/prompts.ts` now switches Admiralty/Fleet/Fleet ACP role variants to neutral prompts, neutralizes Admiralty designation guidance, and only injects Fleet persona/tone into ACP base prompts when Grand Fleet context is omitted so metaphor tone no longer leaks through worldview-disabled paths.
+- **Metaphor Domain Integration**: Unified `improve-prompt` into `directive-refinement` and migrated it to the `metaphor` extension domain.
+    - New Settings Path: `metaphor.directiveRefinement` (replaces legacy `core-improve-prompt`).
+    - New Slash Command: `fleet:metaphor:directive`.
+    - Integrated **3-section (3섹션)** Output Format: Refined directives now follow a structured "Directive / Rationale / Residual Risks" markdown schema.
+    - Updated documentation (`AGENTS.md`, `SETUP.md`) to reflect the new naval hierarchy domain boundaries.
+- **Tool Contract Refactoring**: Carrier tools now return a `job_id` immediately instead of waiting for full execution.
+- **Read-Once Result Policy**: Full archived results via `carrier_jobs` are now invalidated after the first successful retrieval to manage memory footprint.
+- Renamed `Oracle` → `Nimitz` (CVN-09, Strategic Command & Judgment, read-only).
+- Renamed `Athena` → `Kirov` (CVN-02, Operational Planning Bridge, plan_file author).
+- Renamed `Echelon` → `Tempest` (CVN-07, Forward External Intelligence Strike).
+- Genesis reverted to single-shot implementation; `plan_file` request block and related principles removed.
+- Admiral delegation doctrine replaced "Oracle vs Athena Decision Flow" with "Nimitz → Kirov → Ohio 3-Step Strike Pipeline".
+- Reorganized keybind overlay categories for better clarity:
+    - `Alt+M` (metaphor-directive-refinement `refine-directive`): `Meta Prompt` → `Metaphor`.
+    - `Alt+T` (bridge `launch`): `Bridge` → `Fleet Bridge`.
+    - `Alt+O` (fleet `carrier-status`): `Fleet` → `Fleet Bridge`.
+- Updated Fleet Bridge status bar hints (`PANEL_MULTI_COL_HINT` and `PANEL_DETAIL_HINT`) by removing retired `alt+x cancel` and `alt+shift+m model` references.
+- Refreshed README structure and renamed Agent Panel to Fleet Bridge.
+- Split grand fleet role pipelines and fleet wiring, and tightened Kirov planning contract.
+
+### Fixed
+- Restored ACP session resume.
+- Serialized fleet state writes to prevent race conditions.
+
+### Removed
+- `Alt+S` (core-hud `stash`): Removed editor text stashing/restoration and associated session/agent lifecycle management.
+- `Alt+Shift+M` (fleet `model-change`): Removed shortcut for changing carrier models. Operators should use the `fleet:agent:models` slash command or the `Alt+O` settings overlay instead.
+- `Alt+R` (core-improve-prompt `reasoning-cycle`): Removed meta-prompt reasoning level cycle shortcut. Reasoning levels can still be adjusted via `fleet:prompt:settings`.
+- `Alt+X` (fleet `carrier-cancel`): Removed operation cancellation shortcut and retired the underlying abort controller infrastructure (`abortCarrierRun`, `RunnerState`).
+- Removed the obsolete root-level `models.json`; model registry data remains in `packages/unified-agent/models.json`.
+- `oracle.ts`, `athena.ts`, `echelon.ts` carrier definitions (replaced by `nimitz.ts`, `kirov.ts`, `tempest.ts`).
+
+### Notes
+- `states.json` entries keyed by retired carrier IDs are dropped at next boot (no migration code added).
+
 ## [0.1.2] - 2026-04-24
 
 ### Added

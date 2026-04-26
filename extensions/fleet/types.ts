@@ -36,6 +36,31 @@ export interface UnifiedAgentRequestOptions {
   ) => void;
 }
 
+/** 내부 background 실행 옵션 — detached job은 ExtensionContext를 캡처하지 않는다. */
+export interface UnifiedAgentBackgroundRequestOptions {
+  /** 대상 CLI 바이너리 타입 */
+  cli: CliType;
+  /** 고유 carrier 식별자 — 풀 키, 세션 스토어 키 */
+  carrierId: string;
+  /** 에이전트에게 전달할 요청 */
+  request: string;
+  /** background 실행은 active-run ctx 대신 명시적 cwd만 사용한다. */
+  cwd: string;
+  /** 취소 시그널 */
+  signal?: AbortSignal;
+  /** 메시지 청크 추가 후 호출되는 훅 */
+  onMessageChunk?: (text: string) => void;
+  /** 사고 청크 추가 후 호출되는 훅 */
+  onThoughtChunk?: (text: string) => void;
+  /** 도구 호출 블록 갱신 후 호출되는 훅 */
+  onToolCall?: (
+    title: string,
+    status: string,
+    rawOutput?: string,
+    toolCallId?: string,
+  ) => void;
+}
+
 /** 공개 API 반환 결과 */
 export interface UnifiedAgentResult {
   /** 실행 최종 상태 */

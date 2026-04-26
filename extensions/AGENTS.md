@@ -13,8 +13,8 @@ Do not create intermediate layers that simply wrap official TUI APIs (e.g., `set
 | Extension | Role | Main Files |
 |-----------|------|------------|
 | `fleet/` | Agent orchestration framework — carrier SDK (`shipyard/carrier/`), Admiral/Bridge/Carrier wiring, unified pipeline, Agent Panel, model selection. Provides the carrier framework consumed by `fleet/carriers/`. | `index.ts` (wiring), `shipyard/carrier/` (framework), `admiral/`, `bridge/`, `carriers/` |
-| `core/` | Unified infrastructure extension — root entry point that wires keybind, settings, log, welcome, hud, shell, improve-prompt, summarize, thinking-timer, provider-guard, and the unified `agentclientprotocol/` module | `index.ts` (root wiring), `<module>/register.ts` (module wiring), `agentclientprotocol/` (shared ACP infra + provider boundary) |
-| `metaphor/` | Metaphor framework extension — Centralized management of PERSONA/TONE for the 4-tier naval hierarchy, provides `metaphor:worldview` toggle and settings. | `index.ts`, `worldview.ts`, `prompts.ts` |
+| `core/` | Unified infrastructure extension — root entry point that wires keybind, settings, log, welcome, hud, shell, thinking-timer, provider-guard, and the unified `agentclientprotocol/` module | `index.ts` (root wiring), `<module>/register.ts` (module wiring), `agentclientprotocol/` (shared ACP infra + provider boundary) |
+| `metaphor/` | Metaphor framework extension — Centralized management of PERSONA/TONE for the 4-tier naval hierarchy, provides `metaphor:worldview` toggle/settings, `operation-name/` session operation naming, and `directive-refinement/` command-memo normalization. | `index.ts`, `worldview.ts`, `prompts.ts`, `operation-name/`, `directive-refinement/` |
 | `diagnostics/` | MCP transport layer verification tools — long-running dummy arithmetic for timeout testing. | `index.ts`, `dummy-arith/tool.ts` |
 
 ### Shared Libraries — Directories without `index.ts`
@@ -388,8 +388,8 @@ All cross-domain imports verified — **no reverse dependency violations found**
 | `fleet/admiral/` → `core/keybind`, `core/settings` | fleet → core | ✅ |
 | `fleet/admiral/` → `core/agentclientprotocol/provider-types` | fleet → core | ✅ |
 | `fleet/admiral/` → `fleet/shipyard/` | fleet internal | ✅ |
-| `core/summarize` → `core/settings` | core internal | ✅ |
-| `core/improve-prompt` → `core/settings`, `core/keybind` | core internal | ✅ |
+| `metaphor/operation-name/` → `core/settings` | metaphor → core | ✅ |
+| `metaphor/directive-refinement` → `core/settings`, `core/keybind` | metaphor active module | ✅ |
 
 ### Enforcement
 

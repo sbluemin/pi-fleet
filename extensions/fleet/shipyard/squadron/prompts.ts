@@ -30,10 +30,10 @@ export const SQUADRON_MANIFEST: ToolPromptManifest = {
   tag: "carrier_squadron",
   title: "carrier_squadron Tool Guidelines",
   description:
-    `Fan out subtasks to parallel instances of the same carrier for divide-and-conquer execution.` +
-    ` Split a single large task into independent subtasks and run them simultaneously on the chosen carrier.`,
+    `Register a fire-and-forget job that fans out subtasks to parallel instances of the same carrier for divide-and-conquer execution.` +
+    ` It returns a job_id immediately; results arrive through [carrier:result] push; carrier_jobs is fallback/explicit lookup only.`,
   promptSnippet:
-    `carrier_squadron — Fan out subtasks to parallel instances of the same carrier.`,
+    `carrier_squadron — Register parallel same-carrier subtask jobs. Results arrive later via [carrier:result]; carrier_jobs is fallback/explicit lookup only.`,
   whenToUse: [
     "Use carrier_squadron when a task can be decomposed into independent subtasks that benefit from parallel execution on the same carrier type.",
     "Use it for analyzing multiple files independently, running the same check across different modules, or batch-processing items.",
@@ -50,13 +50,16 @@ export const SQUADRON_MANIFEST: ToolPromptManifest = {
       ` Maximum ${SQUADRON_MAX_INSTANCES} subtasks allowed.`,
     `Each subtask request must still follow the selected carrier's request-tag contract.` +
       ` Preserve ordinary direct request composition when no optional planning artifact is available.`,
-    `If Athena has already produced a plan file for Genesis, pass that path via Genesis's optional \`<plan_file>\` tag inside the relevant subtask request instead of re-describing the full plan inline.` +
+    `If Kirov has already produced a plan file for Ohio, pass that path via Ohio's optional \`<plan_file>\` tag inside the relevant subtask request instead of re-describing the full plan inline.` +
       ` That path must stay repo-relative and must point only to a Markdown plan under .fleet/plans/*.md.` +
       ` If no such file exists, preserve ordinary Genesis subtask request composition by sending only the normal objective/scope/constraints context.`,
-    `Do not pass absolute paths, general repo-relative files, or non-Markdown files via Genesis's \`<plan_file>\` tag in carrier_squadron subtasks.` +
-      ` If a provided \`<plan_file>\` is missing, unreadable, or invalid, Genesis must report the issue and request re-direction rather than guessing or silently re-planning.`,
+    `Do not pass absolute paths, general repo-relative files, or non-Markdown files via Ohio's \`<plan_file>\` tag in carrier_squadron subtasks.` +
+      ` If a provided \`<plan_file>\` is missing, unreadable, or invalid, Ohio must report the issue and request re-direction rather than guessing or silently re-planning.`,
     `PI splits the task into subtasks — the tool only fans out execution.` +
-      ` Results are returned in structured format; final interpretation is PI's responsibility.`,
+      ` The launch response is { job_id, accepted, error? } and never includes synchronous result content.` +
+      ` Final interpretation is PI's responsibility after [carrier:result] push; carrier_jobs is fallback/explicit lookup only.`,
+    `Do not poll, wait-check, or call carrier_jobs merely to see whether the job is done.` +
+      ` Continue independent work if available; otherwise stop tool use and wait passively for the [carrier:result] follow-up push.`,
   ],
 };
 

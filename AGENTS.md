@@ -3,7 +3,7 @@
 > **A Multi-LLM Orchestration Kit**
 >
 > A custom extension fleet based on [pi-coding-agent](https://github.com/badlogic/pi-mono).
-> The core purpose is to operate 9 carriers — Claude Code, Codex CLI, and Gemini CLI — through a single unified interface.
+> The core purpose is to operate 8 carriers — Claude Code, Codex CLI, and Gemini CLI — through a single unified interface.
 
 ## Structure
 
@@ -15,7 +15,10 @@
 | `extensions/fleet/admiral/` | Admiral prompt-policy library — prompts, protocols, standing orders, request directive, widget |
 | `extensions/fleet/bridge/` | Bridge library — active ACP provider overlay shell launcher |
 | `extensions/fleet/carriers/` | Carrier registration library — default carrier definitions (refer to its own `AGENTS.md`) |
-| `extensions/core/` | Infrastructure + utility extensions — agent infra, hud, keybind, settings, welcome, shell, improve-prompt, summarize, thinking-timer, provider-guard (refer to its own `AGENTS.md`) |
+| `extensions/core/` | Infrastructure + utility extensions — agent infra, hud, keybind, settings, welcome, shell, thinking-timer, provider-guard (refer to its own `AGENTS.md`) |
+| `extensions/metaphor/` | Metaphor framework extension — 4계층 해군 PERSONA/TONE worldview 관리, 세션 작전명 자동 명명(operation naming), 지령 재다듬기(directive refinement) 기능을 제공 |
+| `extensions/metaphor/operation-name/` | Operation naming module — 최초 사용자 요청을 `Operation › {codename}` 형식의 해군 작전명으로 자동 명명 |
+| `extensions/metaphor/directive-refinement/` | Directive refinement module — 사용자 입력 초안을 3섹션 형식의 작전 지령으로 재다듬기 |
 
 > Currently, there is no `pi/` directory — symlink setup is not required.
 
@@ -42,19 +45,20 @@ Beyond simple parallel API calls, the system adopts a **naval fleet metaphor** t
 
 ## Architecture — Agent Workflow
 
-PI is the **host agent** (orchestrator). Genesis, Sentinel, and Vanguard are **sub-agents** that execute independently via ACP protocol.
+PI is the **host agent** (orchestrator). Registered Carriers are **sub-agents** that execute independently via ACP protocol.
 
 ### Speakers
 
 | Speaker | Role |
 |---------|------|
 | **PI** (host) | Orchestrator — routes requests, invokes tools, synthesizes cross-reports |
-| **Genesis** (sub) | CVN-01 Chief Engineer (Codex CLI via ACP) |
-| **Athena** (sub) | CVN-02 Strategic Planning Officer (Claude Code CLI via ACP) |
-| **Oracle** (sub) | CVN-09 Strategic Technical Advisor — read-only (Claude Code CLI via ACP) |
+| **Nimitz** (sub) | CVN-09 Strategic Command & Judgment — read-only (Claude Code CLI via ACP) |
+| **Kirov** (sub) | CVN-02 Operational Planning Bridge (Claude Code CLI via ACP) |
+| **Genesis** (sub) | CVN-01 Chief Engineer — single-shot implementation under Admiral direction (Codex CLI via ACP) |
+| **Ohio** (sub) | CVN-10 Multi-Wave Strike Execution — receives `plan_file` from Kirov; sole plan-driven executor (Codex CLI via ACP) |
 | **Sentinel** (sub) | CVN-04 The Inquisitor / QA & Security Lead (Codex CLI via ACP) |
 | **Vanguard** (sub) | CVN-06 Scout Specialist (Codex CLI via ACP) |
-| **Echelon** (sub) | CVN-07 Chief Intelligence Officer (Gemini CLI via ACP) |
+| **Tempest** (sub) | CVN-07 Forward External Intelligence Strike (Gemini CLI via ACP) |
 | **Chronicle** (sub) | CVN-08 Chief Knowledge Officer — documentation, change-impact summaries, and release communication (Gemini CLI via ACP) |
 
 ### Execution Modes
@@ -186,11 +190,12 @@ Each extension maps to exactly one domain. Use the domain below for all commands
 |-----------|--------|-----------|
 | `fleet/` | `agent` | Sub-agent orchestration features |
 | `fleet/admiral/` | `admiral` | Host-agent prompt policy, protocols, and operational doctrine |
-| `metaphor/` | `metaphor` | Naval Fleet "Persona" prompts and worldview management |
+| `fleet/shipyard/carrier_jobs/` | `jobs` | Detached carrier job rendering and verbose toggle |
+| `metaphor/` | `metaphor` | Naval Fleet "Persona" prompts, worldview management, and operation naming |
 | `fleet/carriers/` | `carrier` | Individual carrier registration and configuration |
 | `core/hud/` | `hud` | HUD / editor display features |
-| `core/improve-prompt/` | `prompt` | Meta-prompt model and reasoning settings |
-| `core/summarize/` | `summary` | Session summarization settings |
+| `metaphor/operation-name/` | `metaphor:operation` | Session operation naming settings |
+| `metaphor/directive-refinement/` | `metaphor:directive` | Directive refinement (3-section) settings |
 When adding a **new extension**, assign a domain that reflects the **feature category**, not the directory prefix (`core-`, etc.).
 
 ### Feature Naming

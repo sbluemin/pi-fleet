@@ -80,7 +80,7 @@ export class SettingsOverlay implements Component, Focusable {
 
     // 등록된 섹션들을 동적으로 렌더링
     for (const section of this.sections) {
-      // 섹션 헤더: ◇ Meta Prompt
+      // 섹션 헤더: ◇ Directive Refinement
       lines.push(row(
         `  ${PANEL_COLOR}◇${ANSI_RESET} ${PANEL_COLOR}${section.displayName}${ANSI_RESET}`,
       ));

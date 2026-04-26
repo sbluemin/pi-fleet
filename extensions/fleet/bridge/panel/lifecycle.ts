@@ -7,12 +7,15 @@
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { ANIM_INTERVAL_MS, formatPanelMultiColHint, PANEL_DETAIL_HINT } from "../../constants.js";
+import { getActiveBackgroundJobCount, onActiveJobCountChange } from "../../shipyard/_shared/concurrency-guard.js";
 import { getState, makeCols, syncColsWithRegisteredOrder } from "./state.js";
 import type { AgentCol } from "./types.js";
 import { detachWidgetSync, syncCurrentWidget, syncWidget } from "./widget-sync.js";
 
 // 편의를 위한 re-export
 export type { AgentCol } from "./types.js";
+
+let unsubscribeActiveJobCount: (() => void) | null = null;
 
 // ─── 패널 상세 뷰 관리 ──────────────────────────────────
 
@@ -154,7 +157,22 @@ export function detachAgentPanelUi(): void {
     clearInterval(s.animTimer);
     s.animTimer = null;
   }
+  if (unsubscribeActiveJobCount) {
+    unsubscribeActiveJobCount();
+    unsubscribeActiveJobCount = null;
+  }
   detachWidgetSync();
+}
+
+export function bindPanelBackgroundJobAnimation(): void {
+  if (unsubscribeActiveJobCount) return;
+  unsubscribeActiveJobCount = onActiveJobCountChange((count) => {
+    if (count > 0) {
+      ensureAnimTimer();
+      return;
+    }
+    stopAnimTimerIfIdle();
+  });
 }
 
 // ─── 개별 칼럼 스트리밍 (Carrier용) ─────────────────────
@@ -181,13 +199,7 @@ export function beginColStreaming(ctx: ExtensionContext, colIndex: number): void
     };
   }
 
-  // 타이머가 없으면 시작
-  if (!s.animTimer) {
-    s.animTimer = setInterval(() => {
-      s.frame++;
-      syncCurrentWidget();
-    }, ANIM_INTERVAL_MS);
-  }
+  ensureAnimTimer();
 
   syncWidget(ctx);
 }
@@ -206,13 +218,29 @@ export function endColStreaming(ctx: ExtensionContext, colIndex: number): void {
 
   if (!stillStreaming) {
     s.streaming = false;
-    if (s.animTimer) {
-      clearInterval(s.animTimer);
-      s.animTimer = null;
-    }
+    stopAnimTimerIfIdle();
   }
 
   syncWidget(ctx);
+}
+
+export function ensureAnimTimer(): void {
+  const s = getState();
+  if (s.animTimer) return;
+  s.animTimer = setInterval(() => {
+    s.frame++;
+    syncCurrentWidget();
+    stopAnimTimerIfIdle();
+  }, ANIM_INTERVAL_MS);
+}
+
+function stopAnimTimerIfIdle(): void {
+  const s = getState();
+  const stillStreaming = s.streaming || s.cols.some((col) => col.status === "conn" || col.status === "stream");
+  if (stillStreaming || getActiveBackgroundJobCount() > 0) return;
+  if (!s.animTimer) return;
+  clearInterval(s.animTimer);
+  s.animTimer = null;
 }
 
 // ─── UI 토글 헬퍼 ────────────────────────────────────────

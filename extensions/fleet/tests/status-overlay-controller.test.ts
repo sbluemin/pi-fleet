@@ -120,7 +120,7 @@ function createController(state: TestState) {
   const refreshAgentPanel = vi.fn();
   const syncModelConfig = vi.fn();
   const notifyStatusUpdate = vi.fn();
-  const saveCliTypeOverrides = vi.fn();
+  const updateCliTypeOverride = vi.fn();
 
   const controller = new StatusOverlayController({
     getEntries: () => state.entries,
@@ -135,7 +135,7 @@ function createController(state: TestState) {
     refreshAgentPanel,
     syncModelConfig,
     notifyStatusUpdate,
-    saveCliTypeOverrides,
+    updateCliTypeOverride,
   });
 
   return {
@@ -143,9 +143,9 @@ function createController(state: TestState) {
     spies: {
       notifyStatusUpdate,
       refreshAgentPanel,
-      saveCliTypeOverrides,
       savePerCliSettings,
       syncModelConfig,
+      updateCliTypeOverride,
       updateCarrierCliType,
       updateModelSelection,
     },
@@ -288,7 +288,7 @@ describe("StatusOverlayController", () => {
     expect(state.configs.get("gamma")?.cliType).toBe("claude");
   });
 
-  it("changeCliType 실패 시 framework cliType을 롤백하고 override를 재저장한다", async () => {
+  it("changeCliType 실패 시 framework cliType을 롤백하고 해당 carrier override만 복원한다", async () => {
     const { controller, spies } = createController(state);
     spies.updateModelSelection.mockRejectedValueOnce(new Error("boom"));
 
@@ -297,6 +297,37 @@ describe("StatusOverlayController", () => {
     expect(state.configs.get("alpha")?.cliType).toBe("claude");
     expect(spies.updateCarrierCliType).toHaveBeenNthCalledWith(1, "alpha", "codex");
     expect(spies.updateCarrierCliType).toHaveBeenNthCalledWith(2, "alpha", "claude");
-    expect(spies.saveCliTypeOverrides).toHaveBeenCalledTimes(2);
+    expect(spies.updateCliTypeOverride).toHaveBeenNthCalledWith(1, "alpha", "codex", "claude");
+    expect(spies.updateCliTypeOverride).toHaveBeenNthCalledWith(2, "alpha", "claude", "claude");
+  });
+
+  it("override 저장 실패 시 model 업데이트 전에 framework cliType과 override를 롤백한다", async () => {
+    const { controller, spies } = createController(state);
+    spies.updateCliTypeOverride.mockImplementationOnce(() => {
+      throw new Error("lock timeout");
+    });
+
+    await expect(controller.changeCliType("alpha", "codex")).rejects.toThrow("lock timeout");
+
+    expect(state.configs.get("alpha")?.cliType).toBe("claude");
+    expect(spies.updateCarrierCliType).toHaveBeenNthCalledWith(1, "alpha", "codex");
+    expect(spies.updateCarrierCliType).toHaveBeenNthCalledWith(2, "alpha", "claude");
+    expect(spies.updateCliTypeOverride).toHaveBeenNthCalledWith(1, "alpha", "codex", "claude");
+    expect(spies.updateCliTypeOverride).toHaveBeenNthCalledWith(2, "alpha", "claude", "claude");
+    expect(spies.updateModelSelection).not.toHaveBeenCalled();
+    expect(spies.syncModelConfig).toHaveBeenCalledTimes(1);
+    expect(spies.notifyStatusUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it("이전 상태가 non-default인 실패도 이전 override intent로 복원한다", async () => {
+    state.configs.get("gamma")!.cliType = "gemini";
+    const { controller, spies } = createController(state);
+    spies.updateModelSelection.mockRejectedValueOnce(new Error("boom"));
+
+    await expect(controller.changeCliType("gamma", "codex")).rejects.toThrow("boom");
+
+    expect(state.configs.get("gamma")?.cliType).toBe("gemini");
+    expect(spies.updateCliTypeOverride).toHaveBeenNthCalledWith(1, "gamma", "codex", "claude");
+    expect(spies.updateCliTypeOverride).toHaveBeenNthCalledWith(2, "gamma", "gemini", "claude");
   });
 });

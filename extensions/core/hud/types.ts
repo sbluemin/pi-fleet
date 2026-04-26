@@ -156,7 +156,6 @@ export interface HudEditorState {
   sessionStartTime: number;
   currentCtx: any;
   getThinkingLevelFn: (() => string) | null;
-  stashedEditorText: string | null;
   currentEditor: any;
   config: HudCoreConfig;
   /** footer 콜백에서 직접 수신한 데이터 제공자 (hud-footer globalThis 불필요) */

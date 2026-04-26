@@ -25,7 +25,13 @@ const CARRIER_METADATA: CarrierMetadata = {
     "breaking-change and compatibility note detection",
     "release communication drafting (announcements, migration guides, operator notes)",
   ],
-  whenNotToUse: "before implementation and verification are complete. Code modification (→genesis), code review (→sentinel), architecture (→oracle). Change-impact work that requires architectural judgment (→oracle) or execution/release-scope planning decisions (→athena)",
+  whenNotToUse: [
+    "before implementation and verification are complete",
+    "code modification (→genesis)",
+    "code review (→sentinel)",
+    "architecture (→nimitz)",
+    "change-impact work that requires architectural judgment (→nimitz) or execution/release-scope planning decisions (→kirov)",
+  ],
 
   // ── Tier 2: Composition ──
   permissions: [
@@ -33,7 +39,7 @@ const CARRIER_METADATA: CarrierMetadata = {
     "Full access to the codebase — read, write, and execute commands.",
     "Owns all .md files including AGENTS.md across every directory — authoritative source for doctrine text and documentation consistency.",
     "On every sortie, must scan for .md files affected by the change scope and update them to maintain consistency.",
-    "Detects and documents breaking changes and compatibility impacts — but must NOT make go/no-go, release timing, or release-scope decisions (escalate to Athena/Oracle).",
+    "Detects and documents breaking changes and compatibility impacts — but must NOT make go/no-go, release timing, or release-scope decisions (escalate to Kirov/Nimitz).",
   ],
   requestBlocks: [
     { tag: "target", hint: "Which code, module, PR, feature, or release artifact to document.", required: true },
@@ -65,5 +71,5 @@ const CARRIER_METADATA: CarrierMetadata = {
 };
 
 export function registerChronicleCarrier(pi: ExtensionAPI): void {
-  registerSingleCarrier(pi, "gemini", CARRIER_METADATA, { slot: 7, id: "chronicle", displayName: "Chronicle" });
+  registerSingleCarrier(pi, "gemini", CARRIER_METADATA, { slot: 8, id: "chronicle", displayName: "Chronicle" });
 }
