@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { acquireJobPermit, resetJobConcurrencyForTest } from "../shipyard/_shared/concurrency-guard.js";
-import { formatLaunchResponseText } from "../shipyard/_shared/job-reminders.js";
+import { formatLaunchResponseText, JOB_LAUNCH_NOTICE } from "../shipyard/_shared/job-reminders.js";
 import type { CarrierJobLaunchResponse, CarrierJobRecord, CarrierJobStatus } from "../shipyard/_shared/job-types.js";
 
 describe("carrier launch contract", () => {
@@ -65,16 +65,17 @@ describe("carrier launch contract", () => {
 
   it("adds launch guidance only for accepted background jobs", () => {
     const accepted = formatLaunchResponseText({ job_id: "sortie:call-1", accepted: true }, true);
-    expect(accepted).toMatch(/^<system-reminder>/);
-    expect(accepted).toContain("background execution");
-    expect(accepted).toContain("follow-up push");
-    expect(accepted).toContain("Do not poll, wait-check, or call carrier_jobs merely to see whether the job is done");
-    expect(accepted).toContain("stop tool use and wait passively for the [carrier:result] follow-up push");
+    expect(accepted.startsWith(JOB_LAUNCH_NOTICE)).toBe(true);
+    expect(accepted).toContain("Job accepted");
+    expect(accepted).toContain('<system-reminder source="carrier-completion">');
+    expect(accepted).toContain("[carrier:result] push");
+    expect(accepted).toContain("DO NOT poll carrier_jobs");
     expect(accepted).toContain('{"job_id":"sortie:call-1","accepted":true}');
+    expect(accepted).not.toMatch(/^<[^>\n]+>/);
 
     const rejected = formatLaunchResponseText({ job_id: "sortie:call-1", accepted: false, error: "carrier busy" }, false);
     expect(rejected).toBe('{"job_id":"sortie:call-1","accepted":false,"error":"carrier busy"}');
-    expect(rejected).not.toContain("<system-reminder>");
+    expect(rejected).not.toMatch(/^<[^>\n]+>/);
   });
 });
 

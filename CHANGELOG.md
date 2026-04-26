@@ -5,6 +5,13 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Changed
+- **`<system-reminder>` Doctrine Realignment**: Restricted `<system-reminder>` wrapping to `pi.sendMessage`-delivered carrier completion pushes only.
+    - Synchronous tool responses — launch acceptance text and `carrier_jobs` `notice` field — are now returned as plain text without any XML wrapping.
+    - Completion pushes now carry a `source="carrier-completion"` attribute on `<system-reminder>` so the Admiral can identify framework-delivered carrier completion events.
+    - `LAUNCH_REMINDER_TEXT` renamed to `JOB_LAUNCH_NOTICE` and compressed to a 2-sentence plain-text guidance referencing the new push attribute.
+    - `wrapSystemReminder(text, attrs?)` signature extended to accept optional XML attributes; sole production caller is now `_shared/push.ts`.
+
 ## [0.2.0] - 2026-04-26
 
 ### Added

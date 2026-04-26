@@ -387,7 +387,7 @@ describe("completion push", () => {
     const [message, options] = pi.sendMessage.mock.calls[0];
     expect(message.customType).toBe("carrier-result");
     expect(message.display).toBe(false);
-    expect(message.content).toMatch(/^<system-reminder>/);
+    expect(message.content).toMatch(/^<system-reminder source="carrier-completion">/);
     expect(message.content).toContain("[carrier:result]");
     expect(message.content).toContain("sortie:1");
     expect(message.content).toContain("</system-reminder>");
@@ -416,7 +416,7 @@ describe("completion push", () => {
     expect(pi.sendMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         customType: "carrier-result",
-        content: expect.stringContaining("[carrier:result]"),
+        content: expect.stringMatching(/<system-reminder source="carrier-completion">[\s\S]*\[carrier:result\]/),
         display: false,
       }),
       { triggerTurn: true, deliverAs: "followUp" },

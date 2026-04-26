@@ -1,9 +1,10 @@
-export const LAUNCH_REMINDER_TEXT = [
-  "The carrier job has been accepted for background execution.",
-  "A <system-reminder> follow-up push with [carrier:result] will arrive automatically when the job reaches a terminal state.",
-  "Do not poll, wait-check, or call carrier_jobs merely to see whether the job is done.",
-  "Continue with independent work if any remains; otherwise stop tool use and wait passively for the [carrier:result] follow-up push.",
-  "Use carrier_jobs only when the push is missing or an explicit lookup is required.",
+interface SystemReminderAttributes {
+  [key: string]: string;
+}
+
+export const JOB_LAUNCH_NOTICE = [
+  "Job accepted; result arrives as <system-reminder source=\"carrier-completion\"> with [carrier:result] push.",
+  "DO NOT poll carrier_jobs.",
 ].join(" ");
 
 export const CARRIER_RESULT_PUSH_PREFIX = "[carrier:result]";
@@ -11,9 +12,21 @@ export const CARRIER_RESULT_PUSH_PREFIX = "[carrier:result]";
 export function formatLaunchResponseText(response: unknown, accepted: boolean): string {
   const payload = JSON.stringify(response);
   if (!accepted) return payload;
-  return wrapSystemReminder(LAUNCH_REMINDER_TEXT) + "\n" + payload;
+  return JOB_LAUNCH_NOTICE + "\n" + payload;
 }
 
-export function wrapSystemReminder(text: string): string {
-  return `<system-reminder>\n${text}\n</system-reminder>`;
+export function wrapSystemReminder(text: string, attrs?: SystemReminderAttributes): string {
+  const renderedAttrs = renderSystemReminderAttributes(attrs);
+  return `<system-reminder${renderedAttrs}>\n${text}\n</system-reminder>`;
+}
+
+function renderSystemReminderAttributes(attrs?: SystemReminderAttributes): string {
+  if (!attrs) return "";
+  const pairs = Object.entries(attrs);
+  if (pairs.length === 0) return "";
+  return pairs.map(([key, value]) => ` ${key}="${escapeXmlAttribute(value)}"`).join("");
+}
+
+function escapeXmlAttribute(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
 }

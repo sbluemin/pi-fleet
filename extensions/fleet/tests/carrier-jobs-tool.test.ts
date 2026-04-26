@@ -53,6 +53,33 @@ describe("carrier_jobs tool", () => {
     expect(response.summary_available).toBe(false);
   });
 
+  it("keeps active notices as plain text for status, result, and cancel", () => {
+    acquireJobPermit(buildRecord("sortie:active", ["genesis"]));
+    createJobArchive("sortie:active", 1000);
+    putJobSummary({
+      jobId: "sortie:active",
+      tool: "carriers_sortie",
+      status: "active",
+      summary: "running",
+      startedAt: 1000,
+      carriers: ["genesis"],
+    }, 1000);
+
+    const statusResponse = dispatchCarrierJobsAction({ action: "status", job_id: "sortie:active" }, 1001);
+    const resultResponse = dispatchCarrierJobsAction({ action: "result", job_id: "sortie:active" }, 1001);
+    const fullResultResponse = dispatchCarrierJobsAction({ action: "result", job_id: "sortie:active", format: "full" }, 1001);
+    const cancelResponse = dispatchCarrierJobsAction({ action: "cancel", job_id: "sortie:active" }, 1001);
+
+    expect(statusResponse.notice).toContain("[carrier:result]");
+    expect(resultResponse.notice).toContain("[carrier:result]");
+    expect(fullResultResponse.notice).toContain("[carrier:result]");
+    expect(cancelResponse.notice).toContain("[carrier:result]");
+    expect(statusResponse.notice).not.toContain("<system-reminder>");
+    expect(resultResponse.notice).not.toContain("<system-reminder>");
+    expect(fullResultResponse.notice).not.toContain("<system-reminder>");
+    expect(cancelResponse.notice).not.toContain("<system-reminder>");
+  });
+
   it("rejects full reads for active jobs without invalidating the archive", () => {
     acquireJobPermit(buildRecord("sortie:active", ["genesis"]));
     createJobArchive("sortie:active", 1000);

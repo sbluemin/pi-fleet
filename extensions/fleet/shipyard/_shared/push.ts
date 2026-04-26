@@ -31,7 +31,7 @@ export function flushCarrierCompletionPush(pi: ExtensionAPI): void {
   const pending = state.pending.splice(0);
   if (pending.length === 0) return;
   const lines = pending.map((item) => `- ${item.jobId}: ${item.summary}`);
-  const content = wrapSystemReminder(`${CARRIER_RESULT_PUSH_PREFIX}\n${lines.join("\n")}`);
+  const content = wrapSystemReminder(`${CARRIER_RESULT_PUSH_PREFIX}\n${lines.join("\n")}`, { source: "carrier-completion" });
   const details: CarrierResultMessageDetails = {
     jobIds: pending.map((item) => item.jobId),
     summaries: pending.map((item) => item.summary),

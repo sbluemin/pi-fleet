@@ -100,7 +100,27 @@ as doctrine units:
    │ enqueue completion push
    ▼
 [push: pi.sendMessage(custom, display:false, triggerTurn:true)]
-   │ <system-reminder>
+   │ Job accepted; result arrives via [carrier:result] push.
+   │ Do not poll carrier_jobs.
+   │ { job_id, accepted: true }
+   ▼
+ [admin LLM]
+   │ receives {job_id} and either ends the turn or issues another tool call
+   ▼
+[admin idle]                                              ─ active run terminates
+   ⋮
+   ⋮  (the background promise is still running, on its own time axis)
+   ⋮
+[background promise]
+   │ runAgentRequestBackground(cwd snapshot, no admin ctx)
+   │   → ACP/MCP → carrier CLI → stream chunks / tool_call events
+   │   → dual-write to stream-store (UI) and JobStreamArchive (AI)
+   │ finalize
+   │ LRU summary put
+   │ enqueue completion push
+   ▼
+ [push: pi.sendMessage(custom, display:false, triggerTurn:true)]
+   │ <system-reminder source="carrier-completion">
    │   [carrier:result] {jobId} {summary}
    │ </system-reminder>
    ▼
@@ -206,15 +226,19 @@ Response schema (immutable):
 ```
 
 There are exactly two paths that deliver the actual work result:
-1. **Push** — when the job finishes, the framework auto-delivers a `<system-reminder>`-wrapped
+1. **Push** — when the job finishes, the framework auto-delivers a `<system-reminder source="carrier-completion">`-wrapped
    follow-up custom message to the Admiral. `triggerTurn: true` even wakes an idle Admiral.
 2. **carrier_jobs** — explicit lookup by the Admiral. In normal operation this is a fallback
    for missed pushes or detail confirmation.
 
+> The immediate acceptance reminder is plain text only and only means the detached job was
+> registered successfully.
+>
 > ⛔ **Do not poll `carrier_jobs(action:"status")` immediately after launch.** The push
 > mechanism notifies you automatically, so polling burns admin context and tokens.
 > `carrier_jobs` responses for active jobs include an imperative `notice` field wrapped 
-> in `<system-reminder>` reinforcing this doctrine.
+> in `<system-reminder>` reinforcing this doctrine. The completion push is distinguished
+> by `<system-reminder source="carrier-completion">`.
 
 ---
 
@@ -266,7 +290,7 @@ job completion
  ▼
 pi.sendMessage({
   customType: "carrier-result",
-  content: <system-reminder>
+  content: <system-reminder source="carrier-completion">
     [carrier:result] {jobId} {tool}: {summary}
   </system-reminder>,
   display: false,                ← not rendered in TUI
@@ -299,7 +323,7 @@ admin LLM begins a new turn — it must recognise the system-reminder as a frame
 | 6 | **Persistence** — Dual-layered: `states.json` (runtime state) and `settings.json` (preferences). Process-level globalThis exists but syncs to these files. |
 | 7 | **stream-store (UI) ⊥ JobStreamArchive (AI)** — keys, lifecycles, and serialisation are all separate. |
 | 8 | **Archive policy** — text/thought only, tool_call filtered, secret redaction at append boundary, head 20 + tail 50 + truncated marker, TTL 3 h, summary read-many · full read-once. |
-| 9 | **Push** — `pi.sendMessage` custom + `display:false` + imperative `<system-reminder>` wrapping + `[carrier:result]` prefix. `triggerTurn:true` for idle wake-up. |
+| 9 | **Push** — `pi.sendMessage` custom + `display:false` + imperative `<system-reminder source="carrier-completion">` wrapping + `[carrier:result]` prefix. `triggerTurn:true` for idle wake-up. |
 | 10 | **Animation tick** — alive while admin is streaming OR an active background job exists. Graceful skip is reserved for stale ctx only. |
 
 ---
@@ -316,7 +340,8 @@ admin LLM begins a new turn — it must recognise the system-reminder as a frame
 ### Pitfall 2 — "I should poll `carrier_jobs` status right after launch."
 **Unnecessary.** Push notifies you automatically. Polling wastes admin context and tokens.
 Do other independent work, or just wait. Active jobs respond with an imperative `notice` 
-field wrapped in `<system-reminder>` to remind you of this.
+field wrapped in `<system-reminder>` to remind you of this. By contrast, the immediate
+launch acceptance reminder stays plain text.
 
 ### Pitfall 3 — "Maybe the background promise can use ctx too."
 **Forbidden.** While the Admiral is idle, ctx becomes stale and triggers
