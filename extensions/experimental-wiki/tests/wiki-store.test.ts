@@ -61,9 +61,9 @@ describe("wiki store", () => {
 
     const rawContent = await readPatchFile(path.join(paths.root, rawRef));
 
-    expect(paths.rawDir.endsWith(path.join(".fleet/wiki", "raw"))).toBe(true);
-    expect(paths.schemaDir.endsWith(path.join(".fleet/wiki", "schema"))).toBe(true);
-    expect(paths.conflictsDir.endsWith(path.join(".fleet/wiki", "conflicts"))).toBe(true);
+    expect(paths.rawDir.endsWith(path.join(".fleet/knowledge", "raw"))).toBe(true);
+    expect(paths.schemaDir.endsWith(path.join(".fleet/knowledge", "schema"))).toBe(true);
+    expect(paths.conflictsDir.endsWith(path.join(".fleet/knowledge", "conflicts"))).toBe(true);
     expect(rawContent).toContain("immutable source");
   });
 

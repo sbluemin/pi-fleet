@@ -8,7 +8,7 @@ keybindings.json
 .spsec/
 .specs
 .fleet/*
-!.fleet/wiki/
-!.fleet/wiki/**
+!.fleet/knowledge/
+!.fleet/knowledge/**
 .grand-fleet/
 .claude/

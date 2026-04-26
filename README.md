@@ -86,8 +86,7 @@ Eight built-in Carriers, each with a distinct operational role:
 
 ### Fleet Wiki Experimental Extension
 
-- Experimental workspace-local `.fleet/wiki/` store with raw sources, wiki entries, schema/doctrine space, append-only logs, patch queue/archive, and conflict records
-- Legacy `.fleet-memory/` data is migrated into `.fleet/wiki/` without overwriting an existing target
+- Experimental workspace-local `.fleet/knowledge/` store with raw sources, wiki entries, schema/doctrine space, append-only logs, patch queue/archive, and conflict records
 - Human-gated wiki patches: ingest proposes wiki changes, approval merges them, rejection leaves wiki/log untouched
 - Deterministic briefing, AAR proposal, dry-dock lint, and `fleet:wiki:*` slash commands for observable review when `PI_EXPERIMENTAL=1`
 - Staged `fleet:wiki:capture` session capture that can create approval-gated wiki/AAR pending patches or run preview-only review

@@ -1,5 +1,4 @@
-export const LEGACY_MEMORY_ROOT_DIRNAME = ".fleet-memory";
-export const WIKI_ROOT_DIRNAME = ".fleet/wiki";
+export const KNOWLEDGE_ROOT_DIRNAME = ".fleet/knowledge";
 export const RAW_DIRNAME = "raw";
 export const WIKI_DIRNAME = "wiki";
 export const SCHEMA_DIRNAME = "schema";
