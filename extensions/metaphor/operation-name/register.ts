@@ -14,6 +14,7 @@ import { loadSettings, saveSettings } from "./settings.js";
 import type { OperationNameSettings } from "./settings.js";
 import { generateOperationName, OPERATION_PREFIX, resolveModel } from "./summarizer.js";
 import { getSettingsAPI } from "../../core/settings/bridge.js";
+import { isWorldviewEnabled } from "../worldview.js";
 
 const OPERATION_NAME_STATUS_KEY = "metaphor-operation-name-status";
 const SESSION_ID_LENGTH = 8;
@@ -209,13 +210,14 @@ function buildSummaryLine(
 ): string {
   const trimmedSummary = summary.trim();
   if (!trimmedSummary) return "";
+  const worldviewEnabled = isWorldviewEnabled();
 
   let summaryText: string;
-  if (trimmedSummary.startsWith(OPERATION_PREFIX)) {
+  if (worldviewEnabled && trimmedSummary.startsWith(OPERATION_PREFIX)) {
     const codename = trimmedSummary.slice(OPERATION_PREFIX.length);
     summaryText = `${theme.fg("dim", OPERATION_PREFIX)}${theme.fg("accent", codename)}`;
   } else {
-    summaryText = theme.fg("muted", trimmedSummary);
+    summaryText = theme.fg(worldviewEnabled ? "muted" : "accent", trimmedSummary);
   }
   const shortSessionId = sessionId?.slice(0, SESSION_ID_LENGTH);
   if (!shortSessionId) {

@@ -11,8 +11,9 @@ import { BorderedLoader } from "@mariozechner/pi-coding-agent";
 
 import type { ReasoningLevel } from "./constants.js";
 import { REASONING_LABELS } from "./constants.js";
-import { DIRECTIVE_REFINEMENT_SYSTEM_PROMPT } from "./prompts.js";
+import { getDirectiveRefinementSystemPrompt } from "./prompts.js";
 import type { DirectiveRefinementSettings } from "./settings.js";
+import { isWorldviewEnabled } from "../worldview.js";
 
 /** 설정 파일 기반 모델 resolve */
 export function resolveModel(
@@ -49,12 +50,17 @@ export async function refineDirectiveWithLoader(
   reasoning: ReasoningLevel,
 ): Promise<string | null> {
   const reasoningLabel = REASONING_LABELS[reasoning];
+  const worldviewEnabled = isWorldviewEnabled();
 
   return ctx.ui.custom<string | null>((tui, theme, _kb, done) => {
     const loader = new BorderedLoader(
       tui,
       theme,
-      `지령 재다듬기 가동 중... (${model.id} · reasoning: ${reasoningLabel})`,
+      `${
+        worldviewEnabled
+          ? "지령 재다듬기 가동 중..."
+          : "프롬프트 다듬는 중..."
+      } (${model.id} · reasoning: ${reasoningLabel})`,
     );
     loader.onAbort = () => done(null);
 
@@ -73,7 +79,7 @@ export async function refineDirectiveWithLoader(
       const response = await completeSimple(
         model,
         {
-          systemPrompt: DIRECTIVE_REFINEMENT_SYSTEM_PROMPT,
+          systemPrompt: getDirectiveRefinementSystemPrompt(worldviewEnabled),
           messages: [{ role: "user", content: userDirective, timestamp: Date.now() }],
         },
         {
@@ -98,7 +104,11 @@ export async function refineDirectiveWithLoader(
       .then(done)
       .catch((e) => {
         ctx.ui.notify(
-          `지령 재다듬기 실패: ${e instanceof Error ? e.message : String(e)}`,
+          `${
+            worldviewEnabled
+              ? "지령 재다듬기 실패"
+              : "프롬프트 다듬기 실패"
+          }: ${e instanceof Error ? e.message : String(e)}`,
           "error",
         );
         done(null);

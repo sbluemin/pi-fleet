@@ -20,9 +20,11 @@ import type { DirectiveRefinementSettings } from "./settings.js";
 import { resolveModel, refineDirectiveWithLoader } from "./engine.js";
 import { getSettingsAPI } from "../../core/settings/bridge.js";
 import { getKeybindAPI } from "../../core/keybind/bridge.js";
+import { isWorldviewEnabled } from "../worldview.js";
 
 export function registerDirectiveRefinement(pi: ExtensionAPI): void {
   const initialSettings = loadSettings();
+  const worldviewAtRegister = isWorldviewEnabled();
   let currentReasoning: ReasoningLevel =
     initialSettings.reasoning && isValidReasoning(initialSettings.reasoning)
       ? initialSettings.reasoning
@@ -146,14 +148,22 @@ export function registerDirectiveRefinement(pi: ExtensionAPI): void {
     extension: SECTION_KEY,
     action: "refine-directive",
     defaultKey: "alt+m",
-    description: "현재 입력을 사령부 메모 양식의 작전 지령으로 재다듬기 (스피너 + ESC 취소)",
+    description: worldviewAtRegister
+      ? "현재 입력을 사령부 메모 양식의 작전 지령으로 재다듬기 (스피너 + ESC 취소)"
+      : "현재 입력 텍스트를 다듬기 (스피너 + ESC 취소)",
     category: "Metaphor",
     handler: async (ctx) => {
       const editorText = ctx.ui.getEditorText();
       const trimmed = editorText?.trim();
 
       if (!trimmed) {
-        ctx.ui.notify("입력창에 작전 지령 초안을 먼저 작성하세요.", "warning");
+        const worldviewEnabledNow = isWorldviewEnabled();
+        ctx.ui.notify(
+          worldviewEnabledNow
+            ? "입력창에 작전 지령 초안을 먼저 작성하세요."
+            : "입력창에 다듬을 텍스트를 먼저 작성하세요.",
+          "warning",
+        );
         return;
       }
 

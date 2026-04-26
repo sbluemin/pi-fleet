@@ -7,8 +7,9 @@ import type { Api, Model, ThinkingLevel } from "@mariozechner/pi-ai";
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 
 import type { ReasoningLevel } from "./constants.js";
-import { SYSTEM_PROMPT } from "./prompts.js";
+import { getOperationNameSystemPrompt } from "./prompts.js";
 import type { OperationNameSettings } from "./settings.js";
+import { isWorldviewEnabled } from "../worldview.js";
 
 const MAX_LENGTH = 40;
 const MAX_INPUT_LENGTH = 200;
@@ -59,6 +60,7 @@ export async function generateOperationName(
   reasoning: ReasoningLevel,
 ): Promise<string | null> {
   try {
+    const worldviewEnabled = isWorldviewEnabled();
     const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
     if (!auth.ok) return null;
 
@@ -72,11 +74,13 @@ export async function generateOperationName(
     const response = await completeSimple(
       model,
       {
-        systemPrompt: SYSTEM_PROMPT,
+        systemPrompt: getOperationNameSystemPrompt(worldviewEnabled),
         messages: [
           {
             role: "user",
-            content: `Generate an operation codename for this request (max ${MAX_LENGTH} chars total, including the "${OPERATION_PREFIX}" prefix):\n\n${preparedPrompt}`,
+            content: worldviewEnabled
+              ? `Generate an operation codename for this request (max ${MAX_LENGTH} chars total, including the "${OPERATION_PREFIX}" prefix):\n\n${preparedPrompt}`
+              : `Generate a short English task summary for this request (max ${MAX_LENGTH} chars total):\n\n${preparedPrompt}`,
             timestamp: Date.now(),
           },
         ],
@@ -101,12 +105,15 @@ export async function generateOperationName(
     const firstLine = sanitizeSummary(text.split("\n")[0]!.trim());
     if (!firstLine) return null;
 
-    const withPrefix = ensureOperationPrefix(firstLine);
-    if (!withPrefix) return null;
+    const strippedSummary = stripOperationPrefix(firstLine);
+    const finalSummary = worldviewEnabled
+      ? ensureOperationPrefix(firstLine)
+      : (strippedSummary || null);
+    if (!finalSummary) return null;
 
-    return withPrefix.length > MAX_LENGTH
-      ? withPrefix.slice(0, MAX_LENGTH - 1) + "…"
-      : withPrefix;
+    return finalSummary.length > MAX_LENGTH
+      ? finalSummary.slice(0, MAX_LENGTH - 1) + "…"
+      : finalSummary;
   } catch {
     return null;
   }
@@ -142,7 +149,11 @@ function sanitizeSummary(summary: string): string {
 }
 
 function ensureOperationPrefix(summary: string): string | null {
-  const codename = summary.replace(/^operation\s*[›»▸‣·—\-:|]?\s*/i, "").trim();
+  const codename = stripOperationPrefix(summary);
   if (!codename) return null;
   return `${OPERATION_PREFIX}${codename}`;
+}
+
+function stripOperationPrefix(summary: string): string {
+  return summary.replace(/^operation\s*[›»▸‣·—\-:|]?\s*/i, "").trim();
 }
