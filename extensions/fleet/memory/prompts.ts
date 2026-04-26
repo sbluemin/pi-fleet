@@ -98,9 +98,31 @@ export const MEMORY_DRYDOCK_DESCRIPTION = MEMORY_DRYDOCK_MANIFEST.description;
 export const MEMORY_PATCH_QUEUE_DESCRIPTION = MEMORY_PATCH_QUEUE_MANIFEST.description;
 
 export function buildMemoryCaptureDirective(input: {
-  mode: "preview" | "aar_only";
+  mode: "stage" | "preview" | "aar_only";
   session: MemoryCaptureSession;
 }): string {
+  if (input.mode === "stage") {
+    return [
+      "Fleet Memory capture staging",
+      "",
+      "Use the current conversation/session history already present in context to identify durable, long-term meaningful knowledge worth retaining in Fleet Memory.",
+      "Stage actual pending Fleet Memory patches in this turn.",
+      "For wiki-worthy knowledge, call `memory_ingest` to create pending wiki patches with raw source captured from the current conversation context.",
+      "For AAR/log-worthy knowledge, call `memory_aar_propose` with `auto_apply:false` so the result remains approval-gated.",
+      "Do not approve, merge, or otherwise finalize any patch in this turn.",
+      "",
+      "Your workflow:",
+      "1. Identify durable knowledge from the active conversation/session, ignoring transient chatter.",
+      "2. Call `memory_ingest` for each wiki candidate that should become long-term memory.",
+      "3. Call `memory_aar_propose` with `auto_apply:false` for each AAR/log candidate worth staging.",
+      "4. Report the staged patch IDs, what each patch contains, and the exact approval/rejection commands the user can run next.",
+      "5. Surface conflicts, unknowns, and unsafe/privacy warnings before recommending approval.",
+      "",
+      `Base all staging on the active context for branch \`${input.session.branchId}\`.`,
+      "Do not restate the full transcript unless a short excerpt is strictly necessary to explain a conflict or warning.",
+    ].join("\n");
+  }
+
   const modeLabel = input.mode === "aar_only" ? "AAR-only preview" : "capture preview";
   const nextAction = input.mode === "aar_only"
     ? "Focus the preview on AAR/log candidates first, and only mention wiki candidates if they are obviously required."

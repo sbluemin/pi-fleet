@@ -89,7 +89,7 @@ Eight built-in Carriers, each with a distinct operational role:
 - Workspace-local `.fleet-memory/` store with raw sources, wiki entries, schema/doctrine space, append-only logs, patch queue/archive, and conflict records
 - Human-gated memory patches: ingest proposes wiki changes, approval merges them, rejection leaves wiki/log untouched
 - Deterministic briefing, AAR proposal, dry-dock lint, and `fleet:memory:*` slash commands for observable review
-- Staged `fleet:memory:capture` session capture that previews wiki/AAR/conflict candidates before any memory write
+- Staged `fleet:memory:capture` session capture that can create approval-gated wiki/AAR pending patches or run preview-only review
 
 ## Commands
 

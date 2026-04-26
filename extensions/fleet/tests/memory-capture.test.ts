@@ -42,6 +42,19 @@ describe("memory capture session", () => {
 });
 
 describe("memory capture directive", () => {
+  it("builds a staging directive that instructs pending patch creation", () => {
+    const directive = buildMemoryCaptureDirective({
+      mode: "stage",
+      session: { branchId: "branch-1" },
+    });
+
+    expect(directive).toContain("Fleet Memory capture staging");
+    expect(directive).toContain("call `memory_ingest`");
+    expect(directive).toContain("call `memory_aar_propose` with `auto_apply:false`");
+    expect(directive).toContain("Do not approve, merge, or otherwise finalize any patch");
+    expect(directive).toContain("Report the staged patch IDs");
+  });
+
   it("builds an approval-gated preview directive", () => {
     const directive = buildMemoryCaptureDirective({
       mode: "preview",
@@ -58,7 +71,7 @@ describe("memory capture directive", () => {
 });
 
 describe("fleet:memory:capture command", () => {
-  it("registers the command and dispatches a follow-up preview without creating memory state", async () => {
+  it("registers the command and dispatches a follow-up staging turn by default choice", async () => {
     const registerCommand = vi.fn();
     const sendUserMessage = vi.fn();
     registerMemoryCommands({ registerCommand, sendUserMessage } as any);
@@ -67,7 +80,7 @@ describe("fleet:memory:capture command", () => {
     expect(config).toBeTruthy();
 
     const notify = vi.fn();
-    const select = vi.fn().mockResolvedValue("프리뷰 캡처 계획");
+    const select = vi.fn().mockResolvedValue("의미 있는 지식 staging");
     const ctx = makeContext([
       {
         type: "message",
@@ -79,10 +92,35 @@ describe("fleet:memory:capture command", () => {
 
     expect(select).toHaveBeenCalled();
     expect(sendUserMessage).toHaveBeenCalledTimes(1);
+    expect(sendUserMessage).toHaveBeenCalledWith(expect.stringContaining("Fleet Memory capture staging"), {
+      deliverAs: "followUp",
+    });
+    expect(notify).toHaveBeenCalledWith("Fleet Memory capture staging 지시를 Admiral 후속 턴에 전달했습니다.", "info");
+  });
+
+  it("keeps preview-only mode available without staging patches immediately", async () => {
+    const registerCommand = vi.fn();
+    const sendUserMessage = vi.fn();
+    registerMemoryCommands({ registerCommand, sendUserMessage } as any);
+
+    const [, config] = registerCommand.mock.calls.find(([name]) => name === "fleet:memory:capture") ?? [];
+    const notify = vi.fn();
+    const select = vi.fn().mockResolvedValue("프리뷰 캡처 계획");
+    const ctx = makeContext([
+      {
+        type: "message",
+        message: { role: "user", content: "Please capture this session." },
+      },
+    ] as any[], { notify, select });
+
+    await config.handler("", ctx);
+
     expect(sendUserMessage).toHaveBeenCalledWith(expect.stringContaining("Fleet Memory capture preview"), {
       deliverAs: "followUp",
     });
-    expect(notify).toHaveBeenCalledWith("Fleet Memory capture preview를 Admiral 후속 지시로 전달했습니다.", "info");
+    expect(sendUserMessage).toHaveBeenCalledWith(expect.not.stringContaining("Stage actual pending Fleet Memory patches"), {
+      deliverAs: "followUp",
+    });
   });
 
   it("does not dispatch when history is unavailable", async () => {

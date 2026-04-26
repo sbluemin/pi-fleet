@@ -60,7 +60,7 @@ export function registerMemoryCommands(pi: ExtensionAPI): void {
   });
 
   pi.registerCommand("fleet:memory:capture", {
-    description: "현재 세션 이력에서 Fleet Memory 캡처 프리뷰 후속 흐름 시작",
+    description: "현재 세션 이력에서 Fleet Memory 캡처 staging 또는 preview 후속 흐름 시작",
     handler: async (_args, ctx) => {
       const session = collectCaptureSession(ctx);
       if (!session) {
@@ -69,6 +69,7 @@ export function registerMemoryCommands(pi: ExtensionAPI): void {
       }
 
       const choice = await ctx.ui.select("Fleet Memory capture:", [
+        "의미 있는 지식 staging",
         "프리뷰 캡처 계획",
         "AAR 전용 프리뷰",
         "취소",
@@ -80,7 +81,11 @@ export function registerMemoryCommands(pi: ExtensionAPI): void {
       }
 
       const directive = buildMemoryCaptureDirective({
-        mode: choice === "AAR 전용 프리뷰" ? "aar_only" : "preview",
+        mode: choice === "의미 있는 지식 staging"
+          ? "stage"
+          : choice === "AAR 전용 프리뷰"
+            ? "aar_only"
+            : "preview",
         session,
       });
 
@@ -89,7 +94,12 @@ export function registerMemoryCommands(pi: ExtensionAPI): void {
       }
 
       pi.sendUserMessage(directive, { deliverAs: "followUp" });
-      ctx.ui.notify("Fleet Memory capture preview를 Admiral 후속 지시로 전달했습니다.", "info");
+      ctx.ui.notify(
+        choice === "의미 있는 지식 staging"
+          ? "Fleet Memory capture staging 지시를 Admiral 후속 턴에 전달했습니다."
+          : "Fleet Memory capture preview를 Admiral 후속 지시로 전달했습니다.",
+        "info",
+      );
     },
   });
 }
