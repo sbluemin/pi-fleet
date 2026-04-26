@@ -1,8 +1,0 @@
----
-id: "fleet-memory-product-doctrine-source"
-created: "2026-04-26T08:17:32.425Z"
-sourceType: "inline"
-title: "Current session Fleet Memory product and architecture decisions, 2026-04-26"
-tags: ["fleet-memory", "doctrine", "product", "architecture"]
----
-Session source summary for Fleet Memory product doctrine, captured from the current pi-fleet feature+llm-wiki session on 2026-04-26. The user asked to integrate Fleet Memory as a first-class pi-fleet product feature inspired by LLM-Wiki and persistent wiki memory ideas, but not as generic AI memory, hidden automatic recall, or vector-DB-first RAG. The design review established that pi-fleet is an Agent Harness with naval fleet metaphor: Admiral of the Navy is the user, Fleet Admiral is grand-fleet orchestration, Admiral is the host PI, and Captains are carrier personas. The accepted doctrine is that Fleet Memory should preserve raw source as immutable intelligence, propose reviewable markdown/wiki knowledge patches, maintain schema/doctrine and logs, expose approval/rejection/rollback paths, and provide mission-specific context packs rather than dumping all memory into every carrier prompt. Important knowledge changes require user-visible approval before becoming authoritative wiki memory. Low-risk metadata or append-only logs may be automated where explicitly allowed. Observability through HUD, Agent Panel, logs, diffs, and conflict records is part of the product contract.
