@@ -1,4 +1,5 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import { getDeliverAs } from "../../push-mode-settings.js";
 import type { CompletionPushItem } from "./job-types.js";
 import { CARRIER_RESULT_PUSH_PREFIX, wrapSystemReminder } from "./job-reminders.js";
 import { CARRIER_RESULT_CUSTOM_TYPE, type CarrierResultMessageDetails } from "./push-renderer.js";
@@ -42,7 +43,7 @@ export function flushCarrierCompletionPush(pi: ExtensionAPI): void {
     details,
   }, {
     triggerTurn: true,
-    deliverAs: "followUp",
+    deliverAs: getDeliverAs(),
   });
 }
 

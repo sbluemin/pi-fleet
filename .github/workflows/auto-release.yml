@@ -1,0 +1,227 @@
+name: Auto Release
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: auto-release-main
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync to latest main
+        run: |
+          git fetch origin main --tags
+          git checkout -B main origin/main
+
+      - name: Stop on release commit
+        id: guard
+        env:
+          HEAD_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          if printf '%s' "$HEAD_MESSAGE" | grep -Fq '[skip ci]'; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve next version
+        if: steps.guard.outputs.skip == 'false'
+        id: version
+        run: |
+          latest_tag=$(git tag --list 'v*' --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1)
+          if [ -n "$latest_tag" ]; then
+            range="$latest_tag..HEAD"
+            log_output=$(git log --format=%B "$range")
+            commit_count=$(git rev-list --count "$range")
+            version_source="${latest_tag#v}"
+          else
+            range="HEAD"
+            log_output=$(git log --format=%B)
+            commit_count=$(git rev-list --count HEAD)
+            version_source=$(node -p "require('./package.json').version")
+          fi
+
+          if [ "$commit_count" -eq 0 ]; then
+            echo "No commits since latest tag. Skipping release."
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          bump="patch"
+          if printf '%s\n' "$log_output" | grep -Eq '(^|[[:space:]])BREAKING CHANGE:'; then
+            bump="major"
+          elif printf '%s\n' "$log_output" | grep -Eq '^[[:space:]]*[[:alnum:]_-]+(\([^)]+\))?!:'; then
+            bump="major"
+          elif printf '%s\n' "$log_output" | grep -Eq '^[[:space:]]*feat(\([^)]+\))?:'; then
+            bump="minor"
+          fi
+
+          next_version=$(node -e "
+            const [major, minor, patch] = process.argv[1].split('.').map(Number);
+            const bump = process.argv[2];
+            const next = { major: [major + 1, 0, 0], minor: [major, minor + 1, 0], patch: [major, minor, patch + 1] }[bump];
+            console.log(next.join('.'));
+          " "$version_source" "$bump")
+
+          echo "latest_tag=$latest_tag" >> "$GITHUB_OUTPUT"
+          echo "current_version=$version_source" >> "$GITHUB_OUTPUT"
+          echo "next_version=$next_version" >> "$GITHUB_OUTPUT"
+          echo "next_tag=v$next_version" >> "$GITHUB_OUTPUT"
+          echo "bump=$bump" >> "$GITHUB_OUTPUT"
+          echo "should_release=true" >> "$GITHUB_OUTPUT"
+
+      - name: Check existing release commit
+        if: steps.version.outputs.should_release == 'true'
+        id: release_state
+        env:
+          NEXT_VERSION: ${{ steps.version.outputs.next_version }}
+        run: |
+          package_version=$(node -p "require('./package.json').version")
+          if [ "$package_version" = "$NEXT_VERSION" ] && grep -Eq "^## \\[$NEXT_VERSION\\]" CHANGELOG.md; then
+            echo "release_committed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "release_committed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update version and changelog
+        if: steps.version.outputs.should_release == 'true' && steps.release_state.outputs.release_committed != 'true'
+        env:
+          NEXT_VERSION: ${{ steps.version.outputs.next_version }}
+        run: |
+          npm version "$NEXT_VERSION" --no-git-tag-version --allow-same-version
+
+          RELEASE_DATE=$(date -u +%F)
+          export RELEASE_DATE
+
+          node <<'NODE'
+          const fs = require('fs');
+
+          const changelogPath = 'CHANGELOG.md';
+          const nextVersion = process.env.NEXT_VERSION;
+          const releaseDate = process.env.RELEASE_DATE;
+          const content = fs.readFileSync(changelogPath, 'utf8');
+          const unreleasedHeader = '## [Unreleased]';
+          const unreleasedIndex = content.indexOf(unreleasedHeader);
+
+          if (unreleasedIndex === -1) {
+            throw new Error('Missing [Unreleased] section in CHANGELOG.md');
+          }
+
+          const afterHeaderIndex = content.indexOf('\n', unreleasedIndex);
+          if (afterHeaderIndex === -1) {
+            throw new Error('Malformed [Unreleased] section in CHANGELOG.md');
+          }
+
+          const nextSectionIndex = content.indexOf('\n## [', afterHeaderIndex + 1);
+          const unreleasedBody = content.slice(afterHeaderIndex + 1, nextSectionIndex === -1 ? content.length : nextSectionIndex);
+          const trimmedBody = unreleasedBody.replace(/^\n+|\n+$/g, '');
+          const releaseHeader = `## [${nextVersion}] - ${releaseDate}`;
+          const releaseBody = trimmedBody.trim() ? trimmedBody : `Release v${nextVersion}`;
+          const replacement = `${unreleasedHeader}\n\n${releaseHeader}\n\n${releaseBody}\n\n`;
+          const updated = `${content.slice(0, unreleasedIndex)}${replacement}${nextSectionIndex === -1 ? '' : content.slice(nextSectionIndex + 1)}`;
+
+          fs.writeFileSync(changelogPath, updated);
+          NODE
+
+      - name: Commit release changes
+        if: steps.version.outputs.should_release == 'true' && steps.release_state.outputs.release_committed != 'true'
+        env:
+          NEXT_TAG: ${{ steps.version.outputs.next_tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json CHANGELOG.md
+          git commit -m "chore(release): $NEXT_TAG [skip ci]"
+          git push origin HEAD:main
+
+      - name: Sync release commit from main
+        if: steps.version.outputs.should_release == 'true'
+        run: |
+          git fetch origin main --tags
+          git checkout -B main origin/main
+
+      - name: Resolve release commit
+        if: steps.version.outputs.should_release == 'true'
+        id: release
+        run: |
+          echo "release_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Write release notes file
+        if: steps.version.outputs.should_release == 'true'
+        id: notes
+        env:
+          NEXT_VERSION: ${{ steps.version.outputs.next_version }}
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+
+          const changelog = fs.readFileSync('CHANGELOG.md', 'utf8');
+          const version = process.env.NEXT_VERSION;
+          const marker = `## [${version}]`;
+          const start = changelog.indexOf(marker);
+
+          if (start === -1) {
+            throw new Error(`Unable to find changelog section for ${version}`);
+          }
+
+          const bodyStart = changelog.indexOf('\n', start);
+          const nextHeader = changelog.indexOf('\n## [', bodyStart + 1);
+          const body = changelog.slice(bodyStart + 1, nextHeader === -1 ? changelog.length : nextHeader).trim();
+          const notesPath = 'release-notes.md';
+          const notes = `${body}\n\n---\n\n_Additional GitHub-generated release notes are appended below._\n`;
+
+          fs.writeFileSync(notesPath, notes);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `notes_path=${notesPath}\n`);
+          NODE
+
+      - name: Create GitHub Release
+        if: steps.version.outputs.should_release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LATEST_TAG: ${{ steps.version.outputs.latest_tag }}
+          NEXT_TAG: ${{ steps.version.outputs.next_tag }}
+          NOTES_PATH: ${{ steps.notes.outputs.notes_path }}
+          RELEASE_SHA: ${{ steps.release.outputs.release_sha }}
+        run: |
+          release_args=()
+          if [ -n "$LATEST_TAG" ]; then
+            release_args+=(--notes-start-tag "$LATEST_TAG")
+          fi
+
+          if gh release view "$NEXT_TAG" >/dev/null 2>&1; then
+            echo "Release $NEXT_TAG already exists. Treating as success."
+            exit 0
+          fi
+
+          if git rev-parse "refs/tags/$NEXT_TAG" >/dev/null 2>&1; then
+            gh release create "$NEXT_TAG" \
+              --title "$NEXT_TAG" \
+              --target "$RELEASE_SHA" \
+              --notes-file "$NOTES_PATH" \
+              --generate-notes \
+              "${release_args[@]}"
+            exit 0
+          fi
+
+          gh release create "$NEXT_TAG" \
+            --title "$NEXT_TAG" \
+            --target "$RELEASE_SHA" \
+            --notes-file "$NOTES_PATH" \
+            --generate-notes \
+            "${release_args[@]}"

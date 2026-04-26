@@ -5,6 +5,20 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Added
+- **Carrier Jobs In-band Guidance**: Added a `notice` field to `carrier_jobs` responses for active jobs to deter LLMs from unnecessary polling.
+    - Notices are now written in imperative form (e.g., "Stop calling tools now") and wrapped with `wrapSystemReminder` (`<system-reminder>` tag) to ensure LLM compliance.
+    - `ACTIVE_STATUS_NOTICE`: Mode-agnostic guidance to wait for the `[carrier:result]` push; reinforces that the push wakes the agent even after the current response ends.
+    - `ACTIVE_CANCEL_NOTICE`: Guidance when cancellation fails, clarifying that long-running jobs are expected and the job is not hung.
+- **Push Delivery Mode Configuration**:
+    - New slash command `/fleet:jobs:mode` to switch between `followUp` (default) and `steer` (advanced) push delivery modes.
+    - SettingsOverlay (Alt+/) integration for "Push Mode" selection.
+    - Persistent configuration in `~/.pi/fleet/settings.json` under the `fleet-push-mode` section.
+
+### Changed
+- **Improved Retry Guidance**: Updated the `retry_after` message for active job results to explicitly instruct against manual retries, reinforcing reliance on the automatic push mechanism.
+- **Dynamic Push Delivery**: The `carrier-result` push delivery mode is now dynamic and respects the user-configured setting (defaulting to `followUp`).
+
 ## [0.1.3] - 2026-04-26
 
 Tactical Steel rebranding + Ohio commission.

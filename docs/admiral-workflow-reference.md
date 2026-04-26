@@ -213,7 +213,8 @@ There are exactly two paths that deliver the actual work result:
 
 > ⛔ **Do not poll `carrier_jobs(action:"status")` immediately after launch.** The push
 > mechanism notifies you automatically, so polling burns admin context and tokens.
-> Doctrine: "If there is independent work, do it; otherwise wait."
+> `carrier_jobs` responses for active jobs include an imperative `notice` field wrapped 
+> in `<system-reminder>` reinforcing this doctrine.
 
 ---
 
@@ -272,7 +273,7 @@ pi.sendMessage({
   details: { jobIds, summaries },
 }, {
   triggerTurn: true,             ← guarantees idle-Admiral wake-up
-  deliverAs: "followUp",
+  deliverAs: getDeliverAs(),     ← default "followUp" (doctrinal); user-configurable via /fleet:jobs:mode
 });
  │
  ▼
@@ -295,10 +296,10 @@ admin LLM begins a new turn — it must recognise the system-reminder as a frame
 | 3 | **Background ⊥ admin ExtensionContext** — background promises must never capture the admin ctx. |
 | 4 | **`provider-mcp.ts` FIFO is frozen** — preserves the ACP/MCP contract. |
 | 5 | **Avoid pi-coding-agent SDK changes** — fixes live in fleet-owned code. |
-| 6 | **No persistence** — process-level globalThis only. Archive, cache, and verbose state are lost on extension reload (acceptable). |
+| 6 | **Persistence** — Dual-layered: `states.json` (runtime state) and `settings.json` (preferences). Process-level globalThis exists but syncs to these files. |
 | 7 | **stream-store (UI) ⊥ JobStreamArchive (AI)** — keys, lifecycles, and serialisation are all separate. |
 | 8 | **Archive policy** — text/thought only, tool_call filtered, secret redaction at append boundary, head 20 + tail 50 + truncated marker, TTL 3 h, summary read-many · full read-once. |
-| 9 | **Push** — `pi.sendMessage` custom + `display:false` + `<system-reminder>` wrapping + `[carrier:result]` prefix. `triggerTurn:true` for idle wake-up. |
+| 9 | **Push** — `pi.sendMessage` custom + `display:false` + imperative `<system-reminder>` wrapping + `[carrier:result]` prefix. `triggerTurn:true` for idle wake-up. |
 | 10 | **Animation tick** — alive while admin is streaming OR an active background job exists. Graceful skip is reserved for stale ctx only. |
 
 ---
@@ -314,7 +315,8 @@ admin LLM begins a new turn — it must recognise the system-reminder as a frame
 
 ### Pitfall 2 — "I should poll `carrier_jobs` status right after launch."
 **Unnecessary.** Push notifies you automatically. Polling wastes admin context and tokens.
-Do other independent work, or just wait.
+Do other independent work, or just wait. Active jobs respond with an imperative `notice` 
+field wrapped in `<system-reminder>` to remind you of this.
 
 ### Pitfall 3 — "Maybe the background promise can use ctx too."
 **Forbidden.** While the Admiral is idle, ctx becomes stale and triggers

@@ -33,6 +33,7 @@ import { registerFleetCarriers } from "./carriers/index.js";
 import { registerFleetPiCommands } from "./pi-commands.js";
 import { wireFleetPiEvents } from "./pi-events.js";
 import { registerFleetPiTools } from "./pi-tools.js";
+import { registerPushModeSettingsSection } from "./push-mode-settings.js";
 export type { CollectedStreamData } from "./bridge/streaming/types.js";
 
 export { runAgentRequest } from "./operation-runner.js";
@@ -119,5 +120,6 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
 
   onStatusUpdate(() => { syncModelConfig(); });
 
+  registerPushModeSettingsSection();
   registerFleetPiCommands(pi);
 }

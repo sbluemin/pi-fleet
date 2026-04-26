@@ -89,8 +89,10 @@ shipyard/store.ts      ← Unified fleet persistence store (states.json)
 - **Service status lives in core**: Service status monitoring (polling, rendering) lives in **`core/agentclientprotocol/service-status/`**. `boot.ts` injects the Agent Panel service-status callbacks during runtime initialization, and `pi-events.ts` attaches/detaches the active status context during PI lifecycle events.
 - **Persistence is dual-layered**:
   - **Core persistence** (`core/agentclientprotocol/runtime.ts`) manages the data directory and **session-only** maps (mapping host PI session IDs to individual carrier session IDs).
-  - **Fleet persistence** (`shipyard/store.ts`) manages the **fleet-wide state** in a single `states.json` file. This includes model selection, `sortieDisabled`, `squadronEnabled` status, and `cliTypeOverrides`.
-- `shipyard/store.ts` is the single source of truth for persistent fleet configuration. `boot.ts` must call `initStore(dataDir)` immediately after `initRuntime(dataDir)`. All writes to `states.json` use an atomic tmp+rename pattern to prevent corruption.
+  - **Fleet persistence** (`shipyard/store.ts` and `push-mode-settings.ts`) manages two files in `~/.pi/fleet/`:
+    - `states.json`: Runtime state including model selection, `sortieDisabled`, `squadronEnabled`, and `cliTypeOverrides`.
+    - `settings.json`: Persistent user preferences including `fleet-push-mode` (deliverAs setting).
+- `shipyard/store.ts` is the single source of truth for `states.json`. `push-mode-settings.ts` provides the API for the `fleet-push-mode` section in `settings.json`. All writes use atomic patterns to prevent corruption.
 - **Boot Order Compliance**: `boot.ts` handles the pre-registration restore, while `boot-reconciliation.ts` handles post-registration state pruning. This separation ensures that persistent overrides (like `cliType`) are applied correctly during carrier registration.
 
 ### Unified Execution Pipeline
@@ -120,8 +122,9 @@ Consumer (carriers, external extensions)
 | `boot.ts` | Fleet boot guard, `~/.pi/fleet` data directory resolution, runtime/store/service-status callback initialization, pre-registration state restore |
 | `boot-reconciliation.ts` | One-shot post-carrier-registration reconciliation for model selections, stale squadron IDs, and Task Force configured carriers |
 | `pi-events.ts` | Fleet-owned `pi.on(...)` registrations and lifecycle event order; calls explicit Admiral/Bridge feature APIs (e.g., `syncAdmiralAcpSystemPrompt`, `ensureBridgeKeybinds`) |
-| `pi-tools.ts` | Fleet PI tool, custom renderer, and job summary cache registration |
-| `pi-commands.ts` | Fleet-level slash commands registered at fleet entry, including fleet-owned `fleet:agent:status` and shipyard carrier-jobs `fleet:jobs:verbose` |
+| `pi-tools.ts` | Fleet PI tool, renderer, and job summary cache registration |
+| `pi-commands.ts` | Fleet-level slash commands registered at fleet entry, including fleet-owned `fleet:agent:status`, `fleet:jobs:mode`, and shipyard carrier-jobs `fleet:jobs:verbose` |
+| `push-mode-settings.ts` | Push delivery mode settings manager (`followUp` vs `steer`). Manages `settings.json` integration and SettingsOverlay registration. |
 | `types.ts` | Public types + globalThis bridge key/interface for `requestUnifiedAgent` |
 | `constants.ts` | Shared constants (colors, spinners, border characters, panel colors) |
 | `bridge/streaming/types.ts` | Streaming domain types — ColBlock, ColStatus, CollectedStreamData |

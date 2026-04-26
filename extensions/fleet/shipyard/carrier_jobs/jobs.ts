@@ -3,6 +3,7 @@ import { cancelJob } from "../_shared/job-cancel-registry.js";
 import { getActiveJob, listActiveJobs } from "../_shared/concurrency-guard.js";
 import { getAndInvalidate, hasFinalizedJobArchive, hasJobArchive } from "../_shared/job-stream-archive.js";
 import { isCarrierJobId } from "../_shared/job-id.js";
+import { wrapSystemReminder } from "../_shared/job-reminders.js";
 import type { CarrierJobRecord, CarrierJobSummary } from "../_shared/job-types.js";
 import { serializeJobArchive } from "../_shared/archive-serializer.js";
 import { getJobSummary, listJobSummaries } from "../_shared/lru-cache.js";
@@ -29,10 +30,16 @@ interface CarrierJobsResponse {
   full_available?: boolean;
   full_invalidated?: boolean;
   retry_after?: string;
+  notice?: string;
   summary_available?: boolean;
   cancelled?: boolean;
   error?: string;
 }
+
+const ACTIVE_STATUS_NOTICE =
+  "Job is still running. The [carrier:result] push will be delivered automatically when it finishes — do not call carrier_jobs again until that push arrives. Stop calling tools now and return control to the user; the push wakes the agent even after this response ends.";
+const ACTIVE_CANCEL_NOTICE =
+  "Cancel did not apply: the job is still running normally, not hung. Long-running carrier jobs are expected — do not retry cancel without an explicit user request to abort. The [carrier:result] push will arrive automatically; stop calling tools and return control to the user.";
 
 export function buildCarrierJobsToolConfig() {
   registerToolPromptManifest(CARRIER_JOBS_MANIFEST);
@@ -117,6 +124,7 @@ function statusResponse(jobId: string, now: number): CarrierJobsResponse {
     ok: Boolean(active || summary || availability.full_available),
     status: active?.status ?? summary?.status ?? "not_found",
     summary: summary ?? undefined,
+    notice: active ? wrapSystemReminder(ACTIVE_STATUS_NOTICE) : undefined,
     ...availability,
   };
 }
@@ -133,7 +141,9 @@ function resultResponse(jobId: string, format: string, now: number): CarrierJobs
         full_available: false,
         full_invalidated: false,
         error: "job not finalized",
-        retry_after: "retry after the job status is done, error, or aborted",
+        retry_after:
+          "do not retry; wait for the [carrier:result] push that will arrive automatically when the job reaches done, error, or aborted.",
+        notice: wrapSystemReminder(ACTIVE_STATUS_NOTICE),
       };
     }
     const archive = getAndInvalidate(jobId, now);
@@ -157,6 +167,7 @@ function resultResponse(jobId: string, format: string, now: number): CarrierJobs
     job_id: jobId,
     ok: Boolean(summary),
     summary: summary ?? undefined,
+    notice: summary?.status === "active" ? wrapSystemReminder(ACTIVE_STATUS_NOTICE) : undefined,
     ...getAvailability(jobId, summary, now),
     error: summary ? undefined : "summary unavailable",
   };
@@ -173,6 +184,7 @@ function cancelResponse(jobId: string, now: number): CarrierJobsResponse {
     cancelled: result.cancelled,
     status: result.cancelled ? "cancelled" : active?.status ?? summary?.status ?? "not_found",
     summary: summary ?? undefined,
+    notice: !result.cancelled && active ? wrapSystemReminder(ACTIVE_CANCEL_NOTICE) : undefined,
     ...getAvailability(jobId, summary, now),
     error: result.cancelled ? undefined : "job not found or already finished",
   };

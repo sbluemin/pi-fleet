@@ -4,12 +4,12 @@ Core logic for carrier management and fleet persistence. This subpackage contain
 
 ## Core Rules
 
-- **Single Source of Truth**: `store.ts` is the authoritative owner of all fleet persistent state (`states.json`).
+- **Single Source of Truth**: `store.ts` owns `states.json` (runtime state). `extensions/fleet/push-mode-settings.ts` manages the `fleet-push-mode` section in `settings.json` (preferences).
 - **Tool Doctrine SSOT**: 모든 PI 도구(sortie, squadron, taskforce)의 교리는 각 도구 모듈의 `ToolPromptManifest`에 정의된다.
 - **Fire-and-forget doctrine**: `carriers_sortie`, `carrier_squadron`, and `carrier_taskforce` only register detached jobs and return `{ job_id, accepted, error? }` immediately. They must not return synchronous result content. All these tools enforce the **global `sortie off` kill-switch**, rejecting requests for disabled carriers.
 - **Runtime Context Visibility**: The list of carriers with disabled sorties is injected into the ACP runtime context via the `<offline_carriers>` tag.
 - **Job lookup/control**: `carrier_jobs` is the only meta tool for `status`, `result`, `cancel`, and `list`.
-- **Process-memory job state only**: job registry, summary cache, archive, and cancel controllers live in `globalThis` shared state under `_shared/`; never persist them to `store.ts` or files.
+- **Process-memory job state only**: job registry, summary cache, archive, and cancel controllers live in `globalThis` shared state under `_shared/`; never persist them to `states.json` or files.
 - **Background ctx isolation**: fire-and-forget background work must not capture admin `ExtensionContext`. Snapshot `ctx.cwd` synchronously in the tool `execute()` call, then pass plain `cwd` to background helpers.
 - **Allowed background resources**: stream-store, globalThis state maps, log API, summary cache, `JobStreamArchive`, cancel registry, and concurrency guard.
 - **Forbidden background resources**: `ctx.ui.*`, `ctx.sessionManager.*`, captured `ExtensionContext`, and helpers that require a captured admin ctx.
