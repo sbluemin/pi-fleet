@@ -192,6 +192,7 @@ Each extension maps to exactly one domain. Use the domain below for all commands
 | Extension | Domain | Rationale |
 |-----------|--------|-----------|
 | `fleet/` | `agent` | Sub-agent orchestration features |
+| `fleet/memory/` | `memory` | Workspace-local knowledge store, patch queue, AAR ingest |
 | `fleet/admiral/` | `admiral` | Host-agent prompt policy, protocols, and operational doctrine |
 | `fleet/shipyard/carrier_jobs/` | `jobs` | Detached carrier job rendering and verbose toggle |
 | `metaphor/` | `metaphor` | Naval Fleet "Persona" prompts, worldview management, and operation naming |

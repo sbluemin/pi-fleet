@@ -1,0 +1,8 @@
+---
+id: "fleet-memory-prototype-implementation-source"
+created: "2026-04-26T08:17:43.975Z"
+sourceType: "inline"
+title: "Current session Fleet Memory prototype implementation, 2026-04-26"
+tags: ["fleet-memory", "prototype", "implementation", "pi-tools"]
+---
+Session source summary for Fleet Memory prototype implementation, captured from the current pi-fleet feature+llm-wiki session on 2026-04-26. After the user changed scope from design-only to 'prototype까지 완성', the implementation path was: inspect AGENTS and architecture rules, choose extensions/fleet/memory as the prototype home, generate a Kirov plan file at .fleet/plans/fleet-memory-prototype.md, run Ohio for initial implementation, then stabilize directly after carrier timeouts. The implemented prototype is wired from extensions/fleet/index.ts and adds workspace-local .fleet-memory directories: raw, wiki, schema, log, queue, archive, conflicts, plus index metadata. It adds PI tools memory_ingest, memory_briefing, memory_aar_propose, memory_drydock, and memory_patch_queue. It adds slash commands fleet:memory:status, fleet:memory:queue, fleet:memory:show, fleet:memory:approve, fleet:memory:reject, and fleet:memory:drydock. It adds memory-specific AGENTS guidance, README and README.ko sections, and test coverage under extensions/fleet/tests/memory-*.test.ts. The prototype lazy-creates .fleet-memory and should not create the store during ordinary test/import unless invoked.

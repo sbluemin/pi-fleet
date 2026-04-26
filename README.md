@@ -84,6 +84,12 @@ Eight built-in Carriers, each with a distinct operational role:
 - Cross-validate a carrier's response across multiple CLI backends simultaneously
 - Compare approaches, detect blind spots, and build multi-model consensus
 
+### Fleet Memory Prototype
+
+- Workspace-local `.fleet-memory/` store with raw sources, wiki entries, schema/doctrine space, append-only logs, patch queue/archive, and conflict records
+- Human-gated memory patches: ingest proposes wiki changes, approval merges them, rejection leaves wiki/log untouched
+- Deterministic briefing, AAR proposal, dry-dock lint, and `fleet:memory:*` slash commands for observable review
+
 ## Commands
 
 After `npm link` (see [SETUP.md](SETUP.md)), five global commands are available:

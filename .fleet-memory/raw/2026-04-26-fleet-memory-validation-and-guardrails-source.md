@@ -1,0 +1,8 @@
+---
+id: "fleet-memory-validation-and-guardrails-source"
+created: "2026-04-26T08:17:54.596Z"
+sourceType: "inline"
+title: "Current session Fleet Memory validation and risk notes, 2026-04-26"
+tags: ["fleet-memory", "validation", "guardrails", "testing", "security"]
+---
+Session source summary for Fleet Memory validation and guardrails, captured from the current pi-fleet feature+llm-wiki session on 2026-04-26. Stabilization found and fixed several prototype issues: PI tool execute signatures needed to match the SDK call shape; patch body IDs needed path traversal protection before being used as file paths; memory tool prompt manifest tags initially collided because they reused the same tag; dry-dock link checking needed a two-pass wiki id scan to avoid false positives when a referenced page appears later; ingest needed secret-like raw source blocking; dry-dock needed prompt-injection-like warning checks. Verification reported during the session: memory-specific tests passed with 5 files / 19 tests, full fleet tests passed with 22 files / 167 tests, tsc passed with --ignoreDeprecations 6.0, git diff --check passed, and .fleet-memory remained absent until lazy creation. Known caveats: Sentinel was offline, Nimitz review was cancelled after becoming stale, actual TUI pi /reload smoke was not run, and plain tsc without --ignoreDeprecations still fails because of existing TS 6 deprecation configuration, not this implementation.

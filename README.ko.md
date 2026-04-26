@@ -84,6 +84,12 @@ pi-fleet는 LLM 에이전트를 해군 **함대(Fleet)** 내의 **항공모함(C
 - 단일 Carrier의 응답을 여러 CLI 백엔드에서 동시에 교차 검증
 - 접근 방식 비교, 사각지대 탐지, 멀티 모델 합의 도출
 
+### Fleet Memory 프로토타입
+
+- raw source, wiki entry, schema/doctrine 공간, append-only log, patch queue/archive, conflict record를 갖춘 워크스페이스 로컬 `.fleet-memory/` 저장소
+- 사람이 승인하는 memory patch 흐름: ingest는 wiki 변경을 제안하고, approve가 병합하며, reject는 wiki/log를 변경하지 않음
+- 관찰 가능한 검토를 위한 deterministic briefing, AAR 제안, dry-dock lint, `fleet:memory:*` slash command 제공
+
 ## 명령어
 
 `npm link` 실행 후 ([SETUP.md](SETUP.md) 참조), 4가지 전역 명령어를 사용할 수 있습니다:
