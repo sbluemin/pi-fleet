@@ -1,8 +1,10 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
+import { collectCaptureTranscript } from "./capture.js";
 import { runDryDock } from "./drydock.js";
 import { approvePatch, listQueue, rejectPatch, showQueue } from "./patch.js";
 import { ensureMemoryRoot, resolveMemoryPaths } from "./paths.js";
+import { buildMemoryCaptureDirective } from "./prompts.js";
 import { loadIndex } from "./store.js";
 
 export function registerMemoryCommands(pi: ExtensionAPI): void {
@@ -54,6 +56,40 @@ export function registerMemoryCommands(pi: ExtensionAPI): void {
     handler: async (_args, ctx) => {
       const report = await runDryDock(resolveMemoryPaths(ctx.cwd));
       ctx.ui.notify(`Drydock: ${report.ok ? "OK" : `${report.issues.length} issues`}`, report.ok ? "info" : "warning");
+    },
+  });
+
+  pi.registerCommand("fleet:memory:capture", {
+    description: "현재 세션 이력에서 Fleet Memory 캡처 프리뷰 후속 흐름 시작",
+    handler: async (_args, ctx) => {
+      const transcript = collectCaptureTranscript(ctx);
+      if (!transcript) {
+        ctx.ui.notify("현재 세션에서 캡처할 대화/작업 이력이 없어 Fleet Memory preview를 시작할 수 없습니다.", "warning");
+        return;
+      }
+
+      const choice = await ctx.ui.select("Fleet Memory capture:", [
+        "프리뷰 캡처 계획",
+        "AAR 전용 프리뷰",
+        "취소",
+      ]);
+
+      if (choice === undefined || choice === "취소") {
+        ctx.ui.notify("Fleet Memory capture가 취소되었습니다.", "warning");
+        return;
+      }
+
+      const directive = buildMemoryCaptureDirective({
+        mode: choice === "AAR 전용 프리뷰" ? "aar_only" : "preview",
+        transcript,
+      });
+
+      if (typeof pi.sendUserMessage !== "function") {
+        throw new Error("fleet:memory:capture requires PI sendUserMessage support");
+      }
+
+      pi.sendUserMessage(directive, { deliverAs: "followUp" });
+      ctx.ui.notify("Fleet Memory capture preview를 Admiral 후속 지시로 전달했습니다.", "info");
     },
   });
 }

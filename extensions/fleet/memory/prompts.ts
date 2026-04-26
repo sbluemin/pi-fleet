@@ -1,6 +1,7 @@
 import { Type } from "@sinclair/typebox";
 
 import type { ToolPromptManifest } from "../admiral/tool-prompt-manifest/index.js";
+import type { MemoryCaptureTranscript } from "./capture.js";
 
 export const MEMORY_INGEST_MANIFEST: ToolPromptManifest = {
   id: "memory_ingest",
@@ -95,6 +96,39 @@ export const MEMORY_BRIEFING_DESCRIPTION = MEMORY_BRIEFING_MANIFEST.description;
 export const MEMORY_AAR_DESCRIPTION = MEMORY_AAR_MANIFEST.description;
 export const MEMORY_DRYDOCK_DESCRIPTION = MEMORY_DRYDOCK_MANIFEST.description;
 export const MEMORY_PATCH_QUEUE_DESCRIPTION = MEMORY_PATCH_QUEUE_MANIFEST.description;
+
+export function buildMemoryCaptureDirective(input: {
+  mode: "preview" | "aar_only";
+  transcript: MemoryCaptureTranscript;
+}): string {
+  const modeLabel = input.mode === "aar_only" ? "AAR-only preview" : "capture preview";
+  const nextAction = input.mode === "aar_only"
+    ? "Focus the preview on AAR/log candidates first, and only mention wiki candidates if they are obviously required."
+    : "Cover both wiki candidates and AAR/log candidates in the preview.";
+
+  return [
+    "Fleet Memory capture preview",
+    "",
+    `You are preparing a staged Fleet Memory ${modeLabel} from the current PI conversation history.`,
+    "Produce a preview only. Do not mutate Fleet Memory state in this turn.",
+    "Do not call `memory_ingest` or `memory_aar_propose` until the user explicitly approves the preview in a later turn.",
+    "",
+    "The preview must include:",
+    "1. candidate wiki entries",
+    "2. candidate AAR/log entries",
+    "3. conflicts or unknowns that block safe capture",
+    "4. unsafe or privacy-sensitive warnings",
+    "5. proposed next actions for the user to approve or refine",
+    "",
+    nextAction,
+    "",
+    "Use the bounded operation source below as the primary evidence set.",
+    "",
+    "<fleet_memory_capture_source>",
+    input.transcript.operationSource,
+    "</fleet_memory_capture_source>",
+  ].join("\n");
+}
 
 export function buildMemoryIngestSchema() {
   return Type.Object({
