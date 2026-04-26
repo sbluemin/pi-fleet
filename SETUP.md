@@ -40,9 +40,10 @@ npm link
 > `npm link` registers the global wrapper commands from this checkout:
 >
 > - `fleet` — launches `pi` with the standard Fleet mode.
+> - `fleet-exp` — launches standard Fleet mode with `PI_EXPERIMENTAL=1` enabled for the child process.
 > - `gfleet` — launches `pi` with Grand Fleet mode enabled for the child process.
-> - `fleet-dev` — launches standard Fleet mode and loads each `extensions/*/index.ts` entry directly.
-> - `gfleet-dev` — launches Grand Fleet mode and loads each `extensions/*/index.ts` entry directly.
+> - `fleet-dev` — launches standard Fleet mode, enables `PI_EXPERIMENTAL=1`, and loads each `extensions/*/index.ts` entry directly.
+> - `gfleet-dev` — launches Grand Fleet mode, enables `PI_EXPERIMENTAL=1`, and loads each `extensions/*/index.ts` entry directly.
 >
 > `extensions/core/shell` and `extensions/core/agentclientprotocol` are internal modules of the `extensions/core` workspace, so they no longer require separate `npm install` commands.
 

@@ -2,7 +2,7 @@ const { spawn } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 
-function launch({ mode, dev }) {
+function launch({ mode, dev, experimental }) {
   const args = [];
 
   if (dev) {
@@ -12,10 +12,15 @@ function launch({ mode, dev }) {
 
   args.push(...process.argv.slice(2));
 
-  const env =
-    mode === "grand"
-      ? { ...process.env, PI_GRAND_FLEET_ROLE: "admiralty" }
-      : process.env;
+  const env = { ...process.env };
+
+  if (mode === "grand") {
+    env.PI_GRAND_FLEET_ROLE = "admiralty";
+  }
+
+  if (experimental) {
+    env.PI_EXPERIMENTAL = "1";
+  }
 
   const child = spawn("pi", args, {
     env,

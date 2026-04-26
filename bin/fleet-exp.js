@@ -1,4 +1,4 @@
 #!/usr/bin/env node
 const { launch } = require("./_launcher.js");
 
-launch({ mode: "grand", dev: true, experimental: true });
+launch({ mode: "standard", dev: false, experimental: true });

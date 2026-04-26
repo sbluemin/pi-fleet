@@ -86,14 +86,15 @@ Eight built-in Carriers, each with a distinct operational role:
 
 ## Commands
 
-After `npm link` (see [SETUP.md](SETUP.md)), four global commands are available:
+After `npm link` (see [SETUP.md](SETUP.md)), five global commands are available:
 
 | Command | Description |
 |---------|-------------|
 | `fleet` | Launch standard Fleet mode |
+| `fleet-exp` | Launch standard Fleet mode with `PI_EXPERIMENTAL=1` enabled |
 | `gfleet` | Launch Grand Fleet mode |
-| `fleet-dev` | Standard Fleet mode loading extensions from the current checkout |
-| `gfleet-dev` | Grand Fleet mode loading extensions from the current checkout |
+| `fleet-dev` | Standard Fleet mode with `PI_EXPERIMENTAL=1`, loading extensions from the current checkout |
+| `gfleet-dev` | Grand Fleet mode with `PI_EXPERIMENTAL=1`, loading extensions from the current checkout |
 
 ## Setup
 
