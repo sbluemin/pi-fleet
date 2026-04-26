@@ -190,6 +190,7 @@ Each extension maps to exactly one domain. Use the domain below for all commands
 |-----------|--------|-----------|
 | `fleet/` | `agent` | Sub-agent orchestration features |
 | `fleet/admiral/` | `admiral` | Host-agent prompt policy, protocols, and operational doctrine |
+| `fleet/shipyard/carrier_jobs/` | `jobs` | Detached carrier job rendering and verbose toggle |
 | `metaphor/` | `metaphor` | Naval Fleet "Persona" prompts, worldview management, and operation naming |
 | `fleet/carriers/` | `carrier` | Individual carrier registration and configuration |
 | `core/hud/` | `hud` | HUD / editor display features |

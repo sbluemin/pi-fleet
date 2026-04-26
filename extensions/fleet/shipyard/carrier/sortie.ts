@@ -26,6 +26,7 @@ import { getLogAPI } from "../../../core/log/bridge.js";
 import { registerToolPromptManifest } from "../../admiral/tool-prompt-manifest/index.js";
 import { runAgentRequestBackground } from "../../operation-runner.js";
 import { toMessageArchiveBlock, toThoughtArchiveBlock } from "../_shared/archive-block-converter.js";
+import { combineAbortSignals } from "../_shared/abort-signals.js";
 import { acquireJobPermit } from "../_shared/concurrency-guard.js";
 import { registerJobAbortController, unregisterJobAbortControllers } from "../_shared/job-cancel-registry.js";
 import { buildCarrierJobId } from "../_shared/job-id.js";
@@ -327,7 +328,7 @@ export function buildSortieToolConfig(pi: ExtensionAPI) {
       registerJobAbortController(jobId, jobController);
 
       const effectiveSignal = signal
-        ? AbortSignal.any([signal, jobController.signal])
+        ? combineAbortSignals([signal, jobController.signal])
         : jobController.signal;
 
       // 진행 상태 초기화 (id = PI tool call ID로 호출 인스턴스를 고유 식별)

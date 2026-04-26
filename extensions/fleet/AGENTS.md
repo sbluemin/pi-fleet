@@ -118,7 +118,7 @@ Consumer (carriers, external extensions)
 | `boot-reconciliation.ts` | One-shot post-carrier-registration reconciliation for model selections, stale squadron IDs, and Task Force configured carriers |
 | `pi-events.ts` | Fleet-owned `pi.on(...)` registrations and lifecycle event order; calls explicit Admiral/Bridge feature APIs (e.g., `syncAdmiralAcpSystemPrompt`, `ensureBridgeKeybinds`) |
 | `pi-tools.ts` | Fleet PI tool, custom renderer, and job summary cache registration |
-| `pi-commands.ts` | Fleet-level slash commands with no narrower owner (e.g., `fleet:agent:status`, `fleet:jobs:verbose`) |
+| `pi-commands.ts` | Fleet-level slash commands registered at fleet entry, including fleet-owned `fleet:agent:status` and shipyard carrier-jobs `fleet:jobs:verbose` |
 | `types.ts` | Public types + globalThis bridge key/interface for `requestUnifiedAgent` |
 | `constants.ts` | Shared constants (colors, spinners, border characters, panel colors) |
 | `bridge/streaming/types.ts` | Streaming domain types — ColBlock, ColStatus, CollectedStreamData |
