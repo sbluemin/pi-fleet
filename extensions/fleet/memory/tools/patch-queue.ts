@@ -1,5 +1,5 @@
 import { registerToolPromptManifest } from "../../admiral/tool-prompt-manifest/index.js";
-import { approvePatch, listQueue, rejectPatch, showQueue } from "../patch.js";
+import { approvePatch, listQueue, rejectPatch, resolveQueueSelection, showQueue } from "../patch.js";
 import { resolveMemoryPaths } from "../paths.js";
 import {
   MEMORY_PATCH_QUEUE_DESCRIPTION,
@@ -28,19 +28,34 @@ export function buildPatchQueueToolConfig() {
       const action = String(params.action ?? "list");
 
       if (action === "list") {
-        return textResult({ ok: true, action, items: await listQueue(paths) });
-      }
-      if (action === "show") {
-        return textResult({ ok: true, action, item: await showQueue(String(params.patch_id ?? ""), paths) });
-      }
-      if (action === "approve") {
-        return textResult({ ok: true, action, meta: await approvePatch(String(params.patch_id ?? ""), paths) });
-      }
-      if (action === "reject") {
+        const items = await listQueue(paths);
         return textResult({
           ok: true,
           action,
-          meta: await rejectPatch(String(params.patch_id ?? ""), String(params.reason ?? "rejected"), paths),
+          items,
+          next_action: items.length > 0 ? `Use patch_id from: ${items.map((item) => item.id).join(", ")}` : "Queue is empty.",
+        });
+      }
+      if (action === "show") {
+        const selection = await resolveQueueSelection(String(params.patch_id ?? ""), paths);
+        return textResult({ ok: true, action, item: await showQueue(selection.id, paths), auto_selected: selection.autoSelected });
+      }
+      if (action === "approve") {
+        const patchId = String(params.patch_id ?? "").trim();
+        if (!patchId) {
+          throw new Error(buildMissingPatchIdError("approve", await listQueue(paths)));
+        }
+        return textResult({ ok: true, action, meta: await approvePatch(patchId, paths) });
+      }
+      if (action === "reject") {
+        const patchId = String(params.patch_id ?? "").trim();
+        if (!patchId) {
+          throw new Error(buildMissingPatchIdError("reject", await listQueue(paths)));
+        }
+        return textResult({
+          ok: true,
+          action,
+          meta: await rejectPatch(patchId, String(params.reason ?? "rejected"), paths),
         });
       }
       return textResult({ ok: false, action, error: "unsupported action" });
@@ -53,4 +68,11 @@ function textResult(payload: unknown) {
     content: [{ type: "text" as const, text: JSON.stringify(payload, null, 2) }],
     details: {},
   };
+}
+
+function buildMissingPatchIdError(action: "approve" | "reject", items: Array<{ id: string }>): string {
+  if (items.length === 0) {
+    return `memory_patch_queue ${action} requires patch_id. Queue is empty.`;
+  }
+  return `memory_patch_queue ${action} requires patch_id. Available patch IDs: ${items.map((item) => item.id).join(", ")}`;
 }

@@ -8,6 +8,7 @@ import { resolveMemoryPaths } from "../memory/paths.js";
 import { listLog, pathExists } from "../memory/store.js";
 import { buildAarProposeToolConfig } from "../memory/tools/aar.js";
 import { buildIngestToolConfig } from "../memory/tools/ingest.js";
+import { buildPatchQueueToolConfig } from "../memory/tools/patch-queue.js";
 
 const cleanupPaths: string[] = [];
 
@@ -66,6 +67,30 @@ describe("memory tools", () => {
     expect(logs).toHaveLength(1);
     expect(await pathExists(path.join(paths.root, payload.archive))).toBe(true);
     expect(await pathExists(path.join(paths.wikiDir, "aar-1.md"))).toBe(false);
+  });
+
+  it("patch queue tool returns guidance instead of raw ENOENT leakage", async () => {
+    const root = await makeTempRoot();
+    const ingest = buildIngestToolConfig();
+    const queueTool = buildPatchQueueToolConfig();
+
+    const ingestResult = await ingest.execute("tool-call", {
+      id: "queue-alpha",
+      title: "Queue Alpha",
+      body: "candidate knowledge",
+      tags: [],
+      source: "source text",
+    }, undefined, undefined, { cwd: root } as any);
+    const payload = JSON.parse(ingestResult.content[0]!.text) as { patch_id: string };
+
+    await expect(queueTool.execute("tool-call", {
+      action: "approve",
+    }, undefined, undefined, { cwd: root } as any)).rejects.toThrow(new RegExp(`Available patch IDs: ${payload.patch_id}`));
+
+    await expect(queueTool.execute("tool-call", {
+      action: "show",
+      patch_id: "missing",
+    }, undefined, undefined, { cwd: root } as any)).rejects.toThrow(/Unknown patch ID/);
   });
 });
 

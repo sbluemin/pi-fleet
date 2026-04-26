@@ -2,7 +2,7 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 import { collectCaptureSession } from "./capture.js";
 import { runDryDock } from "./drydock.js";
-import { approvePatch, listQueue, rejectPatch, showQueue } from "./patch.js";
+import { approvePatch, listQueue, rejectPatch, resolveQueueSelection, showQueue } from "./patch.js";
 import { ensureMemoryRoot, resolveMemoryPaths } from "./paths.js";
 import { buildMemoryCaptureDirective } from "./prompts.js";
 import { loadIndex } from "./store.js";
@@ -22,32 +22,78 @@ export function registerMemoryCommands(pi: ExtensionAPI): void {
     description: "Fleet Memory patch queue 목록 표시",
     handler: async (_args, ctx) => {
       const items = await listQueue(resolveMemoryPaths(ctx.cwd));
-      ctx.ui.notify(`Queue items: ${items.length}`, "info");
+      if (items.length === 0) {
+        ctx.ui.notify("Queue is empty. Use Fleet Memory capture staging to create a pending patch.", "info");
+        return;
+      }
+      const ids = items.map((item) => item.id).join(", ");
+      ctx.ui.notify(`Queue items (${items.length}): ${ids}. Next: /fleet:memory:show <patch_id>`, "info");
     },
   });
 
   pi.registerCommand("fleet:memory:show", {
     description: "Fleet Memory patch queue 항목 조회",
     handler: async (args, ctx) => {
-      const item = await showQueue(args.trim(), resolveMemoryPaths(ctx.cwd));
-      ctx.ui.notify(`Patch ${item.meta.id}: ${item.meta.status}`, "info");
+      try {
+        const paths = resolveMemoryPaths(ctx.cwd);
+        const selection = await resolveQueueSelection(args.trim(), paths);
+        const item = await showQueue(selection.id, paths);
+        const autoSelected = selection.autoSelected ? " (auto-selected sole queue item)" : "";
+        ctx.ui.notify(`Patch ${item.meta.id}: ${item.meta.status}${autoSelected}`, "info");
+      } catch (error) {
+        if (isExpectedQueueError(error)) {
+          ctx.ui.notify(error.message, "warning");
+          return;
+        }
+        throw error;
+      }
     },
   });
 
   pi.registerCommand("fleet:memory:approve", {
     description: "Fleet Memory patch 승인",
     handler: async (args, ctx) => {
-      const meta = await approvePatch(args.trim(), resolveMemoryPaths(ctx.cwd));
-      ctx.ui.notify(`Approved ${meta.id}`, "info");
+      const patchId = args.trim();
+      if (!patchId) {
+        const items = await listQueue(resolveMemoryPaths(ctx.cwd));
+        const suffix = items.length > 0 ? ` Available patch IDs: ${items.map((item) => item.id).join(", ")}` : " Queue is empty.";
+        ctx.ui.notify(`/fleet:memory:approve <patch_id> is required.${suffix}`, "warning");
+        return;
+      }
+      try {
+        const meta = await approvePatch(patchId, resolveMemoryPaths(ctx.cwd));
+        ctx.ui.notify(`Approved ${meta.id}`, "info");
+      } catch (error) {
+        if (isExpectedQueueError(error)) {
+          ctx.ui.notify(error.message, "warning");
+          return;
+        }
+        throw error;
+      }
     },
   });
 
   pi.registerCommand("fleet:memory:reject", {
     description: "Fleet Memory patch 반려",
     handler: async (args, ctx) => {
-      const [id, ...reasonParts] = args.trim().split(/\s+/);
-      const meta = await rejectPatch(id, reasonParts.join(" ") || "rejected", resolveMemoryPaths(ctx.cwd));
-      ctx.ui.notify(`Rejected ${meta.id}`, "info");
+      const trimmed = args.trim();
+      if (!trimmed) {
+        const items = await listQueue(resolveMemoryPaths(ctx.cwd));
+        const suffix = items.length > 0 ? ` Available patch IDs: ${items.map((item) => item.id).join(", ")}` : " Queue is empty.";
+        ctx.ui.notify(`/fleet:memory:reject <patch_id> [reason] is required.${suffix}`, "warning");
+        return;
+      }
+      const [id, ...reasonParts] = trimmed.split(/\s+/);
+      try {
+        const meta = await rejectPatch(id, reasonParts.join(" ") || "rejected", resolveMemoryPaths(ctx.cwd));
+        ctx.ui.notify(`Rejected ${meta.id}`, "info");
+      } catch (error) {
+        if (isExpectedQueueError(error)) {
+          ctx.ui.notify(error.message, "warning");
+          return;
+        }
+        throw error;
+      }
     },
   });
 
@@ -102,4 +148,11 @@ export function registerMemoryCommands(pi: ExtensionAPI): void {
       );
     },
   });
+}
+
+function isExpectedQueueError(error: unknown): error is Error {
+  return error instanceof Error &&
+    (error.message.includes("Patch ID is required") ||
+      error.message.includes("Unknown patch ID") ||
+      error.message.includes("Queue is empty"));
 }

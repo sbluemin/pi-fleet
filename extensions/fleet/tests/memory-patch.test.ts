@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { approvePatch, enqueuePatch, parsePatch, rejectPatch, showQueue, validatePatch } from "../memory/patch.js";
+import { approvePatch, enqueuePatch, parsePatch, rejectPatch, resolveQueueSelection, showQueue, validatePatch } from "../memory/patch.js";
 import { resolveMemoryPaths } from "../memory/paths.js";
 import { pathExists, readJsonFile, readPatchFile, writeWikiEntry } from "../memory/store.js";
 import type { PatchMeta } from "../memory/types.js";
@@ -93,6 +93,29 @@ describe("memory patch queue", () => {
 
     await expect(rejectPatch(patchId, "late", paths)).rejects.toThrow();
     expect(await readPatchFile(path.join(paths.archiveDir, patchId, "patch.md"))).toContain("\"update_wiki\"");
+  });
+
+  it("uses the sole queued item for show without exposing ENOENT paths", async () => {
+    const root = await makeTempRoot();
+    const paths = resolveMemoryPaths(root);
+    const patch = await parsePatch(`---\nop: "create_wiki"\ntarget: "wiki/solo.md"\nsummary: "Solo"\nproposer: "test"\ncreated: "2026-04-26T00:00:00.000Z"\n---\n{"id":"solo","title":"Solo","tags":[],"created":"2026-04-26T00:00:00.000Z","updated":"2026-04-26T00:00:00.000Z","version":1,"body":"hello"}`);
+    const patchId = await enqueuePatch(patch, paths);
+
+    const selection = await resolveQueueSelection("", paths);
+    const queued = await showQueue("", paths);
+
+    expect(selection).toEqual({ id: patchId, autoSelected: true, availableIds: [patchId] });
+    expect(queued.meta.id).toBe(patchId);
+  });
+
+  it("returns friendly queue guidance for missing or unknown IDs", async () => {
+    const root = await makeTempRoot();
+    const paths = resolveMemoryPaths(root);
+    const patch = await parsePatch(`---\nop: "create_wiki"\ntarget: "wiki/help.md"\nsummary: "Help"\nproposer: "test"\ncreated: "2026-04-26T00:00:00.000Z"\n---\n{"id":"help","title":"Help","tags":[],"created":"2026-04-26T00:00:00.000Z","updated":"2026-04-26T00:00:00.000Z","version":1,"body":"hello"}`);
+    const patchId = await enqueuePatch(patch, paths);
+
+    await expect(resolveQueueSelection("missing", paths)).rejects.toThrow(new RegExp(`Available patch IDs: ${patchId}`));
+    await expect(resolveQueueSelection("", resolveMemoryPaths(await makeTempRoot()))).rejects.toThrow(/Queue is empty/);
   });
 });
 

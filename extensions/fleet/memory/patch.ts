@@ -18,6 +18,12 @@ import {
 } from "./store.js";
 import type { LogEntry, MemoryPaths, Patch, PatchMeta, WikiEntry } from "./types.js";
 
+export interface QueueSelection {
+  id: string;
+  autoSelected: boolean;
+  availableIds: string[];
+}
+
 export async function parsePatch(markdown: string): Promise<Patch> {
   const match = markdown.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
   if (!match) throw new Error("missing patch frontmatter");
@@ -102,8 +108,28 @@ export async function listQueue(paths: MemoryPaths): Promise<Array<{ id: string;
   return results;
 }
 
+export async function resolveQueueSelection(id: string, paths: MemoryPaths): Promise<QueueSelection> {
+  const normalizedId = id.trim();
+  const items = await listQueue(paths);
+  const availableIds = items.map((item) => item.id);
+
+  if (normalizedId) {
+    if (availableIds.includes(normalizedId)) {
+      return { id: normalizedId, autoSelected: false, availableIds };
+    }
+    throw new Error(buildQueueIdHelp("Unknown patch ID", availableIds));
+  }
+
+  if (availableIds.length === 1) {
+    return { id: availableIds[0]!, autoSelected: true, availableIds };
+  }
+
+  throw new Error(buildQueueIdHelp("Patch ID is required", availableIds));
+}
+
 export async function showQueue(id: string, paths: MemoryPaths): Promise<{ patch: Patch; meta: PatchMeta }> {
-  const queueDir = path.join(paths.queueDir, id);
+  const selection = await resolveQueueSelection(id, paths);
+  const queueDir = path.join(paths.queueDir, selection.id);
   const patch = await parsePatch(await readPatchFile(path.join(queueDir, PATCH_FILENAME)));
   const meta = await readJsonFile<PatchMeta>(path.join(queueDir, PATCH_META_FILENAME));
   return { patch, meta };
@@ -158,4 +184,11 @@ async function archiveQueueEntry(id: string, paths: MemoryPaths, meta: PatchMeta
   await removePath(toDir);
   await movePath(fromDir, toDir);
   await writeJsonFile(path.join(toDir, PATCH_META_FILENAME), meta, paths);
+}
+
+function buildQueueIdHelp(prefix: string, availableIds: string[]): string {
+  if (availableIds.length === 0) {
+    return `${prefix}. Queue is empty.`;
+  }
+  return `${prefix}. Available patch IDs: ${availableIds.join(", ")}`;
 }
