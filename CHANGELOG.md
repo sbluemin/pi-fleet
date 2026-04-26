@@ -5,6 +5,8 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-04-26
+
 ### Changed
 - **Dev Mode RISEN Prompt**: Boot extension now injects a RISEN (Role-Instructions-Steps-EndGoal-Narrowing) prompt for pi-fleet development via `before_agent_start` when running `fleet-dev`. Fleet persona/role/tone sections are skipped in dev mode.
 - **System Prompt Registration via `before_agent_start`**: Removed `setCliSystemPrompt`/`getCliSystemPrompt` globalThis bridge entirely. All system prompt registration now uses pi's `before_agent_start` Append pattern (boot → fleet → grand-fleet order).
