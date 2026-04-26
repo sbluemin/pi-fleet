@@ -29,7 +29,6 @@ import { scheduleFleetBootReconciliation } from "./boot-reconciliation.js";
 import { bootBridge } from "./bridge/index.js";
 import { registerCarrierStatusKeybind } from "./bridge/carrier-ui/status-overlay-keybind.js";
 import { registerFleetCarriers } from "./carriers/index.js";
-import { bootFleetMemory } from "./memory/index.js";
 import { registerFleetPiCommands } from "./pi-commands.js";
 import { wireFleetPiEvents } from "./pi-events.js";
 import { registerFleetPiTools } from "./pi-tools.js";
@@ -111,7 +110,6 @@ export default function unifiedAgentBridgeExtension(pi: ExtensionAPI) {
   scheduleFleetBootReconciliation();
 
   registerFleetPiTools(pi);
-  bootFleetMemory(pi);
 
   syncModelConfig();
   registerAgentPanelShortcut();

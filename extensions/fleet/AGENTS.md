@@ -62,7 +62,6 @@ pi-events.ts           ← Fleet-owned PI lifecycle event pipeline; calls explic
 pi-tools.ts            ← Fleet PI tool, renderer, and job summary cache registration
 pi-commands.ts         ← Fleet-level slash command registration
 operation-runner.ts    ← unified execution entry point (internal — exposed via index.ts)
-memory/                ← Workspace-local Fleet Memory store + tools + slash commands
 admiral/               ← Admiral prompt-policy library (prompts, protocols, standing-orders, widget, request-directive)
 bridge/                ← Integrated Fleet Bridge package (ACP overlay shell + Agent Panel + Carrier UI overlays + Renderer + Streaming store)
   ├── acp-shell/       ← ACP overlay shell (Alt+T)
@@ -128,7 +127,7 @@ Consumer (carriers, external extensions)
 | `pi-tools.ts` | Fleet PI tool, renderer, and job summary cache registration |
 | `pi-commands.ts` | Fleet-level slash commands registered at fleet entry, including fleet-owned `fleet:agent:status`, `fleet:jobs:mode`, and shipyard carrier-jobs `fleet:jobs:verbose` |
 | `push-mode-settings.ts` | Push delivery mode settings manager (`followUp` vs `steer`). Manages `settings.json` integration and SettingsOverlay registration. |
-| `memory/` | Workspace-local Fleet Memory module — file-first store, patch queue, deterministic briefing, drydock, slash commands |
+| `experimental-wiki/` | Experimental Fleet Wiki extension — file-first store, patch queue, deterministic briefing, drydock, slash commands, gated by `PI_EXPERIMENTAL=1` |
 | `types.ts` | Public types + globalThis bridge key/interface for `requestUnifiedAgent` |
 | `constants.ts` | Shared constants (colors, spinners, border characters, panel colors) |
 | `bridge/streaming/types.ts` | Streaming domain types — ColBlock, ColStatus, CollectedStreamData |

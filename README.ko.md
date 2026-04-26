@@ -84,12 +84,13 @@ pi-fleet는 LLM 에이전트를 해군 **함대(Fleet)** 내의 **항공모함(C
 - 단일 Carrier의 응답을 여러 CLI 백엔드에서 동시에 교차 검증
 - 접근 방식 비교, 사각지대 탐지, 멀티 모델 합의 도출
 
-### Fleet Memory 프로토타입
+### Fleet Wiki 실험 확장
 
-- raw source, wiki entry, schema/doctrine 공간, append-only log, patch queue/archive, conflict record를 갖춘 워크스페이스 로컬 `.fleet-memory/` 저장소
-- 사람이 승인하는 memory patch 흐름: ingest는 wiki 변경을 제안하고, approve가 병합하며, reject는 wiki/log를 변경하지 않음
-- 관찰 가능한 검토를 위한 deterministic briefing, AAR 제안, dry-dock lint, `fleet:memory:*` slash command 제공
-- 승인 대기 wiki/AAR 패치를 생성하거나 preview-only 검토로 실행할 수 있는 단계형 `fleet:memory:capture` 세션 캡처
+- raw source, wiki entry, schema/doctrine 공간, append-only log, patch queue/archive, conflict record를 갖춘 워크스페이스 로컬 `.fleet/wiki/` 저장소
+- 기존 `.fleet-memory/` 데이터는 기존 대상이 비어 있을 때 `.fleet/wiki/`로 안전하게 마이그레이션
+- 사람이 승인하는 wiki patch 흐름: ingest는 wiki 변경을 제안하고, approve가 병합하며, reject는 wiki/log를 변경하지 않음
+- `PI_EXPERIMENTAL=1`일 때만 관찰 가능한 검토를 위한 deterministic briefing, AAR 제안, dry-dock lint, `fleet:wiki:*` slash command 제공
+- 승인 대기 wiki/AAR 패치를 생성하거나 preview-only 검토로 실행할 수 있는 단계형 `fleet:wiki:capture` 세션 캡처
 
 ## 명령어
 
