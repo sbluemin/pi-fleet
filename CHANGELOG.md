@@ -5,6 +5,8 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-04-26
+
 ### Changed
 - **`<system-reminder>` Doctrine Realignment**: Restricted `<system-reminder>` wrapping to `pi.sendMessage`-delivered carrier completion pushes only.
     - Synchronous tool responses — launch acceptance text and `carrier_jobs` `notice` field — are now returned as plain text without any XML wrapping.
