@@ -5,6 +5,8 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-04-26
+
 ### Added
 - **Carrier Jobs In-band Guidance**: Added a `notice` field to `carrier_jobs` responses for active jobs to deter LLMs from unnecessary polling.
     - Notices are now written in imperative form (e.g., "Stop calling tools now") and wrapped with `wrapSystemReminder` (`<system-reminder>` tag) to ensure LLM compliance.
