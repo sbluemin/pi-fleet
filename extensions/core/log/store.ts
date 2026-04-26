@@ -11,8 +11,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 
-import type { LogEntry, LogLevel, LogSettings } from "./types.js";
-import { LOG_LEVEL_PRIORITY } from "./types.js";
+import type { LogCategoryMeta, LogEntry, LogLevel, LogSettings } from "./types.js";
+import { DEFAULT_LOG_CATEGORY, LOG_LEVEL_PRIORITY } from "./types.js";
 import { getSettingsAPI } from "../settings/bridge.js";
 import type { CoreSettingsAPI } from "../settings/types.js";
 
@@ -30,11 +30,22 @@ const DEFAULT_SETTINGS: Required<LogSettings> = {
   fileLog: true,
   footerDisplay: true,
   minLevel: "debug",
+  disabledCategories: [],
 };
 
 // ── 인메모리 링 버퍼 ──
 
 const ringBuffer: LogEntry[] = [];
+
+// ── 카테고리 레지스트리 ──
+
+const categoryRegistry = new Map<string, LogCategoryMeta>();
+
+registerCategory({
+  id: DEFAULT_LOG_CATEGORY,
+  label: "General",
+  description: "기본 로그 카테고리",
+});
 
 // ── 설정 마이그레이션 ──
 
@@ -82,10 +93,28 @@ export function saveSettings(settings: Partial<LogSettings>): void {
   getAPI().save(SECTION_KEY, merged);
 }
 
+/** 카테고리 등록 */
+export function registerCategory(meta: LogCategoryMeta): void {
+  categoryRegistry.set(meta.id, meta);
+}
+
+/** 등록된 모든 카테고리 조회 */
+export function getRegisteredCategories(): LogCategoryMeta[] {
+  return Array.from(categoryRegistry.values());
+}
+
+/** 카테고리 등록 여부 확인 */
+export function isCategoryRegistered(id: string): boolean {
+  return categoryRegistry.has(id);
+}
+
 // ── 로그 기록 ──
 
 /** 로그 항목 추가 (인메모리 + 파일) */
 export function appendLog(entry: LogEntry, settings: Required<LogSettings>): void {
+  if (!isCategoryRegistered(entry.category)) return;
+  if (settings.disabledCategories.includes(entry.category)) return;
+
   // 최소 레벨 필터링
   if (LOG_LEVEL_PRIORITY[entry.level] < LOG_LEVEL_PRIORITY[settings.minLevel]) {
     return;

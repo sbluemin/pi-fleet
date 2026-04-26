@@ -1,6 +1,5 @@
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 
-import { PROVIDER_ID, setCliSystemPrompt } from "../../core/agentclientprotocol/provider-types.js";
 import { getLogAPI } from "../../core/log/bridge.js";
 import { getState } from "../index.js";
 import { buildFleetAcpSystemPrompt, buildFleetContextPrompt } from "../prompts.js";
@@ -24,40 +23,32 @@ export function registerFleetPiEvents(pi: ExtensionAPI): void {
 
   pi.on("before_agent_start", (event) => {
     const client = getFleetClient();
-    if (!client || client.getState() !== "connected") return;
+    const isConnected = client?.getState() === "connected";
+    const base = buildFleetAcpSystemPrompt(
+      state.fleetId ?? fleetId,
+      state.designation ?? fleetId,
+      process.cwd(),
+      { includeGrandFleetContext: false },
+    );
+    if (!isConnected) {
+      return { systemPrompt: `${event.systemPrompt}\n\n${base}` };
+    }
     const context = buildFleetContextPrompt(
       fleetId,
       state.designation ?? fleetId,
       process.cwd(),
     );
-    return { systemPrompt: `${event.systemPrompt}\n\n${context}` };
+    return { systemPrompt: `${event.systemPrompt}\n\n${base}\n\n${context}` };
   });
 
   pi.on("session_start", async (_event, ctx) => {
     setFleetSessionBindings(pi, ctx, {
-      setBaseOnly: () => syncAcpSystemPrompt(
-        ctx,
-        state.fleetId ?? fleetId,
-        state.designation ?? fleetId,
-        false,
-      ),
-      setConnected: (connectedFleetId, designation, operationalZone) => syncAcpSystemPrompt(
-        ctx,
-        connectedFleetId,
-        designation,
-        true,
-        operationalZone,
-      ),
+      setBaseOnly: () => {},
+      setConnected: () => {},
     });
     if (state.socketPath && state.fleetId) {
       connectToAdmiralty(state.socketPath, state.fleetId);
     }
-    syncAcpSystemPrompt(
-      ctx,
-      state.fleetId ?? fleetId,
-      state.designation ?? fleetId,
-      getFleetClient()?.getState() === "connected",
-    );
   });
 
   pi.on("message_end", async (event) => {
@@ -99,30 +90,8 @@ export function registerFleetPiEvents(pi: ExtensionAPI): void {
 
   pi.on("session_shutdown", async () => {
     shutdownFleetRuntime(fleetId, {
-      resetPrompt: () => setCliSystemPrompt(buildFleetAcpSystemPrompt(
-        state.fleetId ?? fleetId,
-        state.designation ?? fleetId,
-        process.cwd(),
-        { includeGrandFleetContext: false },
-      )),
+      resetPrompt: () => {},
     });
     clearFleetSessionBindings();
   });
-}
-
-function syncAcpSystemPrompt(
-  ctx: ExtensionContext,
-  fleetId: string,
-  designation: string,
-  includeGrandFleetContext: boolean,
-  operationalZone = process.cwd(),
-): void {
-  const isAcp = ctx.model?.provider === PROVIDER_ID;
-  if (!isAcp) return;
-  setCliSystemPrompt(buildFleetAcpSystemPrompt(
-    fleetId,
-    designation,
-    operationalZone,
-    { includeGrandFleetContext },
-  ));
 }

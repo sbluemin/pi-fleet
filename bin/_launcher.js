@@ -14,6 +14,10 @@ function launch({ mode, dev, experimental }) {
 
   const env = { ...process.env };
 
+  if (dev) {
+    env.PI_FLEET_DEV = "1";
+  }
+
   if (mode === "grand") {
     env.PI_GRAND_FLEET_ROLE = "admiralty";
   }

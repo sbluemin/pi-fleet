@@ -1,6 +1,5 @@
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 
-import { PROVIDER_ID, setCliSystemPrompt } from "../../core/agentclientprotocol/provider-types.js";
 import { setEditorBorderColor, setEditorRightLabel } from "../../core/hud/border-bridge.js";
 import { getState } from "../index.js";
 import { buildAdmiraltySystemPrompt } from "../prompts.js";
@@ -37,7 +36,6 @@ export function registerAdmiraltyPiEvents(pi: ExtensionAPI): void {
     try {
       await runtime.server.start();
       notify(ctx, `[Grand Fleet] Admiralty 서버 기동: ${runtime.socketPath}`, "info");
-      syncAcpSystemPrompt(ctx);
       initRosterWidget(ctx);
       setRosterListenerDisposer(getAdmiraltyRegistry().onChange(syncRosterWidget));
       syncRosterWidget();
@@ -54,16 +52,6 @@ export function registerAdmiraltyPiEvents(pi: ExtensionAPI): void {
     await getAdmiraltyServer().close();
     disposeAdmiraltyRuntime();
   });
-}
-
-function syncAcpSystemPrompt(ctx: ExtensionContext): void {
-  const isAcp = ctx.model?.provider === PROVIDER_ID;
-  if (isAcp) {
-    const roster = getAdmiraltyRegistry().getRoster();
-    setCliSystemPrompt(buildAdmiraltySystemPrompt(roster));
-    return;
-  }
-  setCliSystemPrompt(null);
 }
 
 function notify(

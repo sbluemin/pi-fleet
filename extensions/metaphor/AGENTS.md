@@ -28,7 +28,7 @@
 
 ## Worldview Branching Policy
 
-이 패키지의 모든 활성 모듈은 `isWorldviewEnabled()` 설정 값에 따라 메타포 세계관(해군/함대 페르소나)의 출력 여부를 결정한다. 이는 `extensions/fleet/admiral/prompts.ts`의 `buildAcpSystemPrompt()` 분기 패턴을 표준으로 삼는다.
+이 패키지의 모든 활성 모듈은 `isWorldviewEnabled()` 설정 값에 따라 메타포 세계관(해군/함대 페르소나)의 출력 여부를 결정한다. 이는 `extensions/fleet/admiral/prompts.ts`의 `buildSystemPrompt()` 분기 패턴을 표준으로 삼는다.
 
 ### Core Principles
 1. **세계관 레이어 통째 제거** — OFF 시 persona, tone, fleet-world framing(해군 호칭, 접두어 등)을 완전히 제거하고 중립적/실용적 어조로 전환한다.

@@ -49,7 +49,7 @@ Unified ACP infrastructure for pi-fleet, providing both the carrier execution en
 | `runtime.ts` | Shared | Runtime initialization, `.data/` ownership, session store lifecycle. Uses the Fleet data directory (`~/.pi/fleet`) so carrier and host/provider paths share one session-map store. |
 | `pool.ts` | Shared | Carrier execution Unified Agent client pooling and disconnect helpers. |
 | `executor.ts` | Shared | Carrier execution engine and one-shot command routing. |
-| `provider-types.ts` | Provider | host/provider 경로 전용 전역 CLI 시스템 프롬프트의 단일 소스(`setCliSystemPrompt`/`getCliSystemPrompt`). `executor.buildConnectOptions`가 이 전역 상태를 조회하여 `unified-agent`에 전달합니다. |
+| `provider-types.ts` | Provider | host/provider 경로 전용 시스템 프롬프트 합성 인터페이스. `before_agent_start` 이벤트를 통해 PI의 기본 시스템 프롬프트 뒤에 함대 지침을 Append(덧붙이기)하는 방식으로 동작합니다. |
 | `provider-register.ts` | Provider | Core 엔트리 포인트. ACP 프로바이더와 세션 라이프사이클 훅을 등록하고, provider-only reload/resume에서도 `initRuntime(~/.pi/fleet)` + `onHostSessionChange(piSessionId)`를 보장합니다. `session_start`와 `session_tree` 모두 PI 세션 바인딩을 수행합니다. |
 | `thinking-level-patch.ts` | Provider | PI의 hardcoded thinking level 계산을 Fleet ACP 모델에 한해 보정하는 런타임 patch. models.json의 reasoningEffort.levels를 source of truth로 사용하여 `minimal` 제거, `xhigh` 노출, invalid level 보정을 담당합니다. |
 | `provider-stream.ts` | Provider | `streamSimple` 구현, 세션 재사용, 모델 전환, Persistence 연계. **이전의 `<system-instructions>` 직접 XML 주입 로직이 제거되었으며, host/provider 경로는 `unified-agent`의 `connect` 옵션을 통해 시스템 프롬프트를 처리합니다. Carrier 도구 실행 경로는 이를 상속하지 않습니다.** |
@@ -84,7 +84,7 @@ ACP 레이어는 설정을 적용하기 전 `unified-agent`의 `getReasoningEffo
 
 ### SystemPrompt 정책과의 차이
 
-`systemPrompt`는 `connect` 시점에 `getCliSystemPrompt()`가 반환하는 전역 단일 소스에 의해 고정(fixed)되지만, `effort`는 런타임 가변 설정입니다. 따라서 이 둘은 동일한 패턴으로 관리되지 않으며, `effort`는 명시적 변경이 있을 때만 갱신되는 가변 속성으로 취급됩니다.
+`systemPrompt`는 `before_agent_start` 이벤트를 통해 PI의 기본 프롬프트 뒤에 동적으로 Append 되지만, `effort`는 `connect` 이후 `setConfigOption()`을 통해 갱신되는 런타임 가변 설정입니다. 따라서 이 둘은 동일한 패턴으로 관리되지 않으며, `systemPrompt`는 세션 시작 시점에 합성되는 반면 `effort`는 명시적 변경이 있을 때만 갱신되는 가변 속성으로 취급됩니다.
 
 ### Host/Provider 경로 (PI Shift+Tab)
 
@@ -108,7 +108,7 @@ PI 사용자가 Shift+Tab으로 선택한 thinking level은 `SimpleStreamOptions
 
 | Trigger | Behavior |
 |---------|----------|
-| **First request** | host/provider 경로에서는 CLI 프로세스를 생성하고, `connect` 시 전역 단일 소스(`getCliSystemPrompt`)의 `systemPrompt`를 `unified-agent`에 전달합니다 (Claude: native append, Codex/Gemini: 첫 sendMessage prefix). Carrier 도구 실행 경로는 이를 상속하지 않으며, MCP 서버 URL과 세션별 인증 토큰 주입만 수행합니다. |
+| **First request** | host/provider 경로에서는 CLI 프로세스를 생성하고, `before_agent_start` 이벤트를 통해 PI의 기본 시스템 프롬프트 뒤에 함대 지침을 Append하여 전달합니다. Carrier 도구 실행 경로는 이를 상속하지 않으며, MCP 서버 URL과 세션별 인증 토큰 주입만 수행합니다. |
 | **Model change within same CLI family** | Reuse the current process and switch backend model without recreating the whole session when the backend supports it. |
 | **Model change across CLI families** | Dispose the old session/process pair and create a fresh CLI session. |
 | **pi `/new`** | Clear live sessions and processes, then lazily recreate on the next request. |

@@ -139,7 +139,6 @@ vi.mock("./runtime.js", () => ({
 
 vi.mock("./provider-types.js", () => ({
   buildModelId: vi.fn((cli: string, model: string) => `acp:${cli}:${model}`),
-  getCliSystemPrompt: vi.fn(() => mockState.systemPrompt),
   setSessionLaunchConfig: vi.fn((key: string, config: { modelId: string; effort?: string; budgetTokens?: number }) => {
     const previous = mockState.launchConfigs.get(key);
     mockState.launchConfigs.set(key, {

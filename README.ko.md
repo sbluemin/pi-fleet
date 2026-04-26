@@ -103,6 +103,12 @@ pi-fleet는 LLM 에이전트를 해군 **함대(Fleet)** 내의 **항공모함(C
 >
 > Install and configure pi-fleet by following the instructions here: `https://raw.githubusercontent.com/sbluemin/pi-fleet/main/SETUP.md`
 
+## 문서
+
+- [PI 개발 레퍼런스](./docs/pi-development-reference.md) — PI 확장 개발 및 SDK 사용을 위한 종합 가이드.
+- [제독 워크플로우 레퍼런스](./docs/admiral-workflow-reference.md) — 해군 함대 아키텍처 및 운용 원칙에 대한 심층 분석.
+- [CHANGELOG](./CHANGELOG.md) — 프로젝트 변경 이력 및 릴리스 노트.
+
 ## 라이선스
 
 MIT

@@ -9,6 +9,7 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { CliType } from "@sbluemin/unified-agent";
 
+import { getLogAPI } from "../../../core/log/bridge.js";
 import { registerCarrier, reorderRegisteredByCliType } from "./framework.js";
 import type { CarrierConfig, CarrierMetadata } from "./types.js";
 import {
@@ -16,6 +17,8 @@ import {
   CARRIER_COLORS,
   CARRIER_BG_COLORS,
 } from "../../constants.js";
+
+const SHIPYARD_PROMPT_CATEGORY_BOOTSTRAP_KEY = "__fleet_shipyard_prompt_category_registered__";
 
 export interface SingleCarrierOptions {
   /** 정렬 및 표시용 슬롯 번호 */
@@ -63,3 +66,14 @@ export function registerSingleCarrier(
   reorderRegisteredByCliType();
 }
 
+export function ensureShipyardLogCategories(): void {
+  if ((globalThis as any)[SHIPYARD_PROMPT_CATEGORY_BOOTSTRAP_KEY]) {
+    return;
+  }
+  (globalThis as any)[SHIPYARD_PROMPT_CATEGORY_BOOTSTRAP_KEY] = true;
+  getLogAPI().registerCategory({
+    id: "prompt",
+    label: "Carrier Prompt",
+    description: "캐리어 프롬프트 전문 로그",
+  });
+}

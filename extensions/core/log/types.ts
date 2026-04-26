@@ -34,6 +34,16 @@ export interface LogOptions {
   hideFromFooter?: boolean;
 }
 
+/** 등록된 로그 카테고리 메타데이터 */
+export interface LogCategoryMeta {
+  /** 카테고리 ID (로그 호출 시 사용하는 문자열) */
+  id: string;
+  /** 사람이 읽을 수 있는 레이블 */
+  label: string;
+  /** 설명 (선택) */
+  description?: string;
+}
+
 /** 로그 설정 (settings.json 저장용) */
 export interface LogSettings {
   /** 활성화 여부 (기본: false) */
@@ -44,6 +54,8 @@ export interface LogSettings {
   footerDisplay?: boolean;
   /** 최소 로그 레벨 (기본: "debug") */
   minLevel?: LogLevel;
+  /** 비활성화된 카테고리 ID 목록 (settings.json 저장) */
+  disabledCategories?: string[];
 }
 
 /** core-log가 globalThis를 통해 제공하는 API */
@@ -64,6 +76,10 @@ export interface CoreLogAPI {
   setEnabled(enabled: boolean): void;
   /** 최근 로그 항목 조회 */
   getRecentLogs(count?: number): LogEntry[];
+  /** 로그 카테고리 등록 */
+  registerCategory(meta: LogCategoryMeta): void;
+  /** 등록된 모든 카테고리 조회 */
+  getRegisteredCategories(): LogCategoryMeta[];
 }
 
 // ── 상수 ──

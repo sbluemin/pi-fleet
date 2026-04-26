@@ -13,6 +13,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { getModelsRegistry, type CliType } from "@sbluemin/unified-agent";
 
+import { getLogAPI } from "../log/bridge.js";
 import {
   PROVIDER_ID,
   ACTIVE_STREAM_KEY,
@@ -65,6 +66,11 @@ const FLEET_DATA_DIR = path.join(os.homedir(), ".pi", "fleet");
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default function (pi: ExtensionAPI) {
+  const log = getLogAPI();
+  log.registerCategory({ id: "acp", label: "ACP Provider", description: "ACP 프로바이더 일반 로그" });
+  log.registerCategory({ id: "acp-system-prompt", label: "ACP System Prompt", description: "시스템 프롬프트 전문 로그" });
+  log.registerCategory({ id: "acp-stderr", label: "ACP Stderr", description: "ACP CLI stderr 출력" });
+
   initRuntime(FLEET_DATA_DIR);
   installAcpThinkingLevelPatch();
 

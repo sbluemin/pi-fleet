@@ -52,7 +52,7 @@ Any string that is ultimately consumed by an AI model should live in `prompts.ts
 | Tool prompt fields | `description`, `promptSnippet`, `promptGuidelines` | `prompts.ts` by default, or inline in the owning module when a child `AGENTS.md` explicitly allows it |
 | Short UI-only labels | button text, notification messages | `constants.ts` or inline (NOT `prompts.ts`) |
 
-> **Fleet 전역 정책**: `systemPrompt`는 공개 API(`UnifiedAgentRequestOptions`)에서 비노출되며, `admiral` 확장 내 `setCliSystemPrompt()`를 통해 **Admiral (제독)**의 전역 지침으로 관리됩니다. `unified-agent`는 이를 `connect` 옵션으로 소비하여 하이브리드(native append 또는 첫 user-turn prefix) 방식으로 주입합니다. Carrier 도구 실행 경로는 **Admiral (제독)**의 지침을 상속하지 않으며, 각 **Captain (함장)**의 페르소나와 임무 가이드는 각 요청 본문 조립 경로가 담당합니다.
+> **Fleet 전역 정책**: `systemPrompt`는 공개 API(`UnifiedAgentRequestOptions`)에서 비노출됩니다. **Admiral (제독)**은 `before_agent_start` 이벤트를 구독하여 PI의 기본 시스템 프롬프트 뒤에 `buildSystemPrompt()`로 생성된 함대 지침(RISEN 구조)을 Append(덧붙이기)하는 방식으로 전역 지침을 관리합니다. Carrier 도구 실행 경로는 이 지침을 상속하지 않으며, 각 **Captain (함장)**의 페르소나와 임무 가이드는 각 요청 본문 조립 경로가 담당합니다.
 
 ## 4-Tier Naval Hierarchy (4계층 해군 위계)
 
@@ -362,8 +362,12 @@ experimental-*/ (opt-in feature) →  core/
 - **`metaphor/`** is the persona framework extension. It provides the source of truth for the naval metaphor hierarchy.
 - **Internal Component Rules**:
     - **`fleet/carriers/`** depends only on `fleet/shipyard/carrier/` (the carrier framework SDK) — NOT on `fleet/index.ts`, `fleet/internal/`, or `fleet/operation-runner.ts`.
-    - **`fleet/admiral/`** is the internal orchestrator. It may import from `fleet/shipyard/` (carrier framework, store, tool prompts), `metaphor/` (PERSONA/TONE sources), and `core/agentclientprotocol/` (CLI system prompt setter) to compose ACP CLI system instructions.
+    - **`fleet/admiral/`** is the internal orchestrator. It may import from `fleet/shipyard/` (carrier framework, store, tool prompts), `metaphor/` (PERSONA/TONE sources), and `core/agentclientprotocol/` (CLI 시스템 프롬프트 합성 인터페이스)를 통해 `before_agent_start` 시점에 시스템 프롬프트를 확장합니다.
     - **`fleet/index.ts`** is the single entry point that initializes and exports all internal components.
+
+    ### Development Mode
+
+    `fleet-dev` / `gfleet-dev` 실행 시 `PI_FLEET_DEV=1` → boot config `dev: true`가 설정된다. dev 모드에서는 ACP가 기본 주입하는 RISEN 컨텍스트(Base Prompt) 뒤에 함대 지침을 Append한다. 이때 `buildSystemPrompt()`는 Persona/Role/Tone 섹션을 생략하여 기본 코딩 에이전트의 정체성을 유지하면서도, 함대 운영을 위한 Roster와 도구 교리(Protocols, Standing Orders)를 추가로 제공하여 개발 지침(docs/ 및 AGENTS.md 확인 강제)을 강화한다. 일반 모드에서는 함대 전역 페르소나와 역할을 포함한 전체 지침을 Append하여 함대 중심의 Clean Slate 상태를 유지한다.
 
 ### Layer Rules
 

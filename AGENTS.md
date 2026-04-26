@@ -9,6 +9,8 @@
 
 | Path | Description |
 |------|-------------|
+| `docs/pi-development-reference.md` | **Main Developer Guide** — Comprehensive reference for PI SDK, extensions, TUI, themes, and RPC |
+| `docs/admiral-workflow-reference.md` | **Operational Doctrine** — High-level architecture, naval hierarchy, and delegation workflows |
 | `packages/` | Embedded first-party libraries (e.g., `unified-agent`) |
 | `extensions/` | All extensions consolidated here (refer to its own `AGENTS.md`) |
 | `extensions/fleet/` | Agent orchestration extension — carrier framework, admiral/bridge/carriers wiring, unified pipeline, Agent Panel (refer to its own `AGENTS.md`) |
@@ -94,10 +96,11 @@ The Admiral extension implements a modular prompt policy system that governs how
 
 ### Prompt Structure
 
-The final system prompt delivered to the LLM is synthesized as follows:
+에이전트에게 전달되는 최종 시스템 프롬프트는 다음과 같은 계층 구조로 합성됩니다:
 
 ```text
 System Prompt
+  + [Boot] Initial Slate (PI_FLEET_DEV=1 시 RISEN 개발 컨텍스트, 그 외 빈 문자열)
   + [Toggle] Worldview (via metaphor:worldview)
   + [Always] Standing Orders (Delegation Policy + Deep Dive + ...)
   + [Always] Active Protocol (Fleet Action Protocol, etc.)

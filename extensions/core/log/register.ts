@@ -15,10 +15,20 @@
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import type { CoreLogAPI, LogFooterBridge, LogEntry, LogLevel, LogOptions } from "./types.js";
+import type { CoreLogAPI, LogCategoryMeta, LogFooterBridge, LogEntry, LogLevel, LogOptions } from "./types.js";
 import { CORE_LOG_FOOTER_KEY, DEFAULT_LOG_CATEGORY } from "./types.js";
 import { _bootstrapLog } from "./bridge.js";
-import { loadSettings, saveSettings, appendLog, getRecentLogs, getLatestVisibleLog, getLatestVisibleLogs, clearLogs, clearFileLogs } from "./store.js";
+import {
+  loadSettings,
+  saveSettings,
+  appendLog,
+  getRecentLogs,
+  getLatestVisibleLogs,
+  clearLogs,
+  clearFileLogs,
+  registerCategory,
+  getRegisteredCategories,
+} from "./store.js";
 import { getSettingsAPI } from "../settings/bridge.js";
 
 // ── 상수 ──
@@ -82,6 +92,12 @@ function createAPI(): CoreLogAPI {
     },
     getRecentLogs(count) {
       return getRecentLogs(count);
+    },
+    registerCategory(meta: LogCategoryMeta) {
+      registerCategory(meta);
+    },
+    getRegisteredCategories() {
+      return getRegisteredCategories();
     },
   };
   return api;
@@ -157,6 +173,7 @@ export default function (pi: ExtensionAPI) {
         `파일 로그: ${current.fileLog ? "ON" : "OFF"}`,
         `Footer 표시: ${current.footerDisplay ? "ON" : "OFF"}`,
         `최소 레벨: ${current.minLevel}`,
+        "카테고리 관리",
         "화면 로그 초기화 (파일 로그 유지)",
       ];
 
@@ -195,6 +212,36 @@ export default function (pi: ExtensionAPI) {
           updateFooterBridge();
         }
         ctx.ui.notify(`최소 레벨: ${selected}`, "info");
+      } else if (choice.startsWith("카테고리 관리")) {
+        const categories = getRegisteredCategories();
+        if (categories.length === 0) {
+          ctx.ui.notify("등록된 로그 카테고리가 없습니다.", "warning");
+          return;
+        }
+        const disabled = new Set(current.disabledCategories);
+        const catOptions = categories.map((meta) => {
+          const enabled = !disabled.has(meta.id);
+          const summary = meta.description ? ` — ${meta.description}` : "";
+          return `[${enabled ? "ON" : "OFF"}] ${meta.label} (${meta.id})${summary}`;
+        });
+        const catChoice = await ctx.ui.select("카테고리 토글:", catOptions);
+        if (catChoice === undefined) {
+          ctx.ui.notify("설정이 취소되었습니다.", "warning");
+          return;
+        }
+        const catIndex = catOptions.indexOf(catChoice);
+        const meta = categories[catIndex];
+        if (!meta) return;
+        if (disabled.has(meta.id)) {
+          disabled.delete(meta.id);
+        } else {
+          disabled.add(meta.id);
+        }
+        saveSettings({ disabledCategories: Array.from(disabled) });
+        if (current.enabled && current.footerDisplay) {
+          updateFooterBridge();
+        }
+        ctx.ui.notify(`카테고리 ${meta.label}: ${disabled.has(meta.id) ? "OFF" : "ON"}`, "info");
       } else if (choice.startsWith("화면 로그 초기화")) {
         clearLogs();
         clearFooterBridge();
@@ -211,6 +258,54 @@ export default function (pi: ExtensionAPI) {
       clearFileLogs();
       clearFooterBridge();
       ctx.ui.notify("모든 로그가 삭제되었습니다 (메모리 + 파일).", "info");
+    },
+  });
+
+  // fleet:log:category — 카테고리별 활성/비활성 토글
+  pi.registerCommand("fleet:log:category", {
+    description: "로그 카테고리 활성/비활성 토글",
+    handler: async (_args, ctx) => {
+      const categories = getRegisteredCategories();
+      if (categories.length === 0) {
+        ctx.ui.notify("등록된 로그 카테고리가 없습니다.", "warning");
+        return;
+      }
+
+      const current = loadSettings();
+      const disabled = new Set(current.disabledCategories);
+      const options = categories.map((meta) => {
+        const enabled = !disabled.has(meta.id);
+        const summary = meta.description ? ` — ${meta.description}` : "";
+        return `[${enabled ? "ON" : "OFF"}] ${meta.label} (${meta.id})${summary}`;
+      });
+
+      const choice = await ctx.ui.select("로그 카테고리 토글:", options);
+      if (choice === undefined) {
+        ctx.ui.notify("설정이 취소되었습니다.", "warning");
+        return;
+      }
+
+      const index = options.indexOf(choice);
+      const meta = categories[index];
+      if (!meta) {
+        ctx.ui.notify("선택한 카테고리를 찾을 수 없습니다.", "error");
+        return;
+      }
+
+      if (disabled.has(meta.id)) {
+        disabled.delete(meta.id);
+      } else {
+        disabled.add(meta.id);
+      }
+
+      saveSettings({ disabledCategories: Array.from(disabled) });
+      if (current.enabled && current.footerDisplay) {
+        updateFooterBridge();
+      }
+      ctx.ui.notify(
+        `카테고리 ${meta.label}: ${disabled.has(meta.id) ? "OFF" : "ON"}`,
+        "info",
+      );
     },
   });
 }

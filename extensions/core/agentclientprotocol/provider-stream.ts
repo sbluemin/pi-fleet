@@ -36,7 +36,6 @@ import {
   parseModelId,
   hashSystemPrompt,
   getOrInitState,
-  getCliSystemPrompt,
   getCliRuntimeContext,
 } from "./provider-types.js";
 import { applyPostConnectConfig } from "./executor.js";
@@ -245,9 +244,8 @@ function resolveEffortFromOptions(
  * 대화 히스토리(user/assistant) + 런타임 컨텍스트로 래핑된 현재 사용자 요청을 조립한다.
  * 사용자 요청은 항상 마지막에 위치.
  *
- * context.systemPrompt(pi의 시스템 프롬프트)는 사용하지 않는다.
- * CLI 전용 시스템 지침은 executor.buildConnectOptions에서
- * unified-agent connect options.systemPrompt로 직접 전달한다.
+ * context.systemPrompt는 connect 시점에 unified-agent systemPrompt로 직접 전달되며,
+ * 이 함수는 사용자/assistant 대화 이력과 현재 요청만 조립한다.
  */
 function buildInitialPrompt(context: Context, currentUserMessage: string): string {
   const parts: string[] = [];
@@ -266,7 +264,7 @@ function buildInitialPrompt(context: Context, currentUserMessage: string): strin
     parts.push(`<conversation-history>\n${historyParts.join("\n")}\n</conversation-history>`);
   }
 
-  // CLI 전용 시스템 지침은 executor.buildConnectOptions에서 connect 시점에 주입된다.
+  // 시스템 지침은 connect 시점에 주입된다.
   // 이 지점의 user-turn XML 주입은 더 이상 필요하지 않다.
 
   // initial과 follow-up 두 경로에서 동일한 런타임 컨텍스트가 주입되도록 builder를 경유한다.
@@ -489,6 +487,7 @@ async function ensureSession(
   backendModel: string,
   scopeKey: string,
   cwd: string,
+  systemPrompt: string | undefined,
   systemPromptHash: string,
   tools?: Tool[],
   effortOverrides?: { effort?: string; budgetTokens?: number },
@@ -630,6 +629,7 @@ async function ensureSession(
         cli,
         cwd,
         backendModel,
+        systemPrompt,
         mcpServers,
         savedSessionId,
       ));
@@ -652,6 +652,7 @@ async function ensureSession(
         cli,
         cwd,
         backendModel,
+        systemPrompt,
         mcpServers,
       ));
     }
@@ -804,8 +805,21 @@ export function streamAcp(
   if (storeBindingSessionId) {
     onHostSessionChange(storeBindingSessionId);
   }
-  // drift 감지: context.systemPrompt(pi 전체) 대신 CLI 전용 지침 해시 사용
-  const systemPromptHash = hashSystemPrompt(getCliSystemPrompt() ?? undefined);
+  const systemPrompt = context.systemPrompt ?? undefined;
+  if (systemPrompt) {
+    const log = getLogAPI();
+    log.debug(
+      "acp-provider",
+      [
+        `ACP systemPrompt cli=${cli} model=${backendModel} scope=${scopeKey}`,
+        "----- BEGIN SYSTEM PROMPT -----",
+        systemPrompt,
+        "----- END SYSTEM PROMPT -----",
+      ].join("\n"),
+      { category: "acp-system-prompt", hideFromFooter: true },
+    );
+  }
+  const systemPromptHash = hashSystemPrompt(systemPrompt);
   const state = getOrInitState();
   const toolResults = extractAllToolResults(context);
   const isToolResultDelivery = toolResults.length > 0;
@@ -848,7 +862,7 @@ export function streamAcp(
     });
   } else {
     // ── Case 1: fresh query ──
-    runFreshQuery(cli, backendModel, scopeKey, cwd, context, systemPromptHash, model, options, mapper).catch((err) => {
+    runFreshQuery(cli, backendModel, scopeKey, cwd, context, systemPrompt, systemPromptHash, model, options, mapper).catch((err) => {
       debug(`streamAcp 치명적 에러:`, errorMessage(err));
       mapper.finishWithError("error", errorMessage(err));
     });
@@ -867,6 +881,7 @@ async function runFreshQuery(
   scopeKey: string,
   cwd: string,
   context: Context,
+  systemPrompt: string | undefined,
   systemPromptHash: string,
   _model: Model<any>,
   options: SimpleStreamOptions | undefined,
@@ -901,7 +916,7 @@ async function runFreshQuery(
   const effortOverrides = resolveEffortFromOptions(options);
   let session: AcpSessionState;
   try {
-    session = await ensureSession(cli, backendModel, scopeKey, cwd, systemPromptHash, context.tools, effortOverrides);
+    session = await ensureSession(cli, backendModel, scopeKey, cwd, systemPrompt, systemPromptHash, context.tools, effortOverrides);
   } catch (err) {
     mapper.finishWithError("error", `ACP 연결 실패: ${errorMessage(err)}`);
     return;
@@ -1247,6 +1262,7 @@ function buildProviderConnectOptions(
   cli: CliType,
   cwd: string,
   backendModel: string,
+  systemPrompt?: string,
   mcpServers?: McpServerConfig[],
   sessionId?: string,
 ): UnifiedClientOptions {
@@ -1262,7 +1278,6 @@ function buildProviderConnectOptions(
     promptIdleTimeout: DEFAULT_PROMPT_IDLE_TIMEOUT,
   };
 
-  const systemPrompt = getCliSystemPrompt();
   if (systemPrompt) {
     connectOptions.systemPrompt = systemPrompt;
   }

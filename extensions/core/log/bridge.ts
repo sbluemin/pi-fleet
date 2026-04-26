@@ -26,6 +26,8 @@ if (!(globalThis as any)[CORE_LOG_KEY]) {
     isEnabled: () => false,
     setEnabled() {},
     getRecentLogs: () => [],
+    registerCategory() {},
+    getRegisteredCategories: () => [],
   };
   (globalThis as any)[CORE_LOG_KEY] = noop;
 }

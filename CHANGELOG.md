@@ -5,6 +5,17 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Changed
+- **Dev Mode RISEN Prompt**: Boot extension now injects a RISEN (Role-Instructions-Steps-EndGoal-Narrowing) prompt for pi-fleet development via `before_agent_start` when running `fleet-dev`. Fleet persona/role/tone sections are skipped in dev mode.
+- **System Prompt Registration via `before_agent_start`**: Removed `setCliSystemPrompt`/`getCliSystemPrompt` globalThis bridge entirely. All system prompt registration now uses pi's `before_agent_start` Append pattern (boot → fleet → grand-fleet order).
+- **Function Renames**: `buildAcpSystemPrompt` → `buildSystemPrompt`, `buildAcpRuntimeContext` → `buildRuntimeContextPrompt`.
+- **Prompt Section Tags**: Unified individual XML tags (`<fleet_role>`, `<fleet_persona>`, etc.) into `<fleet-system section="...">` tag format.
+
+### Added
+- **Log Category Registry**: Introduced pre-registration system for log categories. Unregistered category logs are silently ignored. Categories can be toggled on/off via `fleet:log:settings` and `fleet:log:category` slash commands.
+- **System Prompt Logging**: Full system prompt is now logged under the `acp-system-prompt` category on each ACP request (`hideFromFooter` applied).
+- **Documentation Links**: Added `docs/` directory links to README.
+
 ## [0.3.0] - 2026-04-26
 
 ### Changed

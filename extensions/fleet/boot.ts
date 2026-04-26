@@ -25,6 +25,11 @@ export function shouldBootFleet(): boolean {
   return bootCfg?.fleet !== false;
 }
 
+export function isDevMode(): boolean {
+  const bootCfg = (globalThis as any)["__fleet_boot_config__"];
+  return bootCfg?.dev === true;
+}
+
 export function resolveFleetDataDir(): string {
   // os.homedir() 직접 사용으로 PI_CODING_AGENT_DIR override와 무관하게 경로를 고정한다.
   return path.join(os.homedir(), ".pi", "fleet");

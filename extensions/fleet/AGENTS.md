@@ -21,7 +21,7 @@ The number of carriers is determined at runtime by the carrier modules registere
 - Carrier framework state in `shipyard/carrier/framework.ts` is **shared via `globalThis`** — Avoid module-level singletons as pi bundles each extension separately.
 - `registerCarrier` is the public API for carrier registration (re-exported via `index.ts`).
 - `registerSingleCarrier` is the convenience API for single CLI carrier registration (re-exported via `index.ts`, lives in `shipyard/carrier/register.ts`). It registers the carrier in the framework with **Captain (함장)** 페르소나 메타데이터를 포함하지만 PI 도구로 직접 등록되지는 않습니다.
-- **`Admiral (제독)`**의 전역 지침(SSOT)은 `admiral` 확장에서 관리하며, **PERSONA/TONE 소스는 `metaphor` 패키지를 사용합니다.** 모든 PI 도구(sortie, squadron, taskforce)의 교리는 `ToolPromptManifest`를 통해 동적으로 조립됩니다.
+- **`Admiral (제독)`**의 전역 지침(SSOT)은 `admiral` 확장에서 관리하며, **PERSONA/TONE 소스는 `metaphor` 패키지를 사용합니다.** `fleet-dev` 모드(boot config `dev: true`)에서는 `boot`에서 `pi-coding-agent`의 기본 시스템 프롬프트를 선행 주입하고, `admiral`은 persona/role/tone을 생략하여 호환성을 유지합니다. 모든 PI 도구(sortie, squadron, taskforce)의 교리는 `ToolPromptManifest`를 통해 동적으로 조립됩니다.
 - Calling foreground `runAgentRequest()` **automatically syncs all UIs**: Agent Panel column, Streaming Widget (when panel collapsed), and stream-store data.
 - Detached fire-and-forget jobs must call the ctx-free background runner. Background work must not capture admin `ExtensionContext`; it writes stream-store/global job state only and lets the next valid admin tick pull updates into Agent Panel/Streaming Widget.
 - **carrierId vs cliType**: `carrierId` (string) is the unique carrier identity used for pool keys, session keys, and panel column identity. `cliType` (CliType) is the CLI binary to execute. Multiple carriers can share the same `cliType` while maintaining fully isolated sessions and connections. **`cliType` can be dynamically changed and persisted at runtime, and `defaultCliType` preserves the original CLI type.**
@@ -35,7 +35,8 @@ The number of carriers is determined at runtime by the carrier modules registere
   - Active squadrons are indicated by a `[SQ]` tag in the Status Bar.
 - **Asynchronous Operations & Archiving**: `carriers_sortie`, `carrier_taskforce`, and `carrier_squadron` tools operate in fire-and-forget mode.
   - **Sortie Guard**: All dispatch tools enforce the `sortie off` global kill-switch.
-  - **Runtime Context**: The ACP runtime context includes an `<offline_carriers>` tag containing comma-separated IDs of carriers with their sortie disabled, allowing the Admiral to perceive the offline state.
+  - **System Prompt Composition**: ACP CLI 시스템 프롬프트는 `admiral`에서 `buildSystemPrompt()`를 통해 합성하며, `pi-events.ts`의 `before_agent_start` 파이프라인에서 기본 프롬프트 뒤에 결합됩니다.
+  - **Runtime Context**: The ACP runtime context includes `<current_protocol>`, 가용 캐리어 목록, 그리고 `<offline_carriers>` 태그를 포함하여 함대의 실시간 상태를 에이전트에게 전달합니다.
   - **Immediate Response**: Tools return `{ job_id, accepted }` instantly.
   - **Job Stream Archive**: Detached job outputs are stored in a process-memory archive (`JobStreamArchive`).
   - **Limits**: 3-hour TTL (`CARRIER_JOB_TTL_MS`), 8MB/2000-block per job capacity (`MAX_TOTAL_BYTES`, `MAX_BLOCKS`), and a global concurrency cap of 5 detached jobs.
@@ -122,7 +123,7 @@ Consumer (carriers, external extensions)
 | `index.ts` | Entry point + public Facade — boot orchestration, feature registration, dependency injection, export-only public re-exports |
 | `boot.ts` | Fleet boot guard, `~/.pi/fleet` data directory resolution, runtime/store/service-status callback initialization, pre-registration state restore |
 | `boot-reconciliation.ts` | One-shot post-carrier-registration reconciliation for model selections, stale squadron IDs, and Task Force configured carriers |
-| `pi-events.ts` | Fleet-owned `pi.on(...)` registrations and lifecycle event order; calls explicit Admiral/Bridge feature APIs (e.g., `syncAdmiralAcpSystemPrompt`, `ensureBridgeKeybinds`) |
+| `pi-events.ts` | Fleet-owned `pi.on(...)` registrations and lifecycle event order; calls explicit Admiral/Bridge feature APIs (e.g., `before_agent_start` prompt injection, `ensureBridgeKeybinds`) |
 | `pi-tools.ts` | Fleet PI tool, renderer, and job summary cache registration |
 | `pi-commands.ts` | Fleet-level slash commands registered at fleet entry, including fleet-owned `fleet:agent:status`, `fleet:jobs:mode`, and shipyard carrier-jobs `fleet:jobs:verbose` |
 | `push-mode-settings.ts` | Push delivery mode settings manager (`followUp` vs `steer`). Manages `settings.json` integration and SettingsOverlay registration. |

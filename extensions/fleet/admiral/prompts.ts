@@ -1,17 +1,15 @@
 /**
  * admiral/prompts — Admiral 시스템 프롬프트 및 세계관 관리
  *
- * ACP 시스템 프롬프트는 `buildAcpSystemPrompt()`로 합성되며, 각 섹션은
- * XML 태그(`<fleet_persona>`, `<fleet_role>`, `<fleet_tone>`,
- * `<carrier_roster>`, `<protocols>`, `<standing_orders>`,
- * 등록된 tool manifest 블록들)로 감싸지고 `---` 구분자로 분리된다.
- * `<fleet_role>`은 항상 주입되지만 worldview 상태에 따라 세계관형/중립형 role
- * 변종 중 하나를 선택한다. worldview 토글이 켜진 경우에만 `<fleet_persona>`와
- * `<fleet_tone>`가 함께 주입되어 4계층 페르소나와 군대식 톤을 오버레이한다.
+ * ACP 시스템 프롬프트는 `buildSystemPrompt()`로 합성되며, 각 섹션은
+ * `<fleet section="...">` 통일 태그로 감싸진다.
+ * `section="role"`은 항상 주입되지만 worldview 상태에 따라 세계관형/중립형 role
+ * 변종 중 하나를 선택한다. worldview 토글이 켜진 경우에만 `section="persona"`와
+ * `section="tone"`가 함께 주입되어 4계층 페르소나와 군대식 톤을 오버레이한다.
  * 프로토콜 카탈로그 전체가 포함되며, 활성 프로토콜은 매 턴
  * `<current_protocol>` 런타임 태그로 지정된다.
  *
- * 매 턴 follow-up prefix는 `buildAcpRuntimeContext(userRequest)`가 조립한다.
+ * 매 턴 follow-up prefix는 `buildRuntimeContextPrompt(userRequest)`가 조립한다.
  * 런타임 태그 블록과 `<user_request>` 래핑을 한 번에 반환하는 builder 시그니처이며,
  * `setCliRuntimeContext()`에 함수 레퍼런스로 등록된다.
  */
@@ -29,6 +27,7 @@ import {
   getSortieEnabledIds,
   getSortieDisabledIds,
 } from "../shipyard/carrier/framework.js";
+import { isDevMode } from "../boot.js";
 
 // ─────────────────────────────────────────────────────────
 // 타입
@@ -47,7 +46,7 @@ export interface AdmiralSettings {
  * Fleet 역할·행동 규약 — 항상 주입.
  *
  * Admiral (제독) ↔ Admiral of the Navy (대원수) 호칭과 위임/수동 제어/언어 규칙 등 CLI 백엔드가
- * carrier_roster·protocols를 해석할 때 필요한 구조적 맥락을 담는다. 페르소나와
+ * roster·protocols 섹션을 해석할 때 필요한 구조적 맥락을 담는다. 페르소나와
  * 톤은 metaphor 패키지에서 별도로 주입한다.
  */
 export const FLEET_ROLE_PROMPT = String.raw`
@@ -93,7 +92,7 @@ Do not poll, wait-check, or call carrier_jobs merely to see whether the job is d
 
 ${"``"}carrier_jobs(action:"result", format:"full")${"``"} is read-once. A repeated lookup for the same job_id returns an empty response. Collect every needed raw sequence in that single result call.`;
 
-/** 시스템 태그 힌트 — ACP 초기 프롬프트와 carrier 시스템 프롬프트에 공통 주입 */
+/** 시스템 태그 힌트 — carrier 시스템 프롬프트 전용 (admiral은 boot 프리앰블에서 처리) */
 export const SYSTEM_REMINDER_HINT = String.raw`
 Tool results and user messages may include <system-reminder> or other tags. Tags contain information from the system and bear no direct relation to the specific tool results or user messages in which they appear.
 <system-reminder source="carrier-completion">: carrier job completion event delivered through the pi.sendMessage push channel. This is an automated framework signal carrying [carrier:result].
@@ -116,38 +115,44 @@ export const RUNTIME_CONTEXT_TAGS_PROMPT = String.raw`
 /**
  * ACP 프로바이더용 CLI 시스템 지침을 합성한다.
  *
- * 각 섹션은 XML 태그로 감싸지며 `---` 구분자로 분리된다.
+ * 각 섹션은 `fleet` XML 태그로 감싸진다.
  * 섹션 순서:
- *  1. `<fleet_persona>` — Fleet PI 페르소나 (worldview 토글 시에만)
- *  2. `<fleet_role>` — Fleet 역할·행동 규약 (항상)
- *  3. `<fleet_tone>` — Fleet 톤/스타일 오버레이 (worldview 토글 시에만)
- *  4. `<carrier_roster>` — 등록 캐리어 Tier 1 메타데이터
- *  5. `<protocols>` — 프로토콜 카탈로그 + 런타임 컨텍스트 태그 해석 규칙
- *  6. `<standing_orders>` — Standing Orders (프로토콜별 활성/비활성은 런타임 결정)
- *  7. 등록된 tool manifest XML 블록
+ *  1. `section="persona"` — Fleet PI 페르소나 (worldview 토글 시에만)
+ *  2. `section="role"` — Fleet 역할·행동 규약 (항상)
+ *  3. `section="tone"` — Fleet 톤/스타일 오버레이 (worldview 토글 시에만)
+ *  4. `section="roster"` — 등록 캐리어 Tier 1 메타데이터
+ *  5. `section="protocols"` — 프로토콜 카탈로그 + 런타임 컨텍스트 태그 해석 규칙
+ *  6. `section="standing-orders"` — Standing Orders (프로토콜별 활성/비활성은 런타임 결정)
+ *  7. `section="tool-guide"` — 등록된 도구 가이드라인 manifest
  *
  * ACP에서는 시스템 프롬프트가 최초 1회만 전달되므로 모든 프로토콜 정의를
  * 카탈로그로 포함하고, 런타임 전환은 매 턴 `<current_protocol>` 태그로 제어한다.
+ * dev 모드에서는 boot이 base prompt + RISEN 개발 컨텍스트를 선행 주입하므로
+ * 이 함수는 Fleet persona/role/tone 섹션만 생략한다.
  */
-export function buildAcpSystemPrompt(): string {
+export function buildSystemPrompt(): string {
   const parts: string[] = [];
-  const fleetRolePrompt = isWorldviewEnabled()
-    ? FLEET_ROLE_PROMPT
-    : FLEET_ROLE_PROMPT_NEUTRAL;
 
-  // ── 1. Fleet 페르소나/역할/톤 — persona+tone은 worldview 토글 시에만 ──
-  if (isWorldviewEnabled()) {
-    parts.push(`<fleet_persona>\n${FLEET_PI_PERSONA_PROMPT.trim()}\n</fleet_persona>`);
-  }
-  parts.push(`<fleet_role>\n${fleetRolePrompt.trim()}\n</fleet_role>`);
-  if (isWorldviewEnabled()) {
-    parts.push(`<fleet_tone>\n${FLEET_TONE_PROMPT.trim()}\n</fleet_tone>`);
+  // dev 모드에서는 boot이 RISEN을 systemPrompt로 주입하므로 persona/role/tone 생략
+  if (!isDevMode()) {
+    const fleetRolePrompt = isWorldviewEnabled()
+      ? FLEET_ROLE_PROMPT
+      : FLEET_ROLE_PROMPT_NEUTRAL;
+
+    // ── 1. Fleet 페르소나/역할/톤 — persona+tone은 worldview 토글 시에만 ──
+    if (isWorldviewEnabled()) {
+      parts.push(`<fleet section="persona">\n${FLEET_PI_PERSONA_PROMPT.trim()}\n</fleet>`);
+    }
+    parts.push(`<fleet section="role">\n${fleetRolePrompt.trim()}\n</fleet>`);
+    if (isWorldviewEnabled()) {
+      parts.push(`<fleet section="tone">\n${FLEET_TONE_PROMPT.trim()}\n</fleet>`);
+    }
   }
 
   // ── 2. 캐리어 로스터 — 등록된 모든 캐리어의 Tier 1 메타데이터 (라우팅용) ──
   const carrierIds = getRegisteredOrder();
   if (carrierIds.length > 0) {
-    parts.push(`<carrier_roster>\n${buildCarrierRoster(carrierIds)}\n</carrier_roster>`);
+    parts.push(`<fleet section="roster">\n${buildCarrierRoster(carrierIds)}\n</fleet>`);
   }
 
   // ── 3. 프로토콜 카탈로그 — 모든 프로토콜 정의 + 런타임 전환 메타 지시 ──
@@ -168,15 +173,15 @@ export function buildAcpSystemPrompt(): string {
   });
 
   catalogSections.push(`## Available Protocols\n\n${catalogEntries.join("\n\n---\n\n")}`);
-  catalogSections.push(`${SYSTEM_REMINDER_HINT.trim()}\n\n${RUNTIME_CONTEXT_TAGS_PROMPT.trim()}`);
+  catalogSections.push(RUNTIME_CONTEXT_TAGS_PROMPT.trim());
 
-  parts.push(`<protocols>\n${catalogSections.join("\n\n")}\n</protocols>`);
+  parts.push(`<fleet section="protocols">\n${catalogSections.join("\n\n")}\n</fleet>`);
 
   // ── 4. Standing Orders — 항상 포함 (런타임에 프로토콜별로 활성/비활성 전환) ──
   const orders = getAllStandingOrders();
   if (orders.length > 0) {
     const ordersBody = orders.map((o) => o.prompt.trim()).join("\n\n---\n\n");
-    parts.push(`<standing_orders>\n${ordersBody}\n</standing_orders>`);
+    parts.push(`<fleet section="standing-orders">\n# Standing Orders\n\n${ordersBody}\n</fleet>`);
   }
 
   // ── 5. 등록된 도구 가이드라인 manifest ──
@@ -184,7 +189,7 @@ export function buildAcpSystemPrompt(): string {
     parts.push(renderToolPromptManifestTagBlock(manifest));
   }
 
-  return parts.join("\n\n---\n\n");
+  return parts.join("\n\n");
 }
 
 /**
@@ -200,7 +205,7 @@ export function buildAcpSystemPrompt(): string {
  * 빈 캐리어 목록은 `-` sentinel로 표기하여 모델의 상태 추론을 방지한다.
  * 사용자 요청 본문은 system-reminder 블록 바깥에 평문으로 이어붙인다.
  */
-export function buildAcpRuntimeContext(userRequest: string): string {
+export function buildRuntimeContextPrompt(userRequest: string): string {
   const protocol = getActiveProtocol();
   const registeredIds = getRegisteredOrder();
   const sortieIds = getSortieEnabledIds();
@@ -227,13 +232,13 @@ export function buildAcpRuntimeContext(userRequest: string): string {
 /**
  * 등록 캐리어의 Tier 1 메타데이터로 compact roster 문자열을 조립한다.
  *
- * ACP 시스템 프롬프트의 `<carrier_roster>` 섹션 전용. Admiral이 직접
+ * ACP 시스템 프롬프트의 `section="roster"` 섹션 전용. Admiral이 직접
  * 조립 주체를 맡아 shipyard의 sortie 로스터 합성과 독립적으로 운영한다
  * (squadron/taskforce가 각자 자체 로스터를 조립하는 패턴과 동일).
  */
 function buildCarrierRoster(carrierIds: string[]): string {
   const lines: string[] = [];
-  lines.push(`## Available Carriers`);
+  lines.push(`# Available Carriers`);
 
   for (const carrierId of carrierIds) {
     const config = getRegisteredCarrierConfig(carrierId);

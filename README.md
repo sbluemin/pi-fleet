@@ -104,6 +104,12 @@ See [SETUP.md](SETUP.md) for step-by-step instructions.
 >
 > Install and configure pi-fleet by following the instructions here: `https://raw.githubusercontent.com/sbluemin/pi-fleet/main/SETUP.md`
 
+## Documentation
+
+- [PI Development Reference](./docs/pi-development-reference.md) — The comprehensive guide for developing PI extensions and using the SDK.
+- [Admiral Workflow Reference](./docs/admiral-workflow-reference.md) — Deep dive into the naval fleet architecture and operational doctrine.
+- [CHANGELOG](./CHANGELOG.md) — Project history and release notes.
+
 ## License
 
 MIT
