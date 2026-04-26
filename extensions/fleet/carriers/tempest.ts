@@ -44,8 +44,7 @@ const CARRIER_METADATA: CarrierMetadata = {
     `[If applicable] omit if not relevant:\n` +
     `  **Repository overview** — 1-2 sentences on what the repo is and its relevance.\n` +
     `  **Key code paths** — Important files and directories with brief descriptions. Use owner/repo relative paths.\n` +
-    `  **Actionable insights** — How these findings apply to our codebase (max 5 bullets).\n` +
-    `Keep the report concise — bullets and short lines only. No narrative paragraphs.`,
+    `Keep the report concise — bullets and short lines only. No narrative paragraphs. Never prescribe how findings should be applied to our codebase or suggest follow-up actions; application and routing decisions belong to the orchestrator.`,
 };
 
 export function registerTempestCarrier(pi: ExtensionAPI): void {
