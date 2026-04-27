@@ -7,14 +7,29 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [0.3.3] - 2026-04-27
 
+### Added
+- **Fleet Bridge PanelJob Streaming Model**: Added a job-scoped `PanelJob` + `ColumnTrack` model so `carriers_sortie`, `carrier_squadron`, and `carrier_taskforce` all stream through the Fleet Bridge panel instead of Messages renderers.
+- **Bridge Doctrine File**: Added `extensions/fleet/bridge/AGENTS.md` to document the Fleet Bridge UI/runtime boundary, PanelJob invariants, and the rule that shipyard tools keep Messages `renderCall` output to a fixed one-line summary.
+
 ### Changed
 - **Phase 1 Restructure — Scope Triage + Mandatory Reconnaissance**: Split Fleet Action Protocol Phase 1 into two sub-phases: Phase 1a (Scope Triage) limits Admiral-direct file reads to ~2 files for scope classification only; Phase 1b (Vanguard Mandatory) requires Vanguard reconnaissance via `carrier_squadron` when 3+ files or modules are involved or scope is unclear.
 - **Delegation Policy — Tighter Direct Handling Threshold**: Reduced "Handle directly" file lookup limit from ~5 to ~2 files (scope triage only). Lowered investigation delegation threshold from 6+ to 3+ files. Vanguard reconnaissance is now mandatory when scope remains unclear after triage.
 - **Anti-pattern Addition**: Added "Reading 3+ files directly to gather context instead of sortieing Vanguard/Tempest" to the Delegation Policy anti-patterns list.
 - **JobStreamArchive Read-Many Policy**: Full archived results via `carrier_jobs` are no longer invalidated after the first read. Both summary cache and full archive now share the same read-many semantics with a 3-hour TTL. `getAndInvalidate()` renamed to `getFinalized()`.
+- **Fleet Bridge Rendering**: Reworked the expanded Fleet Bridge panel into job-scoped columns, where each active sortie, squadron, or taskforce appears as its own column with a tree of tracks and the latest five streaming lines.
+- **Shipyard Tool Rendering**: Replaced dynamic streaming `renderCall` components for sortie, squadron, and taskforce tools with fixed-height one-line summaries to avoid PI TUI scroll jumps while preserving live output in Fleet Bridge.
+- **Shipyard Tool Summary Colors**: Applied tool-kind colors to Sortie, Taskforce, and Squadron `renderCall` labels and payload text, reusing the Status Bar TF/SQ badge colors for taskforce and squadron summaries.
+- **Carrier Status Animation**: Limited the carrier status spinner animation to sortie-style carrier streaming; squadron and taskforce jobs now keep the status bar stable while their detailed progress streams in Fleet Bridge.
 
 ### Fixed
 - **Thought Block Test Alignment**: Two `carrier-job-shared` tests that expected thought blocks in the archive now correctly reflect the thought-exclusion policy introduced in v0.3.2.
+- **Sortie Panel Streaming**: Fixed sortie tracks staying idle in Fleet Bridge by binding PanelJob tracks to the actual stream-store run after the background run is created, instead of prebinding stale visible run IDs.
+- **Panel Runtime Stability**: Removed a panel state/jobs circular import and foreground active-job side effects that could break Fleet Bridge rendering or leave PI unable to send follow-up chat messages after a reload.
+- **Carrier Jobs Verbose Rendering**: Wrapped verbose `carrier_jobs` JSON output by terminal width so large `full_result` payloads cannot produce extremely long TUI lines.
+
+### Removed
+- **Legacy Fleet Bridge Switching UI**: Removed job-bar switching state and obsolete job navigation shortcuts now that all active jobs render simultaneously as panel columns.
+- **Shipyard Streaming Components**: Removed the old dynamic Messages streaming components and related dead code from sortie, squadron, and taskforce tool renderers.
 
 ## [0.3.2] - 2026-04-27
 

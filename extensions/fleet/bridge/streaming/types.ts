@@ -9,6 +9,10 @@
 
 import type { AgentStatus } from "../../../core/agentclientprotocol/types.js";
 
+export type PanelJobKind = "sortie" | "squadron" | "taskforce";
+
+export type PanelJobStatus = "active" | "done" | "error" | "aborted";
+
 // ─── 스트리밍 블록 타입 ──────────────────────────────────
 
 /**

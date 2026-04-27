@@ -22,6 +22,7 @@ import {
   renderPanelFull,
 } from "../render/panel-renderer.js";
 import { renderCarrierStatus } from "../carrier-ui/status-renderer.js";
+import { getActiveJobs } from "./jobs.js";
 import { getState, makeFooterCols, WIDGET_KEY } from "./state.js";
 
 const FLEET_CARRIER_STATUS_WIDGET_KEY = "fleet-carrier-status";
@@ -133,8 +134,10 @@ function applyWidgetSync(ctx: ExtensionContext): void {
     ctx.ui.setWidget(WIDGET_KEY, (_tui, _theme) => ({
       render(width: number): string[] {
         const state = getState();
-        const frameColor = state.detailCarrierId
-          ? (resolveCarrierColor(state.detailCarrierId) || PANEL_COLOR)
+        const activeJobs = getActiveJobs();
+        const frameCarrier = activeJobs[0]?.ownerCarrierId ?? null;
+        const frameColor = frameCarrier
+          ? (resolveCarrierColor(frameCarrier) || PANEL_COLOR)
           : PANEL_COLOR;
 
         // 터미널 높이 기반 bodyH 클램핑
@@ -145,8 +148,8 @@ function applyWidgetSync(ctx: ExtensionContext): void {
         const effectiveBodyH = Math.min(state.bodyH, maxBodyH);
 
         return renderPanelFull(
-          width, state.cols, state.frame, frameColor,
-          state.bottomHint, state.detailCarrierId, effectiveBodyH,
+          width, activeJobs, state.frame, frameColor,
+          state.bottomHint, state.detailTrackId, effectiveBodyH,
           state.cursorColumn,
         );
       },

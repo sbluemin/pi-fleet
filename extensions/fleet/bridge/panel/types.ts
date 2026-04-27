@@ -7,6 +7,7 @@
  */
 
 import type { ColBlock, ColStatus } from "../streaming/types.js";
+import type { PanelJobKind, PanelJobStatus } from "../streaming/types.js";
 
 /** 에이전트 패널 칼럼 데이터 */
 export interface AgentCol {
@@ -22,4 +23,29 @@ export interface AgentCol {
   status: ColStatus;
   error?: string;
   scroll: number;
+}
+
+export type ColumnTrackKind = "carrier" | "subtask" | "backend";
+
+export interface ColumnTrack {
+  trackId: string;
+  streamKey: string;
+  displayCli: string;
+  runId?: string;
+  displayName: string;
+  subtitle?: string;
+  kind: ColumnTrackKind;
+  status: ColStatus;
+}
+
+export interface PanelJob {
+  jobId: string;
+  kind: PanelJobKind;
+  ownerCarrierId: string;
+  label: string;
+  startedAt: number;
+  finishedAt?: number;
+  status: PanelJobStatus;
+  tracks: ColumnTrack[];
+  activeJobToolCallId?: string;
 }

@@ -9,6 +9,8 @@ Carrier Task Force management for cross-backend parallel validation.
 - **Consensus Building**: Used to compare approaches, detect model-specific blind spots, and build consensus across different LLM providers.
 - **Detached Execution**: Returns a single `job_id` for the entire task force batch and exits immediately.
 - **Labelled Results**: Results arrive via `[carrier:result]` push, with each backend's output clearly labelled (e.g., [Claude], [Codex], [Gemini]).
+- **Agent Panel is the only live streaming channel**: live backend output is surfaced through PanelJob tracks, not Messages renderers.
+- **Messages renderCall stays compact**: `carrier_taskforce` renderCall is a fixed 1-line summary only.
 
 ## Tool Manifest
 
@@ -21,3 +23,4 @@ Carrier Task Force management for cross-backend parallel validation.
 - **Busy Check**: Rejects the request if the target carrier is already busy.
 - **Backend Requirement**: Requires at least 2 configured backends to execute.
 - **Result Labels**: Each execution result must be tagged with its source backend name for the Admiral's interpretation.
+- **Panel sync path**: background runner writes stream-store blocks, and bridge panel-job adapters pull that state into the Agent Panel automatically.

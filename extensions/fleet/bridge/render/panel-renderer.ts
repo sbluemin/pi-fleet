@@ -1,91 +1,66 @@
 /**
  * fleet — 에이전트 패널 렌더러
  *
- * detailCarrierId에 따라 동적 레이아웃을 제공합니다:
- * - carrier 지정 → 1칼럼 상세 뷰 (전체 폭, thinking/tools 상세)
- * - null → N칼럼 동적 뷰
- * 프레임 색상은 detailCarrierId에 맞게 동적 변경됩니다.
+ * Agent Panel은 active PanelJob들을 잡 단위 칼럼으로 렌더링합니다.
+ * 각 칼럼 내부는 ColumnTrack 트리 + 최근 5줄 tail 스트리밍 콘텐츠를 표시합니다.
  */
 
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 import {
   ANSI_RESET,
   BORDER,
-  SPINNER_FRAMES,
   PANEL_COLOR,
   PANEL_DIM_COLOR,
+  SPINNER_FRAMES,
   SYM_INDICATOR,
 } from "../../constants.js";
 import {
-  resolveCarrierColor,
   resolveCarrierBgColor,
+  resolveCarrierColor,
   resolveCarrierRgb,
-  resolveCarrierDisplayName,
 } from "../../shipyard/carrier/framework.js";
-import { renderBlockLines, blockLineToAnsi } from "./block-renderer.js";
+import { getVisibleRun, getRunById } from "../streaming/stream-store.js";
+import type { ColStatus } from "../streaming/types.js";
+import type { ColumnTrack, PanelJob } from "../panel/types.js";
+import { blockLineToAnsi, renderBlockLines } from "./block-renderer.js";
 
-import type { AgentCol } from "../panel/types.js";
-
-/** 칼럼 콘텐츠 빌드 결과 (라인 + 라인별 색상) */
-interface ColContentResult {
-  lines: string[];
-  /** 각 라인에 대응하는 ANSI 색상 prefix (빈 문자열 = 기본 색상) */
-  colors: string[];
-}
-
-/** 대각선 스위프 애니메이션 설정 (왼쪽 위 → 오른쪽 아래) */
 interface WaveConfig {
   rgb: [number, number, number];
   frame: number;
-  /** 대각선 최대값 (w - 1 + panelH - 1) */
   totalDiag: number;
-  /** 밝은 띠의 폭 (대각선 단위) */
   bandWidth: number;
 }
 
-/**
- * 에이전트 패널의 메인 뷰를 렌더링합니다.
- *
- * detailCarrierId에 따라 동적 레이아웃:
- * - carrier 지정 → 1칼럼 상세 뷰 (전체 폭, 상세 표시)
- * - null → N칼럼 동적 뷰
- * 스트리밍 중이면 보더 와이어프레임에 파도 애니메이션 적용.
- */
+const MAX_TRACK_STREAM_LINES = 5;
+
 export function renderPanelFull(
   w: number,
-  cols: AgentCol[],
+  jobs: PanelJob[],
   frame: number,
   frameColor: string,
   bottomHint: string,
-  detailCarrierId: string | null,
+  detailTrackId: string | null,
   bodyH: number,
   cursorColumn = -1,
 ): string[] {
-  const FC = frameColor || PANEL_COLOR;
-  const detailIndex = detailCarrierId ? cols.findIndex((col) => col.cli === detailCarrierId) : -1;
-
-  // 패널 높이: top(1) + header(1) + sep(1) + body(bodyH) + bottom(1)
+  const visibleJobs = jobs;
+  const detailTarget = detailTrackId ? findTrackById(visibleJobs, detailTrackId) : null;
   const panelH = 3 + bodyH + 1;
   const totalDiag = (w - 1) + (panelH - 1);
-
-  // 스트리밍 중이면 보더에 대각선 스위프 애니메이션 적용
-  const isStreaming = cols.some((col) => col.status === "conn" || col.status === "stream");
+  const isStreaming = visibleJobs.some((job) => job.status === "active");
+  const frameOwnerCarrier = detailTarget?.job.ownerCarrierId ?? visibleJobs[0]?.ownerCarrierId ?? "";
   const wave: WaveConfig | undefined = isStreaming
-    ? { rgb: resolveCarrierRgb(detailCarrierId ?? ""), frame, totalDiag, bandWidth: 12 }
+    ? { rgb: resolveCarrierRgb(frameOwnerCarrier), frame, totalDiag, bandWidth: 12 }
     : undefined;
+  const FC = frameColor || PANEL_COLOR;
 
-  if (detailIndex >= 0) {
-    return renderDetailView(w, cols, frame, FC, bottomHint, detailIndex, bodyH, wave);
+  if (detailTarget) {
+    return renderDetailView(w, detailTarget.job, detailTarget.track, frame, FC, bottomHint, bodyH, wave);
   }
 
-  return renderMultiCol(w, cols, frame, FC, bottomHint, bodyH, wave, cursorColumn);
+  return renderMultiJobView(w, visibleJobs, frame, FC, bottomHint, bodyH, wave, cursorColumn);
 }
 
-/**
- * 파도 그라데이션 애니메이션을 문자별로 적용합니다.
- * sin 파형으로 원래 색상 → 흰색 방향으로 밝아지는 파도 효과를 만듭니다.
- * ANSI_RESET을 포함하지 않으므로 호출부에서 관리합니다.
- */
 export function waveText(
   text: string,
   rgb: [number, number, number],
@@ -104,10 +79,8 @@ export function waveText(
     const raw = Math.sin(phase);
 
     if (allowDim) {
-      // 패널용: 좁은 밝은 피크 + 넓은 은은한 어둠 (스캐닝 라이트)
-      // pow로 피크를 날카롭게, 기본 상태를 살짝 어둡게
-      const bright = Math.pow(Math.max(0, raw), 3) * 0.4;   // 좁고 날카로운 하이라이트
-      const dim = Math.min(0, raw) * 0.25;                   // 은은한 어둠
+      const bright = Math.pow(Math.max(0, raw), 3) * 0.4;
+      const dim = Math.min(0, raw) * 0.25;
       const factor = bright + dim;
       const cr = Math.min(255, Math.max(0, Math.round(
         factor >= 0 ? r + (255 - r) * factor : r + r * factor,
@@ -120,7 +93,6 @@ export function waveText(
       )));
       result += `\x1b[38;2;${cr};${cg};${cb}m${ch}`;
     } else {
-      // 배너/footer용: 부드럽게 밝아지는 효과만
       const wave = Math.max(0, raw);
       const boost = wave * 0.5;
       const cr = Math.min(255, Math.round(r + (255 - r) * boost));
@@ -134,47 +106,270 @@ export function waveText(
   return result;
 }
 
-// ─── 렌더링 헬퍼 ────────────────────────────────────────
+function renderDetailView(
+  w: number,
+  job: PanelJob,
+  track: ColumnTrack,
+  frame: number,
+  FC: string,
+  bottomHint: string,
+  bodyH: number,
+  wave: WaveConfig | undefined,
+): string[] {
+  const iw = Math.max(15, w - 2);
+  const rows: string[] = [];
+  let ri = 0;
 
-/** 상태별 아이콘 */
-function sIcon(status: string, frame: number, cli?: string): string {
-  if (status === "wait") return PANEL_DIM_COLOR + "○" + ANSI_RESET;
-  if (status === "conn" || status === "stream")
-    return (resolveCarrierColor(cli ?? "") || PANEL_COLOR) + SPINNER_FRAMES[frame % SPINNER_FRAMES.length] + ANSI_RESET;
-  if (status === "done") return "\x1b[38;2;100;200;100m" + SYM_INDICATOR + ANSI_RESET;
-  return "\x1b[38;2;255;80;80m" + SYM_INDICATOR + ANSI_RESET;
+  rows.push(renderTopBorder(w, FC, wave));
+  ri++;
+
+  rows.push(
+    vBorder(FC, wave, ri) + ANSI_RESET +
+    centerText(buildJobHeader(job, frame), iw) +
+    vBorder(FC, wave, w - 1 + ri) + ANSI_RESET,
+  );
+  ri++;
+  rows.push(hBorder("├" + BORDER.horizontal.repeat(iw) + "┤", FC, wave, ri) + ANSI_RESET);
+  ri++;
+
+  const content = buildTrackContent(track, bodyH, frame);
+  for (let row = 0; row < bodyH; row++) {
+    const line = content[row] ?? "";
+    rows.push(
+      vBorder(FC, wave, ri) + ANSI_RESET +
+      " " + pad(line, iw - 1) +
+      vBorder(FC, wave, w - 1 + ri) + ANSI_RESET,
+    );
+    ri++;
+  }
+
+  rows.push(renderBottomBorder(w, FC, bottomHint, wave, ri));
+  return rows;
 }
 
-/** 텍스트를 줄 단위로 분리 + 칼럼 폭에 맞게 하드 wrap */
-function wrapLines(text: string, maxW: number): string[] {
-  if (!text || maxW <= 0) return [];
-  const out: string[] = [];
-  for (const raw of text.split("\n")) {
-    if (visibleWidth(raw) <= maxW) {
-      out.push(raw);
+function renderMultiJobView(
+  w: number,
+  jobs: PanelJob[],
+  frame: number,
+  FC: string,
+  bottomHint: string,
+  bodyH: number,
+  wave: WaveConfig | undefined,
+  cursorColumn: number,
+): string[] {
+  if (jobs.length === 0) {
+    return renderEmptyPanel(w, FC, bottomHint, bodyH, wave);
+  }
+
+  const iw = Math.max(15, w - (jobs.length + 1));
+  const base = Math.floor(iw / jobs.length);
+  const widths = Array.from({ length: jobs.length }, (_, index) =>
+    index < jobs.length - 1 ? base : iw - base * (jobs.length - 1),
+  );
+  const vx: number[] = [0];
+  let acc = 0;
+  for (let i = 0; i < jobs.length; i++) {
+    acc += widths[i] ?? 0;
+    vx.push(i + 1 + acc);
+  }
+
+  const cursorBg = cursorColumn >= 0
+    ? resolveCarrierBgColor(jobs[cursorColumn]?.ownerCarrierId ?? "")
+    : "";
+  const applyBg = (text: string, bg: string) =>
+    bg + text.replaceAll(ANSI_RESET, ANSI_RESET + bg) + ANSI_RESET;
+
+  const rows: string[] = [];
+  let ri = 0;
+
+  rows.push(renderTopBorder(w, FC, wave));
+  ri++;
+
+  const headerCells = jobs.map((job, index) => {
+    const cell = centerText(buildJobHeader(job, frame), widths[index] ?? 0);
+    return index === cursorColumn && cursorBg ? applyBg(cell, cursorBg) : cell;
+  });
+  rows.push(joinCells(headerCells, widths, vx, FC, wave, ri));
+  ri++;
+
+  const sep = "├" + widths.map((width) => BORDER.horizontal.repeat(width)).join("┼") + "┤";
+  rows.push(hBorder(sep, FC, wave, ri) + ANSI_RESET);
+  ri++;
+
+  const contents = jobs.map((job, index) =>
+    buildJobColumnContent(job, widths[index] ?? 0, bodyH, frame),
+  );
+
+  for (let row = 0; row < bodyH; row++) {
+    const cells = contents.map((content, index) => {
+      const line = content[row] ?? "";
+      const cell = pad(line, widths[index] ?? 0);
+      return index === cursorColumn && cursorBg ? applyBg(cell, cursorBg) : cell;
+    });
+    rows.push(joinCells(cells, widths, vx, FC, wave, ri));
+    ri++;
+  }
+
+  rows.push(renderBottomBorder(w, FC, bottomHint, wave, ri));
+  return rows;
+}
+
+function renderEmptyPanel(
+  w: number,
+  FC: string,
+  bottomHint: string,
+  bodyH: number,
+  wave: WaveConfig | undefined,
+): string[] {
+  const rows: string[] = [];
+  let ri = 0;
+  const iw = Math.max(15, w - 2);
+
+  rows.push(renderTopBorder(w, FC, wave));
+  ri++;
+  rows.push(vBorder(FC, wave, ri) + ANSI_RESET + pad("", iw) + vBorder(FC, wave, w - 1 + ri) + ANSI_RESET);
+  ri++;
+  rows.push(hBorder("├" + BORDER.horizontal.repeat(iw) + "┤", FC, wave, ri) + ANSI_RESET);
+  ri++;
+  for (let row = 0; row < bodyH; row++) {
+    rows.push(vBorder(FC, wave, ri) + ANSI_RESET + pad("", iw) + vBorder(FC, wave, w - 1 + ri) + ANSI_RESET);
+    ri++;
+  }
+  rows.push(renderBottomBorder(w, FC, bottomHint, wave, ri));
+  return rows;
+}
+
+function buildJobHeader(job: PanelJob, frame: number): string {
+  const color = resolveCarrierColor(job.ownerCarrierId) || PANEL_COLOR;
+  const label = `${capitalize(job.kind)} · ${job.label} · ${formatElapsed((job.finishedAt ?? Date.now()) - job.startedAt)}`;
+  if (job.status !== "active") {
+    return `${color}◈ ${label}${ANSI_RESET}`;
+  }
+  return `${color}◈ ${waveText(label, resolveCarrierRgb(job.ownerCarrierId), frame, 0, { speed: 0.45 })}${ANSI_RESET}`;
+}
+
+function buildJobColumnContent(job: PanelJob, width: number, bodyH: number, frame: number): string[] {
+  const contentWidth = Math.max(0, width);
+  const lines: string[] = [];
+  for (let index = 0; index < job.tracks.length; index++) {
+    const track = job.tracks[index];
+    const treePrefix = index === job.tracks.length - 1 ? "└─" : "├─";
+    const connector = index === job.tracks.length - 1 ? "   " : "│  ";
+    const liveStatus = resolveTrackLiveStatus(track);
+    const stats = buildTrackStats(track);
+    const icon = trackIcon(liveStatus, frame, job.ownerCarrierId);
+    const nameColor = track.displayCli ? (resolveCarrierColor(track.displayCli) || PANEL_COLOR) : "";
+    const nameReset = nameColor ? ANSI_RESET : "";
+    lines.push(truncateToWidth(
+      `${PANEL_DIM_COLOR}${treePrefix}${ANSI_RESET} ${icon} ${nameColor}${track.displayName}${nameReset}${stats ? ` ${PANEL_DIM_COLOR}[${stats}]${ANSI_RESET}` : ""}`,
+      contentWidth,
+    ));
+    lines.push(...getTrackStreamTail(track, connector, contentWidth, liveStatus));
+  }
+  return lines.slice(-bodyH);
+}
+
+function resolveTrackLiveStatus(track: ColumnTrack): ColStatus {
+  if (track.runId) {
+    const run = getRunById(track.runId);
+    if (run) return run.status;
+  }
+  const run = getVisibleRun(track.streamKey);
+  if (run) {
+    track.runId = run.runId;
+    return run.status;
+  }
+  return track.status;
+}
+
+function buildTrackContent(track: ColumnTrack, bodyH: number, frame: number): string[] {
+  const liveStatus = resolveTrackLiveStatus(track);
+  const stats = buildTrackStats(track);
+  return [
+    `${trackIcon(liveStatus, frame, track.displayCli)} ${track.displayName}${stats ? ` ${PANEL_DIM_COLOR}[${stats}]${ANSI_RESET}` : ""}`,
+    ...getTrackStreamTail(track, "   ", Number.MAX_SAFE_INTEGER, liveStatus),
+  ].slice(-bodyH);
+}
+
+function getTrackStreamTail(track: ColumnTrack, connector: string, width: number, liveStatus?: ColStatus): string[] {
+  const run = track.runId ? getRunById(track.runId) : getVisibleRun(track.streamKey);
+  const effectiveStatus = liveStatus ?? track.status;
+  if (!run || run.blocks.length === 0) {
+    return effectiveStatus === "done"
+      ? [truncateToWidth(`${PANEL_DIM_COLOR}${connector}${ANSI_RESET}   ✓ Completed`, width)]
+      : [];
+  }
+  const blockLines = renderBlockLines(run.blocks).filter((line) => line.text.trim());
+  const tail = blockLines.slice(-MAX_TRACK_STREAM_LINES);
+  const prefix = `${PANEL_DIM_COLOR}${connector}${ANSI_RESET}   `;
+  const rendered = tail.map((line) => truncateToWidth(`${prefix}${blockLineToAnsi(line)}`, width));
+  if (effectiveStatus === "done") {
+    rendered.push(truncateToWidth(`${prefix}✓ Completed`, width));
+  }
+  return rendered;
+}
+
+function buildTrackStats(track: ColumnTrack): string {
+  const run = track.runId ? getRunById(track.runId) : getVisibleRun(track.streamKey);
+  if (!run || run.blocks.length === 0) return "";
+  let toolCalls = 0;
+  let lines = 0;
+  for (const block of run.blocks) {
+    if (block.type === "tool") {
+      toolCalls++;
       continue;
     }
-    let buf = "";
-    let bw = 0;
-    for (const ch of raw) {
-      const cw = visibleWidth(ch);
-      if (bw + cw > maxW) {
-        out.push(buf);
-        buf = ch;
-        bw = cw;
-      } else {
-        buf += ch;
-        bw += cw;
-      }
-    }
-    if (buf) out.push(buf);
+    lines += block.text.split("\n").filter((line) => line.trim()).length;
   }
-  return out;
+  const parts: string[] = [];
+  if (toolCalls > 0) parts.push(`${toolCalls}T`);
+  if (lines > 0) parts.push(`${lines}L`);
+  return parts.join("·");
 }
 
-/** 셀 내용을 고정 폭으로 우측 공백 패딩 */
-function pad(s: string, w: number): string {
-  return s + " ".repeat(Math.max(0, w - visibleWidth(s)));
+function trackIcon(status: ColStatus, frame: number, carrierId: string): string {
+  if (status === "wait") return `${PANEL_DIM_COLOR}○${ANSI_RESET}`;
+  if (status === "conn" || status === "stream") {
+    return `${resolveCarrierColor(carrierId) || PANEL_COLOR}${SPINNER_FRAMES[frame % SPINNER_FRAMES.length]}${ANSI_RESET}`;
+  }
+  if (status === "done") return `\x1b[38;2;100;200;100m${SYM_INDICATOR}${ANSI_RESET}`;
+  return `\x1b[38;2;255;80;80m${SYM_INDICATOR}${ANSI_RESET}`;
+}
+
+function joinCells(cells: string[], widths: number[], vx: number[], FC: string, wave: WaveConfig | undefined, row: number): string {
+  let line = vBorder(FC, wave, vx[0] + row) + ANSI_RESET;
+  for (let index = 0; index < cells.length; index++) {
+    line += cells[index] ?? pad("", widths[index] ?? 0);
+    line += vBorder(FC, wave, vx[index + 1] + row) + ANSI_RESET;
+  }
+  return line;
+}
+
+function findTrackById(jobs: PanelJob[], trackId: string): { job: PanelJob; track: ColumnTrack } | null {
+  for (const job of jobs) {
+    const track = job.tracks.find((item) => item.trackId === trackId);
+    if (track) return { job, track };
+  }
+  return null;
+}
+
+function capitalize(text: string): string {
+  return text.length > 0 ? `${text[0]?.toUpperCase() ?? ""}${text.slice(1)}` : text;
+}
+
+function formatElapsed(ms: number): string {
+  const totalSec = Math.floor(ms / 1000);
+  if (totalSec < 60) return `${totalSec}s`;
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  if (min < 60) return `${min}:${String(sec).padStart(2, "0")}`;
+  const hr = Math.floor(min / 60);
+  const remMin = min % 60;
+  return `${hr}:${String(remMin).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+}
+
+function pad(text: string, width: number): string {
+  return text + " ".repeat(Math.max(0, width - visibleWidth(text)));
 }
 
 function centerText(text: string, width: number): string {
@@ -185,152 +380,11 @@ function centerText(text: string, width: number): string {
   return " ".repeat(left) + fitted + " ".repeat(right);
 }
 
-function shortSessionId(sessionId?: string, length = 8): string | undefined {
-  if (length <= 0) return undefined;
-  if (!sessionId) return "new";
-  return sessionId.slice(0, length);
-}
-
-function buildHeaderLabel(
-  col: AgentCol,
-  frame: number,
-  options?: {
-    dimName?: boolean;
-    compact?: boolean;
-    sessionLength?: number;
-  },
-): string {
-  const fullName = resolveCarrierDisplayName(col.cli);
-  const name = options?.compact ? fullName.slice(0, 3) : fullName;
-  const nameColor = options?.dimName ? PANEL_DIM_COLOR : (resolveCarrierColor(col.cli) || PANEL_COLOR);
-  const sessionText = shortSessionId(col.sessionId, options?.sessionLength ?? 8);
-  const sessionSuffix = sessionText ? `${PANEL_DIM_COLOR} · ${sessionText}${ANSI_RESET}` : "";
-
-  const isStreaming = col.status === "conn" || col.status === "stream";
-  if (isStreaming && !options?.dimName) {
-    // 스트리밍 중: 스피너 아이콘 + 이름에 파도 그라데이션
-    const rgb = resolveCarrierRgb(col.cli);
-    return `${sIcon(col.status, frame, col.cli)} ${waveText(name, rgb, frame, 0, { speed: 0.5 })}${ANSI_RESET}${sessionSuffix}`;
-  }
-
-  return `${sIcon(col.status, frame, col.cli)} ${nameColor}${name}${ANSI_RESET}${sessionSuffix}`;
-}
-
-function pickHeaderLabel(
-  col: AgentCol,
-  frame: number,
-  maxWidth: number,
-  options?: { dimName?: boolean },
-): string {
-  const candidates = [
-    buildHeaderLabel(col, frame, { ...options, sessionLength: 8 }),
-    buildHeaderLabel(col, frame, { ...options, sessionLength: 6 }),
-    buildHeaderLabel(col, frame, { ...options, compact: true, sessionLength: 6 }),
-    buildHeaderLabel(col, frame, { ...options, compact: true, sessionLength: 4 }),
-    buildHeaderLabel(col, frame, { ...options, compact: true, sessionLength: 0 }),
-  ];
-
-  return candidates.find((candidate) => visibleWidth(candidate) <= maxWidth) ?? candidates.at(-1)!;
-}
-
-function pickDetailHeader(
-  cols: AgentCol[],
-  detailIndex: number,
-  frame: number,
-  width: number,
-): string {
-  const active = cols[detailIndex];
-  const others = cols.filter((_, index) => index !== detailIndex);
-  const separator = `${PANEL_DIM_COLOR}   ${ANSI_RESET}`;
-  const separatorCompact = `${PANEL_DIM_COLOR} │ ${ANSI_RESET}`;
-  const activeFull = pickHeaderLabel(active, frame, width);
-  const activeCompact = pickHeaderLabel(active, frame, width, { dimName: false });
-
-  const fullJoined = [
-    activeFull,
-    ...others.map((col) => pickHeaderLabel(col, frame, width, { dimName: true })),
-  ].join(separator);
-
-  const compactJoined = [
-    activeCompact,
-    ...others.map((col) => pickHeaderLabel(col, frame, width, { dimName: true })),
-  ].join(separatorCompact);
-
-  const activeOnly = [
-    activeFull,
-    buildHeaderLabel(active, frame, { sessionLength: 6 }),
-    buildHeaderLabel(active, frame, { sessionLength: 0 }),
-  ];
-
-  const candidates = [fullJoined, compactJoined, ...activeOnly];
-  return candidates.find((candidate) => visibleWidth(candidate) <= width) ?? activeOnly.at(-1)!;
-}
-
-/** 대기/연결 중 플레이스홀더 텍스트 */
-function placeholder(col: AgentCol, frame: number): string {
-  const n = resolveCarrierDisplayName(col.cli);
-  if (col.status === "wait") return `${n} 대기 중...`;
-  if (col.status === "conn") return `${n} 연결 중${".".repeat((frame % 3) + 1)}`;
-  if (col.status === "err") return `Error: ${col.error ?? "unknown"}`;
-  return "";
-}
-
-/**
- * 칼럼의 사고/도구 호출/응답을 통합 콘텐츠로 빌드합니다.
- * block-renderer의 renderBlockLines()를 사용하여 블록을 라인으로 변환합니다.
- */
-function buildColContent(col: AgentCol, frame: number): ColContentResult {
-  const lines: string[] = [];
-  const colors: string[] = [];
-
-  if (col.blocks?.length) {
-    const blockLines = renderBlockLines(col.blocks);
-    for (const bl of blockLines) {
-      // blockLineToAnsi로 타이틀/상태 색상을 분리 적용한 문자열 삽입
-      lines.push(blockLineToAnsi(bl));
-      colors.push("");
-    }
-  } else if (col.status === "wait" || col.status === "conn") {
-    lines.push(placeholder(col, frame));
-    colors.push("");
-  } else if (col.status === "err") {
-    lines.push(placeholder(col, frame));
-    colors.push("");
-  }
-
-  return { lines, colors };
-}
-
-/** wrapAllLines와 동일하되 색상 배열을 동기화하여 확장합니다. */
-function wrapAllLinesColored(lines: string[], colors: string[], maxW: number): ColContentResult {
-  const outLines: string[] = [];
-  const outColors: string[] = [];
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const color = colors[i] ?? "";
-    if (!line) {
-      outLines.push("");
-      outColors.push(color);
-      continue;
-    }
-    const wrapped = wrapLines(line, maxW);
-    for (const w of wrapped) {
-      outLines.push(w);
-      outColors.push(color);
-    }
-  }
-  return { lines: outLines, colors: outColors };
-}
-
-// ─── 공통 보더 헬퍼 ─────────────────────────────────────
-
-/** 세로 보더 렌더링 (diag = x + row) */
 function vBorder(FC: string, wave: WaveConfig | undefined, diag: number): string {
   if (wave) return sweepColorChar(BORDER.vertical, wave.rgb, sweepFactor(diag, wave));
   return FC + BORDER.vertical;
 }
 
-/** 수평 보더 렌더링 (row 기준, 각 문자의 diag = startX + charIdx + row) */
 function hBorder(text: string, FC: string, wave: WaveConfig | undefined, row: number, startX = 0): string {
   if (wave) {
     let result = "";
@@ -344,26 +398,24 @@ function hBorder(text: string, FC: string, wave: WaveConfig | undefined, row: nu
   return FC + text;
 }
 
-/** 상단 보더 렌더링 (row = 0) */
 function renderTopBorder(w: number, FC: string, wave?: WaveConfig): string {
   const title = " ◈ Fleet Bridge ";
-  const tW = visibleWidth(title);
-  const topFill = Math.max(0, w - 2 - tW);
-  const topL = Math.floor(topFill / 2);
-  const topR = topFill - topL;
-  const full = BORDER.topLeft + BORDER.horizontal.repeat(topL) + title + BORDER.horizontal.repeat(topR) + BORDER.topRight;
+  const titleWidth = visibleWidth(title);
+  const fill = Math.max(0, w - 2 - titleWidth);
+  const left = Math.floor(fill / 2);
+  const right = fill - left;
+  const full = BORDER.topLeft + BORDER.horizontal.repeat(left) + title + BORDER.horizontal.repeat(right) + BORDER.topRight;
   return hBorder(full, FC, wave, 0) + ANSI_RESET;
 }
 
-/** 하단 보더 렌더링 */
 function renderBottomBorder(w: number, FC: string, bottomHint: string, wave: WaveConfig | undefined, row: number): string {
-  const hW = visibleWidth(bottomHint);
-  const botFill = Math.max(0, w - 2 - hW);
-  const botL = Math.floor(botFill / 2);
-  const botR = botFill - botL;
-  const leftPart = BORDER.bottomLeft + BORDER.horizontal.repeat(botL);
-  const rightPart = BORDER.horizontal.repeat(botR) + BORDER.bottomRight;
-  const rightStartX = visibleWidth(leftPart) + hW;
+  const hintWidth = visibleWidth(bottomHint);
+  const fill = Math.max(0, w - 2 - hintWidth);
+  const left = Math.floor(fill / 2);
+  const right = fill - left;
+  const leftPart = BORDER.bottomLeft + BORDER.horizontal.repeat(left);
+  const rightPart = BORDER.horizontal.repeat(right) + BORDER.bottomRight;
+  const rightStartX = visibleWidth(leftPart) + hintWidth;
   return (
     hBorder(leftPart, FC, wave, row) + ANSI_RESET +
     PANEL_DIM_COLOR + bottomHint + ANSI_RESET +
@@ -371,188 +423,17 @@ function renderBottomBorder(w: number, FC: string, bottomHint: string, wave: Wav
   );
 }
 
-// ─── 1칼럼 상세 뷰 ─────────────────────────────────────
-
-/**
- * 특정 CLI의 상세 뷰를 렌더링합니다.
- * 전체 폭을 사용하고, thinking/tools를 상세 표시합니다.
- * 헤더 우측에 나머지 에이전트의 상태를 요약합니다.
- */
-function renderDetailView(
-  w: number,
-  cols: AgentCol[],
-  frame: number,
-  FC: string,
-  bottomHint: string,
-  detailIndex: number,
-  bodyH: number,
-  wave?: WaveConfig,
-): string[] {
-  const col = cols[detailIndex];
-  const iw = Math.max(15, w - 2);
-  const R: string[] = [];
-  let ri = 0;
-
-  R.push(renderTopBorder(w, FC, wave));
-  ri++;
-
-  // ── 헤더: 상세 뷰 CLI + 나머지 상태 요약 (가운데 정렬) ──
-  const headerLine = pickDetailHeader(cols, detailIndex, frame, iw);
-  R.push(
-    vBorder(FC, wave, ri) + ANSI_RESET +
-    centerText(headerLine, iw) +
-    vBorder(FC, wave, w - 1 + ri) + ANSI_RESET,
-  );
-  ri++;
-
-  // ── 구분선 ──
-  R.push(hBorder("├" + BORDER.horizontal.repeat(iw) + "┤", FC, wave, ri) + ANSI_RESET);
-  ri++;
-
-  // ── 본문 (compact=false → thinking/tools 상세, 영역별 색상) ──
-  const contentW = iw - 2;
-  const content = buildColContent(col, frame);
-  const wrapped = wrapAllLinesColored(content.lines, content.colors, contentW);
-
-  for (let row = 0; row < bodyH; row++) {
-    const startLine = Math.max(0, wrapped.lines.length - bodyH);
-    const lineIdx = startLine + row;
-    const line = wrapped.lines[lineIdx] ?? "";
-    const lineColor = wrapped.colors[lineIdx] ?? "";
-    const coloredLine = lineColor ? lineColor + line + ANSI_RESET : line;
-    R.push(
-      vBorder(FC, wave, ri) + ANSI_RESET +
-      " " + pad(coloredLine, iw - 1) +
-      vBorder(FC, wave, w - 1 + ri) + ANSI_RESET,
-    );
-    ri++;
-  }
-
-  R.push(renderBottomBorder(w, FC, bottomHint, wave, ri));
-  return R;
-}
-
-// ─── N칼럼 동적 뷰 ──────────────────────────────────────
-
-/** N칼럼 동시 뷰를 렌더링합니다. */
-function renderMultiCol(
-  w: number,
-  cols: AgentCol[],
-  frame: number,
-  FC: string,
-  bottomHint: string,
-  bodyH: number,
-  wave?: WaveConfig,
-  cursorColumn = -1,
-): string[] {
-  const n = cols.length;
-  // 내부 폭 = 전체 폭 - 세로 구분선 수 (양쪽 보더 + 칼럼 사이 구분선)
-  const iw = Math.max(15, w - (n + 1));
-  // 균등 분할, 나머지는 마지막 칼럼에 할당
-  const base = Math.floor(iw / n);
-  const cw = Array.from({ length: n }, (_, i) =>
-    i < n - 1 ? base : iw - base * (n - 1),
-  );
-  // 세로 보더의 x 위치 동적 생성: vx[i] = i + sum(cw[0..i-1])
-  // 왼쪽 보더=0, 각 칼럼 구분선, 오른쪽 보더=w-1
-  const vx: number[] = [0];
-  let acc = 0;
-  for (let i = 0; i < n; i++) {
-    acc += cw[i];
-    vx.push(i + 1 + acc);
-  }
-
-  // 포커스 칼럼의 배경색 (cursorColumn이 유효하면 해당 캐리어 시그니처 BG)
-  const cursorBg = cursorColumn >= 0
-    ? resolveCarrierBgColor(cols[cursorColumn]?.cli ?? "")
-    : "";
-  /** 셀 문자열 전체에 배경색을 적용합니다. content 내 ANSI 리셋마다 배경색을 재삽입합니다. */
-  const applyBg = (text: string, bg: string) =>
-    bg + text.replaceAll(ANSI_RESET, ANSI_RESET + bg) + ANSI_RESET;
-
-  const R: string[] = [];
-  let ri = 0;
-
-  R.push(renderTopBorder(w, FC, wave));
-  ri++;
-
-  // ── 칼럼 헤더 (가운데 정렬, cursorColumn 하이라이트) ──
-  const hdrCells = cols.map((col, i) => {
-    const isSelected = i === cursorColumn;
-    if (isSelected) {
-      // 선택된 칼럼: ▸ 접두사 + carrier 색상 강조 + 배경색
-      const color = resolveCarrierColor(col.cli) || PANEL_COLOR;
-      const name = resolveCarrierDisplayName(col.cli);
-      const selectedLabel = `${color}▸ ${name}${ANSI_RESET}`;
-      const cell = centerText(selectedLabel, cw[i]);
-      return cursorBg ? applyBg(cell, cursorBg) : cell;
-    }
-    const label = pickHeaderLabel(col, frame, cw[i]);
-    return centerText(label, cw[i]);
-  });
-  {
-    let line = vBorder(FC, wave, vx[0] + ri) + ANSI_RESET;
-    for (let i = 0; i < hdrCells.length; i++) {
-      line += hdrCells[i];
-      line += vBorder(FC, wave, vx[i + 1] + ri) + ANSI_RESET;
-    }
-    R.push(line);
-  }
-  ri++;
-
-  // ── 구분선 ──
-  const sepStr = "├" + cw.map((c) => BORDER.horizontal.repeat(c)).join("┼") + "┤";
-  R.push(hBorder(sepStr, FC, wave, ri) + ANSI_RESET);
-  ri++;
-
-  // ── 본문 (auto-tail, 영역별 색상) ──
-  const wrappedCols = cols.map((col, i) => {
-    const contentW = cw[i] - 2;
-    const content = buildColContent(col, frame);
-    return wrapAllLinesColored(content.lines, content.colors, contentW);
-  });
-
-  for (let row = 0; row < bodyH; row++) {
-    const cells = cols.map((_col, i) => {
-      const { lines, colors } = wrappedCols[i];
-      const startLine = Math.max(0, lines.length - bodyH);
-      const lineIdx = startLine + row;
-      const line = lines[lineIdx] ?? "";
-      const lineColor = colors[lineIdx] ?? "";
-      const coloredLine = lineColor ? lineColor + line + ANSI_RESET : line;
-      const cell = " " + pad(coloredLine, cw[i] - 1);
-      return (i === cursorColumn && cursorBg) ? applyBg(cell, cursorBg) : cell;
-    });
-    let line = vBorder(FC, wave, vx[0] + ri) + ANSI_RESET;
-    for (let i = 0; i < cells.length; i++) {
-      line += cells[i];
-      line += vBorder(FC, wave, vx[i + 1] + ri) + ANSI_RESET;
-    }
-    R.push(line);
-    ri++;
-  }
-
-  R.push(renderBottomBorder(w, FC, bottomHint, wave, ri));
-  return R;
-}
-
-// ─── 스위프 애니메이션 헬퍼 ───────────────────────────────
-
-/** 대각선 위치 기반 밝기 계수 반환 (-0.2 ~ +0.5) */
 function sweepFactor(diag: number, cfg: WaveConfig): number {
   const cycle = cfg.totalDiag + cfg.bandWidth;
   const sweepPos = (cfg.frame * 4.0) % cycle - cfg.bandWidth * 0.3;
   const dist = diag - sweepPos;
-
   if (dist >= 0 && dist <= cfg.bandWidth) {
-    // 밝은 띠 내부: 가우시안 프로파일 (중심이 가장 밝음)
     const t = (dist / cfg.bandWidth - 0.5) * 3;
     return Math.exp(-t * t) * 0.5;
   }
-  return -0.2; // 띠 밖: 은은하게 어둡게
+  return -0.2;
 }
 
-/** 단일 문자에 스위프 색상 적용 */
 function sweepColorChar(ch: string, rgb: [number, number, number], factor: number): string {
   const [r, g, b] = rgb;
   const cr = Math.min(255, Math.max(0, Math.round(

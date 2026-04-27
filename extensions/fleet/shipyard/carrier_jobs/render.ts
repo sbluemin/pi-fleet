@@ -1,3 +1,5 @@
+import { visibleWidth } from "@mariozechner/pi-tui";
+
 import type { CarrierJobRecord, CarrierJobSummary } from "../_shared/job-types.js";
 import type { CarrierJobsParams } from "./types.js";
 
@@ -43,8 +45,8 @@ export class CarrierJobsVerboseCallComponent {
     this.args = args;
   }
 
-  render(): string[] {
-    return formatJsonLines(this.args);
+  render(width = process.stdout.columns ?? 120): string[] {
+    return formatJsonLines(this.args, width);
   }
 
   invalidate(): void {}
@@ -56,8 +58,8 @@ export function renderQuietResult(_result: CarrierJobsToolResult): { render(): s
 
 export function renderVerboseResult(result: CarrierJobsToolResult): { render(): string[]; invalidate(): void } {
   return {
-    render() {
-      return formatJsonLines(parseResultPayload(result) ?? result);
+    render(width = process.stdout.columns ?? 120) {
+      return formatJsonLines(parseResultPayload(result) ?? result, width);
     },
     invalidate() {},
   };
@@ -117,8 +119,32 @@ function parseResultPayload(result: CarrierJobsToolResult): CarrierJobsRenderRes
   }
 }
 
-function formatJsonLines(value: unknown): string[] {
-  return JSON.stringify(value, null, 2).split("\n").map((line) => `${DIM}${line}${RESET}`);
+function formatJsonLines(value: unknown, width = process.stdout.columns ?? 120): string[] {
+  const safeWidth = Math.max(20, width);
+  return JSON.stringify(value, null, 2)
+    .split("\n")
+    .flatMap((line) => wrapLine(line, safeWidth))
+    .map((line) => `${DIM}${line}${RESET}`);
+}
+
+function wrapLine(line: string, width: number): string[] {
+  if (visibleWidth(line) <= width) return [line];
+  const lines: string[] = [];
+  let chunk = "";
+  let chunkWidth = 0;
+  for (const char of line) {
+    const charWidth = visibleWidth(char);
+    if (chunk && chunkWidth + charWidth > width) {
+      lines.push(chunk);
+      chunk = char;
+      chunkWidth = charWidth;
+      continue;
+    }
+    chunk += char;
+    chunkWidth += charWidth;
+  }
+  if (chunk) lines.push(chunk);
+  return lines;
 }
 
 function formatKb(value: string): string {

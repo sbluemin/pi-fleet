@@ -9,7 +9,7 @@ import { DEFAULT_BODY_H, formatPanelMultiColHint } from "../../constants.js";
 import { getSessionStore } from "../../../core/agentclientprotocol/runtime.js";
 import { ensureVisibleRun, setRunSessionId } from "../streaming/stream-store.js";
 import { getRegisteredOrder, isSquadronCarrierEnabled } from "../../shipyard/carrier/framework.js";
-import type { AgentCol } from "./types.js";
+import type { AgentCol, PanelJob } from "./types.js";
 import type { ServiceSnapshot } from "../../../core/agentclientprotocol/types.js";
 
 export type { AgentCol } from "./types.js";
@@ -21,12 +21,13 @@ export interface FooterModelInfo {
 
 export interface AgentPanelState {
   cols: AgentCol[];
+  panelJobs: Map<string, PanelJob>;
   expanded: boolean;
   streaming: boolean;
   frame: number;
   animTimer: ReturnType<typeof setInterval> | null;
-  /** 패널 로컬 상세 뷰 대상 carrier ID (null = N칼럼 뷰) */
-  detailCarrierId: string | null;
+  /** 패널 로컬 상세 뷰 대상 ColumnTrack ID (null = N칼럼 뷰) */
+  detailTrackId: string | null;
   bottomHint: string;
   /** 캐리어별(carrierId) 모델 설정 */
   modelConfig: Record<string, FooterModelInfo>;
@@ -41,6 +42,7 @@ export interface AgentPanelState {
 
 export const STATE_KEY = "__pi_agent_panel_state__";
 export const WIDGET_KEY = "ua-panel";
+export const PANEL_JOB_RETENTION = 8;
 
 /**
  * 동적으로 등록된 carrier 순서를 반환합니다.
@@ -56,11 +58,12 @@ export function getState(): AgentPanelState {
   if (!s) {
     s = {
       cols: makeCols(),
+      panelJobs: new Map(),
       expanded: false,
       streaming: false,
       frame: 0,
       animTimer: null,
-      detailCarrierId: null,
+      detailTrackId: null,
       bottomHint: formatPanelMultiColHint(),
       modelConfig: {},
       serviceSnapshots: [],
@@ -72,7 +75,11 @@ export function getState(): AgentPanelState {
     };
     (globalThis as any)[STATE_KEY] = s;
   }
-  if (s.detailCarrierId === undefined) s.detailCarrierId = null;
+  const legacyDetailCarrierId = (s as AgentPanelState & { detailCarrierId?: string | null }).detailCarrierId;
+  if (s.detailTrackId === undefined) s.detailTrackId = legacyDetailCarrierId ?? null;
+  if ("detailCarrierId" in s) delete (s as AgentPanelState & { detailCarrierId?: string | null }).detailCarrierId;
+  if (!(s.panelJobs instanceof Map)) s.panelJobs = new Map();
+  if ("activeJobId" in s) delete (s as AgentPanelState & { activeJobId?: string | null }).activeJobId;
   if (s.bottomHint === undefined) s.bottomHint = formatPanelMultiColHint();
   if (!s.modelConfig) s.modelConfig = {};
   if (!s.serviceSnapshots) s.serviceSnapshots = [];
@@ -112,6 +119,14 @@ export function makeCols(clis?: readonly string[]): AgentCol[] {
   }));
 }
 
+export function getPanelJobs(): Map<string, PanelJob> {
+  return getState().panelJobs;
+}
+
+export function getRegisteredCarrierCols(): AgentCol[] {
+  return getState().cols;
+}
+
 /** carrierId에 해당하는 cols 배열 내 인덱스를 반환합니다. 없으면 -1. */
 export function findColIndex(carrierId: string): number {
   return getState().cols.findIndex((col) => col.cli === carrierId);
@@ -149,9 +164,6 @@ export function syncColsWithRegisteredOrder(): void {
     };
   });
 
-  if (s.detailCarrierId && !s.cols.some((col) => col.cli === s.detailCarrierId)) {
-    s.detailCarrierId = null;
-  }
   if (selectedCarrierId) {
     s.cursorColumn = s.cols.findIndex((col) => col.cli === selectedCarrierId);
   }
@@ -167,7 +179,6 @@ export function syncColsWithRegisteredOrder(): void {
  */
 export function getFocusedCarrierId(): string | null {
   const s = getState();
-  if (s.detailCarrierId) return s.detailCarrierId;
   if (s.expanded && s.cursorColumn >= 0 && s.cursorColumn < s.cols.length) {
     return s.cols[s.cursorColumn]?.cli ?? null;
   }

@@ -8,6 +8,8 @@ Carrier Framework SDK — registration, activation, and tool delegation logic.
 - **Detached Sortie**: The `carriers_sortie` tool is strictly fire-and-forget. It accepts a task, registers a background job, and returns `{ job_id, accepted: true }` immediately.
 - **Call Instance Isolation**: Each `carriers_sortie` call is isolated by `toolCallId` (acting as `sortieKey`). This prevents UI interference when multiple agents call the same carrier or different carriers simultaneously.
 - **RunId-based Filtering**: Streaming output is filtered by `runId` to ensure the Agent Panel and Streaming Widget only show relevant progress for the current execution.
+- **Messages summary only**: `carriers_sortie` renderCall is a fixed 1-line summary; legacy `SortieCallComponent` live tree rendering has been removed.
+- **Agent Panel is the only live streaming channel**: live sortie output must flow through stream-store + Agent Panel, not Messages.
 
 ## Tool Manifest
 

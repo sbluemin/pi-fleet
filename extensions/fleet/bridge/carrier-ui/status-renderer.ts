@@ -10,7 +10,9 @@ import {
   PANEL_COLOR,
   PANEL_DIM_COLOR,
   SPINNER_FRAMES,
+  SQUADRON_BADGE_COLOR,
   SYM_INDICATOR,
+  TASKFORCE_BADGE_COLOR,
 } from "../../constants.js";
 import {
   resolveCarrierColor,
@@ -21,6 +23,7 @@ import {
 } from "../../shipyard/carrier/framework.js";
 import { getConfiguredTaskForceBackends } from "../../shipyard/store.js";
 import { waveText } from "../render/panel-renderer.js";
+import { getActiveJobs } from "../panel/jobs.js";
 import type { AgentCol } from "../panel/types.js";
 
 /** renderCarrierStatus에 필요한 최소 상태 */
@@ -32,12 +35,6 @@ interface CarrierStatusRenderInput {
 
 /** sortie 비활성 캐리어용 dim 색상 */
 const DISABLED_COLOR = "\x1b[38;2;100;100;100m";
-
-/** TF 구성 완료 배지 색상 */
-const TF_BADGE_COLOR = "\x1b[38;2;100;180;255m";
-
-/** Squadron 편제 배지 색상 (보라 계열 — status-overlay와 동일) */
-const SQ_BADGE_COLOR = "\x1b[38;2;180;140;255m";
 
 // ─── 메인 렌더 함수 ─────────────────────────────────────
 
@@ -51,8 +48,8 @@ export function renderCarrierStatus(input: CarrierStatusRenderInput): string | u
     const disabled = !isSortieCarrierEnabled(col.cli);
     const name = resolveCarrierDisplayName(col.cli);
     const taskForceBackendCount = getConfiguredTaskForceBackends(col.cli).length;
-    const tfBadgeColor = disabled ? DISABLED_COLOR : TF_BADGE_COLOR;
-    const sqBadgeColor = disabled ? DISABLED_COLOR : SQ_BADGE_COLOR;
+    const tfBadgeColor = disabled ? DISABLED_COLOR : TASKFORCE_BADGE_COLOR;
+    const sqBadgeColor = disabled ? DISABLED_COLOR : SQUADRON_BADGE_COLOR;
     const tfBadge = taskForceBackendCount >= 2
       ? ` ${tfBadgeColor}[TF:${taskForceBackendCount}]${ANSI_RESET}`
       : "";
@@ -85,12 +82,13 @@ function statusIcon(col: AgentCol, frame: number, disabled: boolean): string {
     return `${DISABLED_COLOR}○${ANSI_RESET}`;
   }
   const cliColor = resolveCarrierColor(col.cli) || PANEL_COLOR;
+  const hasNonSortieActiveJob = getActiveJobs().some((job) => job.kind !== "sortie");
   const icon = col.status === "done"
     ? SYM_INDICATOR
     : col.status === "err"
       ? SYM_INDICATOR
       : col.status === "conn" || col.status === "stream"
-        ? SPINNER_FRAMES[frame % SPINNER_FRAMES.length]
+        ? hasNonSortieActiveJob ? SYM_INDICATOR : SPINNER_FRAMES[frame % SPINNER_FRAMES.length]
         : "○";
   return `${cliColor}${icon}${ANSI_RESET}`;
 }
