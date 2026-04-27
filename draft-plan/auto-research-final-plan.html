@@ -1,0 +1,1429 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auto Research Final Plan — pi-fleet</title>
+<style>
+/* ── Reset & Tokens ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:      #0d1117;
+  --bg2:     #161b22;
+  --bg3:     #21262d;
+  --border:  #30363d;
+  --txt:     #c9d1d9;
+  --dim:     #8b949e;
+  --blue:    #58a6ff;
+  --green:   #3fb950;
+  --red:     #f78166;
+  --purple:  #d2a8ff;
+  --orange:  #ffa657;
+  --yellow:  #e3b341;
+  --nav-w:   230px;
+  --sans:    -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --mono:    "SF Mono", "Fira Code", Consolas, monospace;
+}
+html { scroll-behavior: smooth; font-size: 14px; }
+body { background: var(--bg); color: var(--txt); font-family: var(--sans); line-height: 1.6; display: flex; min-height: 100vh; }
+
+/* ── Sidebar nav ── */
+#nav {
+  position: fixed; top: 0; left: 0;
+  width: var(--nav-w); height: 100vh;
+  background: var(--bg2); border-right: 1px solid var(--border);
+  overflow-y: auto; padding: 0; z-index: 50;
+  display: flex; flex-direction: column;
+}
+.nav-brand {
+  padding: 16px; border-bottom: 1px solid var(--border);
+  font-size: 11px; font-weight: 700; color: var(--blue);
+  text-transform: uppercase; letter-spacing: .08em;
+  line-height: 1.4;
+}
+.nav-brand span { display: block; color: var(--dim); font-weight: 400; text-transform: none; letter-spacing: 0; margin-top: 2px; }
+.nav-group { padding: 10px 0 2px; }
+.nav-label {
+  padding: 0 14px 4px;
+  font-size: 10px; font-weight: 700; color: var(--dim);
+  text-transform: uppercase; letter-spacing: .1em;
+}
+.nav-link {
+  display: block; padding: 5px 14px;
+  font-size: 12px; color: var(--dim); text-decoration: none;
+  border-left: 2px solid transparent; transition: all .12s;
+}
+.nav-link:hover, .nav-link.on { color: var(--txt); background: var(--bg3); border-left-color: var(--blue); }
+
+/* ── Main content ── */
+#main { margin-left: var(--nav-w); flex: 1; padding: 32px 44px 64px; max-width: 980px; }
+
+/* ── Sections ── */
+.sec { margin-bottom: 52px; scroll-margin-top: 20px; }
+.sec-hd {
+  font-size: 18px; font-weight: 700; color: var(--txt);
+  padding-bottom: 10px; margin-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+}
+.sec-hd .pill {
+  font-size: 10px; font-weight: 700; padding: 2px 8px;
+  border-radius: 10px; background: var(--bg3); color: var(--blue);
+  border: 1px solid var(--border); letter-spacing: .04em; text-transform: uppercase;
+}
+h3 { font-size: 14px; font-weight: 700; color: var(--txt); margin: 18px 0 8px; }
+p  { font-size: 13px; margin-bottom: 10px; }
+
+/* ── Callout ── */
+.callout {
+  border-radius: 7px; padding: 14px 18px; margin-bottom: 14px;
+  font-size: 13px;
+}
+.callout.blue   { background: rgba(88,166,255,.07);  border: 1px solid rgba(88,166,255,.25); }
+.callout.green  { background: rgba(63,185,80,.07);   border: 1px solid rgba(63,185,80,.25); }
+.callout.yellow { background: rgba(227,179,65,.07);  border: 1px solid rgba(227,179,65,.25); }
+.callout.red    { background: rgba(247,129,102,.07); border: 1px solid rgba(247,129,102,.25); }
+.callout .hd {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .1em; margin-bottom: 7px;
+}
+.callout.blue   .hd { color: var(--blue); }
+.callout.green  .hd { color: var(--green); }
+.callout.yellow .hd { color: var(--yellow); }
+.callout.red    .hd { color: var(--red); }
+.callout strong { font-weight: 700; }
+
+/* ── Grid ── */
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+/* ── Panel (flat card) ── */
+.panel {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 7px; padding: 14px 16px; font-size: 13px;
+}
+.panel.bl { border-left: 3px solid var(--blue); }
+.panel.gr { border-left: 3px solid var(--green); }
+.panel.or { border-left: 3px solid var(--orange); }
+.panel.pu { border-left: 3px solid var(--purple); }
+.panel.re { border-left: 3px solid var(--red); }
+.panel.ye { border-left: 3px solid var(--yellow); }
+.panel-hd { font-size: 12px; font-weight: 700; margin-bottom: 7px; }
+.panel-hd.bl { color: var(--blue); }
+.panel-hd.gr { color: var(--green); }
+.panel-hd.or { color: var(--orange); }
+.panel-hd.pu { color: var(--purple); }
+.panel-hd.re { color: var(--red); }
+.panel-hd.ye { color: var(--yellow); }
+
+/* ── Table ── */
+.tw { overflow-x: auto; margin-bottom: 14px; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th {
+  background: var(--bg3); color: var(--dim); font-weight: 600;
+  text-align: left; padding: 7px 10px; border: 1px solid var(--border);
+  font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
+  white-space: nowrap;
+}
+td { padding: 7px 10px; border: 1px solid var(--border); vertical-align: top; }
+tr:nth-child(even) td { background: rgba(255,255,255,.015); }
+.ok   { color: var(--green);  font-weight: 700; }
+.ng   { color: var(--red);    font-weight: 700; }
+.half { color: var(--yellow); font-weight: 700; }
+
+/* ── List ── */
+ul.dl { list-style: none; padding: 0; }
+ul.dl li { padding: 3px 0 3px 15px; position: relative; font-size: 13px; }
+ul.dl li::before { content: "–"; position: absolute; left: 0; color: var(--dim); }
+
+/* ── Tags/Chips ── */
+.chip {
+  display: inline-block; font-size: 11px; font-weight: 600;
+  padding: 1px 8px; border-radius: 9px; margin: 2px;
+}
+.chip.bl { background: rgba(88,166,255,.12);  color: var(--blue);   border: 1px solid rgba(88,166,255,.3); }
+.chip.gr { background: rgba(63,185,80,.12);   color: var(--green);  border: 1px solid rgba(63,185,80,.3); }
+.chip.or { background: rgba(255,166,87,.12);  color: var(--orange); border: 1px solid rgba(255,166,87,.3); }
+.chip.pu { background: rgba(210,168,255,.12); color: var(--purple); border: 1px solid rgba(210,168,255,.3); }
+.chip.re { background: rgba(247,129,102,.12); color: var(--red);    border: 1px solid rgba(247,129,102,.3); }
+.chip.ye { background: rgba(227,179,65,.12);  color: var(--yellow); border: 1px solid rgba(227,179,65,.3); }
+
+/* ── Wave badge ── */
+.wb {
+  display: inline-block; font-size: 10px; font-weight: 700;
+  padding: 2px 9px; border-radius: 4px; margin-bottom: 5px;
+  text-transform: uppercase; letter-spacing: .06em;
+}
+.wb.w1 { background: rgba(88,166,255,.14);  color: var(--blue); }
+.wb.w2 { background: rgba(63,185,80,.14);   color: var(--green); }
+.wb.w3 { background: rgba(255,166,87,.14);  color: var(--orange); }
+.wb.w4 { background: rgba(210,168,255,.14); color: var(--purple); }
+.wb.w5 { background: rgba(227,179,65,.14);  color: var(--yellow); }
+.wb.w6 { background: rgba(247,129,102,.14); color: var(--red); }
+
+/* ── Tabs ── */
+.tab-bar {
+  display: flex; border-bottom: 1px solid var(--border); margin-bottom: 14px;
+}
+.tb {
+  padding: 7px 16px; background: none; border: none;
+  border-bottom: 2px solid transparent; color: var(--dim);
+  font: 13px var(--sans); cursor: pointer; margin-bottom: -1px; transition: all .12s;
+}
+.tb:hover { color: var(--txt); }
+.tb.on { color: var(--blue); border-bottom-color: var(--blue); }
+.tp { display: none; }
+.tp.on { display: block; }
+
+/* ── Toggle ── */
+.tog { margin-bottom: 6px; }
+.tog-hd {
+  display: flex; align-items: center; gap: 8px; cursor: pointer;
+  padding: 8px 13px; background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 6px; font-size: 13px; font-weight: 600; color: var(--txt);
+  user-select: none; transition: background .12s;
+}
+.tog-hd:hover { background: var(--bg3); }
+.arrow { font-size: 9px; color: var(--dim); margin-left: auto; transition: transform .18s; }
+.tog-hd.open .arrow { transform: rotate(90deg); }
+.tog-bd {
+  display: none; padding: 12px 16px;
+  background: var(--bg2); border: 1px solid var(--border); border-top: none;
+  border-radius: 0 0 6px 6px; margin-bottom: 4px;
+}
+.tog-bd.open { display: block; }
+
+/* ── Timeline ── */
+.tl { position: relative; padding-left: 28px; }
+.tl::before {
+  content: ""; position: absolute; left: 8px; top: 8px; bottom: 16px;
+  width: 2px; background: var(--border);
+}
+.tl-row { position: relative; margin-bottom: 26px; }
+.tl-row::before {
+  content: ""; position: absolute; left: -24px; top: 4px;
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid var(--border); background: var(--bg3);
+}
+.tl-row.c1::before { border-color: var(--blue);   background: var(--blue); }
+.tl-row.c2::before { border-color: var(--green);  background: var(--green); }
+.tl-row.c3::before { border-color: var(--orange); background: var(--orange); }
+.tl-row.c4::before { border-color: var(--purple); background: var(--purple); }
+.tl-row.c5::before { border-color: var(--yellow); background: var(--yellow); }
+.tl-row.c6::before { border-color: var(--red);    background: var(--red); }
+.tl-title { font-size: 13px; font-weight: 700; color: var(--txt); margin-bottom: 6px; }
+
+/* ── Storage split diagram ── */
+.storage-wrap { display: grid; grid-template-columns: 1fr 1px 1fr; gap: 0; margin-bottom: 16px; }
+.storage-col { padding: 14px 16px; }
+.storage-divider { background: var(--border); margin: 8px 0; }
+.storage-col.left  { background: rgba(88,166,255,.04);  border: 1px solid rgba(88,166,255,.2);  border-radius: 7px 0 0 7px; }
+.storage-col.right { background: rgba(210,168,255,.04); border: 1px solid rgba(210,168,255,.2); border-right: 1px solid rgba(210,168,255,.2); border-radius: 0 7px 7px 0; }
+.storage-hd { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px; }
+.storage-hd.bl { color: var(--blue); }
+.storage-hd.pu { color: var(--purple); }
+.storage-path { font-family: var(--mono); font-size: 11px; color: var(--dim); margin-bottom: 8px; }
+.storage-file { font-family: var(--mono); font-size: 11px; padding: 2px 0; color: var(--txt); }
+.storage-note { font-size: 11px; color: var(--dim); margin-top: 8px; line-height: 1.4; }
+
+/* ── Responsibility matrix ── */
+.matrix-wrap { overflow-x: auto; }
+.matrix { border-collapse: collapse; width: 100%; font-size: 12px; }
+.matrix th { background: var(--bg3); color: var(--dim); padding: 6px 10px; border: 1px solid var(--border); text-align: center; font-size: 11px; white-space: nowrap; }
+.matrix td { padding: 6px 10px; border: 1px solid var(--border); text-align: center; font-size: 12px; }
+.matrix .row-hd { text-align: left; font-weight: 600; color: var(--txt); background: var(--bg2); white-space: nowrap; }
+.matrix .r { color: var(--green); font-weight: 700; }   /* responsible */
+.matrix .a { color: var(--blue);  font-weight: 700; }   /* accountable */
+.matrix .c { color: var(--yellow); }                    /* consulted */
+.matrix .i { color: var(--dim); }                       /* informed */
+.matrix .na { color: var(--border); }
+
+/* ── Gate checklist ── */
+.gate-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px;
+}
+.gate-item:last-child { border-bottom: none; }
+.gate-cb { width: 16px; height: 16px; border: 2px solid var(--border); border-radius: 3px; cursor: pointer; flex-shrink: 0; margin-top: 2px; transition: all .1s; }
+.gate-cb.checked { background: var(--green); border-color: var(--green); }
+.gate-cb.checked::after { content: "✓"; display: block; color: #000; font-size: 10px; text-align: center; line-height: 14px; }
+.gate-label { flex: 1; line-height: 1.4; }
+.gate-label.done { color: var(--dim); text-decoration: line-through; }
+.gate-wave { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 3px; flex-shrink: 0; margin-top: 2px; }
+
+/* ── Open decisions ── */
+.decision {
+  padding: 12px 14px; margin-bottom: 8px;
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 7px;
+}
+.decision.open-d  { border-left: 3px solid var(--yellow); }
+.decision.closed-d { border-left: 3px solid var(--green); opacity: .75; }
+.decision .d-status { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 4px; }
+.decision.open-d   .d-status { color: var(--yellow); }
+.decision.closed-d .d-status { color: var(--green); }
+.decision .d-q  { font-size: 13px; font-weight: 600; color: var(--txt); margin-bottom: 4px; }
+.decision .d-ans { font-size: 12px; color: var(--dim); }
+
+/* ── Code ── */
+code { font-family: var(--mono); font-size: 11px; background: var(--bg3); padding: 1px 5px; border-radius: 3px; color: var(--purple); }
+pre  { font-family: var(--mono); font-size: 11px; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 11px 14px; overflow-x: auto; margin-bottom: 12px; line-height: 1.5; color: var(--txt); }
+
+/* ── Divider ── */
+hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+/* ── Flow row ── */
+.flow { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 8px 0; font-size: 12px; }
+.fn { padding: 4px 11px; border-radius: 5px; background: var(--bg3); border: 1px solid var(--border); font-weight: 600; white-space: nowrap; }
+.fn.bl { border-color: var(--blue);   color: var(--blue); }
+.fn.gr { border-color: var(--green);  color: var(--green); }
+.fn.or { border-color: var(--orange); color: var(--orange); }
+.fn.pu { border-color: var(--purple); color: var(--purple); }
+.fn.ye { border-color: var(--yellow); color: var(--yellow); }
+.fa { color: var(--dim); font-size: 14px; }
+
+/* ── Responsive ── */
+@media (max-width: 860px) {
+  :root { --nav-w: 0px; }
+  #nav { display: none; }
+  #main { margin-left: 0; padding: 20px 18px 48px; }
+  .g2, .g3 { grid-template-columns: 1fr; }
+  .storage-wrap { grid-template-columns: 1fr; }
+  .storage-divider { display: none; }
+  .storage-col { border-radius: 7px !important; margin-bottom: 8px; }
+}
+@media (max-width: 640px) {
+  #main { padding: 16px 12px 40px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ══════ SIDEBAR ══════ -->
+<nav id="nav">
+  <div class="nav-brand">pi-fleet<span>Auto Research Final Plan · 2026-04-28</span></div>
+  <div class="nav-group">
+    <div class="nav-label">핵심 결론</div>
+    <a class="nav-link" href="#core">최종 아키텍처 요약</a>
+    <a class="nav-link" href="#runtime">fleet-dev 런타임</a>
+    <a class="nav-link" href="#storage">Storage Split</a>
+  </div>
+  <div class="nav-group">
+    <div class="nav-label">구조</div>
+    <a class="nav-link" href="#carrier">Endeavour Carrier</a>
+    <a class="nav-link" href="#ledger">Thin Experiment Layer</a>
+    <a class="nav-link" href="#llmwiki">LLM Wiki 연동</a>
+  </div>
+  <div class="nav-group">
+    <div class="nav-label">비교 / 역할</div>
+    <a class="nav-link" href="#profiles">실행 프로파일</a>
+    <a class="nav-link" href="#directions">방향 비교</a>
+    <a class="nav-link" href="#matrix">책임 매트릭스</a>
+  </div>
+  <div class="nav-group">
+    <div class="nav-label">구현 / 검증</div>
+    <a class="nav-link" href="#waves">Wave 타임라인</a>
+    <a class="nav-link" href="#gates">QA Gate 체크리스트</a>
+    <a class="nav-link" href="#decisions">미결 결정 사항</a>
+  </div>
+</nav>
+
+<!-- ══════ MAIN ══════ -->
+<main id="main">
+
+<!-- ── Hero ── -->
+<div style="margin-bottom:36px">
+  <div style="font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px">
+    feat/fleet-autoresearch &nbsp;·&nbsp; draft-plan &nbsp;·&nbsp; 2026-04-28
+  </div>
+  <h1 style="font-size:26px;font-weight:800;color:var(--txt);margin-bottom:8px">Auto Research Final Plan</h1>
+  <p style="color:var(--dim);max-width:600px;font-size:13px">
+    fleet-dev-first · Endeavour Loop Owner · Thin Experiment Ledger · Post-MVP durable memory adapter split.
+    실무 검토용 계획 문서 — 섹션 탐색, 방향 비교, 체크 가능한 QA gate를 포함한다.
+  </p>
+  <div style="margin-top:10px">
+    <span class="chip bl">fleet-dev-first</span>
+    <span class="chip gr">Endeavour = Loop Owner</span>
+    <span class="chip pu">Post-MVP LLM Wiki Adapter</span>
+    <span class="chip or">Thin Experiment Layer</span>
+    <span class="chip ye">6 Waves</span>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     §1  최종 아키텍처 요약
+══════════════════════════════════════════ -->
+<section class="sec" id="core">
+  <div class="sec-hd">최종 아키텍처 요약 <span class="pill">Architecture</span></div>
+
+  <div class="callout green">
+    <div class="hd">핵심 명제 — 세 가지</div>
+    <ol style="padding-left:18px;font-size:13px;line-height:1.8">
+      <li><strong>fleet-dev</strong>는 현재 체크아웃 extension을 직접 로드한다. self-improve 루프의 "수정 → 즉시 검증" 사이클을 무료로 해결한다.</li>
+      <li><strong>Endeavour carrier</strong>는 루프 오너(Loop Owner)다. 전략·가설·keep/discard·pivot 판단을 담당한다. thin layer tool을 통해서만 기록 계층에 접근한다.</li>
+      <li><strong>Storage는 두 계층으로 분리</strong>된다: MVP SSOT인 trial scratch ledger(<code>.fleet/research/</code>)와 future optional durable memory/AAR(<code>.fleet/knowledge/</code>). JobStreamArchive는 연구 SSOT가 아니다.</li>
+    </ol>
+  </div>
+
+  <div class="g2">
+    <div class="panel bl">
+      <div class="panel-hd bl">fleet-dev가 해결하는 것</div>
+      <ul class="dl">
+        <li>빌드/배포 없이 extension 변경 즉시 반영</li>
+        <li><code>PI_FLEET_DEV=1</code> 환경 자동 활성화</li>
+        <li>dev boot / RISEN 컨텍스트 자동 제공</li>
+        <li>self-improve 루프 런타임 완결 가능</li>
+      </ul>
+    </div>
+    <div class="panel ye">
+      <div class="panel-hd ye">fleet-dev가 해결하지 않는 것</div>
+      <ul class="dl">
+        <li>재시작 시 JobStreamArchive 소멸 → 디스크 SSOT 필수</li>
+        <li>trial 기록 구조화 (keep/discard/crash)</li>
+        <li>stdout 누적 → context 잠식 방지</li>
+        <li>durable knowledge → Post-MVP LLM Wiki adapter 계층</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>전체 구성 요소 한눈에</h3>
+  <div class="tw">
+    <table>
+      <tr><th>구성 요소</th><th>역할</th><th>위치</th><th>Wave</th></tr>
+      <tr><td><code>fleet-dev</code></td><td>self-improve 실행 환경</td><td><code>bin/fleet-dev.js</code></td><td>전제</td></tr>
+      <tr><td>Endeavour carrier</td><td>Loop Owner — 전략/가설/keep·discard</td><td><code>extensions/fleet/carriers/</code></td><td>W2</td></tr>
+      <tr><td>Thin Experiment Layer</td><td>tool trio + session ledger (디스크 SSOT)</td><td><code>extensions/fleet/shipyard/research/</code></td><td>W1</td></tr>
+      <tr><td>Trial Ledger</td><td>scratch 기록 — <code>trials.jsonl</code>, <code>research-session.md</code></td><td><code>.fleet/research/&lt;id&gt;/</code></td><td>W1</td></tr>
+      <tr><td>observability widget</td><td>Widget:above 실험 현황</td><td>dashboard.ts</td><td>W4</td></tr>
+      <tr><td>Downstream handoff policy</td><td>Sentinel/Chronicle/Nimitz 연계 정책</td><td>PI orchestration</td><td>W5</td></tr>
+      <tr><td>Bounded autonomous smoke test</td><td>bounded session end-to-end 검증</td><td>PI orchestration + worktree</td><td>W6</td></tr>
+      <tr><td>LLM Wiki integration adapter</td><td>durable memory / AAR / approved knowledge</td><td><code>.fleet/knowledge/</code></td><td>Post-MVP</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════
+     §2  fleet-dev 런타임
+══════════════════════════════════════════ -->
+<section class="sec" id="runtime">
+  <div class="sec-hd">fleet-dev 런타임 <span class="pill">Runtime</span></div>
+
+  <div class="callout blue">
+    <div class="hd">실행 메커니즘</div>
+    <div class="flow">
+      <span class="fn bl">bin/fleet-dev.js</span>
+      <span class="fa">→</span>
+      <span class="fn">launch({ dev: true, experimental: true })</span>
+      <span class="fa">→</span>
+      <span class="fn gr">현재 체크아웃 extensions 직접 로드</span>
+      <span class="fa">+</span>
+      <span class="fn ye">PI_FLEET_DEV=1</span>
+    </div>
+    <p style="margin:8px 0 0;font-size:12px;color:var(--dim)">
+      <code>dev: true</code> 플래그가 installed 패키지 대신 로컬 checkout의 extensions를 로드한다.
+      Endeavour가 파일 수정 후 fleet-dev를 재시작하면 변경사항이 즉시 반영된다.
+    </p>
+  </div>
+
+  <h3>self-improve 루프 전체 흐름</h3>
+  <div class="panel" style="margin-bottom:14px">
+    <div style="font-size:11px;color:var(--dim);margin-bottom:10px">git worktree 격리 환경 권장</div>
+    <div class="flow"><span class="fn bl">1. 사용자 지령</span><span class="fa">→</span><span class="fn">PI (Admiral)</span><span class="fa">→</span><span class="fn gr">Endeavour 호출</span></div>
+    <div style="font-size:11px;color:var(--dim);margin:4px 0 4px 8px">↓ Endeavour 내부 루프</div>
+    <div class="flow"><span class="fn bl">2. research_init_session</span><span class="fa">→</span><span class="fn">세션 디렉터리 + 파일 생성</span></div>
+    <div class="flow"><span class="fn bl">3. 가설 수립</span><span class="fa">→</span><span class="fn">extension 파일 수정</span><span class="fa">→</span><span class="fn or">fleet-dev 재시작</span></div>
+    <div class="flow"><span class="fn bl">4. research_run_trial</span><span class="fa">→</span><span class="fn">benchmark 실행 + truncation</span><span class="fa">→</span><span class="fn gr">결과 파싱</span></div>
+    <div class="flow"><span class="fn bl">5. research_log_trial</span><span class="fa">→</span><span class="fn">JSONL append + keep/discard</span></div>
+    <div class="flow"><span class="fn bl">6. 다음 가설 or 종료</span><span class="fa">→</span><span class="fn">3번으로 반복 또는 stop_condition</span></div>
+  </div>
+
+  <div class="callout yellow">
+    <div class="hd">JobStreamArchive 제약 — fleet-dev 재시작과 결합 시 주의</div>
+    <div class="g2" style="gap:8px;font-size:12px;margin-top:4px">
+      <div>• 저장소: 프로세스 메모리 → <strong>재시작마다 소멸</strong></div>
+      <div>• TTL: 3시간 → 장시간 실험에 부적합</div>
+      <div>• 용량: 8 MB / 2,000-block → truncation 필수</div>
+      <div>• read-once → 재조회 불가 → 디스크 기록 필수</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════
+     §3  Storage Split
+══════════════════════════════════════════ -->
+<section class="sec" id="storage">
+  <div class="sec-hd">Storage Split <span class="pill">Data Design</span></div>
+
+  <p>두 계층은 목적과 수명이 다르다. <strong>혼재 금지</strong> — trial scratch를 wiki에 쓰거나, wiki를 research 세션 디렉터리에 두지 않는다. MVP는 <code>.fleet/research/&lt;id&gt;/</code>만으로 빌드/테스트/운용 가능해야 한다.</p>
+
+  <div class="storage-wrap">
+    <div class="storage-col left">
+      <div class="storage-hd bl">Trial Scratch Ledger</div>
+      <div class="storage-path">.fleet/research/&lt;session-id&gt;/</div>
+      <div class="storage-file">research-session.md</div>
+      <div class="storage-file">trials.jsonl</div>
+      <div class="storage-file">run.sh</div>
+      <div class="storage-file">checks.sh &nbsp;<span style="color:var(--dim)">(optional)</span></div>
+      <hr style="margin:10px 0">
+      <div style="font-size:12px;color:var(--txt);margin-bottom:6px">용도</div>
+      <ul class="dl" style="font-size:12px">
+        <li>trial keep/discard/crash/checks_failed 기록</li>
+        <li>현재 가설과 결정 이유 (md)</li>
+        <li>반복 실행 스크립트 (sh)</li>
+        <li>fleet-dev 재시작 후 상태 복구</li>
+      </ul>
+      <div class="storage-note">MVP 필수 SSOT. JobStreamArchive 의존 없음. Endeavour가 tool을 통해서만 접근. experimental-wiki 없이도 완결된다.</div>
+    </div>
+    <div class="storage-divider"></div>
+    <div class="storage-col right">
+      <div class="storage-hd pu">Future Optional Durable Memory</div>
+      <div class="storage-path">.fleet/knowledge/</div>
+      <div class="storage-file">wiki/ &nbsp;→ approved 지식 문서</div>
+      <div class="storage-file">raw/ &nbsp;→ 수집된 원본</div>
+      <div class="storage-file">schema/ &nbsp;→ 구조 정의</div>
+      <div class="storage-file">queue/ &nbsp;→ 인간 승인 대기</div>
+      <div class="storage-file">archive/ &nbsp;→ 만료 항목</div>
+      <div class="storage-file">conflicts/ &nbsp;→ 충돌 항목</div>
+      <div class="storage-file">log/ &nbsp;→ AAR append</div>
+      <div class="storage-file">index.json &nbsp;→ 색인</div>
+      <hr style="margin:10px 0">
+      <div style="font-size:12px;color:var(--txt);margin-bottom:6px">용도</div>
+      <ul class="dl" style="font-size:12px">
+        <li>세션 간 지속되는 지식 저장</li>
+        <li>AAR (After Action Review) 누적</li>
+        <li>wiki patch = queue + human approval 필수</li>
+        <li>AAR append = 명시적 auto_apply 시만 가능</li>
+      </ul>
+      <div class="storage-note">Post-MVP optional. approved knowledge, durable memory, AAR 저장소. fleet/research 모듈은 experimental-wiki를 직접 import 금지하며 파일 계약 또는 도구 호출 어댑터로만 연결한다.</div>
+    </div>
+  </div>
+
+  <div class="callout red">
+    <div class="hd">LLM Wiki 접근 규칙</div>
+    <p style="font-size:12px;color:var(--dim);margin:0 0 10px">MVP 범위에서는 이 규칙이 비의존을 보장한다. experimental-wiki가 없어도 Auto Research는 빌드, 테스트, 운용 가능해야 한다.</p>
+    <div class="g2" style="gap:10px;font-size:13px">
+      <div>
+        <strong style="color:var(--red)">금지</strong>
+        <ul class="dl" style="margin-top:4px">
+          <li>fleet/research 모듈에서 experimental-wiki 직접 import</li>
+          <li>wiki patch를 승인 없이 직접 기록</li>
+          <li>AAR append를 auto_apply 없이 자동 실행</li>
+        </ul>
+      </div>
+      <div>
+        <strong style="color:var(--green)">허용</strong>
+        <ul class="dl" style="margin-top:4px">
+          <li>파일 계약 (약속된 경로 읽기/쓰기)</li>
+          <li>도구 호출 (wiki API tool 경유)</li>
+          <li>추후 shared library 승격 후 import</li>
+          <li>AAR: <code>auto_apply: true</code> 명시 시 append 허용</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════
+     §4  Endeavour Carrier
+══════════════════════════════════════════ -->
+<section class="sec" id="carrier">
+  <div class="sec-hd">Endeavour Carrier <span class="pill">Carrier</span></div>
+
+  <div class="g2">
+    <div>
+      <div class="panel bl" style="margin-bottom:12px">
+        <div class="panel-hd bl">메타데이터</div>
+        <div class="tw" style="margin:6px 0 0">
+          <table>
+            <tr><td style="color:var(--dim);width:110px">이름 (가칭)</td><td><code>endeavour</code></td></tr>
+            <tr><td style="color:var(--dim)">Captain</td><td>Autonomous Research Director</td></tr>
+            <tr><td style="color:var(--dim)">CLI</td><td><code>codex</code> (1차 권고)</td></tr>
+            <tr><td style="color:var(--dim)">Slot</td><td><code>9</code></td></tr>
+            <tr><td style="color:var(--dim)">등록</td><td><code>extensions/fleet/carriers/</code></td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-bottom:12px">
+        <div class="panel-hd" style="color:var(--dim)">Loop Owner 역할</div>
+        <ul class="dl" style="font-size:12px">
+          <li>매 trial 후 결과 해석 및 다음 가설 수립</li>
+          <li>keep / discard 판단 — thin layer tool 경유</li>
+          <li>stop_condition 달성 또는 maxIterations 시 종료</li>
+          <li>self-improve: fleet-dev 재시작 트리거</li>
+          <li>app-improve: benchmark_command 재실행 트리거</li>
+        </ul>
+      </div>
+    </div>
+
+    <div>
+      <h3 style="margin-top:0">Request Block</h3>
+      <pre>&lt;objective&gt;
+  개선 목표 (명시적 지표 포함)
+&lt;/objective&gt;
+&lt;target_metric&gt;
+  측정 지표 / 성공 임계값
+&lt;/target_metric&gt;
+&lt;benchmark_command&gt;
+  반복 실행 명령 (파싱 가능 출력)
+&lt;/benchmark_command&gt;
+&lt;scope?&gt;
+  수정 허용 경로
+  (self-improve: extensions/)
+&lt;/scope&gt;
+&lt;constraints?&gt;금지 사항, 유지 조건&lt;/constraints&gt;
+&lt;stop_conditions?&gt;
+  maxIterations, 목표 달성 임계값
+&lt;/stop_conditions&gt;</pre>
+
+      <div class="panel">
+        <div class="panel-hd" style="color:var(--dim)">whenNotToUse</div>
+        <ul class="dl" style="font-size:12px">
+          <li>one-shot 구현</li>
+          <li>아키텍처 결정</li>
+          <li>단순 정찰 / 외부 인텔리전스</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════
+     §5  Thin Experiment Layer
+══════════════════════════════════════════ -->
+<section class="sec" id="ledger">
+  <div class="sec-hd">Thin Experiment Layer <span class="pill">Infra</span></div>
+
+  <p>fleet-dev가 런타임을 해결했으므로 인프라 계층은 최소 범위만 다룬다: <strong>재시작 내성</strong>(SSOT 복구), <strong>구조화된 기록</strong>, <strong>context 보호</strong>. Wave 1에서 착지.</p>
+
+  <div class="g2">
+    <div>
+      <h3>모듈 위치</h3>
+      <pre>extensions/fleet/shipyard/research/
+  index.ts        ← 진입점, tool 등록
+  tools.ts        ← tool trio 구현
+  session-store.ts← 디스크 SSOT 관리
+  dashboard.ts    ← observability (W5)</pre>
+
+      <h3>Tool Trio (Wave 1)</h3>
+      <div class="tog">
+        <div class="tog-hd" onclick="tog(this)"><code>research_init_session</code><span class="arrow">▶</span></div>
+        <div class="tog-bd">
+          <ul class="dl" style="font-size:12px">
+            <li>세션 디렉터리 생성 (<code>.fleet/research/&lt;id&gt;/</code>)</li>
+            <li>research-session.md, trials.jsonl, run.sh 초기화</li>
+            <li>baseline metric 기록</li>
+            <li>기존 세션이면 resume 모드로 진입</li>
+          </ul>
+        </div>
+      </div>
+      <div class="tog">
+        <div class="tog-hd" onclick="tog(this)"><code>research_run_trial</code><span class="arrow">▶</span></div>
+        <div class="tog-bd">
+          <ul class="dl" style="font-size:12px">
+            <li>benchmark_command 실행</li>
+            <li><strong>stdout truncation 적용</strong> (8MB 한계 대응)</li>
+            <li>structured metric line 파싱</li>
+            <li>checks.sh 있으면 자동 실행</li>
+            <li>결과 struct 반환 (Endeavour가 판단)</li>
+          </ul>
+        </div>
+      </div>
+      <div class="tog">
+        <div class="tog-hd" onclick="tog(this)"><code>research_log_trial</code><span class="arrow">▶</span></div>
+        <div class="tog-bd">
+          <ul class="dl" style="font-size:12px">
+            <li>trials.jsonl에 append (덮어쓰기 금지)</li>
+            <li>상태: <code>kept</code> / <code>discarded</code> / <code>crash</code> / <code>checks_failed</code></li>
+            <li>research-session.md에 결정 사유 기록</li>
+            <li>maxIterations 도달 여부 체크</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <h3>fleet-dev 재시작 내성</h3>
+      <div class="panel gr">
+        <div class="panel-hd gr">재시작 후 복구 흐름</div>
+        <div class="flow"><span class="fn or">fleet-dev 재시작</span><span class="fa">→</span><span class="fn">Archive 소멸</span></div>
+        <div class="flow"><span class="fn gr">session-store 로드</span><span class="fa">→</span><span class="fn">디스크 파일 읽기</span></div>
+        <div class="flow"><span class="fn bl">이전 trials 복원</span><span class="fa">→</span><span class="fn">Endeavour 루프 재개</span></div>
+        <p style="font-size:12px;color:var(--dim);margin-top:8px">
+          research-session.md의 "다음 가설" 항목이 재시작 후 carrier의 컨텍스트 복구 기반이 된다.
+        </p>
+      </div>
+
+      <h3>Wave 4 — observability 요소</h3>
+      <div class="panel">
+        <div style="font-size:12px;color:var(--dim);margin-bottom:8px">Widget:above 표시 항목</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px">
+          <code>baseline</code><code>best</code><code>runs</code>
+          <code>kept</code><code>discard</code><code>crash</code>
+          <code>checks_failed</code><code>elapsed</code>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════
+     §6  LLM Wiki 연동
+══════════════════════════════════════════ -->
+<section class="sec" id="llmwiki">
+  <div class="sec-hd">LLM Wiki 연동 <span class="pill">Post-MVP Adapter</span></div>
+
+  <div class="callout yellow">
+    <div class="hd">Post-MVP — Optional 통합</div>
+    LLM Wiki는 별도 브랜치에서 검증 중이며 머지 시점을 특정할 수 없으므로 Auto Research MVP의 dependency가 아니다. MVP는 experimental-wiki 없이 빌드/테스트/운용 가능해야 하며, 통합은 Post-MVP adapter로만 추가한다.
+  </div>
+
+  <div class="g2">
+    <div class="panel pu">
+      <div class="panel-hd pu">wiki patch 흐름</div>
+      <div class="flow" style="flex-direction:column;align-items:flex-start;gap:5px">
+        <div class="flow"><span class="fn bl">연구 결과 생성</span><span class="fa">→</span><span class="fn">patch 초안</span></div>
+        <div class="flow"><span class="fn ye">queue/ 에 적재</span><span class="fa">→</span><span class="fn">human approval</span></div>
+        <div class="flow"><span class="fn gr">승인 후</span><span class="fa">→</span><span class="fn pu">wiki/ 에 적용</span></div>
+      </div>
+      <p style="font-size:12px;color:var(--dim);margin-top:8px">승인 없이 wiki에 직접 기록하는 경로는 없다. 이 흐름은 Post-MVP에서만 활성화된다.</p>
+    </div>
+    <div class="panel pu">
+      <div class="panel-hd pu">AAR append 흐름</div>
+      <div class="flow" style="flex-direction:column;align-items:flex-start;gap:5px">
+        <div class="flow"><span class="fn bl">세션 종료</span><span class="fa">→</span><span class="fn">AAR 생성</span></div>
+        <div class="flow"><span class="fn ye">auto_apply: true?</span></div>
+        <div class="flow"><span class="fn gr">yes</span><span class="fa">→</span><span class="fn pu">log/ append</span></div>
+        <div class="flow"><span class="fn ye">no</span><span class="fa">→</span><span class="fn">queue/ 대기</span></div>
+      </div>
+      <p style="font-size:12px;color:var(--dim);margin-top:8px"><code>auto_apply</code> 명시가 없으면 append 불가. MVP hard gate에는 포함되지 않는다.</p>
+    </div>
+  </div>
+
+  <h3>Post-MVP 접근 경로 선택 기준</h3>
+  <div class="tw">
+    <table>
+      <tr><th>경로</th><th>사용 시점</th><th>단계</th></tr>
+      <tr><td>파일 계약 (약속된 경로 직접 읽기)</td><td>단순 읽기 전용, 낮은 커플링 선호</td><td>Post-MVP</td></tr>
+      <tr><td>도구 호출 (wiki API tool 경유)</td><td>읽기/쓰기 모두 필요, API 추상화 선호</td><td>Post-MVP</td></tr>
+      <tr><td>shared library import</td><td>두 모듈이 동일 패키지로 승격된 이후</td><td>Future</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════
+     §7  실행 프로파일
+══════════════════════════════════════════ -->
+<section class="sec" id="profiles">
+  <div class="sec-hd">실행 프로파일 <span class="pill">Profiles</span></div>
+  <p>두 목표는 동일한 carrier와 thin layer를 공유한다. 다른 것은 실행 환경과 scope뿐이다.</p>
+
+  <div class="tab-bar">
+    <button class="tb on" onclick="st('pf','self')">⚙ Self-Improve</button>
+    <button class="tb"    onclick="st('pf','app')">◎ App-Improve</button>
+    <button class="tb"    onclick="st('pf','shared')">공유 인프라</button>
+  </div>
+
+  <div id="pf-self" class="tp on">
+    <div class="callout blue">
+      <div class="hd">Self-Improve — pi-fleet 자체 자기개선</div>
+      <strong>실행 환경: <code>fleet-dev</code> (checkout 직접 로드)</strong>
+    </div>
+    <div class="g2">
+      <div class="panel bl">
+        <div class="panel-hd bl">실행 환경</div>
+        <ul class="dl" style="font-size:12px">
+          <li>런타임: <code>fleet-dev</code> 필수</li>
+          <li>실험 대상: <code>extensions/</code> 하위 파일</li>
+          <li>변경 반영: fleet-dev 재시작</li>
+          <li>격리: git worktree 권장</li>
+          <li><code>PI_FLEET_DEV=1</code> 자동 설정</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <div class="panel-hd" style="color:var(--dim)">안전 요구사항</div>
+        <ul class="dl" style="font-size:12px">
+          <li>worktree 내에서만 파일 수정</li>
+          <li>checks.sh에 <code>npm test</code> / lint 포함 필수</li>
+          <li>자동 main 브랜치 push 금지</li>
+          <li>scope를 <code>extensions/</code>로 제한</li>
+        </ul>
+      </div>
+    </div>
+    <h3>벤치마크 예시</h3>
+    <ul class="dl">
+      <li>carrier 호출 성공률 / 응답 품질 점수</li>
+      <li>delegation 정책 효과성 (올바른 carrier 선택 비율)</li>
+      <li>fleet 자체 테스트 통과율</li>
+      <li>PI system prompt 길이 대비 동작 품질</li>
+    </ul>
+  </div>
+
+  <div id="pf-app" class="tp">
+    <div class="callout green">
+      <div class="hd">App-Improve — 응용 앱 지속 개선</div>
+      <strong>실행 환경: <code>fleet</code> 또는 <code>fleet-dev</code> 무관</strong>
+    </div>
+    <div class="g2">
+      <div class="panel gr">
+        <div class="panel-hd gr">실행 환경</div>
+        <ul class="dl" style="font-size:12px">
+          <li>런타임: fleet 또는 fleet-dev</li>
+          <li>실험 대상: 사용자 프로젝트 코드/파라미터</li>
+          <li>변경 반영: benchmark_command 재실행</li>
+          <li>격리: 사용자 프로젝트 내 git 관리</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <div class="panel-hd" style="color:var(--dim)">벤치마크 예시</div>
+        <ul class="dl" style="font-size:12px">
+          <li>ML 모델 학습 지표 (loss, accuracy)</li>
+          <li>API 응답 latency / throughput</li>
+          <li>eval 점수, test suite 통과율</li>
+          <li>알고리즘 파라미터 탐색 결과</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div id="pf-shared" class="tp">
+    <div class="callout blue">
+      <div class="hd">공유 인프라 — 두 프로파일 모두 동일하게 사용</div>
+      carrier persona, thin layer tool trio, 세션 파일 패턴이 완전히 공유된다.
+    </div>
+    <div class="g3">
+      <div class="panel">
+        <div class="panel-hd" style="color:var(--dim)">Carrier</div>
+        <ul class="dl" style="font-size:12px">
+          <li>Endeavour (단일)</li>
+          <li>프로파일별 request_block scope 차이</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <div class="panel-hd" style="color:var(--dim)">Tool Trio</div>
+        <ul class="dl" style="font-size:12px">
+          <li><code>research_init_session</code></li>
+          <li><code>research_run_trial</code></li>
+          <li><code>research_log_trial</code></li>
+        </ul>
+      </div>
+      <div class="panel">
+        <div class="panel-hd" style="color:var(--dim)">세션 파일</div>
+        <ul class="dl" style="font-size:12px">
+          <li><code>research-session.md</code></li>
+          <li><code>trials.jsonl</code></li>
+          <li><code>run.sh</code></li>
+          <li><code>checks.sh</code></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════
+     §8  방향 비교
+══════════════════════════════════════════ -->
+<section class="sec" id="directions">
+  <div class="sec-hd">방향 비교 <span class="pill">Directions</span></div>
+
+  <div class="tab-bar">
+    <button class="tb on" onclick="st('dir','tbl')">비교 표</button>
+    <button class="tb"    onclick="st('dir','d1')">방향 1 — Carrier Only</button>
+    <button class="tb"    onclick="st('dir','d2')">방향 2 — Substrate Only</button>
+    <button class="tb"    onclick="st('dir','d3')">방향 3 ★ 권장</button>
+  </div>
+
+  <div id="dir-tbl" class="tp on">
+    <div class="tw">
+      <table>
+        <tr><th>평가 축</th><th>방향 1<br>Carrier Only</th><th>방향 2<br>Substrate Only</th><th>방향 3 ★<br>Carrier + Thin Layer</th></tr>
+        <tr><td>fleet-dev 재시작 후 실험 복구</td><td class="ng">불가</td><td class="ok">가능</td><td class="ok">가능</td></tr>
+        <tr><td>디스크 SSOT (Archive 탈피)</td><td class="ng">없음</td><td class="ok">있음</td><td class="ok">있음</td></tr>
+        <tr><td>Fleet carrier roster 통합</td><td class="ok">완전</td><td class="ng">없음</td><td class="ok">완전</td></tr>
+        <tr><td>stdout truncation / context 보호</td><td class="ng">없음</td><td class="ok">있음</td><td class="ok">있음</td></tr>
+        <tr><td>LLM Wiki 연동 경로</td><td class="ng">없음</td><td class="half">Post-MVP 도구만</td><td class="ok">Post-MVP carrier + 도구</td></tr>
+        <tr><td>Sentinel / Chronicle 연계</td><td class="half">수동</td><td class="ng">약함</td><td class="ok">자연스러움</td></tr>
+        <tr><td>구현 복잡도</td><td class="ok">낮음</td><td class="half">중간</td><td class="half">중간</td></tr>
+        <tr><td><strong>종합</strong></td><td class="ng">프로토타입</td><td class="half">인프라만</td><td class="ok">권장</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div id="dir-d1" class="tp">
+    <div class="callout yellow">
+      <div class="hd">방향 1 — Carrier Only 결정적 약점</div>
+      fleet-dev 재시작이 self-improve 루프의 필수 단계인데, 재시작마다 모든 실험 상태가 Archive와 함께 소멸된다. fleet-dev를 쓸수록 실험이 더 불안정해지는 역설이 발생한다.
+    </div>
+    <div class="g2">
+      <div class="panel gr"><div class="panel-hd gr">장점</div><ul class="dl" style="font-size:12px"><li>구현이 가장 빠름</li><li>fleet roster 즉시 통합</li></ul></div>
+      <div class="panel re"><div class="panel-hd re">단점</div><ul class="dl" style="font-size:12px"><li>재시작 시 실험 상태 소멸</li><li>stdout 누적 → context 잠식</li><li>keep/discard 기록 없음</li><li>중단/재개 불가</li></ul></div>
+    </div>
+  </div>
+
+  <div id="dir-d2" class="tp">
+    <div class="callout blue"><div class="hd">방향 2 — Substrate Only</div>방향 3의 thin layer로 흡수된다. carrier 없이는 fleet doctrine과 반쪽 통합이다.</div>
+    <div class="g2">
+      <div class="panel gr"><div class="panel-hd gr">장점</div><ul class="dl" style="font-size:12px"><li>디스크 SSOT 패턴 확립</li><li>app-improve에 직접 사용 가능</li></ul></div>
+      <div class="panel re"><div class="panel-hd re">단점</div><ul class="dl" style="font-size:12px"><li>carrier roster에 없음</li><li>PI가 루프 직접 실행 → context 소비</li></ul></div>
+    </div>
+  </div>
+
+  <div id="dir-d3" class="tp">
+    <div class="callout green"><div class="hd">방향 3 — Carrier + Thin Layer (권장)</div>Endeavour가 루프 오너, thin layer가 기록/복구/안전 담당. fleet-dev가 self-improve 실행 환경.</div>
+    <div class="g2">
+      <div class="panel gr"><div class="panel-hd gr">fleet-dev-first 관점 장점</div><ul class="dl" style="font-size:12px"><li>fleet-dev 재시작 → 디스크 SSOT로 즉시 복구</li><li>두 프로파일 단일 carrier로 커버</li><li>Sentinel/Chronicle 연계 구조 내장</li><li>LLM Wiki dependency 없이 MVP 완결</li></ul></div>
+      <div class="panel ye"><div class="panel-hd ye">방향 1 대비 추가 비용</div><ul class="dl" style="font-size:12px"><li>carrier metadata 작성</li><li>thin layer tool trio 구현 (Wave 1)</li><li>session-store 재시작 복구 로직</li></ul></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════
+     §9  책임 매트릭스
+══════════════════════════════════════════ -->
+<section class="sec" id="matrix">
+  <div class="sec-hd">책임 매트릭스 <span class="pill">Ownership</span></div>
+
+  <div style="font-size:12px;color:var(--dim);margin-bottom:10px">
+    <span class="ok">R</span> Responsible &nbsp;
+    <span class="ok" style="color:var(--blue)">A</span> Accountable &nbsp;
+    <span class="half">C</span> Consulted &nbsp;
+    <span class="i" style="color:var(--dim)">I</span> Informed
+  </div>
+
+  <div class="matrix-wrap">
+    <table class="matrix">
+      <tr>
+        <th style="text-align:left">영역</th>
+        <th>Endeavour</th><th>Thin Layer</th><th>PI (host)</th>
+        <th>Sentinel</th><th>Chronicle</th><th>Nimitz</th>
+      </tr>
+      <tr>
+        <td class="row-hd">실험 전략 / 가설 수립</td>
+        <td class="r">R/A</td><td class="na">—</td><td class="i">I</td>
+        <td class="na">—</td><td class="na">—</td><td class="c">C</td>
+      </tr>
+      <tr>
+        <td class="row-hd">trial 실행 + truncation</td>
+        <td class="a">A</td><td class="r">R</td><td class="na">—</td>
+        <td class="na">—</td><td class="na">—</td><td class="na">—</td>
+      </tr>
+      <tr>
+        <td class="row-hd">기록 영속화 (디스크 SSOT)</td>
+        <td class="a">A</td><td class="r">R</td><td class="na">—</td>
+        <td class="na">—</td><td class="na">—</td><td class="na">—</td>
+      </tr>
+      <tr>
+        <td class="row-hd">keep / discard 판단</td>
+        <td class="r">R/A</td><td class="na">—</td><td class="na">—</td>
+        <td class="na">—</td><td class="na">—</td><td class="na">—</td>
+      </tr>
+      <tr>
+        <td class="row-hd">fleet-dev 재시작 트리거</td>
+        <td class="r">R</td><td class="na">—</td><td class="na">—</td>
+        <td class="na">—</td><td class="na">—</td><td class="na">—</td>
+      </tr>
+      <tr>
+        <td class="row-hd">QA gate / checks 실행</td>
+        <td class="a">A</td><td class="r">R</td><td class="na">—</td>
+        <td class="na">—</td><td class="na">—</td><td class="na">—</td>
+      </tr>
+      <tr>
+        <td class="row-hd">carrier routing / synthesis</td>
+        <td class="na">—</td><td class="na">—</td><td class="r">R/A</td>
+        <td class="na">—</td><td class="na">—</td><td class="na">—</td>
+      </tr>
+      <tr>
+        <td class="row-hd">kept changes 재검토 (W6)</td>
+        <td class="i">I</td><td class="na">—</td><td class="a">A</td>
+        <td class="r">R</td><td class="c">C</td><td class="na">—</td>
+      </tr>
+      <tr>
+        <td class="row-hd">결과 문서화 (W6)</td>
+        <td class="i">I</td><td class="na">—</td><td class="a">A</td>
+        <td class="na">—</td><td class="r">R</td><td class="na">—</td>
+      </tr>
+      <tr>
+        <td class="row-hd">전략 pivot 심의</td>
+        <td class="c">C</td><td class="na">—</td><td class="a">A</td>
+        <td class="na">—</td><td class="na">—</td><td class="r">R</td>
+      </tr>
+      <tr>
+        <td class="row-hd">LLM Wiki patch 승인</td>
+        <td class="na">—</td><td class="na">—</td><td class="na">—</td>
+        <td class="na">—</td><td class="na">—</td><td class="na">—</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="callout red">
+    <div class="hd">경계 위반 금지</div>
+    <div class="g2" style="font-size:13px;gap:8px">
+      <ul class="dl">
+        <li>Endeavour는 SSOT 파일 직접 조작 금지 → tool 경유 필수</li>
+        <li>thin layer tool은 keep/discard 판단 금지</li>
+        <li>PI는 carrier 간 실험 결과 상호 노출 금지</li>
+      </ul>
+      <ul class="dl">
+        <li>fleet/research는 experimental-wiki 직접 import 금지</li>
+        <li>wiki patch는 queue + 인간 승인 없이 직접 기록 금지</li>
+        <li>Wave 6 이전에 Sentinel/Chronicle 자동 연계 묵시적 구현 금지</li>
+        <li>LLM Wiki adapter 없이는 <code>.fleet/knowledge/</code>를 MVP hard dependency로 간주 금지</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════
+     §10  Wave 타임라인
+══════════════════════════════════════════ -->
+<section class="sec" id="waves">
+  <div class="sec-hd">Wave 타임라인 <span class="pill">Implementation</span></div>
+
+  <div class="tl">
+    <!-- W1 -->
+    <div class="tl-row c1">
+      <div class="wb w1">Wave 1 — Thin ledger/tool trio</div>
+      <div class="tl-title">Thin Ledger + Tool Trio</div>
+      <div class="panel">
+        <div class="g2">
+          <div>
+            <h4>구현</h4>
+            <ul class="dl" style="font-size:12px">
+              <li><code>extensions/fleet/shipyard/research/</code> 모듈 생성</li>
+              <li><code>research_init_session</code> tool — 세션 파일 4종 초기화</li>
+              <li><code>research_run_trial</code> tool — 실행 + stdout truncation</li>
+              <li><code>research_log_trial</code> tool — JSONL append + 상태 관리</li>
+              <li>session-store: 디스크 SSOT read/write</li>
+              <li>fleet-dev 재시작 후 세션 복구 로직</li>
+            </ul>
+          </div>
+          <div>
+            <h4>완료 기준</h4>
+            <ul class="dl" style="font-size:12px">
+              <li>세션 파일이 <code>.fleet/research/&lt;id&gt;/</code>에 생성됨</li>
+              <li>fleet-dev 재시작 후 이전 trials 수 복원</li>
+              <li>Archive 독립 — 디스크 파일만으로 완결</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- W2 -->
+    <div class="tl-row c2">
+      <div class="wb w2">Wave 2 — Endeavour carrier registration</div>
+      <div class="tl-title">Endeavour Loop Owner</div>
+      <div class="panel">
+        <div class="g2">
+          <div>
+            <h4>구현</h4>
+            <ul class="dl" style="font-size:12px">
+              <li>Endeavour carrier metadata 파일 작성</li>
+              <li><code>extensions/fleet/carriers/index.ts</code> 등록</li>
+              <li>carrier system prompt (Loop Owner 역할 명시)</li>
+              <li>두 프로파일 request_block 템플릿</li>
+            </ul>
+          </div>
+          <div>
+            <h4>완료 기준</h4>
+            <ul class="dl" style="font-size:12px">
+              <li>fleet-dev에서 Endeavour Bridge 선택 가능</li>
+              <li>self-improve 루프 1회 end-to-end 동작</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- W3 -->
+    <div class="tl-row c3">
+      <div class="wb w3">Wave 3 — Safety / Backpressure</div>
+      <div class="tl-title">checks / maxIterations / 동시 실행 차단</div>
+      <div class="panel">
+        <div class="g2">
+          <div>
+            <h4>구현</h4>
+            <ul class="dl" style="font-size:12px">
+              <li>checks.sh 지원 + checks_failed 상태 분리</li>
+              <li>maxIterations / stop_condition 처리</li>
+              <li>동일 carrierId 동시 실행 차단 (lock)</li>
+              <li>segment 단위 sortie (장시간 실험 분할)</li>
+            </ul>
+          </div>
+          <div>
+            <h4>완료 기준</h4>
+            <ul class="dl" style="font-size:12px">
+              <li>checks 실패 → checks_failed + 자동 discard</li>
+              <li>maxIterations 도달 → graceful 종료</li>
+              <li>동시 실행 시도 → 차단 확인</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- W4 -->
+    <div class="tl-row c4">
+      <div class="wb w4">Wave 4 — Observability / Reporting</div>
+      <div class="tl-title">LLM Wiki 없이 관측성과 리포팅 완결</div>
+      <div class="panel">
+        <div class="g2">
+          <div>
+            <h4>구현</h4>
+            <ul class="dl" style="font-size:12px">
+              <li>dashboard.ts: Widget:above 실험 현황</li>
+              <li>runs/kept/discard/crash/checks_failed 카운터</li>
+              <li>standalone HTML export (optional)</li>
+              <li>confidence / stability indicator</li>
+            </ul>
+          </div>
+          <div>
+            <h4>완료 기준</h4>
+            <ul class="dl" style="font-size:12px">
+              <li>실험 실행 중 Widget:above 정상 표시</li>
+              <li>standalone report가 MVP 세션 데이터만으로 생성됨</li>
+              <li>experimental-wiki 없이도 리포팅 동작</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- W5 -->
+    <div class="tl-row c5">
+      <div class="wb w5">Wave 5 — Downstream Handoff Policy</div>
+      <div class="tl-title">Sentinel / Chronicle / Nimitz 연계 정책</div>
+      <div class="panel">
+        <div class="g2">
+          <div>
+            <h4>구현</h4>
+            <ul class="dl" style="font-size:12px">
+              <li>Sentinel: kept changes 자동 검토 정책</li>
+              <li>Chronicle: 실험 요약 리포트 전달 정책</li>
+              <li>Nimitz: pivot 판단 escalation 경로</li>
+              <li>handoff trigger / 책임 경계 문서화</li>
+            </ul>
+          </div>
+          <div>
+            <h4>완료 기준</h4>
+            <ul class="dl" style="font-size:12px">
+              <li>각 downstream 대상의 호출 조건이 문서와 코드에서 일치</li>
+              <li>자동 handoff가 MVP 세션 경계를 넘지 않음</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- W6 -->
+    <div class="tl-row c6">
+      <div class="wb w6">Wave 6 — Bounded Autonomous Session</div>
+      <div class="tl-title">bounded autonomous session smoke test</div>
+      <div class="panel">
+        <div class="g2">
+          <div>
+            <h4>구현</h4>
+            <ul class="dl" style="font-size:12px">
+              <li>bounded session 시나리오 정의</li>
+              <li>worktree 내 self-improve smoke run</li>
+              <li>stop_condition / guardrail / handoff 경로 통합 검증</li>
+              <li><code>fleet:agent:research</code> slash command smoke coverage</li>
+            </ul>
+          </div>
+          <div>
+            <h4>완료 기준</h4>
+            <ul class="dl" style="font-size:12px">
+              <li>bounded autonomous session 1회 end-to-end 성공</li>
+              <li>self-improve 루프 (목표 1) E2E 검증</li>
+              <li>MVP smoke test가 experimental-wiki 없이 통과</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="tl-row" style="margin-bottom:0">
+      <div class="chip pu" style="margin-bottom:8px">Post-MVP</div>
+      <div class="tl-title">LLM Wiki integration adapter</div>
+      <div class="panel pu">
+        <div class="g2">
+          <div>
+            <h4>포함 범위</h4>
+            <ul class="dl" style="font-size:12px">
+              <li>AAR append 경로 연결</li>
+              <li>wiki patch queue 적재 및 승인 후 반영</li>
+              <li>파일 계약 또는 도구 호출 adapter 구현</li>
+            </ul>
+          </div>
+          <div>
+            <h4>활성화 조건</h4>
+            <ul class="dl" style="font-size:12px">
+              <li>LLM Wiki 브랜치 검증 및 merge readiness 확인</li>
+              <li>queue/human approval 흐름 준비</li>
+              <li>MVP 운영 경로와 독립적으로 on/off 가능</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════
+     §11  QA Gate 체크리스트
+══════════════════════════════════════════ -->
+<section class="sec" id="gates">
+  <div class="sec-hd">QA Gate 체크리스트 <span class="pill">Quality</span></div>
+  <p style="font-size:12px;color:var(--dim);margin-bottom:14px">각 항목을 클릭해 완료 표시할 수 있다. 완료 상태는 페이지 내에서만 유지된다.</p>
+
+  <div id="gate-list">
+    <!-- W1 -->
+    <div style="margin-bottom:8px"><div class="wb w1">Wave 1</div></div>
+    <div class="gate-item" onclick="ck(this)">
+      <div class="gate-cb"></div>
+      <div class="gate-label"><strong>G1-1</strong> — fleet-dev 실행 후 <code>.fleet/research/&lt;id&gt;/</code> 하위에 세션 파일 4종 생성 확인</div>
+      <div class="gate-wave wb w1" style="margin:0">W1</div>
+    </div>
+    <div class="gate-item" onclick="ck(this)">
+      <div class="gate-cb"></div>
+      <div class="gate-label"><strong>G1-2</strong> — research_run_trial이 stdout을 설정 길이로 truncation (8MB 한계 대응)</div>
+      <div class="gate-wave wb w1" style="margin:0">W1</div>
+    </div>
+    <div class="gate-item" onclick="ck(this)">
+      <div class="gate-cb"></div>
+      <div class="gate-label"><strong>G1-3</strong> — research_log_trial이 trials.jsonl에 append하며 기존 항목 유지</div>
+      <div class="gate-wave wb w1" style="margin:0">W1</div>
+    </div>
+    <div class="gate-item" onclick="ck(this)">
+      <div class="gate-cb"></div>
+      <div class="gate-label"><strong>G1-4 ★</strong> — <strong>fleet-dev 재시작 후</strong> session-store가 이전 trial 수를 복원 (핵심 gate)</div>
+      <div class="gate-wave wb w1" style="margin:0">W1</div>
+    </div>
+
+    <!-- W2 -->
+    <div style="margin:14px 0 8px"><div class="wb w2">Wave 2</div></div>
+    <div class="gate-item" onclick="ck(this)">
+      <div class="gate-cb"></div>
+      <div class="gate-label"><strong>G2-1</strong> — fleet-dev에서 Endeavour carrier가 roster에 표시되고 Bridge 선택 가능</div>
+      <div class="gate-wave wb w2" style="margin:0">W2</div>
+    </div>
+    <div class="gate-item" onclick="ck(this)">
+      <div class="gate-cb"></div>
+      <div class="gate-label"><strong>G2-2</strong> — Endeavour가 trial 결과를 해석하고 다음 가설을 수립하는 루프 1회 end-to-end 동작</div>
+      <div class="gate-wave wb w2" style="margin:0">W2</div>
+    </div>
+
+    <!-- W3 -->
+    <div style="margin:14px 0 8px"><div class="wb w3">Wave 3</div></div>
+    <div class="gate-item" onclick="ck(this)">
+      <div class="gate-cb"></div>
+      <div class="gate-label"><strong>G3-1</strong> — checks.sh 실패 시 trial 상태 = checks_failed, 자동 discard</div>
+      <div class="gate-wave wb w3" style="margin:0">W3</div>
+    </div>
+    <div class="gate-item" onclick="ck(this)">
+      <div class="gate-cb"></div>
+      <div class="gate-label"><strong>G3-2</strong> — maxIterations 도달 시 추가 tool 호출 없이 graceful 종료</div>
+      <div class="gate-wave wb w3" style="margin:0">W3</div>
+    </div>
+    <div class="gate-item" onclick="ck(this)">
+      <div class="gate-cb"></div>
+      <div class="gate-label"><strong>G3-3</strong> — 동일 carrierId 동시 실행 시도 → 에러 또는 차단</div>
+      <div class="gate-wave wb w3" style="margin:0">W3</div>
+    </div>
+
+    <!-- W4 -->
+    <div style="margin:14px 0 8px"><div class="wb w4">Wave 4</div></div>
+    <div class="gate-item" onclick="ck(this)">
+      <div class="gate-cb"></div>
+      <div class="gate-label"><strong>G4-1</strong> — Widget:above에서 runs / kept / discard / crash / checks_failed 카운터 정상 표시</div>
+      <div class="gate-wave wb w4" style="margin:0">W4</div>
+    </div>
+    <div class="gate-item" onclick="ck(this)">
+      <div class="gate-cb"></div>
+      <div class="gate-label"><strong>G4-2</strong> — standalone report가 <code>.fleet/research/&lt;id&gt;/</code> SSOT만으로 생성됨</div>
+      <div class="gate-wave wb w4" style="margin:0">W4</div>
+    </div>
+
+    <!-- W5 -->
+    <div style="margin:14px 0 8px"><div class="wb w5">Wave 5</div></div>
+    <div class="gate-item" onclick="ck(this)">
+      <div class="gate-cb"></div>
+      <div class="gate-label"><strong>G5-1</strong> — Sentinel / Chronicle / Nimitz handoff trigger와 책임 경계가 문서와 구현에서 일치</div>
+      <div class="gate-wave wb w5" style="margin:0">W5</div>
+    </div>
+    <div class="gate-item" onclick="ck(this)">
+      <div class="gate-cb"></div>
+      <div class="gate-label"><strong>G5-2</strong> — downstream handoff가 MVP 세션 SSOT와 scope 제한을 깨지 않음</div>
+      <div class="gate-wave wb w5" style="margin:0">W5</div>
+    </div>
+
+    <!-- W6 -->
+    <div style="margin:14px 0 8px"><div class="wb w6">Wave 6</div></div>
+    <div class="gate-item" onclick="ck(this)">
+      <div class="gate-cb"></div>
+      <div class="gate-label"><strong>G6-1</strong> — bounded autonomous session 1회가 worktree 범위 내에서 end-to-end 완료</div>
+      <div class="gate-wave wb w6" style="margin:0">W6</div>
+    </div>
+    <div class="gate-item" onclick="ck(this)">
+      <div class="gate-cb"></div>
+      <div class="gate-label"><strong>G6-2</strong> — stop_condition / checks_failed / handoff guardrail이 통합 시나리오에서 정상 동작</div>
+      <div class="gate-wave wb w6" style="margin:0">W6</div>
+    </div>
+    <div class="gate-item" onclick="ck(this)">
+      <div class="gate-cb"></div>
+      <div class="gate-label"><strong>G6-3</strong> — MVP smoke test가 experimental-wiki 없이 빌드/테스트/운용 경로를 통과</div>
+      <div class="gate-wave wb w6" style="margin:0">W6</div>
+    </div>
+    <div style="margin:14px 0 8px"><span class="chip pu">Post-MVP Gate</span></div>
+    <div class="gate-item" onclick="ck(this)">
+      <div class="gate-cb"></div>
+      <div class="gate-label"><strong>P-1</strong> — auto_apply: true 시 AAR이 <code>.fleet/knowledge/log/</code>에 append됨</div>
+      <div class="gate-wave chip pu" style="margin:0">Post-MVP</div>
+    </div>
+    <div class="gate-item" onclick="ck(this)">
+      <div class="gate-cb"></div>
+      <div class="gate-label"><strong>P-2</strong> — wiki patch가 <code>queue/</code>에 적재되고 직접 <code>wiki/</code>에 기록되지 않음</div>
+      <div class="gate-wave chip pu" style="margin:0">Post-MVP</div>
+    </div>
+  </div>
+
+  <div style="margin-top:14px;padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;font-size:12px;color:var(--dim)">
+    완료: <span id="gate-count">0</span> / <span id="gate-total">0</span>
+    <div id="gate-bar" style="margin-top:6px;height:4px;background:var(--border);border-radius:2px">
+      <div id="gate-fill" style="height:100%;background:var(--green);border-radius:2px;transition:width .2s;width:0%"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════
+     §12  미결 결정 사항
+══════════════════════════════════════════ -->
+<section class="sec" id="decisions">
+  <div class="sec-hd">미결 결정 사항 <span class="pill">Open Decisions</span></div>
+  <p style="font-size:13px;margin-bottom:14px">이 계획서가 명시적으로 미결로 남긴 항목이다. MVP 착수 전에 결정되어야 하는 것과 Post-MVP adapter 단계로 넘기는 것을 구분한다.</p>
+
+  <div class="decision open-d">
+    <div class="d-status">미결 — Wave 2 착수 전 필요</div>
+    <div class="d-q">Endeavour carrier 이름 확정 (가칭: endeavour)</div>
+    <div class="d-ans">후보: endeavour / prometheus / pathfinder. carrier metadata 작성 전 확정 필요.</div>
+  </div>
+
+  <div class="decision open-d">
+    <div class="d-status">미결 — Wave 2 착수 전 필요</div>
+    <div class="d-q">Endeavour carrier system prompt 구체 문구</div>
+    <div class="d-ans">Loop Owner 역할 명시 필수. Kirov 계획 산출물에서 별도 정의 예정. 이 계획서 범위 밖.</div>
+  </div>
+
+  <div class="decision open-d">
+    <div class="d-status">미결 — Wave 1 구현 중 결정</div>
+    <div class="d-q">fleet-dev 재시작 자동화 메커니즘</div>
+    <div class="d-ans">Endeavour가 직접 재시작 명령을 내리는가, 사용자에게 재시작을 요청하는가. carrier prompt 설계 시 결정.</div>
+  </div>
+
+  <div class="decision open-d">
+    <div class="d-status">미결 — Post-MVP 결정</div>
+    <div class="d-q">LLM Wiki 접근 경로 확정 (파일 계약 vs 도구 호출)</div>
+    <div class="d-ans">두 경로의 커플링 트레이드오프. 별도 브랜치 검증과 merge readiness가 확보된 뒤 adapter 단계에서 결정.</div>
+  </div>
+
+  <div class="decision open-d">
+    <div class="d-status">미결 — Post-MVP 활성화 조건</div>
+    <div class="d-q">LLM Wiki adapter를 언제 켜는가?</div>
+    <div class="d-ans">experimental-wiki 검증 완료, queue/human approval 준비, 그리고 MVP 경로와 독립적인 on/off 스위치가 확인된 이후에만 활성화.</div>
+  </div>
+
+  <div class="decision closed-d">
+    <div class="d-status">확정</div>
+    <div class="d-q">JobStreamArchive가 연구 SSOT인가?</div>
+    <div class="d-ans">아니다. 디스크 artifact (<code>.fleet/research/&lt;id&gt;/</code>)가 SSOT. Archive는 스트리밍 뷰 전용.</div>
+  </div>
+
+  <div class="decision closed-d">
+    <div class="d-status">확정</div>
+    <div class="d-q">방향 선택 (1 / 2 / 3)</div>
+    <div class="d-ans">방향 3 채택. 방향 2의 substrate 요소는 thin experiment layer로 흡수. Wave 1에서 carrier + thin layer 동시 착지.</div>
+  </div>
+
+  <div class="decision closed-d">
+    <div class="d-status">확정</div>
+    <div class="d-q">fleet/research 모듈이 experimental-wiki를 직접 import 가능한가?</div>
+    <div class="d-ans">불가. 파일 계약 또는 도구 호출 또는 추후 shared library 승격 중 하나로 연결.</div>
+  </div>
+
+  <div class="decision closed-d">
+    <div class="d-status">확정</div>
+    <div class="d-q">두 프로파일(self-improve / app-improve)이 별도 carrier를 갖는가?</div>
+    <div class="d-ans">아니다. 단일 Endeavour carrier가 양쪽을 커버. request_block의 scope와 benchmark_command만 다르다.</div>
+  </div>
+</section>
+
+<!-- Footer -->
+<div style="margin-top:40px;padding-top:14px;border-top:1px solid var(--border);font-size:11px;color:var(--dim)">
+  pi-fleet · feat/fleet-autoresearch · 2026-04-28 · draft-plan/auto-research-final-plan.html
+</div>
+
+</main>
+
+<script>
+/* tab switch */
+function st(group, id) {
+  document.querySelectorAll('[id^="' + group + '-"]').forEach(function(el) {
+    el.classList.remove('on');
+  });
+  var target = document.getElementById(group + '-' + id);
+  if (target) target.classList.add('on');
+
+  var allBtns = [];
+  var allPanes = document.querySelectorAll('[id^="' + group + '-"]');
+  if (allPanes.length) {
+    var first = allPanes[0];
+    var bar = first.parentElement.previousElementSibling;
+    if (bar && bar.classList.contains('tab-bar')) {
+      var btns = bar.querySelectorAll('.tb');
+      var ids = Array.from(allPanes).map(function(p){ return p.id.replace(group + '-', ''); });
+      btns.forEach(function(btn, i) { btn.classList.toggle('on', ids[i] === id); });
+    }
+  }
+}
+
+/* toggle */
+function tog(hd) {
+  hd.classList.toggle('open');
+  var bd = hd.nextElementSibling;
+  if (bd) bd.classList.toggle('open');
+}
+
+/* gate checklist */
+function ck(item) {
+  var cb = item.querySelector('.gate-cb');
+  var label = item.querySelector('.gate-label');
+  if (!cb) return;
+  cb.classList.toggle('checked');
+  label.classList.toggle('done');
+  updateProgress();
+}
+function updateProgress() {
+  var all = document.querySelectorAll('.gate-item');
+  var done = document.querySelectorAll('.gate-cb.checked');
+  var total = all.length;
+  var count = done.length;
+  document.getElementById('gate-count').textContent = count;
+  document.getElementById('gate-total').textContent = total;
+  document.getElementById('gate-fill').style.width = (total ? (count/total*100) : 0) + '%';
+}
+document.addEventListener('DOMContentLoaded', function() { updateProgress(); });
+
+/* active nav */
+var secs = document.querySelectorAll('.sec');
+var links = document.querySelectorAll('.nav-link');
+var io = new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) {
+    if (e.isIntersecting) {
+      links.forEach(function(a) { a.classList.remove('on'); });
+      var l = document.querySelector('.nav-link[href="#' + e.target.id + '"]');
+      if (l) l.classList.add('on');
+    }
+  });
+}, { rootMargin: '-15% 0px -70% 0px' });
+secs.forEach(function(s) { io.observe(s); });
+</script>
+</body>
+</html>
