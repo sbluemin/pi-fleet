@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { registerWikiCommands } from "../commands.js";
+import { approveAndNotify, listQueueItems, rejectAndNotify, runDrydock, runStatus, showPatchDetail } from "../handlers.js";
 import { enqueuePatch, parsePatch } from "../patch.js";
 import { resolveMemoryPaths } from "../paths.js";
 
@@ -14,39 +15,54 @@ afterEach(async () => {
 });
 
 describe("wiki commands", () => {
-  it("shows queue selection guidance as a warning instead of throwing for unknown show IDs", async () => {
-    const root = await makeTempRoot();
-    const patchId = await seedPatch(root, "alpha");
-    const { config } = registerCommand("fleet:wiki:show");
-    const notify = vi.fn();
+  it("registers only fleet:wiki:menu", () => {
+    const registerCommand = vi.fn();
+    registerWikiCommands({ registerCommand, sendUserMessage: vi.fn() } as any);
 
-    await expect(config.handler("missing", makeContext(root, notify))).resolves.toBeUndefined();
-
-    expect(notify).toHaveBeenCalledWith(`Unknown patch ID. Available patch IDs: ${patchId}`, "warning");
+    expect(registerCommand).toHaveBeenCalledTimes(1);
+    expect(registerCommand.mock.calls[0]?.[0]).toBe("fleet:wiki:menu");
   });
 
-  it("shows queue selection guidance as a warning instead of throwing for unknown approve/reject IDs", async () => {
+  it("lists queue items and exposes patch detail through handlers", async () => {
     const root = await makeTempRoot();
-    const patchId = await seedPatch(root, "beta");
-    const approve = registerCommand("fleet:wiki:approve").config;
-    const reject = registerCommand("fleet:wiki:reject").config;
+    const patchId = await seedPatch(root, "alpha");
+
+    const items = await listQueueItems(root);
+    const detail = await showPatchDetail(patchId, root);
+
+    expect(items).toEqual([{ id: patchId, summary: "pending" }]);
+    expect(detail.meta.id).toBe(patchId);
+    expect(detail.target).toBe("wiki/alpha.md");
+    expect(detail.summary).toBe("alpha");
+    expect(detail.body).toContain("\"body\":\"hello\"");
+  });
+
+  it("approves and rejects through handlers with notify side effects", async () => {
+    const approvedRoot = await makeTempRoot();
+    const rejectedRoot = await makeTempRoot();
+    const approvedId = await seedPatch(approvedRoot, "beta");
+    const rejectedId = await seedPatch(rejectedRoot, "gamma");
     const approveNotify = vi.fn();
     const rejectNotify = vi.fn();
 
-    await expect(approve.handler("missing", makeContext(root, approveNotify))).resolves.toBeUndefined();
-    await expect(reject.handler("missing nope", makeContext(root, rejectNotify))).resolves.toBeUndefined();
+    await approveAndNotify(approvedId, makeNotifyContext(approvedRoot, approveNotify));
+    await rejectAndNotify(rejectedId, "nope", makeNotifyContext(rejectedRoot, rejectNotify));
 
-    expect(approveNotify).toHaveBeenCalledWith(`Unknown patch ID. Available patch IDs: ${patchId}`, "warning");
-    expect(rejectNotify).toHaveBeenCalledWith(`Unknown patch ID. Available patch IDs: ${patchId}`, "warning");
+    expect(approveNotify).toHaveBeenCalledWith(`Approved ${approvedId}`, "info");
+    expect(rejectNotify).toHaveBeenCalledWith(`Rejected ${rejectedId}`, "info");
+  });
+
+  it("reports status and drydock results through handlers", async () => {
+    const root = await makeTempRoot();
+    const notify = vi.fn();
+
+    await runStatus(makeNotifyContext(root, notify));
+    await runDrydock(makeNotifyContext(root, notify));
+
+    expect(notify).toHaveBeenNthCalledWith(1, "Fleet Wiki ready: 0 wiki entries", "info");
+    expect(notify).toHaveBeenNthCalledWith(2, "Drydock: OK", "info");
   });
 });
-
-function registerCommand(name: string): { config: any } {
-  const registerCommand = vi.fn();
-  registerWikiCommands({ registerCommand, sendUserMessage: vi.fn() } as any);
-  const [, config] = registerCommand.mock.calls.find(([commandName]) => commandName === name) ?? [];
-  return { config };
-}
 
 function makeContext(root: string, notify: ReturnType<typeof vi.fn>): any {
   return {
@@ -58,6 +74,15 @@ function makeContext(root: string, notify: ReturnType<typeof vi.fn>): any {
     sessionManager: {
       getBranch: () => [],
       getSessionId: () => "session-1",
+    },
+  };
+}
+
+function makeNotifyContext(root: string, notify: ReturnType<typeof vi.fn>): any {
+  return {
+    cwd: root,
+    ui: {
+      notify,
     },
   };
 }

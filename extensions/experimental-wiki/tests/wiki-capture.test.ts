@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { collectCaptureSession } from "../capture.js";
 import { registerWikiCommands } from "../commands.js";
+import { runCapture } from "../handlers.js";
 import { buildWikiCaptureDirective } from "../prompts.js";
 
 describe("wiki capture session", () => {
@@ -70,15 +71,20 @@ describe("wiki capture directive", () => {
   });
 });
 
-describe("fleet:wiki:capture command", () => {
-  it("registers the command and dispatches a follow-up staging turn by default choice", async () => {
+describe("wiki hub command registration", () => {
+  it("registers fleet:wiki:menu as the single command entrypoint", () => {
     const registerCommand = vi.fn();
-    const sendUserMessage = vi.fn();
-    registerWikiCommands({ registerCommand, sendUserMessage } as any);
+    registerWikiCommands({ registerCommand, sendUserMessage: vi.fn() } as any);
 
-    const [, config] = registerCommand.mock.calls.find(([name]) => name === "fleet:wiki:capture") ?? [];
-    expect(config).toBeTruthy();
+    expect(registerCommand).toHaveBeenCalledTimes(1);
+    expect(registerCommand).toHaveBeenCalledWith("fleet:wiki:menu", expect.objectContaining({
+      description: "Fleet Wiki 인터랙티브 허브",
+    }));
+  });
+});
 
+describe("runCapture", () => {
+  it("dispatches a follow-up staging turn by default choice", async () => {
     const notify = vi.fn();
     const select = vi.fn().mockResolvedValue("의미 있는 지식 staging");
     const ctx = makeContext([
@@ -88,22 +94,18 @@ describe("fleet:wiki:capture command", () => {
       },
     ] as any[], { notify, select });
 
-    await config.handler("", ctx);
+    const pi = { sendUserMessage: vi.fn() } as any;
+    await runCapture(pi, ctx);
 
     expect(select).toHaveBeenCalled();
-    expect(sendUserMessage).toHaveBeenCalledTimes(1);
-    expect(sendUserMessage).toHaveBeenCalledWith(expect.stringContaining("Fleet Wiki capture staging"), {
+    expect(pi.sendUserMessage).toHaveBeenCalledTimes(1);
+    expect(pi.sendUserMessage).toHaveBeenCalledWith(expect.stringContaining("Fleet Wiki capture staging"), {
       deliverAs: "followUp",
     });
     expect(notify).toHaveBeenCalledWith("Fleet Wiki capture staging 지시를 Admiral 후속 턴에 전달했습니다.", "info");
   });
 
   it("keeps preview-only mode available without staging patches immediately", async () => {
-    const registerCommand = vi.fn();
-    const sendUserMessage = vi.fn();
-    registerWikiCommands({ registerCommand, sendUserMessage } as any);
-
-    const [, config] = registerCommand.mock.calls.find(([name]) => name === "fleet:wiki:capture") ?? [];
     const notify = vi.fn();
     const select = vi.fn().mockResolvedValue("프리뷰 캡처 계획");
     const ctx = makeContext([
@@ -113,30 +115,27 @@ describe("fleet:wiki:capture command", () => {
       },
     ] as any[], { notify, select });
 
-    await config.handler("", ctx);
+    const pi = { sendUserMessage: vi.fn() } as any;
+    await runCapture(pi, ctx);
 
-    expect(sendUserMessage).toHaveBeenCalledWith(expect.stringContaining("Fleet Wiki capture preview"), {
+    expect(pi.sendUserMessage).toHaveBeenCalledWith(expect.stringContaining("Fleet Wiki capture preview"), {
       deliverAs: "followUp",
     });
-    expect(sendUserMessage).toHaveBeenCalledWith(expect.not.stringContaining("Stage actual pending Fleet Wiki patches"), {
+    expect(pi.sendUserMessage).toHaveBeenCalledWith(expect.not.stringContaining("Stage actual pending Fleet Wiki patches"), {
       deliverAs: "followUp",
     });
   });
 
   it("does not dispatch when history is unavailable", async () => {
-    const registerCommand = vi.fn();
-    const sendUserMessage = vi.fn();
-    registerWikiCommands({ registerCommand, sendUserMessage } as any);
-    const [, config] = registerCommand.mock.calls.find(([name]) => name === "fleet:wiki:capture") ?? [];
-
     const notify = vi.fn();
     const select = vi.fn();
     const ctx = makeContext([] as any[], { notify, select });
 
-    await config.handler("", ctx);
+    const pi = { sendUserMessage: vi.fn() } as any;
+    await runCapture(pi, ctx);
 
     expect(select).not.toHaveBeenCalled();
-    expect(sendUserMessage).not.toHaveBeenCalled();
+    expect(pi.sendUserMessage).not.toHaveBeenCalled();
     expect(notify).toHaveBeenCalledWith("현재 세션에서 캡처할 대화/작업 이력이 없어 Fleet Wiki preview를 시작할 수 없습니다.", "warning");
   });
 });
