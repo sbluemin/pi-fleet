@@ -96,10 +96,10 @@ function buildTruncatedBlock(timestamp: number): ArchiveBlock {
 }
 
 function applyAppendPolicy(archive: JobArchive, block: ArchiveBlock): void {
-  if (block.kind === "tool_call") {
+  if (block.kind === "tool_call" || block.kind === "thought") {
     return;
   }
-  if (block.kind === "text" || block.kind === "thought") {
+  if (block.kind === "text") {
     mergeOrAppendTextBlock(archive, block);
     return;
   }
@@ -124,7 +124,7 @@ function mergeOrAppendTextBlock(archive: JobArchive, block: ArchiveBlock): void 
 
 function matchesTextMergeBlock(existing: ArchiveBlock, incoming: ArchiveBlock): boolean {
   return (
-    (incoming.kind === "text" || incoming.kind === "thought") &&
+    incoming.kind === "text" &&
     existing.kind === incoming.kind &&
     existing.source === incoming.source &&
     existing.label === incoming.label

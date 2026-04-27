@@ -17,7 +17,7 @@ Internal infrastructure for detached job management, archiving, and caching.
 | Component | Responsibility |
 |-----------|----------------|
 | `JobRegistry` | Tracks active/finalized job metadata and status. |
-| `JobStreamArchive` | Stores full execution traces (thought, text, tool calls). Supports **read-once** invalidation. |
+| `JobStreamArchive` | Stores full execution traces (text only). Thought and tool-call blocks are excluded. Supports **read-once** invalidation. |
 | `SummaryCache` | Stores LLM-friendly summaries for **read-many** access. |
 | `CancelRegistry` | Holds AbortControllers for active jobs to support the `cancel` command. |
 | `ConcurrencyManager` | Enforces the global cap of 5 concurrent jobs and same-carrier busy checks. |

@@ -17,7 +17,7 @@ Core logic for carrier management and fleet persistence. This subpackage contain
 - **Panel UI model**: background writes stream-store; active foreground admin context pulls and renders it through widget sync.
 - **Read semantics**: summary cache is read-many with TTL 3h. full archive is read-once with TTL 3h and invalidates immediately. Archive access is only allowed for finalized jobs; active job lookup is rejected to prevent race conditions.
 - **Secret pattern redaction**: `JobStreamArchive` must redact sensitive patterns (AWS, JWT, GitHub tokens, PEM keys, etc.) before storage.
-- **Archive block policy**: `JobStreamArchive` stores text and thought blocks only. Carrier tool-call details (`tool_call`) are excluded from the archive; only progress counters such as `toolCallCount` remain in summaries and UI state.
+- **Archive block policy**: `JobStreamArchive` stores text blocks only. Thought (`thought`) and tool-call details (`tool_call`) are excluded from the archive; only progress counters such as `toolCallCount` remain in summaries and UI state.
 - **Archive resource cap**: limits per job are `MAX_BLOCKS` and `MAX_TOTAL_BYTES`. If exceeded, the terminal block must be marked as `[truncated]`.
 - **Status priority**: when aggregating or summarizing, priority is `aborted > error > done`. Use consistent terminology for status and push notifications.
 - **Concurrency guard**: detached jobs are capped at 5 process-wide. Same-carrier active jobs reject in shipyard with `error: "carrier busy"` before lower-level ACP fallback can run.
