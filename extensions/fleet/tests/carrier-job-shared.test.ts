@@ -25,7 +25,7 @@ import {
   appendBlock,
   createJobArchive,
   finalizeJobArchive,
-  getAndInvalidate,
+  getFinalized,
   hasJobArchive,
   resetJobArchivesForTest,
 } from "../shipyard/_shared/job-stream-archive.js";
@@ -74,21 +74,21 @@ describe("carrier job id", () => {
 });
 
 describe("job stream archive", () => {
-  it("stores blocks and invalidates full result after one read", () => {
+  it("stores blocks and keeps finalized full results readable within TTL", () => {
     createJobArchive("sortie:1", 1000);
     appendBlock("sortie:1", toMessageArchiveBlock("genesis", "\u001b[31mhello\u001b[0m\u0007", undefined, 1001), 1001);
     finalizeJobArchive("sortie:1", "done", 1002);
 
-    const first = getAndInvalidate("sortie:1", 1003);
+    const first = getFinalized("sortie:1", 1003);
     expect(first?.blocks[0]?.text).toBe("hello");
-    expect(getAndInvalidate("sortie:1", 1004)).toBeNull();
+    expect(getFinalized("sortie:1", 1004)?.blocks[0]?.text).toBe("hello");
   });
 
   it("does not invalidate active archives before finalization", () => {
     createJobArchive("sortie:1", 1000);
     appendBlock("sortie:1", toMessageArchiveBlock("genesis", "still running", undefined, 1001), 1001);
 
-    expect(getAndInvalidate("sortie:1", 1002)).toBeNull();
+    expect(getFinalized("sortie:1", 1002)).toBeNull();
     expect(hasJobArchive("sortie:1", 1003)).toBe(true);
   });
 
@@ -100,7 +100,7 @@ describe("job stream archive", () => {
     }
     finalizeJobArchive("sortie:1", "done", 2000);
 
-    const archive = getAndInvalidate("sortie:1", 2001);
+    const archive = getFinalized("sortie:1", 2001);
     expect(archive?.truncated).toBe(true);
     expect(archive?.blocks.length).toBeGreaterThan(2);
     expect(archive?.blocks[0]?.text).toContain("0:");
@@ -116,7 +116,7 @@ describe("job stream archive", () => {
     appendBlock("sortie:1", toToolCallArchiveBlock("genesis", "Read", "completed", "second", "tool-1", "main", 1002), 1002);
     finalizeJobArchive("sortie:1", "done", 1003);
 
-    const archive = getAndInvalidate("sortie:1", 1004);
+    const archive = getFinalized("sortie:1", 1004);
     expect(archive?.blocks).toHaveLength(0);
     expect(archive?.blocks.some((block) => block.kind === "tool_call")).toBe(false);
   });
@@ -127,7 +127,7 @@ describe("job stream archive", () => {
     appendBlock("sortie:1", toToolCallArchiveBlock("genesis", "Read", "completed", "second", undefined, "main", 1002), 1002);
     finalizeJobArchive("sortie:1", "done", 1003);
 
-    const archive = getAndInvalidate("sortie:1", 1004);
+    const archive = getFinalized("sortie:1", 1004);
     expect(archive?.blocks).toHaveLength(0);
   });
 
@@ -137,30 +137,30 @@ describe("job stream archive", () => {
     appendBlock("sortie:1", toMessageArchiveBlock("genesis", "world", "main", 1002), 1002);
     finalizeJobArchive("sortie:1", "done", 1003);
 
-    const archive = getAndInvalidate("sortie:1", 1004);
+    const archive = getFinalized("sortie:1", 1004);
     expect(archive?.blocks).toHaveLength(1);
     expect(archive?.blocks[0]?.text).toBe("hello world");
   });
 
-  it("merges consecutive thought blocks for the same source and label", () => {
+  it("excludes thought blocks from the archive", () => {
     createJobArchive("sortie:1", 1000);
     appendBlock("sortie:1", toThoughtArchiveBlock("genesis", "think ", "main", 1001), 1001);
     appendBlock("sortie:1", toThoughtArchiveBlock("genesis", "more", "main", 1002), 1002);
     finalizeJobArchive("sortie:1", "done", 1003);
 
-    const archive = getAndInvalidate("sortie:1", 1004);
-    expect(archive?.blocks).toHaveLength(1);
-    expect(archive?.blocks[0]?.text).toBe("think more");
+    const archive = getFinalized("sortie:1", 1004);
+    expect(archive?.blocks).toHaveLength(0);
   });
 
-  it("does not merge across text and thought boundaries", () => {
+  it("stores text but excludes thought blocks", () => {
     createJobArchive("sortie:1", 1000);
     appendBlock("sortie:1", toMessageArchiveBlock("genesis", "text", "main", 1001), 1001);
     appendBlock("sortie:1", toThoughtArchiveBlock("genesis", "thought", "main", 1002), 1002);
     finalizeJobArchive("sortie:1", "done", 1003);
 
-    const archive = getAndInvalidate("sortie:1", 1004);
-    expect(archive?.blocks).toHaveLength(2);
+    const archive = getFinalized("sortie:1", 1004);
+    expect(archive?.blocks).toHaveLength(1);
+    expect(archive?.blocks[0]?.text).toBe("text");
   });
 
   it("does not merge across carrier or label boundaries", () => {
@@ -170,7 +170,7 @@ describe("job stream archive", () => {
     appendBlock("sortie:1", toMessageArchiveBlock("sentinel", "c", "two", 1003), 1003);
     finalizeJobArchive("sortie:1", "done", 1004);
 
-    const archive = getAndInvalidate("sortie:1", 1005);
+    const archive = getFinalized("sortie:1", 1005);
     expect(archive?.blocks).toHaveLength(3);
   });
 
@@ -180,7 +180,7 @@ describe("job stream archive", () => {
     appendBlock("sortie:1", toMessageArchiveBlock("genesis", "GHIJKLMNOP", "main", 1002), 1002);
     finalizeJobArchive("sortie:1", "done", 1003);
 
-    const archive = getAndInvalidate("sortie:1", 1004);
+    const archive = getFinalized("sortie:1", 1004);
     expect(archive?.blocks).toHaveLength(1);
     expect(archive?.blocks[0]?.text).toBe("[REDACTED:aws_access_key]");
     expect(archive?.blocks[0]?.text).not.toContain("AKIAABCDEFGHIJKLMNOP");
@@ -192,7 +192,7 @@ describe("job stream archive", () => {
     appendBlock("sortie:1", toMessageArchiveBlock("genesis", "secret-value", "main", 1002), 1002);
     finalizeJobArchive("sortie:1", "done", 1003);
 
-    const archive = getAndInvalidate("sortie:1", 1004);
+    const archive = getFinalized("sortie:1", 1004);
     expect(archive?.blocks[0]?.text).toBe("[REDACTED:generic_secret]");
     expect(archive?.blocks[0]?.text).not.toContain("super-secret-value");
     expect(archive?.blocks[0]?.text).not.toContain("secret-value");
@@ -206,7 +206,7 @@ describe("job stream archive", () => {
     appendBlock("sortie:1", toMessageArchiveBlock("genesis", "abcdefghijklmnopqrstuvwxyzABCDEFGHIJ", "github", 1004), 1004);
     finalizeJobArchive("sortie:1", "done", 1005);
 
-    const archive = getAndInvalidate("sortie:1", 1006);
+    const archive = getFinalized("sortie:1", 1006);
     expect(archive?.blocks[0]?.text).toBe("[REDACTED:jwt]");
     expect(archive?.blocks[1]?.text).toBe("[REDACTED:github_token]");
   });
@@ -217,7 +217,7 @@ describe("job stream archive", () => {
     appendBlock("sortie:1", toMessageArchiveBlock("genesis", "\ndef\n-----END PRIVATE KEY-----", "pem", 1002), 1002);
     finalizeJobArchive("sortie:1", "done", 1003);
 
-    const archive = getAndInvalidate("sortie:1", 1004);
+    const archive = getFinalized("sortie:1", 1004);
     expect(archive?.blocks[0]?.text).toBe("[REDACTED:pem_private_key]");
   });
 
@@ -232,7 +232,7 @@ describe("job stream archive", () => {
     }
     finalizeJobArchive("sortie:1", "done", 4000);
 
-    const archive = getAndInvalidate("sortie:1", 4001);
+    const archive = getFinalized("sortie:1", 4001);
     const markdown = serializeJobArchive(archive!);
     expect(markdown.indexOf("block-0")).toBeLessThan(markdown.indexOf("[truncated]"));
     expect(markdown.indexOf("[truncated]")).toBeLessThan(markdown.indexOf("block-2104"));
@@ -244,7 +244,7 @@ describe("job stream archive", () => {
     appendBlock("sortie:1", toToolCallArchiveBlock("genesis", "Read", "completed", "AKIAABCDEFGHIJKLMNOP", "tool-1", "main", 1002), 1002);
     finalizeJobArchive("sortie:1", "done", 1003);
 
-    const archive = getAndInvalidate("sortie:1", 1004);
+    const archive = getFinalized("sortie:1", 1004);
     expect(archive?.blocks).toHaveLength(0);
   });
 
@@ -255,7 +255,7 @@ describe("job stream archive", () => {
     appendBlock("sortie:1", toToolCallArchiveBlock("genesis", "Read", "completed", "ok", "tool-1", "main", 1003), 1003);
     finalizeJobArchive("sortie:1", "done", 1004);
 
-    const archive = getAndInvalidate("sortie:1", 1005);
+    const archive = getFinalized("sortie:1", 1005);
     const expectedBytes = archive?.blocks.reduce((total, block) => total + Buffer.byteLength(JSON.stringify(block), "utf8"), 0);
     expect(archive?.totalBytes).toBe(expectedBytes);
   });
@@ -268,7 +268,7 @@ describe("job stream archive", () => {
     appendBlock("sortie:1", block, 1001);
     finalizeJobArchive("sortie:1", "done", 1002);
 
-    const archive = getAndInvalidate("sortie:1", 1003);
+    const archive = getFinalized("sortie:1", 1003);
     expect(archive?.blocks[0]?.text).toBe("[REDACTED:generic_secret]");
   });
 

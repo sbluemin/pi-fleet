@@ -90,7 +90,7 @@ export const PROTOCOL_PREAMBLE = String.raw`All task execution follows the activ
 Carrier tool calls register background jobs and return immediately with plain-text acceptance guidance. Results arrive through a <system-reminder source="carrier-completion">-wrapped [carrier:result] framework push delivered via pi.sendMessage. The source attribute marks a carrier job completion event delivered through the push channel, not user input. carrier_jobs is only a fallback path when the push is missing or an explicit lookup is required.
 Do not poll, wait-check, or call carrier_jobs merely to see whether the job is done. Continue independent work if available; otherwise stop tool use and wait passively for the [carrier:result] follow-up push.
 
-${"``"}carrier_jobs(action:"result", format:"full")${"``"} is read-once. A repeated lookup for the same job_id returns an empty response. Collect every needed raw sequence in that single result call.`;
+${"``"}carrier_jobs(action:"result", format:"full")${"``"} is finalized-only and remains available for repeated lookups for 3 hours. Re-checks are allowed within that TTL; after expiry the full response is unavailable.`;
 
 /** 시스템 태그 힌트 — carrier 시스템 프롬프트 전용 (admiral은 boot 프리앰블에서 처리) */
 export const SYSTEM_REMINDER_HINT = String.raw`

@@ -271,7 +271,7 @@ the archive (separation doctrine).
 |--|--|--|
 | Purpose | **UI rendering only** | **AI (admin LLM) lookup only** |
 | Key | carrierId | jobId (PI toolCallId) |
-| Lifecycle | Tied to panel display | TTL 3 h, finalised at job end, invalidated after a full read |
+| Lifecycle | Tied to panel display | TTL 3 h, finalised at job end, read-many until expiry |
 | Serialisation | Includes ANSI colour (terminal) | LLM-friendly markdown (ANSI stripped + redacted) |
 | Storage policy | All chunks | text/thought only (tool_call filtered, secrets redacted at append) |
 
@@ -322,7 +322,7 @@ admin LLM begins a new turn — it must recognise the system-reminder as a frame
 | 5 | **Avoid pi-coding-agent SDK changes** — fixes live in fleet-owned code. |
 | 6 | **Persistence** — Dual-layered: `states.json` (runtime state) and `settings.json` (preferences). Process-level globalThis exists but syncs to these files. |
 | 7 | **stream-store (UI) ⊥ JobStreamArchive (AI)** — keys, lifecycles, and serialisation are all separate. |
-| 8 | **Archive policy** — text/thought only, tool_call filtered, secret redaction at append boundary, head 20 + tail 50 + truncated marker, TTL 3 h, summary read-many · full read-once. |
+| 8 | **Archive policy** — text/thought only, tool_call filtered, secret redaction at append boundary, head 20 + tail 50 + truncated marker, TTL 3 h, summary read-many · full read-many. |
 | 9 | **Push** — `pi.sendMessage` custom + `display:false` + imperative `<system-reminder source="carrier-completion">` wrapping + `[carrier:result]` prefix. `triggerTurn:true` for idle wake-up. |
 | 10 | **Animation tick** — alive while admin is streaming OR an active background job exists. Graceful skip is reserved for stale ctx only. |
 
@@ -410,7 +410,7 @@ accumulates.
 - archive memory footprint (rate of hitting the 8 MB cap)
 - saturation rate of the detach concurrency cap (5)
 - carrier-busy reject hit rate
-- read-once invalidate races (hypothetical multi-Admiral scenarios)
+- repeated full-result lookups remain bounded by the same 3-hour TTL window
 
 When any of these crosses an escalation trigger, re-evaluate the relevant invariants
 through the formal doctrinal procedure (Nimitz sortie).

@@ -1,7 +1,7 @@
 import { registerToolPromptManifest } from "../../admiral/tool-prompt-manifest/index.js";
 import { cancelJob } from "../_shared/job-cancel-registry.js";
 import { getActiveJob, listActiveJobs } from "../_shared/concurrency-guard.js";
-import { getAndInvalidate, hasFinalizedJobArchive, hasJobArchive } from "../_shared/job-stream-archive.js";
+import { getFinalized, hasFinalizedJobArchive, hasJobArchive } from "../_shared/job-stream-archive.js";
 import { isCarrierJobId } from "../_shared/job-id.js";
 import type { CarrierJobRecord, CarrierJobSummary } from "../_shared/job-types.js";
 import { serializeJobArchive } from "../_shared/archive-serializer.js";
@@ -145,7 +145,7 @@ function resultResponse(jobId: string, format: string, now: number): CarrierJobs
         notice: ACTIVE_STATUS_NOTICE,
       };
     }
-    const archive = getAndInvalidate(jobId, now);
+    const archive = getFinalized(jobId, now);
     const summary = getJobSummary(jobId, now);
     return {
       action: "result",
@@ -156,7 +156,7 @@ function resultResponse(jobId: string, format: string, now: number): CarrierJobs
       summary_available: Boolean(summary),
       full_available: false,
       full_invalidated: !archive,
-      error: archive ? undefined : "full result unavailable or already invalidated",
+      error: archive ? undefined : "full result unavailable or expired",
     };
   }
 

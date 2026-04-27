@@ -17,7 +17,7 @@ Internal infrastructure for detached job management, archiving, and caching.
 | Component | Responsibility |
 |-----------|----------------|
 | `JobRegistry` | Tracks active/finalized job metadata and status. |
-| `JobStreamArchive` | Stores full execution traces (text only). Thought and tool-call blocks are excluded. Supports **read-once** invalidation. |
+| `JobStreamArchive` | Stores full execution traces (text only). Thought and tool-call blocks are excluded. Supports **read-many** access within the 3-hour TTL. |
 | `SummaryCache` | Stores LLM-friendly summaries for **read-many** access. |
 | `CancelRegistry` | Holds AbortControllers for active jobs to support the `cancel` command. |
 | `ConcurrencyManager` | Enforces the global cap of 5 concurrent jobs and same-carrier busy checks. |
@@ -25,6 +25,6 @@ Internal infrastructure for detached job management, archiving, and caching.
 ## Rules
 
 - **Resource Limits**: Enforce `MAX_BLOCKS` and `MAX_TOTAL_BYTES` per job in the archive.
-- **Read-Once Invalidation**: Once `JobStreamArchive.read()` is called for a job, its content must be deleted from memory.
+- **TTL-Based Expiry**: `JobStreamArchive` entries remain readable until the 3-hour TTL expires or they are explicitly detached.
 - **TTL Enforcement**: Stale entries must be periodically or reactively purged after 3 hours.
 - **Pattern Redaction**: Always run the redaction engine on any content entering the archive.

@@ -15,7 +15,7 @@ Core logic for carrier management and fleet persistence. This subpackage contain
 - **Forbidden background resources**: `ctx.ui.*`, `ctx.sessionManager.*`, captured `ExtensionContext`, and helpers that require a captured admin ctx.
 - **Archive/cache separation**: `bridge/streaming/stream-store.ts` is UI-only for Agent Panel and Streaming Widget. `carrier_jobs` reads only summary cache and `JobStreamArchive`.
 - **Panel UI model**: background writes stream-store; active foreground admin context pulls and renders it through widget sync.
-- **Read semantics**: summary cache is read-many with TTL 3h. full archive is read-once with TTL 3h and invalidates immediately. Archive access is only allowed for finalized jobs; active job lookup is rejected to prevent race conditions.
+- **Read semantics**: summary cache and full archive are both read-many with TTL 3h. Full archive access is only allowed for finalized jobs; active job lookup is rejected to prevent race conditions.
 - **Secret pattern redaction**: `JobStreamArchive` must redact sensitive patterns (AWS, JWT, GitHub tokens, PEM keys, etc.) before storage.
 - **Archive block policy**: `JobStreamArchive` stores text blocks only. Thought (`thought`) and tool-call details (`tool_call`) are excluded from the archive; only progress counters such as `toolCallCount` remain in summaries and UI state.
 - **Archive resource cap**: limits per job are `MAX_BLOCKS` and `MAX_TOTAL_BYTES`. If exceeded, the terminal block must be marked as `[truncated]`.

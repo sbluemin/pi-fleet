@@ -13,10 +13,10 @@ import { CARRIER_RESULT_CUSTOM_TYPE } from "../shipyard/_shared/push-renderer.js
 const testDir = dirname(fileURLToPath(import.meta.url));
 
 describe("carrier prompt doctrine", () => {
-  it("contains fire-and-forget doctrine and carrier_jobs read-once guidance", () => {
+  it("contains fire-and-forget doctrine and carrier_jobs TTL-based read-many guidance", () => {
     expect(PROTOCOL_PREAMBLE).toContain("[carrier:result]");
     expect(PROTOCOL_PREAMBLE).toContain("carrier_jobs");
-    expect(PROTOCOL_PREAMBLE).toContain("read-once");
+    expect(PROTOCOL_PREAMBLE).toContain("repeated lookups");
     expect(PROTOCOL_PREAMBLE).toContain("Do not poll, wait-check, or call carrier_jobs merely to see whether the job is done");
     expect(PROTOCOL_PREAMBLE).toContain("stop tool use and wait passively for the [carrier:result] follow-up push");
     expect(PROTOCOL_PREAMBLE).toContain("carrier_jobs is only a fallback path when the push is missing or an explicit lookup is required");

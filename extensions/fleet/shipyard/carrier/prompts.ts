@@ -79,7 +79,7 @@ export const SORTIE_MANIFEST: ToolPromptManifest = {
       ` Duplicate carrier IDs in the same call are rejected by the system and cause the entire sortie to fail.` +
       ` If you need two different workloads handled by carriers of the same type, assign each to a different carrier ID within the same call's carriers array.`,
     `Launch response schema is { job_id, accepted, error? } and never includes synchronous result content.` +
-      ` Full output is available only through carrier_jobs(action:"result", format:"full") and is read-once.`,
+      ` Full output is available only through carrier_jobs(action:"result", format:"full"), is finalized-only, and remains read-many for 3h.`,
     `Do not poll, wait-check, or call carrier_jobs merely to see whether the job is done.` +
       ` Continue independent work if available; otherwise stop tool use and wait passively for the [carrier:result] follow-up push.`,
   ],

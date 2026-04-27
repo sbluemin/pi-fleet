@@ -46,12 +46,11 @@ export function finalizeJobArchive(jobId: string, status: CarrierJobStatus, now 
   return true;
 }
 
-export function getAndInvalidate(jobId: string, now = Date.now()): JobArchive | null {
+export function getFinalized(jobId: string, now = Date.now()): JobArchive | null {
   purgeExpired(now);
   const archive = getArchiveState().archives.get(jobId) ?? null;
   if (!archive) return null;
   if (archive.status === "active") return null;
-  getArchiveState().archives.delete(jobId);
   return archive;
 }
 

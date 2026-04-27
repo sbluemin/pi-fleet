@@ -33,14 +33,14 @@ The number of carriers is determined at runtime by the carrier modules registere
   - **Fire-and-forget**: Squadron jobs are registered as detached jobs and return a `job_id` immediately.
   - A hard cap of **5 concurrent instances** is enforced per squadron.
   - Active squadrons are indicated by a `[SQ]` tag in the Status Bar.
-- **Asynchronous Operations & Archiving**: `carriers_sortie`, `carrier_taskforce`, and `carrier_squadron` tools operate in fire-and-forget mode.
+  - **Asynchronous Operations & Archiving**: `carriers_sortie`, `carrier_taskforce`, and `carrier_squadron` tools operate in fire-and-forget mode.
   - **Sortie Guard**: All dispatch tools enforce the `sortie off` global kill-switch.
   - **System Prompt Composition**: ACP CLI 시스템 프롬프트는 `admiral`에서 `buildSystemPrompt()`를 통해 합성하며, `pi-events.ts`의 `before_agent_start` 파이프라인에서 기본 프롬프트 뒤에 결합됩니다.
   - **Runtime Context**: The ACP runtime context includes `<current_protocol>`, 가용 캐리어 목록, 그리고 `<offline_carriers>` 태그를 포함하여 함대의 실시간 상태를 에이전트에게 전달합니다.
   - **Immediate Response**: Tools return `{ job_id, accepted }` instantly.
   - **Job Stream Archive**: Detached job outputs are stored in a process-memory archive (`JobStreamArchive`).
-  - **Limits**: 3-hour TTL (`CARRIER_JOB_TTL_MS`), 8MB/2000-block per job capacity (`MAX_TOTAL_BYTES`, `MAX_BLOCKS`), and a global concurrency cap of 5 detached jobs.
-  - **Read-Once Policy**: Full results retrieved via `carrier_jobs` are invalidated after the first read.
+  - **Limits**: 3-hour TTL (`CARRIER_JOB_TTL_MS`) for both summary cache and full archive, 8MB/2000-block per job capacity (`MAX_TOTAL_BYTES`, `MAX_BLOCKS`), and a global concurrency cap of 5 detached jobs.
+  - **Read-Many Policy**: Both summary cache and full archive are read-many with a 3-hour TTL. Full archive access is only allowed for finalized jobs.
 - **Job lookup/control**: `carrier_jobs` is the only meta tool for `status`, `result`, `cancel`, and `list` actions. It reads from summary cache and `JobStreamArchive`, not the UI stream-store.
 - **Carrier result follow-up push**: framework pushes must use `pi.sendMessage` custom messages with `customType: "carrier-result"` and `display: false` so they wake the Admiral without rendering as user messages in Messages. The LLM context payload remains a `<system-reminder source="carrier-completion">`-wrapped `[carrier:result]` block. Framework push delivery must never be sent as a user-role message.
 - **Synchronous response doctrine**: Immediate detached-job acceptance text is plain text only. `<system-reminder>` is reserved for the later `pi.sendMessage` completion push carrying `[carrier:result]`.
