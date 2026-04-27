@@ -5,6 +5,8 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-04-27
+
 ### Changed
 - **Phase 1 Restructure — Scope Triage + Mandatory Reconnaissance**: Split Fleet Action Protocol Phase 1 into two sub-phases: Phase 1a (Scope Triage) limits Admiral-direct file reads to ~2 files for scope classification only; Phase 1b (Vanguard Mandatory) requires Vanguard reconnaissance via `carrier_squadron` when 3+ files or modules are involved or scope is unclear.
 - **Delegation Policy — Tighter Direct Handling Threshold**: Reduced "Handle directly" file lookup limit from ~5 to ~2 files (scope triage only). Lowered investigation delegation threshold from 6+ to 3+ files. Vanguard reconnaissance is now mandatory when scope remains unclear after triage.
