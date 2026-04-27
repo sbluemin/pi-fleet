@@ -25,9 +25,23 @@ export const FLEET_ACTION: AdmiralProtocol = {
 **Completion rule:** All 7 phases must be evaluated for every task — do not stop after execution. Conditional phases may be skipped, but the decision to skip must be conscious, not accidental. If you end a task before reaching Phase 7, you **must** report which phases were skipped and why in your final response. Omitting phases without explanation is an anti-pattern.
 
 #### Phase 1 — Preliminary Analysis
-- Assess the task scope: direct handling vs. delegation.
-- If delegating, select appropriate Captain-led Carrier(s), provide background, objective, constraints, and acceptance criteria.
+
+##### Phase 1a — Scope Triage (Admiral-direct)
+- Read up to ~2 files to classify the task scope: trivial (single-file, clear target) vs. non-trivial (multi-file, unclear scope).
+- Purpose: determine whether reconnaissance is needed — not to gather implementation context.
+- If the task is trivially scoped (target file and change are already known), proceed directly to Phase 3.
+
+##### Phase 1b — Reconnaissance (Vanguard mandatory)
+Triggered when Phase 1a reveals any of:
+- 3+ files or modules are potentially involved.
+- The affected scope is unclear or requires codebase-wide search.
+- The Admiral cannot confidently identify all change targets from the ~2-file triage.
+
+Actions:
+- Sortie Vanguard (via carrier_squadron) for parallel reconnaissance. Assign focused search missions (e.g., "find all callers of X", "locate test files for Y", "trace the dependency chain of Z").
+- Do NOT perform direct multi-file exploration — delegate to Vanguard instead.
 - Let the Carrier determine its own approach — avoid prescribing steps unless the Admiral of the Navy (대원수) explicitly requires a specific method.
+- Use Vanguard results to inform delegation decisions in later phases.
 
 #### Phase 2 — Architecture Review *(conditional)*
 Triggered when the task involves structural changes, new modules, cross-layer dependencies, or API surface modifications.

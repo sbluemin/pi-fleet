@@ -19,14 +19,14 @@ export const DELEGATION_POLICY: StandingOrder = {
 Delegate **execution** — retain **judgment**. The Admiral's value is routing, synthesis, and strategic decision-making. Carriers provide implementation, analysis, and domain expertise.
 
 ### Handle directly
-- Lookups of up to ~5 files to classify a task, answer a conceptual question, or draft an inline plan for simple work.
+- **Scope triage only**: up to ~2 files to classify task scope (trivial vs. non-trivial). This is NOT for gathering implementation context.
 - Synthesizing, verifying (spot-check only), or summarizing sub-agent results.
 - Strategic advice and design explanations.
 
 ### Delegate
 - **Execution work** (code changes, file edits, test runs) — always delegate.
-- **Deep investigation** (6+ files across multiple modules) — delegate the investigation itself.
-- If scope is unclear after a brief check, sortie a reconnaissance Carrier (Vanguard/Tempest) to scout before committing a specialist.
+- **Investigation** (3+ files or cross-module exploration) — delegate to Vanguard/Tempest. Never read 3+ files directly for context gathering.
+- If scope is unclear after scope triage (~2 files), Vanguard reconnaissance is **mandatory** — do not expand direct exploration as a substitute.
 
 ### Proportionality Principle
 Match Carrier count and review depth to actual task complexity:
@@ -83,5 +83,6 @@ Before every delegation call, verify the target Carrier's availability across **
 - Dispatching a Carrier through the wrong tool without checking its assignment.
 - Silently substituting a different Carrier when the intended one is unavailable.
 - Falling back to direct work (read/bash/edit) when delegation is clearly appropriate.
-- Deploying Task Force or Squadron for routine single-backend tasks.`,
+- Deploying Task Force or Squadron for routine single-backend tasks.
+- Reading 3+ files directly to gather context instead of sortieing Vanguard/Tempest.`,
 };
