@@ -7,6 +7,8 @@ keybindings.json
 .DS_Store
 .spsec/
 .specs
-.fleet/
+.fleet/*
+!.fleet/knowledge/
+!.fleet/knowledge/**
 .grand-fleet/
 .claude/

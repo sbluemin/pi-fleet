@@ -127,6 +127,7 @@ Consumer (carriers, external extensions)
 | `pi-tools.ts` | Fleet PI tool, renderer, and job summary cache registration |
 | `pi-commands.ts` | Fleet-level slash commands registered at fleet entry, including fleet-owned `fleet:agent:status`, `fleet:jobs:mode`, and shipyard carrier-jobs `fleet:jobs:verbose` |
 | `push-mode-settings.ts` | Push delivery mode settings manager (`followUp` vs `steer`). Manages `settings.json` integration and SettingsOverlay registration. |
+| `experimental-wiki/` | Experimental Fleet Wiki extension — file-first store, patch queue, deterministic briefing, drydock, slash commands, gated by `PI_EXPERIMENTAL=1` |
 | `types.ts` | Public types + globalThis bridge key/interface for `requestUnifiedAgent` |
 | `constants.ts` | Shared constants (colors, spinners, border characters, panel colors) |
 | `bridge/streaming/types.ts` | Streaming domain types — ColBlock, ColStatus, CollectedStreamData |
