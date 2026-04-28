@@ -29,7 +29,7 @@ export function renderRequestPreview(
   if (contentLines.length <= COLLAPSED_MAX_LINES) return contentLines;
 
   const collapsed = contentLines.slice(0, COLLAPSED_MAX_LINES);
-  collapsed[collapsed.length - 1] = appendEllipsis(collapsed[collapsed.length - 1] ?? "");
+  collapsed[collapsed.length - 1] = truncateLine(appendEllipsis(collapsed[collapsed.length - 1] ?? ""), width);
   return [...collapsed, hintLine];
 }
 
