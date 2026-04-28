@@ -1,7 +1,7 @@
 /**
- * fleet/carrier/sortie.ts — Carrier Sortie 도구 등록
+ * carrier/tool-spec.ts — Carrier Sortie 도구 스펙
  *
- * carrier 위임의 유일한 PI 도구입니다.
+ * carrier 위임의 host-agnostic Fleet 도구 스펙입니다.
  * 1개 이상 Carrier에 작업을 위임(출격)할 때 사용합니다.
  *
  * [호출 인스턴스 격리 설계]
@@ -11,37 +11,31 @@
  * 3. renderCall/renderResult는 고정 요약만 담당하고, 실시간 스트리밍 표시는 Agent Panel이 전담합니다.
  */
 
-import type { ExtensionAPI, ExtensionContext, Theme } from "@mariozechner/pi-coding-agent";
+import type { AgentToolSpec } from "../public/tool-registry.js";
 import {
   buildSortieJobSummary,
   computeSortieFinalStatus,
   validateSortieAssignments,
   type CarrierSortieOutcome,
-} from "@sbluemin/fleet-core/carrier";
-import type { CliType } from "@sbluemin/unified-agent";
+} from "./index.js";
 
-import { getLogAPI } from "../../config-bridge/log/bridge.js";
-import { registerToolPromptManifest } from "@sbluemin/fleet-core/admiral/tool-prompt-manifest";
-import { runAgentRequestBackground } from "../../session-bridge/fleet/operation-runner.js";
+import { registerToolPromptManifest } from "../admiral/tool-prompt-manifest/index.js";
 import {
   finalizeJob,
   registerSortieJob,
   updateColumnTrackRunId,
   updateColumnTrackStatus,
-} from "@sbluemin/fleet-core/bridge/panel";
-import { toMessageArchiveBlock, toThoughtArchiveBlock } from "@sbluemin/fleet-core/job";
-import { combineAbortSignals } from "@sbluemin/fleet-core/job";
-import { acquireJobPermit } from "@sbluemin/fleet-core/job";
-import { registerJobAbortController, unregisterJobAbortControllers } from "@sbluemin/fleet-core/job";
-import { buildCarrierJobId } from "@sbluemin/fleet-core/job";
-import { formatLaunchResponseText } from "@sbluemin/fleet-core/job";
-import { appendBlock, createJobArchive, finalizeJobArchive } from "@sbluemin/fleet-core/job";
-import type { CarrierJobLaunchResponse, CarrierJobSummary, CarrierJobStatus } from "@sbluemin/fleet-core/job";
-import { putJobSummary } from "@sbluemin/fleet-core/job";
-import { enqueueCarrierCompletionPush } from "../../adapters/push/carrier-completion.js";
-import { renderRequestPreview } from "../request-preview.js";
-import { composeTier2Request } from "./prompts.js";
-import { getVisibleRun } from "@sbluemin/fleet-core/bridge/streaming";
+} from "../bridge/panel/index.js";
+import { toMessageArchiveBlock, toThoughtArchiveBlock } from "../job/index.js";
+import { combineAbortSignals } from "../job/index.js";
+import { acquireJobPermit } from "../job/index.js";
+import { registerJobAbortController, unregisterJobAbortControllers } from "../job/index.js";
+import { buildCarrierJobId } from "../job/index.js";
+import { formatLaunchResponseText } from "../job/index.js";
+import { appendBlock, createJobArchive, finalizeJobArchive } from "../job/index.js";
+import type { CarrierJobLaunchResponse, CarrierJobSummary, CarrierJobStatus } from "../job/index.js";
+import { putJobSummary } from "../job/index.js";
+import { getVisibleRun } from "../bridge/streaming/index.js";
 import {
   getRegisteredOrder,
   getSortieEnabledIds,
@@ -50,11 +44,12 @@ import {
   resolveCarrierDisplayName,
   getRegisteredCarrierConfig,
 } from "./framework.js";
-import { ANSI_RESET, SORTIE_SUMMARY_COLOR } from "@sbluemin/fleet-core/constants";
+import { ANSI_RESET, SORTIE_SUMMARY_COLOR } from "../constants.js";
 import {
   FLEET_SORTIE_DESCRIPTION,
   SORTIE_MANIFEST,
   buildCarrierSystemPrompt,
+  composeTier2Request,
   buildSortieToolPromptSnippet,
   buildSortieToolPromptGuidelines,
   buildSortieToolSchema,
@@ -75,8 +70,14 @@ interface CarrierSortieResult extends CarrierSortieOutcome {
   toolCalls?: { title: string; status: string }[];
 }
 
+interface SortieToolPorts {
+  readonly logDebug: (category: string, message: string, options?: unknown) => void;
+  readonly runAgentRequestBackground: (options: any) => Promise<any>;
+  readonly enqueueCarrierCompletionPush: (payload: { jobId: string; summary: string }) => void;
+}
+
 interface SortieBackgroundOptions {
-  pi: ExtensionAPI;
+  ports: SortieToolPorts;
   jobId: string;
   sortieKey: string;
   assignments: CarrierAssignment[];
@@ -133,7 +134,7 @@ const capturedPanelTrackRunIds = new Set<string>();
  * 이 팩토리는 등록 시 필요한 schema/guidelines/execute/render 등
  * 도구 기능 자체만을 제공합니다. 등록 불필요 시 null을 반환합니다.
  */
-export function buildSortieToolConfig(pi: ExtensionAPI) {
+export function buildSortieToolSpec(ports: SortieToolPorts): AgentToolSpec | null {
   const allCarriers = getRegisteredOrder();
   if (allCarriers.length < 1) return null; // Carrier가 없으면 등록 불필요
 
@@ -154,43 +155,25 @@ export function buildSortieToolConfig(pi: ExtensionAPI) {
     parameters: buildSortieToolSchema(enabledIds),
 
     // ── renderCall: 고정 1줄 요약 (실시간 스트리밍은 Agent Panel 전담) ──
-    renderCall(args: unknown, _theme: Theme, _context: any) {
-      const typedArgs = args as { carriers?: CarrierAssignment[] };
-      const payload = formatSortieRenderPayload(typedArgs.carriers ?? []);
-      return {
-        render() { return [`  ⚓ ${SORTIE_SUMMARY_COLOR}Sortie${ANSI_RESET}: ${payload}`]; },
-        invalidate() {},
-      };
-    },
-
-    // ── renderResult: 요청 프리뷰 ──
-    renderResult(_result: any, options: { expanded: boolean; isPartial: boolean }, _theme: any, context: any) {
-      const args = context?.args as { carriers?: Array<{ carrier: string; request: string }> } | undefined;
-      const entries = (args?.carriers ?? []).map((carrier) => ({ label: carrier.carrier, text: carrier.request }));
-      return {
-        render(width: number) {
-          return renderRequestPreview(entries, options.expanded, SORTIE_SUMMARY_COLOR, width);
-        },
-        invalidate() {},
-      };
+    render: {
+      call(args: unknown) {
+        const typedArgs = args as { carriers?: CarrierAssignment[] };
+        return formatSortieRenderPayload(typedArgs.carriers ?? []);
+      },
     },
 
     // ── execute: N개 Carrier 병렬 job 등록 ──
-    async execute(
-      id: string,
-      params: { expected_carrier_count: number; carriers: CarrierAssignment[] },
-      signal: AbortSignal | undefined,
-      _onUpdate: any,
-      ctx: ExtensionContext,
-    ) {
-      const t0 = Date.now();
+    async execute(args: unknown, ctx) {
+      const t0 = ctx.now();
       const cwd = ctx.cwd;
+      const params = args as { expected_carrier_count: number; carriers: CarrierAssignment[] };
       const assignments = params.carriers;
-      getLogAPI().debug(
+      ports.logDebug(
         SORTIE_LOG_CATEGORY_INVOKE,
         `execute start carriers=${assignments?.length ?? 0} ids=${(assignments ?? []).map((a) => a.carrier).join(", ") || "(none)"}`,
       );
-      const jobId = buildCarrierJobId("sortie", id);
+      const sortieKey = ctx.toolCallId ?? ``;
+      const jobId = buildCarrierJobId("sortie", sortieKey);
       const allIds = new Set(getRegisteredOrder());
       const enabledIds = new Set(getSortieEnabledIds());
       const validation = validateSortieAssignments({
@@ -208,10 +191,10 @@ export function buildSortieToolConfig(pi: ExtensionAPI) {
         },
       });
       if (validation.rejection) {
-        getLogAPI().debug(SORTIE_LOG_CATEGORY_ERROR, `carrier unavailable error=${validation.rejection.error}`);
+        ports.logDebug(SORTIE_LOG_CATEGORY_ERROR, `carrier unavailable error=${validation.rejection.error}`);
         return launchResponseResult(validation.rejection);
       }
-      getLogAPI().debug(
+      ports.logDebug(
         SORTIE_LOG_CATEGORY_VALIDATE,
         `validated carriers=${assignments.length} ids=${assignments.map((a) => a.carrier).join(", ")}`,
       );
@@ -233,12 +216,11 @@ export function buildSortieToolConfig(pi: ExtensionAPI) {
       const jobController = new AbortController();
       registerJobAbortController(jobId, jobController);
 
-      const effectiveSignal = signal
-        ? combineAbortSignals([signal, jobController.signal])
+      const effectiveSignal = ctx.signal
+        ? combineAbortSignals([ctx.signal, jobController.signal])
         : jobController.signal;
 
       // 진행 상태 초기화 (id = PI tool call ID로 호출 인스턴스를 고유 식별)
-      const sortieKey = id;
       const state = initSortieState(sortieKey, assignments.map((a) => a.carrier));
       registerSortieJob(
         jobId,
@@ -251,11 +233,11 @@ export function buildSortieToolConfig(pi: ExtensionAPI) {
           displayName: resolveCarrierDisplayName(assignment.carrier),
           kind: "carrier" as const,
         })),
-        id,
+        sortieKey,
       );
 
       void runSortieJobInBackground({
-        pi,
+        ports,
         jobId,
         sortieKey,
         assignments,
@@ -266,7 +248,7 @@ export function buildSortieToolConfig(pi: ExtensionAPI) {
         startedAt: t0,
       });
 
-      getLogAPI().debug(SORTIE_LOG_CATEGORY_RESULT, `run=${sortieKey} accepted job=${jobId}`);
+      ports.logDebug(SORTIE_LOG_CATEGORY_RESULT, `run=${sortieKey} accepted job=${jobId}`);
       return launchResponseResult({ job_id: jobId, accepted: true });
     },
   };
@@ -285,10 +267,10 @@ async function runSortieJobInBackground(opts: SortieBackgroundOptions): Promise<
     opts.state.finishedAt = Date.now();
     results = settledResults.map((settled, index) => {
       if (settled.status === "fulfilled") return settled.value;
-      return buildSortieErrorResult(opts.assignments[index]!.carrier, settled.reason);
+      return buildSortieErrorResult(opts.ports, opts.assignments[index]!.carrier, settled.reason);
     });
     finalStatus = computeSortieFinalStatus(results);
-    getLogAPI().debug(
+    opts.ports.logDebug(
       SORTIE_LOG_CATEGORY_RESULT,
       `run=${opts.sortieKey} success=${results.filter((r) => r.status === "done").length} failure=${results.filter((r) => r.status !== "done").length}`,
     );
@@ -300,13 +282,13 @@ async function runSortieJobInBackground(opts: SortieBackgroundOptions): Promise<
     const summary = buildSortieJobSummary(opts.jobId, opts.startedAt, finishedAt, opts.assignments, results, finalStatus, finalError);
     putJobSummary(summary, finishedAt);
     finalizeJobArchive(opts.jobId, finalStatus, finishedAt);
-    enqueueCarrierCompletionPush(opts.pi, { jobId: opts.jobId, summary: summary.summary });
+    opts.ports.enqueueCarrierCompletionPush({ jobId: opts.jobId, summary: summary.summary });
     unregisterJobAbortControllers(opts.jobId);
     opts.permit.release({ status: finalStatus, error: finalError, finishedAt });
     finalizeJob(opts.jobId, finalStatus === "done" ? "done" : finalStatus === "aborted" ? "aborted" : "error");
     clearCapturedPanelTrackRunIds(opts.jobId);
     clearSortieState(opts.sortieKey);
-    getLogAPI().debug(SORTIE_LOG_CATEGORY_INVOKE, `execute end elapsedMs=${finishedAt - opts.startedAt}`);
+    opts.ports.logDebug(SORTIE_LOG_CATEGORY_INVOKE, `execute end elapsedMs=${finishedAt - opts.startedAt}`);
   }
 }
 
@@ -329,7 +311,7 @@ async function runSortieAssignment(
   const composedRequest = carrierConfig?.carrierMetadata
     ? composeTier2Request(carrierConfig.carrierMetadata, assignment.request)
     : assignment.request;
-  getLogAPI().debug(
+  opts.ports.logDebug(
     SORTIE_LOG_CATEGORY_DISPATCH,
     [
       `carrier=${assignment.carrier} model=${cliType} promptChars=${composedRequest.length} run=${opts.sortieKey}`,
@@ -340,8 +322,8 @@ async function runSortieAssignment(
     { hideFromFooter: true, category: "prompt" },
   );
   try {
-    const result = await runAgentRequestBackground({
-      cli: cliType as CliType,
+    const result = await opts.ports.runAgentRequestBackground({
+      cli: cliType,
       carrierId: assignment.carrier,
       request: composedRequest,
       cwd: opts.cwd,
@@ -367,7 +349,7 @@ async function runSortieAssignment(
         captureSortieRunId(opts.state, assignment.carrier);
         capturePanelTrackRunId(opts.jobId, assignment.carrier);
         updateColumnTrackStatus(opts.jobId, assignment.carrier, "stream");
-        getLogAPI().debug(SORTIE_LOG_CATEGORY_STREAM, `carrier=${assignment.carrier} type=toolCall title=${toolTitle} status=${toolStatus}`, { hideFromFooter: true });
+        opts.ports.logDebug(SORTIE_LOG_CATEGORY_STREAM, `carrier=${assignment.carrier} type=toolCall title=${toolTitle} status=${toolStatus}`, { hideFromFooter: true });
       },
     });
     progress.status = result.status === "done" ? "done" : "error";
@@ -376,7 +358,7 @@ async function runSortieAssignment(
       assignment.carrier,
       result.status === "done" ? "done" : result.status === "aborted" ? "err" : "err",
     );
-    getLogAPI().debug(SORTIE_LOG_CATEGORY_EXEC, `carrier=${assignment.carrier} success=${result.status === "done"} status=${result.status} elapsedMs=${Date.now() - execStartedAt}`);
+    opts.ports.logDebug(SORTIE_LOG_CATEGORY_EXEC, `carrier=${assignment.carrier} success=${result.status === "done"} status=${result.status} elapsedMs=${Date.now() - execStartedAt}`);
     return {
       carrierId: assignment.carrier,
       displayName: resolveCarrierDisplayName(assignment.carrier),
@@ -389,7 +371,7 @@ async function runSortieAssignment(
     } as CarrierSortieResult;
   } catch (error) {
     updateColumnTrackStatus(opts.jobId, assignment.carrier, "err");
-    getLogAPI().debug(SORTIE_LOG_CATEGORY_EXEC, `carrier=${assignment.carrier} success=false status=error elapsedMs=${Date.now() - execStartedAt}`);
+    opts.ports.logDebug(SORTIE_LOG_CATEGORY_EXEC, `carrier=${assignment.carrier} success=false status=error elapsedMs=${Date.now() - execStartedAt}`);
     throw error;
   }
 }
@@ -415,9 +397,9 @@ function clearCapturedPanelTrackRunIds(jobId: string): void {
   }
 }
 
-function buildSortieErrorResult(carrierId: string, reason: unknown): CarrierSortieResult {
+function buildSortieErrorResult(ports: SortieToolPorts, carrierId: string, reason: unknown): CarrierSortieResult {
   const errorMessage = reason instanceof Error ? reason.message : String(reason);
-  getLogAPI().debug(SORTIE_LOG_CATEGORY_ERROR, `carrier=${carrierId} message=${errorMessage}`);
+  ports.logDebug(SORTIE_LOG_CATEGORY_ERROR, `carrier=${carrierId} message=${errorMessage}`);
   return {
     carrierId,
     displayName: resolveCarrierDisplayName(carrierId),

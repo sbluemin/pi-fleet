@@ -58,3 +58,9 @@ The Pi extension should increasingly read like host wiring. If a module requires
 3. **Port cleanup:** Replace host-specific assumptions with explicit core ports where future non-Pi hosts would need the same behavior.
 4. **Boundary tests:** Add focused tests that fail on `fleet-core` Pi imports, `fleet-pi-extension` deep imports, and legacy directory reintroduction.
 5. **Documentation hygiene:** Keep `docs/pi-development-reference.md`, `docs/admiral-workflow-reference.md`, and package `AGENTS.md` aligned with the current state.
+
+## Worked Example
+
+- Fleet tool specs for carrier sortie, squadron, taskforce, and carrier job lookup now live behind the `fleet-core` public registry surface.
+- `fleet-pi-extension/src/tools/fleet-pi-tools.ts` acts as a Pi adapter loop: it builds the host ports, iterates the core registry, binds Pi renderers/push delivery, and calls `pi.registerTool(...)`.
+- Pi-only surfaces such as custom message rendering and modal/request UI remain in the Pi extension.

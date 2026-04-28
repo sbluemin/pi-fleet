@@ -1,5 +1,5 @@
 /**
- * fleet/shipyard/taskforce/taskforce.ts — carrier_taskforce 도구 등록
+ * taskforce/tool-spec.ts — carrier_taskforce 도구 스펙
  *
  * 선택된 Carrier의 persona를 유지한 채로
  * 선택된 캐리어에 설정된 CLI 백엔드(2개 이상)에 동시 실행하여 교차검증합니다.
@@ -8,10 +8,10 @@
  * - renderCall/renderResult: 고정 요약만 반환하고 실시간 스트리밍은 Agent Panel이 전담
  */
 
-import type { ExtensionAPI, ExtensionContext, Theme } from "@mariozechner/pi-coding-agent";
-import { executeOneShot } from "@sbluemin/fleet-core/agent/executor";
-import { registerToolPromptManifest } from "@sbluemin/fleet-core/admiral/tool-prompt-manifest";
-import { finalizeJob, registerTaskforceJob } from "@sbluemin/fleet-core/bridge/panel";
+import type { AgentToolSpec } from "../public/tool-registry.js";
+import { executeOneShot } from "../agent/executor.js";
+import { registerToolPromptManifest } from "../admiral/tool-prompt-manifest/index.js";
+import { finalizeJob, registerTaskforceJob } from "../bridge/panel/index.js";
 import {
   createRun,
   appendTextBlock,
@@ -20,12 +20,12 @@ import {
   finalizeRun,
   updateRunStatus,
   getVisibleRun,
-} from "@sbluemin/fleet-core/bridge/streaming";
+} from "../bridge/streaming/index.js";
 import {
   ANSI_RESET,
   CLI_DISPLAY_NAMES,
   TASKFORCE_BADGE_COLOR,
-} from "@sbluemin/fleet-core/constants";
+} from "../constants.js";
 import {
   toMessageArchiveBlock,
   toThoughtArchiveBlock,
@@ -39,7 +39,7 @@ import {
   createJobArchive,
   finalizeJobArchive,
   putJobSummary,
-} from "@sbluemin/fleet-core/job";
+} from "../job/index.js";
 import {
   assertTaskForceBackendCount,
   buildTaskForceErrorResult as buildCoreTaskForceErrorResult,
@@ -59,16 +59,13 @@ import {
   type TaskForceCliType,
   type TaskForceResult,
   type TaskForceState,
-} from "@sbluemin/fleet-core/taskforce";
-import type { CarrierJobLaunchResponse, CarrierJobSummary, CarrierJobStatus } from "@sbluemin/fleet-core/job";
+} from "./index.js";
+import type { CarrierJobLaunchResponse, CarrierJobSummary, CarrierJobStatus } from "../job/index.js";
 import {
   getTaskForceModelConfig,
   getConfiguredTaskForceBackends,
-} from "@sbluemin/fleet-core/store";
+} from "../store/index.js";
 
-import { getLogAPI } from "../../config-bridge/log/bridge.js";
-import { enqueueCarrierCompletionPush } from "../../adapters/push/carrier-completion.js";
-import { renderRequestPreview } from "../request-preview.js";
 import {
   getActiveTaskForceIds,
   getRegisteredOrder,
@@ -80,8 +77,13 @@ import { buildCarrierSystemPrompt, composeTier2Request } from "../carrier/prompt
 
 // ─── 타입 ────────────────────────────────────────────────
 
+interface TaskForceToolPorts {
+  readonly logDebug: (category: string, message: string, options?: unknown) => void;
+  readonly enqueueCarrierCompletionPush: (payload: { jobId: string; summary: string }) => void;
+}
+
 interface TaskForceBackgroundOptions {
-  pi: ExtensionAPI;
+  ports: TaskForceToolPorts;
   jobId: string;
   carrierId: string;
   requestKey: string;
@@ -111,7 +113,7 @@ const TASKFORCE_LOG_CATEGORY_ERROR = "fleet-taskforce:error";
  * 이 팩토리는 등록 시 필요한 schema/guidelines/execute/render 등
  * 도구 기능 자체만을 제공합니다. 등록 불필요 시 null을 반환합니다.
  */
-export function buildTaskForceToolConfig(pi: ExtensionAPI) {
+export function buildTaskForceToolSpec(ports: TaskForceToolPorts): AgentToolSpec | null {
   const allCarriers = getRegisteredOrder();
   if (allCarriers.length < 1) return null;
 
@@ -130,55 +132,37 @@ export function buildTaskForceToolConfig(pi: ExtensionAPI) {
     parameters: buildTaskForceSchema(configuredCarriers),
 
     // ── renderCall: 고정 1줄 요약 (실시간 스트리밍은 Agent Panel 전담) ──
-    renderCall(args: unknown, _theme: Theme, _context: any) {
-      const typedArgs = args as { carrier?: string };
-      const carrier = typedArgs.carrier ?? "...";
-      return {
-        render() { return [`  ⚓ ${TASKFORCE_BADGE_COLOR}Taskforce${ANSI_RESET}: ${TASKFORCE_BADGE_COLOR}${carrier}${ANSI_RESET}`]; },
-        invalidate() {},
-      };
-    },
-
-    // ── renderResult: 요청 프리뷰 ──
-    renderResult(_result: any, options: { expanded: boolean; isPartial: boolean }, _theme: any, context: any) {
-      const args = context?.args as { carrier?: string; request?: string } | undefined;
-      const entries = args?.request ? [{ label: "", text: args.request }] : [];
-      return {
-        render(width: number) {
-          return renderRequestPreview(entries, options.expanded, TASKFORCE_BADGE_COLOR, width);
-        },
-        invalidate() {},
-      };
+    render: {
+      call(args: unknown) {
+        const typedArgs = args as { carrier?: string };
+        return typedArgs.carrier ?? "...";
+      },
     },
 
     // ── execute: 활성 백엔드 병렬 job 등록 ──
-    async execute(
-      _id: string,
-      params: { carrier: string; request: string },
-      signal: AbortSignal | undefined,
-      _onUpdate: any,
-      ctx: ExtensionContext,
-    ) {
-      const t0 = Date.now();
+    async execute(args: unknown, ctx) {
+      const t0 = ctx.now();
       const cwd = ctx.cwd;
+      const params = args as { carrier: string; request: string };
       const { carrier: carrierId, request } = params;
       const requestKey = buildTaskForceRequestKey(carrierId, request);
       const backendIds = getConfiguredTaskForceBackends(carrierId);
-      getLogAPI().debug(
+      ports.logDebug(
         TASKFORCE_LOG_CATEGORY_INVOKE,
         `execute start carrier=${carrierId} backends=${backendIds.length} ids=${backendIds.join(", ") || "(none)"}`,
       );
 
-      assertRegisteredCarrier(carrierId);
-      assertSortieEnabled(carrierId);
-      const activeBackends = assertTaskForceFormable(carrierId);
-      getLogAPI().debug(
+      assertRegisteredCarrier(ports, carrierId);
+      assertSortieEnabled(ports, carrierId);
+      const activeBackends = assertTaskForceFormable(ports, carrierId);
+      ports.logDebug(
         TASKFORCE_LOG_CATEGORY_VALIDATE,
         `validated carrier=${carrierId} backends=${activeBackends.length} ids=${activeBackends.join(", ")}`,
       );
       const composedRequest = buildComposedTaskForceRequest(carrierId, request);
 
-      const jobId = buildCarrierJobId("taskforce", _id);
+      const toolCallId = ctx.toolCallId ?? ``;
+      const jobId = buildCarrierJobId("taskforce", toolCallId);
       const permit = acquireJobPermit({
         jobId,
         tool: "carrier_taskforce",
@@ -195,15 +179,15 @@ export function buildTaskForceToolConfig(pi: ExtensionAPI) {
       createJobArchive(jobId, t0);
       const jobController = new AbortController();
       registerJobAbortController(jobId, jobController);
-      const effectiveSignal = signal
-        ? combineAbortSignals([signal, jobController.signal])
+      const effectiveSignal = ctx.signal
+        ? combineAbortSignals([ctx.signal, jobController.signal])
         : jobController.signal;
 
       // 진행 상태 초기화
       const state = initTaskForceState(carrierId, requestKey, activeBackends);
 
       void runTaskForceJobInBackground({
-        pi,
+        ports,
         jobId,
         carrierId,
         requestKey,
@@ -216,7 +200,7 @@ export function buildTaskForceToolConfig(pi: ExtensionAPI) {
         startedAt: t0,
       });
 
-      getLogAPI().debug(TASKFORCE_LOG_CATEGORY_RESULT, `carrier=${carrierId} accepted job=${jobId}`);
+      ports.logDebug(TASKFORCE_LOG_CATEGORY_RESULT, `carrier=${carrierId} accepted job=${jobId}`);
       return launchResponseResult({ job_id: jobId, accepted: true });
     },
   };
@@ -245,13 +229,13 @@ async function runTaskForceJobInBackground(opts: TaskForceBackgroundOptions): Pr
   try {
     const settledResults = await Promise.allSettled(
       opts.activeBackends.map((cliType) =>
-        runTaskForceBackend(cliType, opts.carrierId, opts.composedRequest, opts.state, opts.signal, opts.cwd, opts.jobId),
+        runTaskForceBackend(opts.ports, cliType, opts.carrierId, opts.composedRequest, opts.state, opts.signal, opts.cwd, opts.jobId),
       ),
     );
     opts.state.finishedAt = Date.now();
-    results = collectTaskForceResults(settledResults, opts.activeBackends);
+    results = collectTaskForceResults(opts.ports, settledResults, opts.activeBackends);
     finalStatus = computeTaskForceFinalStatus(results);
-    getLogAPI().debug(
+    opts.ports.logDebug(
       TASKFORCE_LOG_CATEGORY_RESULT,
       `carrier=${opts.carrierId} success=${results.filter((r) => r.status === "done").length} failure=${results.filter((r) => r.status !== "done").length}`,
     );
@@ -263,12 +247,12 @@ async function runTaskForceJobInBackground(opts: TaskForceBackgroundOptions): Pr
     const summary = buildTaskForceJobSummary(opts.jobId, opts.startedAt, finishedAt, opts.carrierId, results, finalStatus, finalError);
     putJobSummary(summary, finishedAt);
     finalizeJobArchive(opts.jobId, finalStatus, finishedAt);
-    enqueueCarrierCompletionPush(opts.pi, { jobId: opts.jobId, summary: summary.summary });
+    opts.ports.enqueueCarrierCompletionPush({ jobId: opts.jobId, summary: summary.summary });
     unregisterJobAbortControllers(opts.jobId);
     opts.permit.release({ status: finalStatus, error: finalError, finishedAt });
     finalizeJob(opts.jobId, finalStatus === "done" ? "done" : finalStatus === "aborted" ? "aborted" : "error");
     clearTaskForceState(opts.requestKey);
-    getLogAPI().debug(TASKFORCE_LOG_CATEGORY_INVOKE, `execute end carrier=${opts.carrierId} elapsedMs=${finishedAt - opts.startedAt}`);
+    opts.ports.logDebug(TASKFORCE_LOG_CATEGORY_INVOKE, `execute end carrier=${opts.carrierId} elapsedMs=${finishedAt - opts.startedAt}`);
   }
 }
 
@@ -283,11 +267,11 @@ function formatCarrierIdForMessage(carrierId: string): string {
   return JSON.stringify(carrierId);
 }
 
-function assertRegisteredCarrier(carrierId: string): void {
+function assertRegisteredCarrier(ports: TaskForceToolPorts, carrierId: string): void {
   const allIds = new Set(getRegisteredOrder());
   if (!allIds.has(carrierId)) {
     const registered = [...allIds].map(formatCarrierIdForMessage).join(", ") || "(none)";
-    getLogAPI().debug(
+    ports.logDebug(
       TASKFORCE_LOG_CATEGORY_ERROR,
       `unknown carrier carrier=${carrierId}`,
     );
@@ -297,9 +281,9 @@ function assertRegisteredCarrier(carrierId: string): void {
   }
 }
 
-function assertSortieEnabled(carrierId: string): void {
+function assertSortieEnabled(ports: TaskForceToolPorts, carrierId: string): void {
   if (isSortieCarrierEnabled(carrierId)) return;
-  getLogAPI().debug(
+  ports.logDebug(
     TASKFORCE_LOG_CATEGORY_ERROR,
     `carrier=${carrierId} sortieEnabled=false reason=manually disabled`,
   );
@@ -308,12 +292,12 @@ function assertSortieEnabled(carrierId: string): void {
   );
 }
 
-function assertTaskForceFormable(carrierId: string): TaskForceCliType[] {
+function assertTaskForceFormable(ports: TaskForceToolPorts, carrierId: string): TaskForceCliType[] {
   const activeBackends = getConfiguredTaskForceBackends(carrierId);
   try {
     return [...assertTaskForceBackendCount(carrierId, activeBackends)] as TaskForceCliType[];
   } catch (error) {
-    getLogAPI().debug(
+    ports.logDebug(
       TASKFORCE_LOG_CATEGORY_ERROR,
       `carrier=${carrierId} insufficient backends=${activeBackends.length}`,
     );
@@ -338,6 +322,7 @@ function getRequiredTaskForceModelConfig(
 }
 
 async function runTaskForceBackend(
+  ports: TaskForceToolPorts,
   cliType: TaskForceCliType,
   carrierId: string,
   request: string,
@@ -355,7 +340,7 @@ async function runTaskForceBackend(
 
   // synthetic run은 동일 키로 재사용하여 반복 실행 누적을 방지합니다.
   prepareTaskForceRun(syntheticId);
-  getLogAPI().debug(
+  ports.logDebug(
     TASKFORCE_LOG_CATEGORY_DISPATCH,
     [
       `carrier=${carrierId} backend=${cliType} model=${modelConfig.model ?? cliType} promptChars=${request.length} run=${syntheticId}`,
@@ -389,7 +374,7 @@ async function runTaskForceBackend(
       onThoughtChunk: (text: string) => {
         appendThoughtBlock(syntheticId, sanitizeChunk(text));
         appendBlock(jobId, toThoughtArchiveBlock(carrierId, text, cliType));
-        getLogAPI().debug(TASKFORCE_LOG_CATEGORY_STREAM, `carrier=${carrierId} backend=${cliType} type=thought\n${text}`, { hideFromFooter: true });
+        ports.logDebug(TASKFORCE_LOG_CATEGORY_STREAM, `carrier=${carrierId} backend=${cliType} type=thought\n${text}`, { hideFromFooter: true });
       },
       onToolCall: (title: string, status: string, _rawOutput?: string, toolCallId?: string) => {
         progress.status = "streaming";
@@ -400,19 +385,19 @@ async function runTaskForceBackend(
           sanitizeToolLabel(status),
           toolCallId,
         );
-        getLogAPI().debug(TASKFORCE_LOG_CATEGORY_STREAM, `carrier=${carrierId} backend=${cliType} type=toolCall title=${sanitizeToolLabel(title)} status=${sanitizeToolLabel(status)}`, { hideFromFooter: true });
+        ports.logDebug(TASKFORCE_LOG_CATEGORY_STREAM, `carrier=${carrierId} backend=${cliType} type=toolCall title=${sanitizeToolLabel(title)} status=${sanitizeToolLabel(status)}`, { hideFromFooter: true });
       },
     });
 
     progress.status = result.status === "done" ? "done" : "error";
-    getLogAPI().debug(
+    ports.logDebug(
       TASKFORCE_LOG_CATEGORY_EXEC,
       `carrier=${carrierId} backend=${cliType} success=${result.status === "done"} status=${result.status} elapsedMs=${Date.now() - execStartedAt}`,
     );
     finalizeTaskForceRun(syntheticId, result);
     return buildTaskForceResult(cliType, result);
   } catch (error) {
-    getLogAPI().debug(
+    ports.logDebug(
       TASKFORCE_LOG_CATEGORY_EXEC,
       `carrier=${carrierId} backend=${cliType} success=false status=error elapsedMs=${Date.now() - execStartedAt}`,
     );
@@ -450,21 +435,23 @@ function buildTaskForceResult(
 }
 
 function collectTaskForceResults(
+  ports: TaskForceToolPorts,
   settledResults: PromiseSettledResult<TaskForceResult>[],
   activeBackends: readonly TaskForceCliType[],
 ): TaskForceResult[] {
   return settledResults.map((settled, index) => {
     if (settled.status === "fulfilled") return settled.value;
     return buildTaskForceErrorResult(
+      ports,
       activeBackends[index]!,
       settled.reason,
     );
   });
 }
 
-function buildTaskForceErrorResult(cliType: TaskForceCliType, reason: unknown): TaskForceResult {
+function buildTaskForceErrorResult(ports: TaskForceToolPorts, cliType: TaskForceCliType, reason: unknown): TaskForceResult {
   const result = buildCoreTaskForceErrorResult(cliType, reason);
-  getLogAPI().debug(
+  ports.logDebug(
     TASKFORCE_LOG_CATEGORY_ERROR,
     `backend=${cliType} message=${result.error ?? ""}`,
   );

@@ -1,5 +1,5 @@
 /**
- * fleet/shipyard/squadron/squadron.ts — carrier_squadron 도구 등록
+ * squadron/tool-spec.ts — carrier_squadron 도구 스펙
  *
  * 동일 캐리어 타입의 여러 인스턴스를 병렬로 출격하여
  * 하나의 임무를 분할 처리합니다.
@@ -8,10 +8,10 @@
  * - renderCall/renderResult: 고정 요약만 반환하고 실시간 스트리밍은 Agent Panel이 전담
  */
 
-import type { ExtensionAPI, ExtensionContext, Theme } from "@mariozechner/pi-coding-agent";
-import { executeOneShot } from "@sbluemin/fleet-core/agent/executor";
-import { registerToolPromptManifest } from "@sbluemin/fleet-core/admiral/tool-prompt-manifest";
-import { finalizeJob, registerSquadronJob } from "@sbluemin/fleet-core/bridge/panel";
+import type { AgentToolSpec } from "../public/tool-registry.js";
+import { executeOneShot } from "../agent/executor.js";
+import { registerToolPromptManifest } from "../admiral/tool-prompt-manifest/index.js";
+import { finalizeJob, registerSquadronJob } from "../bridge/panel/index.js";
 import {
   createRun,
   appendTextBlock,
@@ -20,8 +20,8 @@ import {
   finalizeRun,
   updateRunStatus,
   getVisibleRun,
-} from "@sbluemin/fleet-core/bridge/streaming";
-import { ANSI_RESET, SQUADRON_BADGE_COLOR } from "@sbluemin/fleet-core/constants";
+} from "../bridge/streaming/index.js";
+import { ANSI_RESET, SQUADRON_BADGE_COLOR } from "../constants.js";
 import {
   toMessageArchiveBlock,
   toThoughtArchiveBlock,
@@ -35,7 +35,7 @@ import {
   createJobArchive,
   finalizeJobArchive,
   putJobSummary,
-} from "@sbluemin/fleet-core/job";
+} from "../job/index.js";
 import {
   buildSquadronJobSummary,
   buildSquadronRequestKey,
@@ -55,13 +55,10 @@ import {
   type SubtaskProgress,
   type SquadronResult,
   type SquadronState,
-} from "@sbluemin/fleet-core/squadron";
-import type { CarrierJobLaunchResponse, CarrierJobSummary, CarrierJobStatus } from "@sbluemin/fleet-core/job";
-import { loadModels } from "@sbluemin/fleet-core/store";
+} from "./index.js";
+import type { CarrierJobLaunchResponse, CarrierJobSummary, CarrierJobStatus } from "../job/index.js";
+import { loadModels } from "../store/index.js";
 
-import { getLogAPI } from "../../config-bridge/log/bridge.js";
-import { enqueueCarrierCompletionPush } from "../../adapters/push/carrier-completion.js";
-import { renderRequestPreview } from "../request-preview.js";
 import {
   getActiveSquadronIds,
   getRegisteredOrder,
@@ -74,8 +71,13 @@ import { buildCarrierSystemPrompt, composeTier2Request } from "../carrier/prompt
 
 // ─── 타입 ────────────────────────────────────────────────
 
+interface SquadronToolPorts {
+  readonly logDebug: (category: string, message: string, options?: unknown) => void;
+  readonly enqueueCarrierCompletionPush: (payload: { jobId: string; summary: string }) => void;
+}
+
 interface SquadronBackgroundOptions {
-  pi: ExtensionAPI;
+  ports: SquadronToolPorts;
   jobId: string;
   carrierId: string;
   requestKey: string;
@@ -106,7 +108,7 @@ const SQUADRON_LOG_CATEGORY_ERROR = "fleet-squadron:error";
  * 이 팩토리는 등록 시 필요한 schema/guidelines/execute/render 등
  * 도구 기능 자체만을 제공합니다. 등록 불필요 시 null을 반환합니다.
  */
-export function buildSquadronToolConfig(pi: ExtensionAPI) {
+export function buildSquadronToolSpec(ports: SquadronToolPorts): AgentToolSpec | null {
   const allCarriers = getRegisteredOrder();
   if (allCarriers.length < 1) return null;
 
@@ -125,54 +127,31 @@ export function buildSquadronToolConfig(pi: ExtensionAPI) {
     parameters: buildSquadronSchema(enabledCarriers),
 
     // ── renderCall: 고정 1줄 요약 (실시간 스트리밍은 Agent Panel 전담) ──
-    renderCall(args: unknown, _theme: Theme, _context: any) {
-      const typedArgs = args as {
-        carrier?: string;
-        subtasks?: Array<{ title: string; request: string }>;
-      };
-      const carrier = typedArgs.carrier ?? "...";
-      const count = typedArgs.subtasks?.length ?? 0;
-      return {
-        render() { return [`  ⚓ ${SQUADRON_BADGE_COLOR}Squadron${ANSI_RESET}: ${SQUADRON_BADGE_COLOR}${carrier} ×${count} subtasks${ANSI_RESET}`]; },
-        invalidate() {},
-      };
-    },
-
-    // ── renderResult: 요청 프리뷰 ──
-    renderResult(_result: any, options: { expanded: boolean; isPartial: boolean }, _theme: any, context: any) {
-      const args = context?.args as { subtasks?: Array<{ title: string; request: string }> } | undefined;
-      const entries = (args?.subtasks ?? []).map((subtask) => ({ label: `"${subtask.title}"`, text: subtask.request }));
-      return {
-        render(width: number) {
-          return renderRequestPreview(entries, options.expanded, SQUADRON_BADGE_COLOR, width);
-        },
-        invalidate() {},
-      };
+    render: {
+      call(args: unknown) {
+        const typedArgs = args as { carrier?: string; subtasks?: Array<{ title: string; request: string }> };
+        return { carrier: typedArgs.carrier ?? "...", count: typedArgs.subtasks?.length ?? 0 };
+      },
     },
 
     // ── execute: 병렬 job 등록 ──
-    async execute(
-      _id: string,
-      params: { carrier: string; expected_subtask_count: number; subtasks: Array<{ title: string; request: string }> },
-      signal: AbortSignal | undefined,
-      _onUpdate: any,
-      ctx: ExtensionContext,
-    ) {
-      const t0 = Date.now();
+    async execute(args: unknown, ctx) {
+      const t0 = ctx.now();
       const cwd = ctx.cwd;
+      const params = args as { carrier: string; expected_subtask_count: number; subtasks: Array<{ title: string; request: string }> };
       const { carrier: carrierId, expected_subtask_count, subtasks } = params;
-      getLogAPI().debug(
+      ports.logDebug(
         SQUADRON_LOG_CATEGORY_INVOKE,
         `execute start carrier=${carrierId} subtasks=${subtasks.length} ids=${subtasks.map((_, index) => `${index}`).join(", ") || "(none)"}`,
       );
 
       // 1. 검증
-      assertRegisteredCarrier(carrierId);
-      assertSortieEnabled(carrierId);
-      assertSquadronEnabled(carrierId);
-      assertSubtaskCount(expected_subtask_count, subtasks.length);
-      assertSubtaskLimit(subtasks.length);
-      getLogAPI().debug(
+      assertRegisteredCarrier(ports, carrierId);
+      assertSortieEnabled(ports, carrierId);
+      assertSquadronEnabled(ports, carrierId);
+      assertSubtaskCount(ports, expected_subtask_count, subtasks.length);
+      assertSubtaskLimit(ports, subtasks.length);
+      ports.logDebug(
         SQUADRON_LOG_CATEGORY_VALIDATE,
         `validated carrier=${carrierId} expected=${expected_subtask_count} subtasks=${subtasks.length}`,
       );
@@ -188,7 +167,8 @@ export function buildSquadronToolConfig(pi: ExtensionAPI) {
           : st.request,
       );
 
-      const jobId = buildCarrierJobId("squadron", _id);
+      const toolCallId = ctx.toolCallId ?? ``;
+      const jobId = buildCarrierJobId("squadron", toolCallId);
       const permit = acquireJobPermit({
         jobId,
         tool: "carrier_squadron",
@@ -205,8 +185,8 @@ export function buildSquadronToolConfig(pi: ExtensionAPI) {
       createJobArchive(jobId, t0);
       const jobController = new AbortController();
       registerJobAbortController(jobId, jobController);
-      const effectiveSignal = signal
-        ? combineAbortSignals([signal, jobController.signal])
+      const effectiveSignal = ctx.signal
+        ? combineAbortSignals([ctx.signal, jobController.signal])
         : jobController.signal;
 
       // 3. 진행 상태 초기화
@@ -214,7 +194,7 @@ export function buildSquadronToolConfig(pi: ExtensionAPI) {
       const state = initSquadronState(carrierId, requestKey, sanitizedSubtasks);
 
       void runSquadronJobInBackground({
-        pi,
+        ports,
         jobId,
         carrierId,
         requestKey,
@@ -228,7 +208,7 @@ export function buildSquadronToolConfig(pi: ExtensionAPI) {
         startedAt: t0,
       });
 
-      getLogAPI().debug(SQUADRON_LOG_CATEGORY_RESULT, `carrier=${carrierId} accepted job=${jobId}`);
+      ports.logDebug(SQUADRON_LOG_CATEGORY_RESULT, `carrier=${carrierId} accepted job=${jobId}`);
       return launchResponseResult({ job_id: jobId, accepted: true });
     },
   };
@@ -260,6 +240,7 @@ async function runSquadronJobInBackground(opts: SquadronBackgroundOptions): Prom
     const settledResults = await Promise.allSettled(
       opts.sanitizedSubtasks.map((st, index) =>
         runSquadronInstance(index, st.title, opts.composedSubtasks[index]!, {
+          ports: opts.ports,
           carrierId: opts.carrierId,
           cliType,
           modelConfig,
@@ -273,9 +254,9 @@ async function runSquadronJobInBackground(opts: SquadronBackgroundOptions): Prom
       ),
     );
     opts.state.finishedAt = Date.now();
-    results = collectSquadronResults(settledResults, opts.sanitizedSubtasks);
+    results = collectSquadronResults(opts.ports, settledResults, opts.sanitizedSubtasks);
     finalStatus = computeSquadronFinalStatus(results);
-    getLogAPI().debug(
+    opts.ports.logDebug(
       SQUADRON_LOG_CATEGORY_RESULT,
       `carrier=${opts.carrierId} success=${results.filter((r) => r.status === "done").length} failure=${results.filter((r) => r.status !== "done").length}`,
     );
@@ -287,12 +268,12 @@ async function runSquadronJobInBackground(opts: SquadronBackgroundOptions): Prom
     const summary = buildSquadronJobSummary(opts.jobId, opts.startedAt, finishedAt, opts.carrierId, results, finalStatus, finalError);
     putJobSummary(summary, finishedAt);
     finalizeJobArchive(opts.jobId, finalStatus, finishedAt);
-    enqueueCarrierCompletionPush(opts.pi, { jobId: opts.jobId, summary: summary.summary });
+    opts.ports.enqueueCarrierCompletionPush({ jobId: opts.jobId, summary: summary.summary });
     unregisterJobAbortControllers(opts.jobId);
     opts.permit.release({ status: finalStatus, error: finalError, finishedAt });
     finalizeJob(opts.jobId, finalStatus === "done" ? "done" : finalStatus === "aborted" ? "aborted" : "error");
     clearSquadronState(opts.requestKey);
-    getLogAPI().debug(SQUADRON_LOG_CATEGORY_INVOKE, `execute end carrier=${opts.carrierId} elapsedMs=${finishedAt - opts.startedAt}`);
+    opts.ports.logDebug(SQUADRON_LOG_CATEGORY_INVOKE, `execute end carrier=${opts.carrierId} elapsedMs=${finishedAt - opts.startedAt}`);
   }
 }
 
@@ -307,11 +288,11 @@ function formatCarrierIdForMessage(carrierId: string): string {
   return JSON.stringify(carrierId);
 }
 
-function assertRegisteredCarrier(carrierId: string): void {
+function assertRegisteredCarrier(ports: SquadronToolPorts, carrierId: string): void {
   const allIds = new Set(getRegisteredOrder());
   if (!allIds.has(carrierId)) {
     const registered = [...allIds].map(formatCarrierIdForMessage).join(", ") || "(none)";
-    getLogAPI().debug(
+    ports.logDebug(
       SQUADRON_LOG_CATEGORY_ERROR,
       `unknown carrier carrier=${carrierId}`,
     );
@@ -321,9 +302,9 @@ function assertRegisteredCarrier(carrierId: string): void {
   }
 }
 
-function assertSortieEnabled(carrierId: string): void {
+function assertSortieEnabled(ports: SquadronToolPorts, carrierId: string): void {
   if (isSortieCarrierEnabled(carrierId)) return;
-  getLogAPI().debug(
+  ports.logDebug(
     SQUADRON_LOG_CATEGORY_ERROR,
     `carrier=${carrierId} sortieEnabled=false reason=manually disabled`,
   );
@@ -332,9 +313,9 @@ function assertSortieEnabled(carrierId: string): void {
   );
 }
 
-function assertSquadronEnabled(carrierId: string): void {
+function assertSquadronEnabled(ports: SquadronToolPorts, carrierId: string): void {
   if (!isSquadronCarrierEnabled(carrierId)) {
-    getLogAPI().debug(
+    ports.logDebug(
       SQUADRON_LOG_CATEGORY_ERROR,
       `carrier=${carrierId} squadronEnabled=false`,
     );
@@ -345,11 +326,11 @@ function assertSquadronEnabled(carrierId: string): void {
   }
 }
 
-function assertSubtaskCount(expected: number, actual: number): void {
+function assertSubtaskCount(ports: SquadronToolPorts, expected: number, actual: number): void {
   try {
     validateSquadronSubtaskCount(expected, actual);
   } catch (error) {
-    getLogAPI().debug(
+    ports.logDebug(
       SQUADRON_LOG_CATEGORY_ERROR,
       `subtask count mismatch expected=${expected} actual=${actual}`,
     );
@@ -357,11 +338,11 @@ function assertSubtaskCount(expected: number, actual: number): void {
   }
 }
 
-function assertSubtaskLimit(count: number): void {
+function assertSubtaskLimit(ports: SquadronToolPorts, count: number): void {
   try {
     validateSquadronSubtaskLimit(count);
   } catch (error) {
-    getLogAPI().debug(
+    ports.logDebug(
       SQUADRON_LOG_CATEGORY_ERROR,
       count < 1 ? `subtask count invalid count=${count}` : `subtask count over limit count=${count} max=${SQUADRON_MAX_INSTANCES}`,
     );
@@ -374,6 +355,7 @@ async function runSquadronInstance(
   title: string,
   request: string,
   opts: {
+    ports: SquadronToolPorts;
     carrierId: string;
     cliType: string;
     modelConfig: { model?: string; effort?: string; budgetTokens?: number } | undefined;
@@ -394,7 +376,7 @@ async function runSquadronInstance(
 
   // synthetic run 생성/재사용 (taskforce 패턴)
   prepareSquadronRun(syntheticId);
-  getLogAPI().debug(
+  opts.ports.logDebug(
     SQUADRON_LOG_CATEGORY_DISPATCH,
     [
       `carrier=${opts.carrierId} subtask=${index} model=${opts.modelConfig?.model ?? opts.cliType} promptChars=${request.length} run=${syntheticId}`,
@@ -428,7 +410,7 @@ async function runSquadronInstance(
       onThoughtChunk: (text: string) => {
         appendThoughtBlock(syntheticId, sanitizeChunk(text));
         appendBlock(opts.jobId, toThoughtArchiveBlock(opts.carrierId, text, `subtask ${index}: ${title}`));
-        getLogAPI().debug(SQUADRON_LOG_CATEGORY_STREAM, `carrier=${opts.carrierId} subtask=${index} type=thought\n${text}`, { hideFromFooter: true });
+        opts.ports.logDebug(SQUADRON_LOG_CATEGORY_STREAM, `carrier=${opts.carrierId} subtask=${index} type=thought\n${text}`, { hideFromFooter: true });
       },
       onToolCall: (toolTitle: string, toolStatus: string, _rawOutput?: string, toolCallId?: string) => {
         progress.status = "streaming";
@@ -439,19 +421,19 @@ async function runSquadronInstance(
           sanitizeToolLabel(toolStatus),
           toolCallId,
         );
-        getLogAPI().debug(SQUADRON_LOG_CATEGORY_STREAM, `carrier=${opts.carrierId} subtask=${index} type=toolCall title=${sanitizeToolLabel(toolTitle)} status=${sanitizeToolLabel(toolStatus)}`, { hideFromFooter: true });
+        opts.ports.logDebug(SQUADRON_LOG_CATEGORY_STREAM, `carrier=${opts.carrierId} subtask=${index} type=toolCall title=${sanitizeToolLabel(toolTitle)} status=${sanitizeToolLabel(toolStatus)}`, { hideFromFooter: true });
       },
     });
 
     progress.status = result.status === "done" ? "done" : "error";
-    getLogAPI().debug(
+    opts.ports.logDebug(
       SQUADRON_LOG_CATEGORY_EXEC,
       `carrier=${opts.carrierId} subtask=${index} success=${result.status === "done"} status=${result.status} elapsedMs=${Date.now() - execStartedAt}`,
     );
     finalizeSquadronRun(syntheticId, result);
     return buildSquadronResult(index, title, result);
   } catch (error) {
-    getLogAPI().debug(
+    opts.ports.logDebug(
       SQUADRON_LOG_CATEGORY_EXEC,
       `carrier=${opts.carrierId} subtask=${index} success=false status=error elapsedMs=${Date.now() - execStartedAt}`,
     );
@@ -487,20 +469,21 @@ function buildSquadronResult(
 }
 
 function collectSquadronResults(
+  ports: SquadronToolPorts,
   settledResults: PromiseSettledResult<SquadronResult>[],
   subtasks: Array<{ title: string; request: string }>,
 ): SquadronResult[] {
   return settledResults.map((settled, index) => {
     if (settled.status === "fulfilled") return settled.value;
-    return buildSquadronErrorResult(index, subtasks[index]!.title, settled.reason);
+    return buildSquadronErrorResult(ports, index, subtasks[index]!.title, settled.reason);
   });
 }
 
-function buildSquadronErrorResult(index: number, title: string, reason: unknown): SquadronResult {
+function buildSquadronErrorResult(ports: SquadronToolPorts, index: number, title: string, reason: unknown): SquadronResult {
   const errorMessage = sanitizeChunk(
     reason instanceof Error ? reason.message : String(reason),
   );
-  getLogAPI().debug(
+  ports.logDebug(
     SQUADRON_LOG_CATEGORY_ERROR,
     `subtask=${index} title=${title} message=${errorMessage}`,
   );

@@ -15,7 +15,7 @@ interface CarrierJobsRenderResponse {
   error?: string;
 }
 
-interface CarrierJobsToolResult {
+export interface CarrierJobsToolResult {
   content?: Array<{ type: "text"; text: string }>;
   details?: unknown;
 }

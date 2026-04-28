@@ -18,6 +18,7 @@ export interface TypeBoxSchema {
 
 export interface AgentToolCtx {
   readonly cwd: string;
+  readonly toolCallId?: string;
   readonly signal?: AbortSignal;
   readonly log: FleetLogPort;
   readonly now: () => number;
@@ -41,7 +42,10 @@ export interface AgentToolMcpDescriptor {
 
 export interface AgentToolSpec {
   readonly name: string;
+  readonly label?: string;
   readonly description: string;
+  readonly promptSnippet?: string;
+  readonly promptGuidelines?: readonly string[];
   readonly parameters: TypeBoxSchema;
   execute(args: unknown, ctx: AgentToolCtx): Promise<unknown>;
   readonly render?: AgentToolRenderDescriptor;

@@ -31,6 +31,7 @@
 - `ExtensionAPI`, `ExtensionContext`, `pi.on(...)`, `pi.registerTool(...)`, `pi.registerCommand(...)`, `pi.registerShortcut(...)`, `pi.registerProvider(...)`, and `pi.sendMessage(...)`
 - Pi widget/editor/footer/overlay rendering
 - Pi-specific lifecycle coordination and active-run-safe wrappers
+- Pi tool registration loops that consume `fleet-core` tool specs and call `pi.registerTool(...)`
 - Adapter implementations that bind `fleet-core` ports to Pi facilities
 
 ## Must Not Own
@@ -45,6 +46,7 @@
 - Consume `@sbluemin/fleet-core` only through documented public root or subpath exports.
 - Pi capability buckets may depend on each other when their responsibilities require it, but keep ownership clear: registration belongs to the owning bucket.
 - Historical legacy homes under `src/` are already removed. Do not use their old paths as ownership signals or recreate them as transitional homes.
+- Tool definitions should come from `fleet-core` registries where possible; Pi files add only host adapters, renderers, push delivery, and lifecycle gates.
 
 ## Migration Guardrails
 

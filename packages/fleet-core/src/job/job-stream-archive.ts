@@ -29,7 +29,7 @@ export function createJobArchive(jobId: string, now = Date.now()): JobArchive {
 export function appendBlock(jobId: string, block: ArchiveBlock, now = Date.now()): boolean {
   const archive = getLiveArchive(jobId, now);
   if (!archive) return false;
-  normalizeArchiveBytes(archive);
+  ensureArchiveBytes(archive);
   applyAppendPolicy(archive, block);
   archive.updatedAt = now;
   pruneArchiveIfNeeded(archive, now);
@@ -179,7 +179,8 @@ function redactBlock(block: ArchiveBlock): ArchiveBlock {
   };
 }
 
-function normalizeArchiveBytes(archive: JobArchive): void {
+function ensureArchiveBytes(archive: JobArchive): void {
+  if (Number.isFinite(archive.totalBytes) && archive.totalBytes >= 0) return;
   archive.totalBytes = blockBytesTotal(archive.blocks);
 }
 

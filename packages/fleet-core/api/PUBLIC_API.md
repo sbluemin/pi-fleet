@@ -20,8 +20,10 @@ This contract is the external surface for `@sbluemin/fleet-core`. It is frozen f
 - `AgentToolSpec`
 - `AgentToolCtx`
 - `createAgentToolRegistry(): AgentToolRegistry`
+- `FleetToolRegistryPorts`
+- `createFleetToolRegistry(ports: FleetToolRegistryPorts): readonly AgentToolSpec[]`
 
-The registry feeds both Pi tool registration and the in-process MCP server.
+The generic registry feeds both Pi tool registration and the in-process MCP server. `createFleetToolRegistry` exposes Fleet-owned tool specs for host adapters; hosts still own their registration sink, renderers, and push/UI wiring.
 
 ## Host Ports
 

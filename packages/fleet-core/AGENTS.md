@@ -13,6 +13,7 @@
 
 - Fleet domain modules such as `admiral/`, `agent/`, `boot/`, `bridge/`, `carrier/`, `carrier-jobs/`, `core-services/`, `grand-fleet/`, `job/`, `metaphor/`, `operation/`, `push/`, `squadron/`, `store/`, and `taskforce/`
 - Public API contracts and frozen consumer surfaces
+- Fleet tool specs and registry factories that are host-agnostic and registered by adapters through public APIs
 - Global runtime stores and compatibility keys used by Pi adapters
 - Pure prompt composition and domain-level orchestration logic
 

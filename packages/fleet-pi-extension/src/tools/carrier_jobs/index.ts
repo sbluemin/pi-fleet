@@ -2,4 +2,4 @@ import { ensureShipyardLogCategories } from "../carrier/register.js";
 
 ensureShipyardLogCategories();
 
-export { buildCarrierJobsToolConfig } from "./jobs.js";
+export { renderCarrierJobsCall, renderCarrierJobsResult } from "./jobs.js";

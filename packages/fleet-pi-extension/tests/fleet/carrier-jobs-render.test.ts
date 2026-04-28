@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { buildCarrierJobsToolConfig } from "../../src/tools/carrier_jobs/jobs.js";
+import { renderCarrierJobsCall, renderCarrierJobsResult } from "../../src/tools/carrier_jobs/jobs.js";
 import {
   CarrierJobsCallComponent,
   CarrierJobsVerboseCallComponent,
@@ -75,9 +75,8 @@ describe("carrier_jobs rendering", () => {
   });
 
   it("uses quiet call and empty result components by default", () => {
-    const tool = buildCarrierJobsToolConfig() as any;
-    const call = tool.renderCall({ action: "list" }, {}, {});
-    const result = tool.renderResult(buildResult({ action: "list", ok: true, active: [], recent: [] }), {}, {}, {});
+    const call = renderCarrierJobsCall({ action: "list" }, {});
+    const result = renderCarrierJobsResult(buildResult({ action: "list", ok: true, active: [], recent: [] }));
 
     expect(call).toBeInstanceOf(CarrierJobsCallComponent);
     expect(call.render()).toHaveLength(1);
@@ -85,11 +84,10 @@ describe("carrier_jobs rendering", () => {
   });
 
   it("uses verbose call and result components when verbose mode is enabled", () => {
-    const tool = buildCarrierJobsToolConfig() as any;
     setCarrierJobsVerbose(true);
 
-    const call = tool.renderCall({ action: "status", job_id: "sortie:abc123" }, {}, {});
-    const result = tool.renderResult(buildResult({ action: "status", ok: true, job_id: "sortie:abc123", status: "done" }), {}, {}, {});
+    const call = renderCarrierJobsCall({ action: "status", job_id: "sortie:abc123" }, {});
+    const result = renderCarrierJobsResult(buildResult({ action: "status", ok: true, job_id: "sortie:abc123", status: "done" }));
 
     expect(call).toBeInstanceOf(CarrierJobsVerboseCallComponent);
     expect(result.render().join("\n")).toContain('"status": "done"');
