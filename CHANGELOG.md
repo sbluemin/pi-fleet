@@ -5,6 +5,8 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-04-28
+
 ### Removed
 - **Codex `service_tier` config support**: Removed `service_tier` from `CODEX_TURN_LEVEL_CONFIG_KEYS` and its pending-override cleanup logic in `UnifiedCodexAgentClient`.
 
