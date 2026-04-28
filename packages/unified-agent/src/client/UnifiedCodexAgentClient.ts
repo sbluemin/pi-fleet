@@ -54,7 +54,7 @@ interface CodexThreadDefaultsForReset {
   config?: Record<string, CodexJsonValue>;
 }
 
-const CODEX_TURN_LEVEL_CONFIG_KEYS = new Set(['reasoning_effort', 'service_tier', 'model']);
+const CODEX_TURN_LEVEL_CONFIG_KEYS = new Set(['reasoning_effort', 'model']);
 const CODEX_THREAD_POLICY_CONFIG_KEYS = new Set(['approvalPolicy', 'sandbox']);
 
 /**
@@ -397,9 +397,6 @@ export class UnifiedCodexAgentClient extends EventEmitter implements IUnifiedAge
       delete this.pendingOverrides.turnConfig.reasoning_effort;
     }
 
-    if (this.pendingOverrides.turnConfig.service_tier) {
-      delete this.pendingOverrides.turnConfig.service_tier;
-    }
   }
 
   private buildCodexThreadDefaultsForReset(cwd: string): CodexThreadDefaultsForReset {

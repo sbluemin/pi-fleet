@@ -69,7 +69,6 @@ describe('UnifiedCodexAgentClient config staging', () => {
       cli: 'codex',
       systemPrompt: '개발자 지침',
       model: 'gpt-5.4',
-      configOverrides: ['service_tier="fast"'],
     });
 
     expect(CodexAppServerConnection).toHaveBeenCalledWith(expect.objectContaining({
@@ -77,8 +76,6 @@ describe('UnifiedCodexAgentClient config staging', () => {
         'app-server',
         '--listen',
         'stdio://',
-        '-c',
-        'service_tier="fast"',
       ],
     }));
     expect(mockCodexConnect).toHaveBeenCalledWith({
@@ -150,7 +147,6 @@ describe('UnifiedCodexAgentClient config staging', () => {
 
     await client.setModel('gpt-5.4-mini');
     await client.setConfigOption('reasoning_effort', 'high');
-    await client.setConfigOption('service_tier', 'fast');
     await client.sendMessage('안녕');
 
     expect(mockSetPendingModel).toHaveBeenCalledWith('gpt-5.4-mini');
