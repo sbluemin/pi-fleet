@@ -11,16 +11,16 @@
 |------|-------------|
 | `docs/pi-development-reference.md` | **Main Developer Guide** — Comprehensive reference for PI SDK, extensions, TUI, themes, and RPC |
 | `docs/admiral-workflow-reference.md` | **Operational Doctrine** — High-level architecture, naval hierarchy, and delegation workflows |
-| `packages/` | Embedded first-party libraries (e.g., `unified-agent`) |
-| `extensions/` | All extensions consolidated here (refer to its own `AGENTS.md`) |
-| `extensions/fleet/` | Agent orchestration extension — carrier framework, admiral/bridge/carriers wiring, unified pipeline, Agent Panel (refer to its own `AGENTS.md`) |
-| `extensions/fleet/admiral/` | Admiral prompt-policy library — prompts, protocols, standing orders, request directive, widget |
-| `extensions/fleet/bridge/` | Bridge library — active ACP provider overlay shell launcher |
-| `extensions/fleet/carriers/` | Carrier registration library — default carrier definitions (refer to its own `AGENTS.md`) |
-| `extensions/core/` | Infrastructure + utility extensions — agent infra, hud, keybind, settings, welcome, shell, thinking-timer, provider-guard (refer to its own `AGENTS.md`) |
-| `extensions/metaphor/` | Metaphor framework extension — 4계층 해군 PERSONA/TONE worldview 관리, 세션 작전명 자동 명명(operation naming), 지령 재다듬기(directive refinement) 기능을 제공 |
-| `extensions/metaphor/operation-name/` | Operation naming module — 최초 사용자 요청을 `Operation › {codename}` 형식의 해군 작전명으로 자동 명명 |
-| `extensions/metaphor/directive-refinement/` | Directive refinement module — 사용자 입력 초안을 3섹션 형식의 작전 지령으로 재다듬기 |
+| `packages/` | First-party workspace packages: `unified-agent`, `fleet-core`, `fleet-pi-extension` |
+| `packages/fleet-core/` | Pi-agnostic Fleet product core, public API, MCP/tool registry, job infra, prompt SSOT |
+| `packages/fleet-pi-extension/src/fleet/` | Agent orchestration extension — carrier framework, admiral/bridge/carriers wiring, unified pipeline, Agent Panel (refer to its own `AGENTS.md`) |
+| `packages/fleet-core/src/admiral/ + packages/fleet-pi-extension/src/fleet/admiral/` | Admiral prompt-policy library — prompts, protocols, standing orders, request directive, widget |
+| `packages/fleet-pi-extension/src/fleet/bridge/` | Bridge library — active ACP provider overlay shell launcher |
+| `packages/fleet-pi-extension/src/fleet/carriers/` | Carrier registration library — default carrier definitions (refer to its own `AGENTS.md`) |
+| `packages/fleet-pi-extension/src/core/` | Pi adapter infrastructure: agent bridge, hud, keybind, settings, welcome, shell, thinking-timer, provider-guard |
+| `packages/fleet-core/src/metaphor/ + packages/fleet-pi-extension/src/metaphor/` | Metaphor framework extension — 4계층 해군 PERSONA/TONE worldview 관리, 세션 작전명 자동 명명(operation naming), 지령 재다듬기(directive refinement) 기능을 제공 |
+| `packages/fleet-core/src/metaphor/operation-name/ + packages/fleet-pi-extension/src/metaphor/operation-name/` | Operation naming module — 최초 사용자 요청을 `Operation › {codename}` 형식의 해군 작전명으로 자동 명명 |
+| `packages/fleet-core/src/metaphor/directive-refinement/ + packages/fleet-pi-extension/src/metaphor/directive-refinement/` | Directive refinement module — 사용자 입력 초안을 3섹션 형식의 작전 지령으로 재다듬기 |
 
 > Currently, there is no `pi/` directory — symlink setup is not required.
 
@@ -39,7 +39,7 @@ Beyond simple parallel API calls, the system adopts a **naval fleet metaphor** t
 | 3 | **Admiral** | 제독 (Host PI) | A single **workspace PI instance**. Plans operations and dispatches Carriers within its operational zone. |
 | 4 | **Captain** | 함장 (Carrier Persona) | The **persona of a Carrier agent**. While a Carrier is the system entity, the Captain is its personified commander. |
 
-> **Note on Persona & Tone**: The naming conventions, personified personas, and linguistic tone for all tiers are centrally managed by the `extensions/metaphor/` package.
+> **Note on Persona & Tone**: The naming conventions, personified personas, and linguistic tone for all tiers are centrally managed by the `packages/fleet-core/src/metaphor/ + packages/fleet-pi-extension/src/metaphor/` package.
 
 #### Carrier vs Captain Separation
 - **Carrier**: The **system entity** (ID: `genesis`, `sentinel`, etc.). Represents the execution instance, process, and configuration.
@@ -169,7 +169,7 @@ PI renders a vertical stack of **zones**. Extensions customize these zones via o
 
 ## Domain Boundary Rules
 
-> Refer to `extensions/AGENTS.md` for the full cross-layer dependency rules, layer hierarchy, and verification table.
+> Refer to `package AGENTS.md files` for the full cross-layer dependency rules, layer hierarchy, and verification table.
 
 ## Slash Command Naming
 

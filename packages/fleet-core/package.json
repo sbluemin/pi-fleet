@@ -1,0 +1,156 @@
+{
+  "name": "@sbluemin/fleet-core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "dist",
+    "api",
+    "README.md",
+    "AGENTS.md"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./agent": {
+      "types": "./dist/agent.d.ts",
+      "import": "./dist/agent.js",
+      "require": "./dist/agent.cjs"
+    },
+    "./agent/provider-types": {
+      "types": "./dist/agent/provider-types.d.ts",
+      "import": "./dist/agent/provider-types.js",
+      "require": "./dist/agent/provider-types.cjs"
+    },
+    "./agent/types": {
+      "types": "./dist/agent/types.d.ts",
+      "import": "./dist/agent/types.js",
+      "require": "./dist/agent/types.cjs"
+    },
+    "./agent/runtime": {
+      "types": "./dist/agent/runtime.d.ts",
+      "import": "./dist/agent/runtime.js",
+      "require": "./dist/agent/runtime.cjs"
+    },
+    "./agent/session-store": {
+      "types": "./dist/agent/session-store.d.ts",
+      "import": "./dist/agent/session-store.js",
+      "require": "./dist/agent/session-store.cjs"
+    },
+    "./agent/session-resume-utils": {
+      "types": "./dist/agent/session-resume-utils.d.ts",
+      "import": "./dist/agent/session-resume-utils.js",
+      "require": "./dist/agent/session-resume-utils.cjs"
+    },
+    "./agent/pool": {
+      "types": "./dist/agent/pool.d.ts",
+      "import": "./dist/agent/pool.js",
+      "require": "./dist/agent/pool.cjs"
+    },
+    "./agent/executor": {
+      "types": "./dist/agent/executor.d.ts",
+      "import": "./dist/agent/executor.js",
+      "require": "./dist/agent/executor.cjs"
+    },
+    "./agent/tool-snapshot": {
+      "types": "./dist/agent/tool-snapshot.d.ts",
+      "import": "./dist/agent/tool-snapshot.js",
+      "require": "./dist/agent/tool-snapshot.cjs"
+    },
+    "./agent/provider-mcp": {
+      "types": "./dist/agent/provider-mcp.d.ts",
+      "import": "./dist/agent/provider-mcp.js",
+      "require": "./dist/agent/provider-mcp.cjs"
+    },
+    "./agent/log-port": {
+      "types": "./dist/agent/log-port.d.ts",
+      "import": "./dist/agent/log-port.js",
+      "require": "./dist/agent/log-port.cjs"
+    },
+    "./job": {
+      "types": "./dist/job.d.ts",
+      "import": "./dist/job.js",
+      "require": "./dist/job.cjs"
+    },
+    "./carrier": {
+      "types": "./dist/carrier.d.ts",
+      "import": "./dist/carrier.js",
+      "require": "./dist/carrier.cjs"
+    },
+    "./squadron": {
+      "types": "./dist/squadron.d.ts",
+      "import": "./dist/squadron.js",
+      "require": "./dist/squadron.cjs"
+    },
+    "./taskforce": {
+      "types": "./dist/taskforce.d.ts",
+      "import": "./dist/taskforce.js",
+      "require": "./dist/taskforce.cjs"
+    },
+    "./carrier-jobs": {
+      "types": "./dist/carrier-jobs.d.ts",
+      "import": "./dist/carrier-jobs.js",
+      "require": "./dist/carrier-jobs.cjs"
+    },
+    "./store": {
+      "types": "./dist/store.d.ts",
+      "import": "./dist/store.js",
+      "require": "./dist/store.cjs"
+    },
+    "./push": {
+      "types": "./dist/push.d.ts",
+      "import": "./dist/push.js",
+      "require": "./dist/push.cjs"
+    },
+    "./bridge": {
+      "types": "./dist/bridge.d.ts",
+      "import": "./dist/bridge.js",
+      "require": "./dist/bridge.cjs"
+    },
+    "./operation": {
+      "types": "./dist/operation.d.ts",
+      "import": "./dist/operation.js",
+      "require": "./dist/operation.cjs"
+    },
+    "./admiral": {
+      "types": "./dist/admiral.d.ts",
+      "import": "./dist/admiral.js",
+      "require": "./dist/admiral.cjs"
+    },
+    "./metaphor": {
+      "types": "./dist/metaphor.d.ts",
+      "import": "./dist/metaphor.js",
+      "require": "./dist/metaphor.cjs"
+    },
+    "./grand-fleet": {
+      "types": "./dist/grand-fleet.d.ts",
+      "import": "./dist/grand-fleet.js",
+      "require": "./dist/grand-fleet.cjs"
+    },
+    "./experimental-wiki": {
+      "types": "./dist/experimental-wiki.d.ts",
+      "import": "./dist/experimental-wiki.js",
+      "require": "./dist/experimental-wiki.cjs"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.41"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "tsup": "^8.5.0",
+    "typescript": "^6.0.2",
+    "vitest": "^4.0.13"
+  }
+}

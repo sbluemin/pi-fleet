@@ -8,7 +8,7 @@
 >
 > Code-line citations are intentionally minimised — code changes, but the workflow and
 > doctrine survive. When you need concrete files or functions, consult the
-> `extensions/fleet/AGENTS.md` hierarchy.
+> `packages/fleet-pi-extension/src/fleet/AGENTS.md` hierarchy.
 
 ---
 
@@ -23,21 +23,21 @@ Tier 1: Admiral of the Navy (ATN, 대원수)
    │ orders
    ▼
 Tier 2: Fleet Admiral (사령관)
-        = Admiralty LLM 페르소나 (extensions/grand-fleet/admiralty)
+        = Admiralty LLM 페르소나 (packages/fleet-pi-extension/src/grand-fleet/admiralty)
         ─ 다수 함대(Fleet)를 조율하고 보고를 합성하는 중앙 지휘소.
         ─ 직접 파일을 수정하지 않으며, 오직 함대 파견 및 명령 라우팅만 수행.
    │
    │ dispatch / broadcast
    ▼
 Tier 3: Admiral (제독)
-        = 개별 PI 인스턴스 (Host PI / extensions/fleet)
+        = 개별 PI 인스턴스 (Host PI / packages/fleet-pi-extension/src/fleet)
         ─ "you", 이 문서의 주 독자. 특정 워크스페이스(함대)의 작전 계획 수립자.
         ─ 수신된 미션을 독자적인 Carrier 포메이션을 통해 수행.
    │
    │ tool_use (sortie/squadron/taskforce)
    ▼
 Tier 4: Captain (함장) / Carrier
-        = 별도 ACP CLI 프로세스 (extensions/fleet/carriers)
+        = 별도 ACP CLI 프로세스 (packages/fleet-pi-extension/src/fleet/carriers)
         ─ 여덟 가지 특화 페르소나 (Nimitz · Kirov · Sentinel 등)로 실무 수행.
 ```
 
@@ -422,7 +422,7 @@ through the formal doctrinal procedure (Nimitz sortie).
 A layered map for finding the right place to work:
 
 ```
-extensions/fleet/
+packages/fleet-pi-extension/src/fleet/
 ├─ admiral/                    Standing Orders, Protocols, system-prompt SSOT
 ├─ shipyard/
 │  ├─ carrier/                 carriers_sortie tool (fire-and-forget)
@@ -440,8 +440,8 @@ extensions/fleet/
 ├─ carriers/                   Eight Captain personas (persona · request blocks · output format)
 └─ operation-runner.ts         Dual mode: foreground (uses ctx) vs background (ctx-free)
 
-extensions/core/agentclientprotocol/   ACP infrastructure (provider-mcp FIFO, executor, pool)
-extensions/core/{hud,settings,keybind} Infrastructure
+packages/fleet-pi-extension/src/core/agentclientprotocol/   ACP infrastructure (provider-mcp FIFO, executor, pool)
+packages/fleet-pi-extension/src/core/{hud,settings,keybind} Infrastructure
 ```
 
 ---
