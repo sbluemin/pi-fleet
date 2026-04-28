@@ -130,5 +130,5 @@ When updating docs during this migration:
 
 - describe the **current observable state**
 - separate **logical ownership now** from **physical shape later**
-- mention that Wave 13 test relocation may still be in flight
+- mention that legacy domain folders have been removed and Wave 13 test relocation is complete when that context matters
 - avoid stating or implying that Wave 14 `src/` removal is already complete

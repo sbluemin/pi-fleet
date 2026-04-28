@@ -1,0 +1,60 @@
+# Fleet Lightweight Follow-up
+
+## Background
+Fleet has completed the logical product split that separates the product core from the Pi host adapter.
+
+- `packages/fleet-core` owns Fleet domain logic, prompts, runtime contracts, MCP/tool/job internals, bridge state, and public APIs.
+- `packages/fleet-pi-extension` owns Pi lifecycle wiring, command/keybind/tool registration, TUI rendering, session/event bridges, config bridges, adapters, and compatibility seams.
+- `packages/unified-agent` remains an independent backend client package used by the Fleet runtime.
+
+This split is the foundation for turning Fleet into a product that can keep running inside Pi while also becoming easier to expose through future hosts such as a standalone CLI.
+
+## Purpose
+The lightweight follow-up exists to reduce the amount of product behavior that still has to be understood through the Pi extension package. The goal is not another broad relocation wave. The goal is to make the already-split architecture easier to maintain by hardening the `fleet-core` public surface and making the Pi package thinner, more mechanical, and more replaceable.
+
+## Current State
+- **Logical ownership:** Final. `fleet-core` owns Fleet domain logic; `fleet-pi-extension` owns Pi capabilities.
+- **Physical layout:** Intermediate. `packages/fleet-pi-extension/src/` still exists, and active capability buckets live under `packages/fleet-pi-extension/src/<bucket>/`.
+- **Legacy Pi-side domain folders:** Removed. Do not recreate `src/fleet/`, `src/grand-fleet/`, `src/metaphor/`, `src/core/`, `src/boot/`, or `src/experimental-wiki/`.
+- **Dependency direction:** `fleet-pi-extension` consumes `fleet-core` through public APIs. `fleet-core` must not import Pi packages.
+
+## Goals
+- **Thin Pi adapter:** Keep `fleet-pi-extension` focused on Pi registration, rendering, lifecycle, and bridge code.
+- **Thick product core:** Move reusable Fleet behavior, product policy, domain decisions, state machines, prompt assembly, and pure execution contracts toward `fleet-core`.
+- **Public API hardening:** Make `packages/fleet-core/api/PUBLIC_API.md` and exported subpaths sufficient for Pi integration without deep imports.
+- **Loose coupling:** Replace implicit knowledge of `fleet-core` internals with explicit ports, services, and public contracts.
+- **Future host readiness:** Leave the architecture in a state where a future `fleet-cli` or other host can reuse the same core without depending on Pi runtime objects.
+
+## Non-Goals
+- **Physical `src/` removal:** Removing `packages/fleet-pi-extension/src/` is intentionally deferred. Do not resume Wave 14 unless explicitly reauthorized.
+- **New end-user features:** This is a structural refinement phase, not a feature expansion phase.
+- **Carrier behavior rewrites:** Preserve existing carrier behavior, dispatch semantics, detached-job behavior, and MCP/provider FIFO behavior unless a change is explicitly scoped.
+- **Deep import shortcuts:** Do not solve adapter friction by importing `@sbluemin/fleet-core/src/**` or `@sbluemin/fleet-core/internal/**`.
+
+## Target Direction
+The target model is **thick core, thin adapter**.
+
+```text
+fleet-core
+  owns product behavior, domain policy, prompt assets, job logic, public APIs
+
+fleet-pi-extension
+  adapts Fleet to Pi through commands, keybinds, tools, TUI, session/events
+```
+
+The Pi extension should increasingly read like host wiring. If a module requires product reasoning to understand why Fleet behaves a certain way, that reasoning probably belongs in `fleet-core`.
+
+## Guardrails
+- Keep `fleet-core` Pi-agnostic. No `ExtensionContext`, `ExtensionAPI`, Pi TUI, `pi.register*`, or `pi.sendMessage` imports.
+- Keep Pi imports in `fleet-pi-extension`, with `@mariozechner/pi-ai` confined to the compatibility bridge.
+- Keep `fleet-pi-extension` imports on public `fleet-core` exports only.
+- Preserve slash command names, global compatibility keys, detached-job acceptance/completion-push semantics, and provider FIFO behavior.
+- Treat deleted legacy domain folders as deleted. Do not recreate them as shims.
+- Keep documentation honest about the current physical state: `packages/fleet-pi-extension/src/` still exists.
+
+## Suggested Work Streams
+1. **Adapter thinning audit:** Review `packages/fleet-pi-extension/src/adapters/`, `src/tools/`, and `src/session-bridge/` for product logic that can move behind `fleet-core` APIs.
+2. **Public API closure:** Compare every `fleet-pi-extension` integration need against `packages/fleet-core/api/PUBLIC_API.md`; add public contracts before adding adapter workarounds.
+3. **Port cleanup:** Replace host-specific assumptions with explicit core ports where future non-Pi hosts would need the same behavior.
+4. **Boundary tests:** Add focused tests that fail on `fleet-core` Pi imports, `fleet-pi-extension` deep imports, and legacy directory reintroduction.
+5. **Documentation hygiene:** Keep `docs/pi-development-reference.md`, `docs/admiral-workflow-reference.md`, and package `AGENTS.md` aligned with the current state.
