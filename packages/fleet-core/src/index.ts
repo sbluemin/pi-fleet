@@ -5,4 +5,6 @@ export * from "./public/mcp.js";
 export * from "./public/runtime.js";
 export * from "./public/tool-registry.js";
 export * from "./public/types.js";
+export * from "./boot/index.js";
+export * from "./core-services/index.js";
 export * from "./job/index.js";

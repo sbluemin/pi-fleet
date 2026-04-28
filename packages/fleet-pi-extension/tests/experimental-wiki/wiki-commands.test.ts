@@ -3,10 +3,10 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { registerWikiCommands } from "../../src/experimental-wiki/commands.js";
-import { approveAndNotify, listQueueItems, rejectAndNotify, runDrydock, runStatus, showPatchDetail } from "../../src/experimental-wiki/handlers.js";
-import { enqueuePatch, parsePatch } from "../../src/experimental-wiki/patch.js";
-import { resolveMemoryPaths } from "../../src/experimental-wiki/paths.js";
+import { registerWikiCommands } from "../../src/commands/wiki-menu.js";
+import { approveAndNotify, listQueueItems, rejectAndNotify, runDrydock, runStatus, showPatchDetail } from "../../src/commands/experimental-wiki/handlers.js";
+import { enqueuePatch, parsePatch } from "@sbluemin/fleet-core/experimental-wiki";
+import { resolveMemoryPaths } from "@sbluemin/fleet-core/experimental-wiki";
 
 const cleanupPaths: string[] = [];
 

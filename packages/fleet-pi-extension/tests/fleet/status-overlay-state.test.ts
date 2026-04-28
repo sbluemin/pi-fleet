@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { CarrierStatusOverlay } from "../../src/fleet/bridge/carrier-ui/status-overlay.js";
+import { CarrierStatusOverlay } from "../../src/tui/carrier-ui/status-overlay.js";
 import type {
   CarrierOverlayCallbacks,
   CarrierStatusEntry,
   CliModelInfo,
   OverlayState,
-} from "../../src/fleet/bridge/carrier-ui/types.js";
+} from "@sbluemin/fleet-core/bridge/carrier-ui";
 
 interface DeferredPromise<T> {
   promise: Promise<T>;

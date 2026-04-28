@@ -21,25 +21,25 @@ vi.mock("@sbluemin/unified-agent", () => ({
   }),
 }));
 
-vi.mock("../../../src/core/agentclientprotocol/runtime.js", () => ({
+vi.mock("@sbluemin/fleet-core/agent/runtime", () => ({
   initRuntime: vi.fn(),
   onHostSessionChange: vi.fn(),
 }));
 
-vi.mock("../../../src/core/agentclientprotocol/provider-stream.js", () => ({
+vi.mock("../../../src/session-bridge/agentclientprotocol/provider-stream.js", () => ({
   streamAcp: vi.fn(),
   cleanupAll: vi.fn(async () => {}),
   handleSessionStart: vi.fn(async () => {}),
 }));
 
-vi.mock("../../../src/core/agentclientprotocol/thinking-level-patch.js", () => ({
+vi.mock("../../../src/session-bridge/agentclientprotocol/thinking-level-patch.js", () => ({
   installAcpThinkingLevelPatch: vi.fn(),
   reconcileAcpThinkingLevel: vi.fn(),
 }));
 
-import registerAcpProvider from "../../../src/core/agentclientprotocol/provider-register.js";
-import { handleSessionStart } from "../../../src/core/agentclientprotocol/provider-stream.js";
-import { initRuntime, onHostSessionChange } from "../../../src/core/agentclientprotocol/runtime.js";
+import registerAcpProvider from "../../../src/session-bridge/agentclientprotocol/provider-register.js";
+import { handleSessionStart } from "../../../src/session-bridge/agentclientprotocol/provider-stream.js";
+import { initRuntime, onHostSessionChange } from "@sbluemin/fleet-core/agent/runtime";
 
 describe("provider-register", () => {
   it("provider 자체가 Fleet session-map runtime을 초기화하고 session_start에서 PI session에 바인딩한다", async () => {

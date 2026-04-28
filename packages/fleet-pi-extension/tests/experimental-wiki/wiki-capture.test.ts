@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { collectCaptureSession } from "../../src/experimental-wiki/capture.js";
-import { registerWikiCommands } from "../../src/experimental-wiki/commands.js";
-import { runCapture } from "../../src/experimental-wiki/handlers.js";
-import { buildWikiCaptureDirective } from "../../src/experimental-wiki/prompts.js";
+import { collectCaptureSession } from "../../src/session-bridge/experimental-wiki/capture.js";
+import { registerWikiCommands } from "../../src/commands/wiki-menu.js";
+import { runCapture } from "../../src/commands/experimental-wiki/handlers.js";
+import { buildWikiCaptureDirective } from "@sbluemin/fleet-core/experimental-wiki";
 
 describe("wiki capture session", () => {
   it("detects usable history from the current branch without serializing it", () => {

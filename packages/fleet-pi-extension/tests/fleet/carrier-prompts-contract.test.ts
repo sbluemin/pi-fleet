@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { PROTOCOL_PREAMBLE } from "../../src/fleet/admiral/prompts.js";
-import { DELEGATION_POLICY } from "../../src/fleet/admiral/standing-orders/delegation-policy.js";
-import { SORTIE_MANIFEST, buildSortieToolSchema } from "../../src/fleet/shipyard/carrier/prompts.js";
-import { CARRIER_JOBS_MANIFEST, buildCarrierJobsSchema } from "../../src/fleet/shipyard/carrier_jobs/prompts.js";
-import { SQUADRON_MANIFEST, buildSquadronSchema } from "../../src/fleet/shipyard/squadron/prompts.js";
-import { TASKFORCE_MANIFEST, buildTaskForceSchema } from "../../src/fleet/shipyard/taskforce/prompts.js";
-import { CARRIER_RESULT_CUSTOM_TYPE } from "../../src/fleet/shipyard/_shared/push-renderer.js";
+import { PROTOCOL_PREAMBLE } from "@sbluemin/fleet-core/admiral";
+import { DELEGATION_POLICY } from "@sbluemin/fleet-core/admiral/standing-orders";
+import { SORTIE_MANIFEST, buildSortieToolSchema } from "@sbluemin/fleet-core/carrier";
+import { CARRIER_JOBS_MANIFEST, buildCarrierJobsSchema } from "@sbluemin/fleet-core/carrier-jobs";
+import { SQUADRON_MANIFEST, buildSquadronSchema } from "@sbluemin/fleet-core/squadron";
+import { TASKFORCE_MANIFEST, buildTaskForceSchema } from "@sbluemin/fleet-core/taskforce";
+import { CARRIER_RESULT_CUSTOM_TYPE } from "../../src/tools/carrier-result-renderer.js";
 
 const testDir = dirname(fileURLToPath(import.meta.url));
 
@@ -52,7 +52,7 @@ describe("carrier prompt doctrine", () => {
 
   it("registers the hidden carrier result custom renderer contract", async () => {
     const fs = await import("node:fs");
-    const indexSource = fs.readFileSync(join(testDir, "..", "..", "src", "fleet", "pi-tools.ts"), "utf8");
+    const indexSource = fs.readFileSync(join(testDir, "..", "..", "src", "tools", "fleet-pi-tools.ts"), "utf8");
     expect(CARRIER_RESULT_CUSTOM_TYPE).toBe("carrier-result");
     expect(indexSource).toContain("pi.registerMessageRenderer(CARRIER_RESULT_CUSTOM_TYPE, carrierResultRenderer)");
   });

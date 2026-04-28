@@ -68,10 +68,25 @@
       "import": "./dist/agent/provider-mcp.js",
       "require": "./dist/agent/provider-mcp.cjs"
     },
+    "./agent/thinking-level-patch": {
+      "types": "./dist/agent/thinking-level-patch.d.ts",
+      "import": "./dist/agent/thinking-level-patch.js",
+      "require": "./dist/agent/thinking-level-patch.cjs"
+    },
     "./agent/log-port": {
       "types": "./dist/agent/log-port.d.ts",
       "import": "./dist/agent/log-port.js",
       "require": "./dist/agent/log-port.cjs"
+    },
+    "./agent/service-status": {
+      "types": "./dist/agent/service-status.d.ts",
+      "import": "./dist/agent/service-status.js",
+      "require": "./dist/agent/service-status.cjs"
+    },
+    "./constants": {
+      "types": "./dist/constants.d.ts",
+      "import": "./dist/constants.js",
+      "require": "./dist/constants.cjs"
     },
     "./job": {
       "types": "./dist/job.d.ts",
@@ -82,6 +97,11 @@
       "types": "./dist/carrier.d.ts",
       "import": "./dist/carrier.js",
       "require": "./dist/carrier.cjs"
+    },
+    "./carrier/personas": {
+      "types": "./dist/carrier/personas.d.ts",
+      "import": "./dist/carrier/personas.js",
+      "require": "./dist/carrier/personas.cjs"
     },
     "./squadron": {
       "types": "./dist/squadron.d.ts",
@@ -113,6 +133,26 @@
       "import": "./dist/bridge.js",
       "require": "./dist/bridge.cjs"
     },
+    "./bridge/streaming": {
+      "types": "./dist/bridge/streaming.d.ts",
+      "import": "./dist/bridge/streaming.js",
+      "require": "./dist/bridge/streaming.cjs"
+    },
+    "./bridge/panel": {
+      "types": "./dist/bridge/panel.d.ts",
+      "import": "./dist/bridge/panel.js",
+      "require": "./dist/bridge/panel.cjs"
+    },
+    "./bridge/render": {
+      "types": "./dist/bridge/render.d.ts",
+      "import": "./dist/bridge/render.js",
+      "require": "./dist/bridge/render.cjs"
+    },
+    "./bridge/carrier-ui": {
+      "types": "./dist/bridge/carrier-ui.d.ts",
+      "import": "./dist/bridge/carrier-ui.js",
+      "require": "./dist/bridge/carrier-ui.cjs"
+    },
     "./operation": {
       "types": "./dist/operation.d.ts",
       "import": "./dist/operation.js",
@@ -123,15 +163,80 @@
       "import": "./dist/admiral.js",
       "require": "./dist/admiral.cjs"
     },
+    "./admiral/protocols": {
+      "types": "./dist/admiral/protocols.d.ts",
+      "import": "./dist/admiral/protocols.js",
+      "require": "./dist/admiral/protocols.cjs"
+    },
+    "./admiral/standing-orders": {
+      "types": "./dist/admiral/standing-orders.d.ts",
+      "import": "./dist/admiral/standing-orders.js",
+      "require": "./dist/admiral/standing-orders.cjs"
+    },
+    "./admiral/tool-prompt-manifest": {
+      "types": "./dist/admiral/tool-prompt-manifest.d.ts",
+      "import": "./dist/admiral/tool-prompt-manifest.js",
+      "require": "./dist/admiral/tool-prompt-manifest.cjs"
+    },
     "./metaphor": {
       "types": "./dist/metaphor.d.ts",
       "import": "./dist/metaphor.js",
       "require": "./dist/metaphor.cjs"
     },
+    "./metaphor/operation-name": {
+      "types": "./dist/metaphor/operation-name.d.ts",
+      "import": "./dist/metaphor/operation-name.js",
+      "require": "./dist/metaphor/operation-name.cjs"
+    },
+    "./metaphor/directive-refinement": {
+      "types": "./dist/metaphor/directive-refinement.d.ts",
+      "import": "./dist/metaphor/directive-refinement.js",
+      "require": "./dist/metaphor/directive-refinement.cjs"
+    },
     "./grand-fleet": {
       "types": "./dist/grand-fleet.d.ts",
       "import": "./dist/grand-fleet.js",
       "require": "./dist/grand-fleet.cjs"
+    },
+    "./grand-fleet/ipc": {
+      "types": "./dist/grand-fleet/ipc.d.ts",
+      "import": "./dist/grand-fleet/ipc.js",
+      "require": "./dist/grand-fleet/ipc.cjs"
+    },
+    "./grand-fleet/formation": {
+      "types": "./dist/grand-fleet/formation.d.ts",
+      "import": "./dist/grand-fleet/formation.js",
+      "require": "./dist/grand-fleet/formation.cjs"
+    },
+    "./boot": {
+      "types": "./dist/boot.d.ts",
+      "import": "./dist/boot.js",
+      "require": "./dist/boot.cjs"
+    },
+    "./core-services": {
+      "types": "./dist/core-services.d.ts",
+      "import": "./dist/core-services.js",
+      "require": "./dist/core-services.cjs"
+    },
+    "./core-services/settings": {
+      "types": "./dist/core-services/settings.d.ts",
+      "import": "./dist/core-services/settings.js",
+      "require": "./dist/core-services/settings.cjs"
+    },
+    "./core-services/keybind": {
+      "types": "./dist/core-services/keybind.d.ts",
+      "import": "./dist/core-services/keybind.js",
+      "require": "./dist/core-services/keybind.cjs"
+    },
+    "./core-services/log": {
+      "types": "./dist/core-services/log.d.ts",
+      "import": "./dist/core-services/log.js",
+      "require": "./dist/core-services/log.cjs"
+    },
+    "./core-services/provider-guard": {
+      "types": "./dist/core-services/provider-guard.d.ts",
+      "import": "./dist/core-services/provider-guard.js",
+      "require": "./dist/core-services/provider-guard.cjs"
     },
     "./experimental-wiki": {
       "types": "./dist/experimental-wiki.d.ts",

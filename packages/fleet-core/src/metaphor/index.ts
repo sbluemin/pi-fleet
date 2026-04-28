@@ -1,5 +1,7 @@
 export * from "./prompts.js";
 export * from "./worldview.js";
+export * from "./operation-name/compose.js";
+export * from "./directive-refinement/compose.js";
 export * as operationNameConstants from "./operation-name/constants.js";
 export * as operationNamePrompts from "./operation-name/prompts.js";
 export * as operationNameSettings from "./operation-name/settings.js";

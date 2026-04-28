@@ -1,19 +1,19 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import registerBoot from "./boot/index.js";
-import registerCore from "./core/index.js";
-import registerFleet from "./fleet/index.js";
-import registerGrandFleet from "./grand-fleet/index.js";
-import registerMetaphor from "./metaphor/index.js";
-import registerDiagnostics from "./diagnostics/index.js";
-import registerExperimentalWiki from "./experimental-wiki/index.js";
+import { registerCommands } from "./commands/index.js";
+import { mountConfigBridge } from "./config-bridge/index.js";
+import { registerKeybinds } from "./keybinds/index.js";
+import { registerLifecycle } from "./lifecycle/index.js";
+import { mountSessionBridge } from "./session-bridge/index.js";
+import { mountTuiSurfaces } from "./tui/index.js";
+import { registerTools } from "./tools/index.js";
 
 export default function fleetPiExtension(pi: ExtensionAPI): void {
-  registerBoot(pi);
-  registerCore(pi);
-  registerFleet(pi);
-  registerMetaphor(pi);
-  registerGrandFleet(pi);
-  registerDiagnostics(pi);
-  registerExperimentalWiki(pi);
+  mountConfigBridge(pi);
+  const runtime = registerLifecycle(pi);
+  registerKeybinds(pi, runtime.fleetEnabled);
+  mountTuiSurfaces(pi, runtime.fleetEnabled);
+  registerCommands(pi, runtime.fleetEnabled);
+  registerTools(pi, runtime.fleetEnabled);
+  mountSessionBridge(pi);
 }

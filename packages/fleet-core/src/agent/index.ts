@@ -8,3 +8,4 @@ export * from "./pool.js";
 export * from "./executor.js";
 export * from "./tool-snapshot.js";
 export * from "./provider-mcp.js";
+export * from "./thinking-level-patch.js";

@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { CARRIER_FRAMEWORK_KEY } from "../../src/fleet/shipyard/carrier/types.js";
-import { createRun, finalizeRun } from "../../src/fleet/bridge/streaming/stream-store.js";
-import type { AgentCol } from "../../src/fleet/bridge/panel/types.js";
-import { getState, makeFooterCols } from "../../src/fleet/bridge/panel/state.js";
+import { CARRIER_FRAMEWORK_KEY } from "@sbluemin/fleet-core/carrier";
+import { createRun, finalizeRun } from "@sbluemin/fleet-core/bridge/streaming";
+import type { AgentCol } from "../../src/tui/panel/types.js";
+import { getState, makeFooterCols } from "../../src/tui/panel/state.js";
 
 function makeCol(cli: string, status: AgentCol["status"]): AgentCol {
   return {

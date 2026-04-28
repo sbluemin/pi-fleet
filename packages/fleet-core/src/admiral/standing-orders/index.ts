@@ -11,6 +11,11 @@ import { DELEGATION_POLICY } from "./delegation-policy.js";
 import { DEEP_DIVE } from "./deep-dive.js";
 import { RESULT_INTEGRITY } from "./result-integrity.js";
 
+export * from "./deep-dive.js";
+export * from "./delegation-policy.js";
+export * from "./result-integrity.js";
+export * from "./types.js";
+
 // ─────────────────────────────────────────────────────────
 // 상수
 // ─────────────────────────────────────────────────────────

@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { buildCarrierJobsToolConfig } from "../../src/fleet/shipyard/carrier_jobs/jobs.js";
+import { buildCarrierJobsToolConfig } from "../../src/tools/carrier_jobs/jobs.js";
 import {
   CarrierJobsCallComponent,
   CarrierJobsVerboseCallComponent,
@@ -12,14 +12,14 @@ import {
   renderQuietResult,
   renderVerboseResult,
   shortenJobId,
-} from "../../src/fleet/shipyard/carrier_jobs/render.js";
+} from "../../src/tools/carrier_jobs/render.js";
 import {
   getCarrierJobsVerbose,
   onCarrierJobsVerboseChange,
   resetCarrierJobsVerboseForTest,
   setCarrierJobsVerbose,
   toggleCarrierJobsVerbose,
-} from "../../src/fleet/shipyard/carrier_jobs/verbose-toggle.js";
+} from "../../src/tools/carrier_jobs/verbose-toggle.js";
 
 const testDir = dirname(fileURLToPath(import.meta.url));
 
@@ -111,7 +111,7 @@ describe("carrier_jobs rendering", () => {
   });
 
   it("registers the verbose slash command in fleet boot", () => {
-    const indexPath = join(testDir, "..", "..", "src", "fleet", "pi-commands.ts");
+    const indexPath = join(testDir, "..", "..", "src", "commands", "fleet-pi-commands.ts");
     const source = readFileSync(indexPath, "utf8");
 
     expect(existsSync(indexPath)).toBe(true);

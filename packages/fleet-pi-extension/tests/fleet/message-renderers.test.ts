@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { createDefaultResponseRenderer } from "../../src/fleet/bridge/render/message-renderers.js";
-import type { ColBlock } from "../../src/fleet/bridge/streaming/types.js";
+import { createDefaultResponseRenderer } from "../../src/tui/render/message-renderers.js";
+import type { ColBlock } from "@sbluemin/fleet-core/bridge/streaming";
 
 const ANSI_PATTERN = /\x1b\[[0-9;]*m/g;
 

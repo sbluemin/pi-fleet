@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("../../src/core/agentclientprotocol/executor.js", () => ({
+vi.mock("@sbluemin/fleet-core/agent", () => ({
   executeWithPool: vi.fn(async (opts: any) => {
     opts.onStatusChange?.("streaming");
     opts.onMessageChunk?.("hello");
@@ -17,15 +17,15 @@ vi.mock("../../src/core/agentclientprotocol/executor.js", () => ({
   }),
 }));
 
-vi.mock("../../src/fleet/shipyard/store.js", () => ({
+vi.mock("@sbluemin/fleet-core/store", () => ({
   loadModels: () => ({}),
 }));
 
-import { executeWithPool } from "../../src/core/agentclientprotocol/executor.js";
-import { runAgentRequestBackground } from "../../src/fleet/operation-runner.js";
-import { getRunById, getVisibleRun, resetRuns } from "../../src/fleet/bridge/streaming/stream-store.js";
-import { CARRIER_FRAMEWORK_KEY } from "../../src/fleet/shipyard/carrier/types.js";
-import { isStaleExtensionContextError, syncCurrentWidget, syncWidget } from "../../src/fleet/bridge/panel/widget-sync.js";
+import { executeWithPool } from "@sbluemin/fleet-core/agent";
+import { runAgentRequestBackground } from "../../src/session-bridge/fleet/operation-runner.js";
+import { getRunById, getVisibleRun, resetRuns } from "@sbluemin/fleet-core/bridge/streaming";
+import { CARRIER_FRAMEWORK_KEY } from "@sbluemin/fleet-core/carrier";
+import { isStaleExtensionContextError, syncCurrentWidget, syncWidget } from "../../src/tui/panel/widget-sync.js";
 
 describe("background ctx isolation", () => {
   it("runs background carrier requests with explicit cwd and no ExtensionContext", async () => {

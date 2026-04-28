@@ -3,12 +3,12 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { showQueue } from "../../src/experimental-wiki/patch.js";
-import { resolveMemoryPaths } from "../../src/experimental-wiki/paths.js";
-import { listLog, pathExists } from "../../src/experimental-wiki/store.js";
-import { buildAarProposeToolConfig } from "../../src/experimental-wiki/tools/aar.js";
-import { buildIngestToolConfig } from "../../src/experimental-wiki/tools/ingest.js";
-import { buildPatchQueueToolConfig } from "../../src/experimental-wiki/tools/patch-queue.js";
+import { showQueue } from "@sbluemin/fleet-core/experimental-wiki";
+import { resolveMemoryPaths } from "@sbluemin/fleet-core/experimental-wiki";
+import { listLog, pathExists } from "@sbluemin/fleet-core/experimental-wiki";
+import { buildAarProposeToolConfig } from "@sbluemin/fleet-core/experimental-wiki";
+import { buildIngestToolConfig } from "@sbluemin/fleet-core/experimental-wiki";
+import { buildPatchQueueToolConfig } from "@sbluemin/fleet-core/experimental-wiki";
 
 const cleanupPaths: string[] = [];
 

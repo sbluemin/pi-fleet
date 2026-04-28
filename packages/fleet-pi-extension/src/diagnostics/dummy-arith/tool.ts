@@ -8,7 +8,7 @@
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 
-import { getLogAPI } from "../../core/log/bridge.js";
+import { getLogAPI } from "../../config-bridge/log/bridge.js";
 
 type DummyArithOp = "add" | "sub" | "mul" | "div";
 

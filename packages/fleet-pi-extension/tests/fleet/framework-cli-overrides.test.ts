@@ -8,8 +8,8 @@ import {
   getRegisteredOrder,
   registerCarrier,
   setPendingCliTypeOverrides,
-} from "../../src/fleet/shipyard/carrier/framework.js";
-import { CARRIER_FRAMEWORK_KEY, type CarrierConfig } from "../../src/fleet/shipyard/carrier/types.js";
+} from "../../src/tools/carrier/framework.js";
+import { CARRIER_FRAMEWORK_KEY, type CarrierConfig } from "@sbluemin/fleet-core/carrier";
 
 const TEST_EXTENSION_API = {
   registerMessageRenderer: vi.fn(),

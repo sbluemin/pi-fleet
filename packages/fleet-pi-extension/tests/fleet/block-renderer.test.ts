@@ -4,15 +4,15 @@ import {
   renderBlockLines,
   blockLineAnsiColor,
   blockLineToAnsi,
-} from "../../src/fleet/bridge/render/block-renderer.js";
-import type { ColBlock } from "../../src/fleet/bridge/streaming/types.js";
+} from "../../src/tui/render/block-renderer.js";
+import type { ColBlock } from "@sbluemin/fleet-core/bridge/streaming";
 import {
   ANSI_RESET,
   PANEL_DIM_COLOR,
   TOOLS_COLOR,
   SYM_INDICATOR,
   SYM_THINKING,
-} from "../../src/fleet/constants.js";
+} from "@sbluemin/fleet-core/constants";
 
 const ERROR_COLOR = "\x1b[38;2;255;80;80m";
 

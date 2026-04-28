@@ -4,18 +4,18 @@ import {
   acquireJobPermit,
   getActiveBackgroundJobCount,
   resetJobConcurrencyForTest,
-} from "../../src/fleet/shipyard/_shared/concurrency-guard.js";
-import { CARRIER_FRAMEWORK_KEY } from "../../src/fleet/shipyard/carrier/types.js";
-import type { CarrierJobRecord } from "../../src/fleet/shipyard/_shared/job-types.js";
+} from "@sbluemin/fleet-core/job";
+import { CARRIER_FRAMEWORK_KEY } from "@sbluemin/fleet-core/carrier";
+import type { CarrierJobRecord } from "@sbluemin/fleet-core/job";
 import {
   bindPanelBackgroundJobAnimation,
   detachAgentPanelUi,
   endColStreaming,
   ensureAnimTimer,
-} from "../../src/fleet/bridge/panel/lifecycle.js";
-import { getState, STATE_KEY } from "../../src/fleet/bridge/panel/state.js";
-import { syncWidget } from "../../src/fleet/bridge/panel/widget-sync.js";
-import type { AgentCol } from "../../src/fleet/bridge/panel/types.js";
+} from "../../src/tui/panel-lifecycle.js";
+import { getState, STATE_KEY } from "../../src/tui/panel/state.js";
+import { syncWidget } from "../../src/tui/panel/widget-sync.js";
+import type { AgentCol } from "../../src/tui/panel/types.js";
 
 beforeEach(() => {
   vi.useFakeTimers();

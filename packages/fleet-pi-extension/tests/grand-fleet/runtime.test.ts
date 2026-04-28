@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   buildFleetAcpSystemPrompt,
-} from "../../src/grand-fleet/prompts.js";
+} from "@sbluemin/fleet-core/grand-fleet";
 import {
   clearMissionBuffer,
   clearFleetSessionBindings,
@@ -10,12 +10,12 @@ import {
   getFleetRuntime,
   setFleetSessionBindings,
   shutdownFleetRuntime,
-} from "../../src/grand-fleet/fleet/runtime.js";
+} from "../../src/adapters/grand-fleet/fleet/runtime.js";
 import {
   GRAND_FLEET_STATE_KEY,
   GRAND_FLEET_FLEET_RUNTIME_KEY,
   type FleetRuntimeState,
-} from "../../src/grand-fleet/types.js";
+} from "@sbluemin/fleet-core/grand-fleet";
 
 afterEach(() => {
   delete (globalThis as any)[GRAND_FLEET_FLEET_RUNTIME_KEY];
