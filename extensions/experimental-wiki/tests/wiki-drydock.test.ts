@@ -98,6 +98,17 @@ describe("wiki drydock", () => {
 
     expect(report.issues.some((issue) => issue.code === "prompt_injection")).toBe(true);
   });
+
+  it("warns when a wiki body still contains inline raw_source_ref residue", async () => {
+    const root = await makeTempRoot();
+    const paths = resolveMemoryPaths(root);
+    await mkdir(paths.wikiDir, { recursive: true });
+    await writeFile(path.join(paths.wikiDir, "legacy.md"), `---\nid: "legacy"\ntitle: "Legacy"\ntags: []\ncreated: "2026-04-26T00:00:00.000Z"\nupdated: "2026-04-26T00:00:00.000Z"\nversion: 1\n---\nbody\nraw_source_ref: raw/legacy.md`, "utf8");
+
+    const report = await runDryDock(paths);
+
+    expect(report.issues.some((issue) => issue.code === "inline_raw_source_ref")).toBe(true);
+  });
 });
 
 async function makeTempRoot(): Promise<string> {

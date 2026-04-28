@@ -5,6 +5,7 @@ import { PATCH_FILENAME, PATCH_META_FILENAME } from "./constants.js";
 import { ensureMemoryRoot } from "./paths.js";
 import {
   appendLogEntry,
+  assertSafeEntryId,
   listDirectoryNames,
   movePath,
   pathExists,
@@ -23,6 +24,8 @@ export interface QueueSelection {
   autoSelected: boolean;
   availableIds: string[];
 }
+
+const INLINE_RAW_SOURCE_REF_PATTERN = /(?:\n+)raw_source_ref:\s*(\S+)\s*$/i;
 
 export async function parsePatch(markdown: string): Promise<Patch> {
   const match = markdown.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
@@ -77,7 +80,7 @@ export async function applyPatch(patch: Patch, paths: MemoryPaths): Promise<stri
     return relativePath;
   }
 
-  const entry = JSON.parse(patch.body) as WikiEntry;
+  const entry = normalizeWikiEntryPatch(JSON.parse(patch.body) as WikiEntry, patch.frontmatter.target, paths);
   const relativePath = await writeWikiEntry(entry, paths);
   await rebuildIndex(paths);
   return relativePath;
@@ -172,10 +175,49 @@ function serializePatch(patch: Patch): string {
   return `---\n${lines.join("\n")}\n---\n${patch.body}`;
 }
 
+function normalizeWikiEntryPatch(entry: WikiEntry, target: string, paths: MemoryPaths): WikiEntry {
+  assertSafeEntryId(entry.id);
+  if (entry.id !== path.basename(target, ".md")) {
+    throw new Error("wiki patch body id must match target filename");
+  }
+  const inlineRawSourceRef = extractInlineRawSourceRef(entry.body);
+  if (inlineRawSourceRef && entry.rawSourceRef && entry.rawSourceRef !== inlineRawSourceRef.rawSourceRef) {
+    throw new Error("conflicting raw source provenance in wiki patch");
+  }
+  const rawSourceRef = entry.rawSourceRef ?? inlineRawSourceRef?.rawSourceRef;
+  if (rawSourceRef) {
+    assertSafeRawSourceRef(rawSourceRef, paths);
+  }
+  return {
+    ...entry,
+    body: inlineRawSourceRef ? inlineRawSourceRef.body : entry.body,
+    rawSourceRef,
+  };
+}
+
+function extractInlineRawSourceRef(body: string): { body: string; rawSourceRef: string } | null {
+  const match = body.match(INLINE_RAW_SOURCE_REF_PATTERN);
+  if (!match) return null;
+  return {
+    body: body.replace(INLINE_RAW_SOURCE_REF_PATTERN, "").trimEnd(),
+    rawSourceRef: match[1]!,
+  };
+}
+
 function buildPatchId(createdAt: string, summary: string): string {
   const compact = createdAt.replace(/[:.]/g, "-");
   const hash = Buffer.from(summary).toString("hex").slice(0, 8) || "00000000";
   return `${compact}-${hash}`;
+}
+
+function assertSafeRawSourceRef(rawSourceRef: string, paths: MemoryPaths): void {
+  if (!rawSourceRef.startsWith("raw/")) {
+    throw new Error("raw source provenance must point into raw/");
+  }
+  const absoluteRef = path.resolve(paths.root, rawSourceRef);
+  if (!absoluteRef.startsWith(`${paths.rawDir}${path.sep}`)) {
+    throw new Error("raw source provenance must point into raw/");
+  }
 }
 
 async function archiveQueueEntry(id: string, paths: MemoryPaths, meta: PatchMeta): Promise<void> {

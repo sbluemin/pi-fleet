@@ -7,6 +7,8 @@ export const WIKI_INGEST_PROMPT_SNIPPET = "중요한 지식을 raw source와 함
 export const WIKI_INGEST_GUIDELINES = [
   "wiki 변경은 반드시 queue 승인 흐름을 거칩니다.",
   "원본 소스는 raw 영역에 immutable하게 저장한 뒤 patch metadata에 raw ref를 남깁니다.",
+  "위키 본문은 raw를 열지 않아도 단독으로 읽히는 합성 markdown이어야 합니다.",
+  "raw_source_ref는 본문에 쓰지 말고 도구가 provenance metadata로만 보존하게 두십시오.",
 ];
 
 export const WIKI_BRIEFING_DESCRIPTION = "Fleet Wiki 위키에서 deterministic briefing을 조회합니다.";
@@ -51,10 +53,11 @@ export function buildWikiCaptureDirective(input: {
       "",
       "Your workflow:",
       "1. Identify durable knowledge from the active conversation/session, ignoring transient chatter.",
-      "2. Call `wiki_ingest` for each wiki candidate that should become long-term memory.",
-      "3. Call `wiki_aar_propose` with `auto_apply:false` for each AAR/log candidate worth staging.",
-      "4. Report the staged patch IDs, what each patch contains, and the exact approval/rejection commands the user can run next.",
-      "5. Surface conflicts, unknowns, and unsafe/privacy warnings before recommending approval.",
+      "2. Write each wiki body as self-contained synthesized markdown; do not put raw_source_ref in the body.",
+      "3. Call `wiki_ingest` for each wiki candidate that should become long-term memory.",
+      "4. Call `wiki_aar_propose` with `auto_apply:false` for each AAR/log candidate worth staging.",
+      "5. Report the staged patch IDs, what each patch contains, and the exact approval/rejection commands the user can run next.",
+      "6. Surface conflicts, unknowns, and unsafe/privacy warnings before recommending approval.",
       "",
       `Base all staging on the active context for branch \`${input.session.branchId}\`.`,
       "Do not restate the full transcript unless a short excerpt is strictly necessary to explain a conflict or warning.",
@@ -91,7 +94,7 @@ export function buildWikiIngestSchema() {
   return Type.Object({
     id: Type.String({ description: "위키 엔트리 ID" }),
     title: Type.String({ description: "위키 제목" }),
-    body: Type.String({ description: "위키 본문 초안" }),
+    body: Type.String({ description: "raw 없이 단독으로 읽히는 합성된 위키 markdown 본문. raw_source_ref를 포함하지 마십시오." }),
     tags: Type.Array(Type.String(), { description: "태그 목록" }),
     source: Type.String({ description: "immutable raw source로 저장할 원본 내용" }),
     source_type: Type.Optional(Type.String({ description: "raw source 종류. 기본값 inline" })),

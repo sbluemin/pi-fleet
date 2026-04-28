@@ -5,6 +5,7 @@ export interface WikiEntryFrontmatter {
   created: string;
   updated: string;
   version: number;
+  rawSourceRef?: string;
 }
 
 export interface WikiEntry extends WikiEntryFrontmatter {
@@ -96,6 +97,7 @@ export interface DryDockIssue {
     | "duplicate_id"
     | "orphan_log_ref"
     | "malformed_queue"
+    | "inline_raw_source_ref"
     | "unsafe_secret"
     | "prompt_injection";
   severity: "error" | "warning";

@@ -5,6 +5,8 @@ import { findUnsafeMemoryText } from "./safety.js";
 import { listDirectoryNames, listFileNames, readJsonFile, readPatchFile } from "./store.js";
 import type { DryDockIssue, DryDockReport, MemoryPaths, PatchMeta } from "./types.js";
 
+const INLINE_RAW_SOURCE_REF_PATTERN = /(^|\n)raw_source_ref\s*:/i;
+
 export async function runDryDock(paths: MemoryPaths): Promise<DryDockReport> {
   const issues: DryDockIssue[] = [];
   const wikiIds = new Map<string, string>();
@@ -30,6 +32,9 @@ export async function runDryDock(paths: MemoryPaths): Promise<DryDockReport> {
       issues.push(issue("duplicate_id", "error", `중복 wiki id: ${id}`, filePath));
     } else if (id) {
       wikiIds.set(id, filePath);
+    }
+    if (INLINE_RAW_SOURCE_REF_PATTERN.test(parsed.body)) {
+      issues.push(issue("inline_raw_source_ref", "warning", "위키 본문에 inline raw_source_ref 잔여물이 있습니다.", filePath));
     }
     parsedWikiFiles.push({ filePath, body: parsed.body });
   }

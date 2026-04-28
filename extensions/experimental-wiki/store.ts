@@ -146,8 +146,14 @@ export async function listFileNames(dirPath: string): Promise<string[]> {
   }
 }
 
+export function assertSafeEntryId(id: string): void {
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(id)) {
+    throw new Error(`unsafe wiki id: ${id}`);
+  }
+}
+
 function serializeWikiEntry(entry: WikiEntry): string {
-  const frontmatter = {
+  const frontmatter: FrontmatterShape = {
     id: entry.id,
     title: entry.title,
     tags: entry.tags,
@@ -155,6 +161,7 @@ function serializeWikiEntry(entry: WikiEntry): string {
     updated: entry.updated,
     version: entry.version,
   };
+  if (entry.rawSourceRef) frontmatter.rawSourceRef = entry.rawSourceRef;
   assertRequiredKeys(frontmatter, REQUIRED_WIKI_FRONTMATTER_KEYS);
   return serializeMarkdown(frontmatter, entry.body);
 }
@@ -182,6 +189,7 @@ function parseWikiEntry(content: string): WikiEntry {
     created: String(parsed.frontmatter.created),
     updated: String(parsed.frontmatter.updated),
     version: Number(parsed.frontmatter.version),
+    rawSourceRef: parsed.frontmatter.rawSourceRef ? String(parsed.frontmatter.rawSourceRef) : undefined,
     body: parsed.body,
   };
 }
@@ -269,12 +277,6 @@ function normalizeStringArray(value: unknown): string[] {
 function assertRequiredKeys(value: object, keys: readonly string[]): void {
   for (const key of keys) {
     if (!(key in value)) throw new Error(`missing required key: ${key}`);
-  }
-}
-
-function assertSafeEntryId(id: string): void {
-  if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(id)) {
-    throw new Error(`unsafe wiki id: ${id}`);
   }
 }
 

@@ -117,6 +117,46 @@ describe("wiki patch queue", () => {
     await expect(resolveQueueSelection("missing", paths)).rejects.toThrow(new RegExp(`Available patch IDs: ${patchId}`));
     await expect(resolveQueueSelection("", resolveMemoryPaths(await makeTempRoot()))).rejects.toThrow(/Queue is empty/);
   });
+
+  it("normalizes legacy inline raw_source_ref into provenance metadata on approve", async () => {
+    const root = await makeTempRoot();
+    const paths = resolveMemoryPaths(root);
+    const patch = await parsePatch(`---\nop: "create_wiki"\ntarget: "wiki/legacy.md"\nsummary: "Legacy"\nproposer: "test"\ncreated: "2026-04-26T00:00:00.000Z"\n---\n{"id":"legacy","title":"Legacy","tags":[],"created":"2026-04-26T00:00:00.000Z","updated":"2026-04-26T00:00:00.000Z","version":1,"body":"human readable body\\n\\nraw_source_ref: raw/2026-04-26-legacy-source.md"}`);
+
+    const patchId = await enqueuePatch(patch, paths);
+    await approvePatch(patchId, paths);
+    const stored = await readPatchFile(path.join(paths.wikiDir, "legacy.md"));
+
+    expect(stored).toContain('rawSourceRef: "raw/2026-04-26-legacy-source.md"');
+    expect(stored).not.toContain("raw_source_ref:");
+    expect(stored).toContain("human readable body");
+  });
+
+  it("normalizes single-newline legacy raw_source_ref footers on approve", async () => {
+    const root = await makeTempRoot();
+    const paths = resolveMemoryPaths(root);
+    const patch = await parsePatch(`---\nop: "create_wiki"\ntarget: "wiki/legacy-single.md"\nsummary: "Legacy single"\nproposer: "test"\ncreated: "2026-04-26T00:00:00.000Z"\n---\n{"id":"legacy-single","title":"Legacy single","tags":[],"created":"2026-04-26T00:00:00.000Z","updated":"2026-04-26T00:00:00.000Z","version":1,"body":"human readable body\\nraw_source_ref: raw/2026-04-26-legacy-single-source.md"}`);
+
+    const patchId = await enqueuePatch(patch, paths);
+    await approvePatch(patchId, paths);
+    const stored = await readPatchFile(path.join(paths.wikiDir, "legacy-single.md"));
+
+    expect(stored).toContain('rawSourceRef: "raw/2026-04-26-legacy-single-source.md"');
+    expect(stored).not.toContain("raw_source_ref:");
+  });
+
+  it("rejects promoted rawSourceRef values that escape raw storage", async () => {
+    const root = await makeTempRoot();
+    const paths = resolveMemoryPaths(root);
+    const directMetaPatch = await parsePatch(`---\nop: "create_wiki"\ntarget: "wiki/bad-ref.md"\nsummary: "Bad ref"\nproposer: "test"\ncreated: "2026-04-26T00:00:00.000Z"\n---\n{"id":"bad-ref","title":"Bad ref","tags":[],"created":"2026-04-26T00:00:00.000Z","updated":"2026-04-26T00:00:00.000Z","version":1,"body":"safe body","rawSourceRef":"../escape.md"}`);
+    const inlinePatch = await parsePatch(`---\nop: "create_wiki"\ntarget: "wiki/bad-inline.md"\nsummary: "Bad inline"\nproposer: "test"\ncreated: "2026-04-26T00:00:00.000Z"\n---\n{"id":"bad-inline","title":"Bad inline","tags":[],"created":"2026-04-26T00:00:00.000Z","updated":"2026-04-26T00:00:00.000Z","version":1,"body":"safe body\\nraw_source_ref: ../escape.md"}`);
+
+    const directPatchId = await enqueuePatch(directMetaPatch, paths);
+    const inlinePatchId = await enqueuePatch(inlinePatch, paths);
+
+    await expect(approvePatch(directPatchId, paths)).rejects.toThrow(/must point into raw/);
+    await expect(approvePatch(inlinePatchId, paths)).rejects.toThrow(/must point into raw/);
+  });
 });
 
 async function makeTempRoot(): Promise<string> {

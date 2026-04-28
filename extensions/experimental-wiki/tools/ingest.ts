@@ -7,8 +7,11 @@ import {
   buildWikiIngestSchema,
 } from "../prompts.js";
 import { assertNoUnsafeSecret, findUnsafeMemoryText } from "../safety.js";
-import { writeRawSourceEntry } from "../store.js";
+import { assertSafeEntryId, writeRawSourceEntry } from "../store.js";
 import type { Patch, RawSourceEntry, WikiEntry } from "../types.js";
+
+const MIN_WIKI_BODY_LENGTH = 120;
+const INLINE_RAW_SOURCE_REF_TOKEN = /(?:^|\n)raw_source_ref\s*:/i;
 
 export function buildIngestToolConfig() {
   return {
@@ -27,13 +30,17 @@ export function buildIngestToolConfig() {
     ) {
       const now = new Date().toISOString();
       const paths = resolveMemoryPaths(ctx.cwd);
+      const entryId = String(params.id);
       const sourceContent = String(params.source);
+      const wikiBody = String(params.body).trim();
+      assertSafeEntryId(entryId);
       assertNoUnsafeSecret(sourceContent);
+      validateWikiBody(wikiBody);
       const warnings = findUnsafeMemoryText(sourceContent)
         .filter((issue) => issue.severity === "warning")
         .map((issue) => issue.message);
       const rawSource: RawSourceEntry = {
-        id: `${String(params.id)}-source`,
+        id: `${entryId}-source`,
         created: now,
         sourceType: params.source_type === "file" ? "file" : "inline",
         title: typeof params.source_title === "string" ? params.source_title : String(params.title),
@@ -43,13 +50,14 @@ export function buildIngestToolConfig() {
       const rawSourceRef = await writeRawSourceEntry(rawSource, paths);
 
       const entry: WikiEntry = {
-        id: String(params.id),
+        id: entryId,
         title: String(params.title),
-        body: `${String(params.body)}\n\nraw_source_ref: ${rawSourceRef}`,
+        body: wikiBody,
         tags: Array.isArray(params.tags) ? params.tags.map(String) : [],
         created: now,
         updated: now,
         version: 1,
+        rawSourceRef,
       };
       const patch: Patch = {
         frontmatter: {
@@ -71,4 +79,18 @@ export function buildIngestToolConfig() {
       };
     },
   };
+}
+
+function validateWikiBody(body: string): void {
+  if (body.length < MIN_WIKI_BODY_LENGTH) {
+    throw new Error(`wiki body must be at least ${MIN_WIKI_BODY_LENGTH} characters`);
+  }
+  assertNoUnsafeSecret(body);
+  const warningIssue = findUnsafeMemoryText(body).find((issue) => issue.code === "prompt_injection");
+  if (warningIssue) {
+    throw new Error(warningIssue.message);
+  }
+  if (INLINE_RAW_SOURCE_REF_TOKEN.test(body)) {
+    throw new Error("wiki body must not include inline raw_source_ref metadata");
+  }
 }

@@ -24,6 +24,7 @@ describe("wiki store", () => {
       created: "2026-04-26T00:00:00.000Z",
       updated: "2026-04-26T00:00:00.000Z",
       version: 1,
+      rawSourceRef: "raw/2026-04-26-alpha-source.md",
       body: "hello world",
     }, paths);
 
@@ -42,6 +43,7 @@ describe("wiki store", () => {
     const index = await loadIndex(paths);
 
     expect(wiki?.title).toBe("Alpha");
+    expect(wiki?.rawSourceRef).toBe("raw/2026-04-26-alpha-source.md");
     expect(log).toHaveLength(1);
     expect(index.alpha?.path).toBe(path.join("wiki", "alpha.md"));
   });
