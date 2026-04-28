@@ -14,9 +14,6 @@ import {
   PANEL_COLOR,
   MIN_BODY_H,
 } from "../../constants.js";
-import {
-  resolveCarrierColor,
-} from "../../shipyard/carrier/framework.js";
 import { getActiveBackgroundJobCount } from "../../shipyard/_shared/concurrency-guard.js";
 import {
   renderPanelFull,
@@ -135,10 +132,7 @@ function applyWidgetSync(ctx: ExtensionContext): void {
       render(width: number): string[] {
         const state = getState();
         const activeJobs = getActiveJobs();
-        const frameCarrier = activeJobs[0]?.ownerCarrierId ?? null;
-        const frameColor = frameCarrier
-          ? (resolveCarrierColor(frameCarrier) || PANEL_COLOR)
-          : PANEL_COLOR;
+        const frameColor = PANEL_COLOR;
 
         // 터미널 높이 기반 bodyH 클램핑
         // 에디터(30%) + footer(2) + spacer/status 여유(5) 확보

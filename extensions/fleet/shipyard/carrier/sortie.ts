@@ -33,6 +33,7 @@ import { appendBlock, createJobArchive, finalizeJobArchive } from "../_shared/jo
 import type { CarrierJobLaunchResponse, CarrierJobSummary, CarrierJobStatus } from "../_shared/job-types.js";
 import { putJobSummary } from "../_shared/lru-cache.js";
 import { enqueueCarrierCompletionPush } from "../_shared/push.js";
+import { renderRequestPreview } from "../_shared/request-preview.js";
 import { composeTier2Request } from "./prompts.js";
 import { getVisibleRun } from "../../bridge/streaming/stream-store.js";
 import {
@@ -156,9 +157,15 @@ export function buildSortieToolConfig(pi: ExtensionAPI) {
       };
     },
 
-    // ── renderResult: 빈 컴포넌트 ──
-    renderResult(_result: any, _options: { expanded: boolean; isPartial: boolean }, _theme: any) {
-      return { render() { return []; }, invalidate() {} };
+    // ── renderResult: 요청 프리뷰 ──
+    renderResult(_result: any, options: { expanded: boolean; isPartial: boolean }, _theme: any, context: any) {
+      const args = context?.args as { carriers?: Array<{ carrier: string; request: string }> } | undefined;
+      const lines = renderRequestPreview(
+        (args?.carriers ?? []).map((carrier) => ({ label: carrier.carrier, text: carrier.request })),
+        options.expanded,
+        SORTIE_SUMMARY_COLOR,
+      );
+      return { render() { return lines; }, invalidate() {} };
     },
 
     // ── execute: N개 Carrier 병렬 job 등록 ──

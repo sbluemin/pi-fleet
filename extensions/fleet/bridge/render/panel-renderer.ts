@@ -11,6 +11,7 @@ import {
   BORDER,
   PANEL_COLOR,
   PANEL_DIM_COLOR,
+  PANEL_RGB,
   SPINNER_FRAMES,
   SYM_INDICATOR,
 } from "../../constants.js";
@@ -48,9 +49,8 @@ export function renderPanelFull(
   const panelH = 3 + bodyH + 1;
   const totalDiag = (w - 1) + (panelH - 1);
   const isStreaming = visibleJobs.some((job) => job.status === "active");
-  const frameOwnerCarrier = detailTarget?.job.ownerCarrierId ?? visibleJobs[0]?.ownerCarrierId ?? "";
   const wave: WaveConfig | undefined = isStreaming
-    ? { rgb: resolveCarrierRgb(frameOwnerCarrier), frame, totalDiag, bandWidth: 12 }
+    ? { rgb: PANEL_RGB, frame, totalDiag, bandWidth: 12 }
     : undefined;
   const FC = frameColor || PANEL_COLOR;
 

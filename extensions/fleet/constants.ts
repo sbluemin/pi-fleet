@@ -75,6 +75,7 @@ export const CARRIER_BG_COLORS: Record<string, string> = {
 
 /** 에이전트 패널 기본 프레임색 (비활성 시) */
 export const PANEL_COLOR = "\x1b[38;2;180;160;220m";
+export const PANEL_RGB: [number, number, number] = [180, 160, 220];
 
 /** 에이전트 패널 dim 색상 (힌트, 보조 텍스트) */
 export const PANEL_DIM_COLOR = "\x1b[38;2;160;150;180m";

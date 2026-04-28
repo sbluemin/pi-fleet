@@ -24,6 +24,7 @@ import { appendBlock, createJobArchive, finalizeJobArchive } from "../_shared/jo
 import type { CarrierJobLaunchResponse, CarrierJobSummary, CarrierJobStatus } from "../_shared/job-types.js";
 import { putJobSummary } from "../_shared/lru-cache.js";
 import { enqueueCarrierCompletionPush } from "../_shared/push.js";
+import { renderRequestPreview } from "../_shared/request-preview.js";
 import { loadModels } from "../store.js";
 import {
   createRun,
@@ -126,9 +127,15 @@ export function buildSquadronToolConfig(pi: ExtensionAPI) {
       };
     },
 
-    // ── renderResult: 빈 컴포넌트 ──
-    renderResult(_result: any, _options: { expanded: boolean; isPartial: boolean }, _theme: any) {
-      return { render() { return []; }, invalidate() {} };
+    // ── renderResult: 요청 프리뷰 ──
+    renderResult(_result: any, options: { expanded: boolean; isPartial: boolean }, _theme: any, context: any) {
+      const args = context?.args as { subtasks?: Array<{ title: string; request: string }> } | undefined;
+      const lines = renderRequestPreview(
+        (args?.subtasks ?? []).map((subtask) => ({ label: `"${subtask.title}"`, text: subtask.request })),
+        options.expanded,
+        SQUADRON_BADGE_COLOR,
+      );
+      return { render() { return lines; }, invalidate() {} };
     },
 
     // ── execute: 병렬 job 등록 ──
