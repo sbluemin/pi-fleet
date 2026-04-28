@@ -131,12 +131,13 @@ export function buildTaskForceToolConfig(pi: ExtensionAPI) {
     // ── renderResult: 요청 프리뷰 ──
     renderResult(_result: any, options: { expanded: boolean; isPartial: boolean }, _theme: any, context: any) {
       const args = context?.args as { carrier?: string; request?: string } | undefined;
-      const lines = renderRequestPreview(
-        args?.request ? [{ label: "", text: args.request }] : [],
-        options.expanded,
-        TASKFORCE_BADGE_COLOR,
-      );
-      return { render() { return lines; }, invalidate() {} };
+      const entries = args?.request ? [{ label: "", text: args.request }] : [];
+      return {
+        render(width: number) {
+          return renderRequestPreview(entries, options.expanded, TASKFORCE_BADGE_COLOR, width);
+        },
+        invalidate() {},
+      };
     },
 
     // ── execute: 활성 백엔드 병렬 job 등록 ──

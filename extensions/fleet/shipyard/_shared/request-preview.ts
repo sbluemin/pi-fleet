@@ -1,4 +1,5 @@
 import { keyHint } from "@mariozechner/pi-coding-agent";
+import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
 import { ANSI_RESET, PANEL_DIM_COLOR } from "../../constants.js";
 
@@ -15,13 +16,14 @@ export function renderRequestPreview(
   entries: RequestEntry[],
   expanded: boolean,
   labelColor: string,
+  width: number,
 ): string[] {
   if (entries.length < 1) return [];
 
-  const contentLines = buildContentLines(entries, labelColor);
+  const contentLines = buildContentLines(entries, labelColor, width);
   if (contentLines.length < 1) return [];
 
-  const hintLine = renderHintLine(expanded ? "접기" : "더보기");
+  const hintLine = truncateLine(renderHintLine(expanded ? "접기" : "더보기"), width);
   if (expanded) return [...contentLines, hintLine];
 
   if (contentLines.length <= COLLAPSED_MAX_LINES) return contentLines;
@@ -31,15 +33,15 @@ export function renderRequestPreview(
   return [...collapsed, hintLine];
 }
 
-function buildContentLines(entries: RequestEntry[], labelColor: string): string[] {
+function buildContentLines(entries: RequestEntry[], labelColor: string, width: number): string[] {
   const lines: string[] = [];
 
   for (const entry of entries) {
-    if (entry.label) lines.push(renderPrefixedLine(`${labelColor}▸ ${entry.label}${ANSI_RESET}`));
+    if (entry.label) lines.push(truncateLine(renderPrefixedLine(`${labelColor}▸ ${entry.label}${ANSI_RESET}`), width));
 
     const textLines = normalizeRequestLines(entry.text);
     const textIndent = entry.label ? "  " : "";
-    for (const line of textLines) lines.push(renderPrefixedLine(`${textIndent}${line}`));
+    for (const line of textLines) lines.push(truncateLine(renderPrefixedLine(`${textIndent}${line}`), width));
   }
 
   return lines;
@@ -56,6 +58,10 @@ function renderPrefixedLine(content: string): string {
 
 function renderHintLine(label: string): string {
   return `  ${DIM}${PREFIX}${ANSI_RESET} ${PANEL_DIM_COLOR}${safeKeyHint(label)}${ANSI_RESET}`;
+}
+
+function truncateLine(line: string, width: number): string {
+  return visibleWidth(line) > width ? truncateToWidth(line, width) : line;
 }
 
 function safeKeyHint(label: string): string {

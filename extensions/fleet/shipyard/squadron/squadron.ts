@@ -130,12 +130,13 @@ export function buildSquadronToolConfig(pi: ExtensionAPI) {
     // ── renderResult: 요청 프리뷰 ──
     renderResult(_result: any, options: { expanded: boolean; isPartial: boolean }, _theme: any, context: any) {
       const args = context?.args as { subtasks?: Array<{ title: string; request: string }> } | undefined;
-      const lines = renderRequestPreview(
-        (args?.subtasks ?? []).map((subtask) => ({ label: `"${subtask.title}"`, text: subtask.request })),
-        options.expanded,
-        SQUADRON_BADGE_COLOR,
-      );
-      return { render() { return lines; }, invalidate() {} };
+      const entries = (args?.subtasks ?? []).map((subtask) => ({ label: `"${subtask.title}"`, text: subtask.request }));
+      return {
+        render(width: number) {
+          return renderRequestPreview(entries, options.expanded, SQUADRON_BADGE_COLOR, width);
+        },
+        invalidate() {},
+      };
     },
 
     // ── execute: 병렬 job 등록 ──

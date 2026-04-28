@@ -160,12 +160,13 @@ export function buildSortieToolConfig(pi: ExtensionAPI) {
     // ── renderResult: 요청 프리뷰 ──
     renderResult(_result: any, options: { expanded: boolean; isPartial: boolean }, _theme: any, context: any) {
       const args = context?.args as { carriers?: Array<{ carrier: string; request: string }> } | undefined;
-      const lines = renderRequestPreview(
-        (args?.carriers ?? []).map((carrier) => ({ label: carrier.carrier, text: carrier.request })),
-        options.expanded,
-        SORTIE_SUMMARY_COLOR,
-      );
-      return { render() { return lines; }, invalidate() {} };
+      const entries = (args?.carriers ?? []).map((carrier) => ({ label: carrier.carrier, text: carrier.request }));
+      return {
+        render(width: number) {
+          return renderRequestPreview(entries, options.expanded, SORTIE_SUMMARY_COLOR, width);
+        },
+        invalidate() {},
+      };
     },
 
     // ── execute: N개 Carrier 병렬 job 등록 ──
