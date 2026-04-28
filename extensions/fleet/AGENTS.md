@@ -48,7 +48,7 @@ The number of carriers is determined at runtime by the carrier modules registere
 - **Dynamic CliType Overrides**: You can change the CLI type of a specific carrier at runtime via `updateCarrierCliType`. The changed state is saved in `states.json` and maintained after restart. **When switching CLI types, the current model, reasoning effort, and budget tokens are cached (`perCliSettings`) and automatically restored when returning to that CLI type (with validation against the new provider's capabilities).**
 - **Batch CLI Control**: Supports batch switching of all carriers belonging to a specific CLI type to another type (`Shift+C` in Status Overlay) and restoring all carriers to their source-level default CLI types (`Shift+R` in Status Overlay).
 - **Same carrierId concurrent calls are not supported** — UI layer manages one visible run per carrierId.
-- The Agent Panel is the main UI for streaming — multi-column is the default, and `Ctrl+Enter` opens a panel-local 1-column detail view for the selected carrier.
+- The Agent Panel is the main UI for streaming — multi-column is the default, and `Ctrl+Enter` opens a panel-local 1-column detail view for the first active `ColumnTrack`.
 
 ## Architecture
 
@@ -111,10 +111,10 @@ Consumer (carriers, external extensions)
 
 ### Agent Panel Centric Design
 
-- **Detail View**: `Ctrl+Enter` on the selected inline slot → Full-width 1-column panel for the corresponding carrier.
-- **Multi-Column View**: Default panel mode — renders the current visible CLI columns.
-- **Compact View**: Panel collapsed + while streaming → 1-line Streaming Widget.
-- **Frame Color**: Applies `CARRIER_COLORS` of the detail-view carrier. **If `cliType` has changed, the color of the changed type is followed.**
+- **Multi-Column View**: Default panel mode — renders every active `PanelJob` as its own job-scoped column.
+- **Detail View**: `Ctrl+Enter` → Full-width 1-column panel for the first active `ColumnTrack`.
+- **Compact View**: Panel collapsed + while streaming → 1-line Streaming Widget summarizing active jobs.
+- **Frame Color**: Applies the active job owner color. **If `cliType` has changed, the updated type color is followed.**
 
 ## Module Structure
 
@@ -130,7 +130,7 @@ Consumer (carriers, external extensions)
 | `types.ts` | Public types + globalThis bridge key/interface for `requestUnifiedAgent` |
 | `constants.ts` | Shared constants (colors, spinners, border characters, panel colors) |
 | `bridge/streaming/types.ts` | Streaming domain types — ColBlock, ColStatus, CollectedStreamData |
-| `bridge/panel/types.ts` | Panel domain types — AgentCol |
+| `bridge/panel/types.ts` | Panel domain types — AgentCol, PanelJob, ColumnTrack |
 | `bridge/carrier-ui/types.ts` | Overlay domain types — CarrierCliType, ModelSelection, OverlayState, etc. |
 | `operation-runner.ts` | Unified execution layer (internal) — `runAgentRequest`, `exposeAgentApi`. Single `executeWithPool` call site. Auto panel/widget sync |
 | `shipyard/carrier/types.ts` | Carrier framework types — CarrierConfig, internal state types |
@@ -152,6 +152,7 @@ Consumer (carriers, external extensions)
 | `bridge/carrier-ui/status-renderer.ts` | Carrier status segment renderer. |
 | `shipyard/carrier/model-ui.ts` | Model selection UI and keybind/command registration. |
 | `bridge/panel/state.ts` | Panel global state management. |
+| `bridge/panel/jobs.ts` | PanelJob registration/finalization and active-job selection state. |
 | `bridge/acp-shell/*` | ACP overlay shell modules. |
 | `bridge/panel/*` | Panel state/lifecycle/widget modules. |
 | `bridge/streaming/*` | Stream store and widget modules. |

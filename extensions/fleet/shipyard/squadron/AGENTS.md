@@ -8,6 +8,8 @@ Carrier Squadron management for parallel execution of same-type carriers.
 - **Atomic Dispatch**: Dispatches all requested carriers as a single unit.
 - **Detached Execution**: Following the fleet doctrine, `carrier_squadron` returns a single `job_id` for the entire batch and exits immediately.
 - **Aggregation**: Result summaries must aggregate individual carrier outcomes. If any carrier fails, the job status reflects the highest priority error.
+- **Agent Panel is the only live streaming channel**: live subtask output is written to stream-store/PanelJob and must not reappear in Messages.
+- **Messages renderCall stays compact**: `carrier_squadron` renderCall is a fixed 1-line summary only.
 
 ## Tool Manifest
 
@@ -20,3 +22,4 @@ Carrier Squadron management for parallel execution of same-type carriers.
 - **Busy Check**: Rejects the request if any of the target carriers are already busy with an active job.
 - **Logging**: Uses `fleet-squadron:*` categories for lifecycle observability.
 - **Prompt Composition**: Dynamically builds the prompt for each carrier based on the squadron input.
+- **Panel sync path**: background runner writes stream-store blocks, and bridge panel-job adapters pull that state into the Agent Panel automatically.

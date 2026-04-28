@@ -69,7 +69,7 @@ PI is the **host agent** (orchestrator). Registered Carriers are **sub-agents** 
 |------|---------|------|
 | **Fleet Action** | Alt+1 (Active Protocol) | PI handles directly (no sub-agents) — Standard workflow |
 | **Tool delegation** | PI's own judgment | PI → tool_call(any carrier) → sub-agent result → PI synthesizes |
-| **Bridge (single)** | Alt+H/L → Ctrl+Enter | User → single sub-agent (PI acts as router only, no synthesis) |
+| **Bridge (single)** | Alt+T | User → single sub-agent shell (PI acts as router only, no synthesis) |
 
 ## Operational Protocols & Standing Orders
 

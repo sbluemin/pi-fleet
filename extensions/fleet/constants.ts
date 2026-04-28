@@ -75,6 +75,7 @@ export const CARRIER_BG_COLORS: Record<string, string> = {
 
 /** 에이전트 패널 기본 프레임색 (비활성 시) */
 export const PANEL_COLOR = "\x1b[38;2;180;160;220m";
+export const PANEL_RGB: [number, number, number] = [180, 160, 220];
 
 /** 에이전트 패널 dim 색상 (힌트, 보조 텍스트) */
 export const PANEL_DIM_COLOR = "\x1b[38;2;160;150;180m";
@@ -84,6 +85,15 @@ export const THINKING_COLOR = "\x1b[38;2;180;140;255m";
 
 /** Tools 블록 색상 (틸/청록) */
 export const TOOLS_COLOR = "\x1b[38;2;80;200;180m";
+
+/** Sortie 도구 요약 색상 (기존 Squadron renderCall 색상 계승) */
+export const SORTIE_SUMMARY_COLOR = TOOLS_COLOR;
+
+/** Task Force 배지/도구 요약 색상 */
+export const TASKFORCE_BADGE_COLOR = "\x1b[38;2;100;180;255m";
+
+/** Squadron 배지/도구 요약 색상 */
+export const SQUADRON_BADGE_COLOR = "\x1b[38;2;180;140;255m";
 
 // ─── Claude Code 스타일 심볼 ─────────────────────────────
 
@@ -113,10 +123,10 @@ export const BODY_H_STEP = 2;
 // ─── Fleet Bridge 힌트 ──────────────────────────────────
 
 /** Fleet Bridge 멀티컬럼 뷰 하단 힌트 */
-export const PANEL_MULTI_COL_HINT = " alt+h/l move · ctrl+enter detail · alt+j/k · alt+p ";
+export const PANEL_MULTI_COL_HINT = " ctrl+enter detail · alt+j/k · alt+p ";
 
 /** Fleet Bridge 상세 뷰 하단 힌트 */
-export const PANEL_DETAIL_HINT = " alt+h/l back · alt+j/k ";
+export const PANEL_DETAIL_HINT = " ctrl+enter back · alt+j/k · alt+p ";
 
 /** 패널 높이 표시를 포함한 멀티컬럼 뷰 하단 힌트 */
 export function formatPanelMultiColHint(bodyH?: number): string {

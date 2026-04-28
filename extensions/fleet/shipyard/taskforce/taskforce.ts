@@ -5,16 +5,15 @@
  * 선택된 캐리어에 설정된 CLI 백엔드(2개 이상)에 동시 실행하여 교차검증합니다.
  *
  * - execute(): executeOneShot 기반 비세션 병렬 실행
- * - renderCall(): TaskForceCallComponent 통해 실시간 스트리밍 렌더링
- * - renderResult(): 완료 후 결과 캐시에서 렌더링
+ * - renderCall/renderResult: 고정 요약만 반환하고 실시간 스트리밍은 Agent Panel이 전담
  */
 
 import type { ExtensionAPI, ExtensionContext, Theme } from "@mariozechner/pi-coding-agent";
-import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
 import { getLogAPI } from "../../../core/log/bridge.js";
 import { executeOneShot } from "../../../core/agentclientprotocol/executor.js";
 import { registerToolPromptManifest } from "../../admiral/tool-prompt-manifest/index.js";
+import { finalizeJob, registerTaskforceJob } from "../../bridge/panel/jobs.js";
 import { toMessageArchiveBlock, toThoughtArchiveBlock } from "../_shared/archive-block-converter.js";
 import { combineAbortSignals } from "../_shared/abort-signals.js";
 import { acquireJobPermit } from "../_shared/concurrency-guard.js";
@@ -25,6 +24,7 @@ import { appendBlock, createJobArchive, finalizeJobArchive } from "../_shared/jo
 import type { CarrierJobLaunchResponse, CarrierJobSummary, CarrierJobStatus } from "../_shared/job-types.js";
 import { putJobSummary } from "../_shared/lru-cache.js";
 import { enqueueCarrierCompletionPush } from "../_shared/push.js";
+import { renderRequestPreview } from "../_shared/request-preview.js";
 import {
   getTaskForceModelConfig,
   getConfiguredTaskForceBackends,
@@ -38,7 +38,6 @@ import {
   updateRunStatus,
   getVisibleRun,
 } from "../../bridge/streaming/stream-store.js";
-import { renderBlockLines, blockLineToAnsi } from "../../bridge/render/block-renderer.js";
 import {
   getActiveTaskForceIds,
   getRegisteredOrder,
@@ -49,12 +48,8 @@ import {
 import { buildCarrierSystemPrompt, composeTier2Request } from "../carrier/prompts.js";
 import {
   ANSI_RESET,
-  PANEL_COLOR,
-  PANEL_DIM_COLOR,
-  SPINNER_FRAMES,
-  SYM_INDICATOR,
   CLI_DISPLAY_NAMES,
-  CARRIER_COLORS,
+  TASKFORCE_BADGE_COLOR,
 } from "../../constants.js";
 import {
   FLEET_TASKFORCE_DESCRIPTION,
@@ -65,7 +60,6 @@ import {
 } from "./prompts.js";
 import {
   TASKFORCE_STATE_KEY,
-  TASKFORCE_RESULT_CACHE_KEY,
   type BackendProgress,
   type TaskForceCliType,
   type TaskForceResult,
@@ -73,19 +67,6 @@ import {
 } from "./types.js";
 
 // ─── 타입 ────────────────────────────────────────────────
-
-interface TaskForceResultDetails {
-  carrierId: string;
-  requestKey: string;
-  results: TaskForceResult[];
-  /** 총 경과시간 (ms) — 히스토리 복원 시 표시용 */
-  elapsedMs?: number;
-}
-
-interface TaskForceRenderContext {
-  invalidate?: () => void;
-  lastComponent?: unknown;
-}
 
 interface TaskForceBackgroundOptions {
   pi: ExtensionAPI;
@@ -100,26 +81,6 @@ interface TaskForceBackgroundOptions {
   permit: { release: (finished?: { status?: CarrierJobStatus; error?: string; finishedAt?: number }) => void };
   startedAt: number;
 }
-
-// ─── 상수 ────────────────────────────────────────────────
-
-/** 밀리초를 사람이 읽기 쉬운 경과시간 문자열로 변환 */
-function formatElapsed(ms: number): string {
-  const totalSec = Math.floor(ms / 1000);
-  if (totalSec < 60) return `${totalSec}s`;
-  const min = Math.floor(totalSec / 60);
-  const sec = totalSec % 60;
-  if (min < 60) return `${min}m ${String(sec).padStart(2, "0")}s`;
-  const hr = Math.floor(min / 60);
-  const remMin = min % 60;
-  return `${hr}h ${String(remMin).padStart(2, "0")}m`;
-}
-
-/** 백엔드별 최대 콘텐츠 라인 수 (tail 방식) */
-const MAX_CONTENT_LINES = 5;
-
-/** 히스토리 복원용 결과 캐시 최대 보관 수 */
-const MAX_RESULT_CACHE_ENTRIES = 24;
 
 const TASKFORCE_RUN_PREFIX = "taskforce";
 const TASKFORCE_LOG_CATEGORY_INVOKE = "fleet-taskforce:invoke";
@@ -157,23 +118,26 @@ export function buildTaskForceToolConfig(pi: ExtensionAPI) {
     promptGuidelines: guidelines,
     parameters: buildTaskForceSchema(configuredCarriers),
 
-    // ── renderCall: 실시간 스트리밍 표시 ──
-    renderCall(args: unknown, theme: Theme, context: any) {
-      const typedArgs = args as { carrier?: string; request?: string };
-      const component = context?.lastComponent instanceof TaskForceCallComponent
-        ? context.lastComponent
-        : new TaskForceCallComponent();
-      component.setState(typedArgs.carrier ?? "", typedArgs.request ?? "", theme, context);
-      return component;
+    // ── renderCall: 고정 1줄 요약 (실시간 스트리밍은 Agent Panel 전담) ──
+    renderCall(args: unknown, _theme: Theme, _context: any) {
+      const typedArgs = args as { carrier?: string };
+      const carrier = typedArgs.carrier ?? "...";
+      return {
+        render() { return [`  ⚓ ${TASKFORCE_BADGE_COLOR}Taskforce${ANSI_RESET}: ${TASKFORCE_BADGE_COLOR}${carrier}${ANSI_RESET}`]; },
+        invalidate() {},
+      };
     },
 
-    // ── renderResult: 완료 후 캐시에서 표시 ──
-    renderResult(result: any, _options: { expanded: boolean; isPartial: boolean }, _theme: any) {
-      const details = result.details as TaskForceResultDetails | undefined;
-      if (details?.carrierId && details.requestKey && details.results) {
-        setResultCache(details.requestKey, details.carrierId, details.results, details.elapsedMs);
-      }
-      return { render() { return []; }, invalidate() {} };
+    // ── renderResult: 요청 프리뷰 ──
+    renderResult(_result: any, options: { expanded: boolean; isPartial: boolean }, _theme: any, context: any) {
+      const args = context?.args as { carrier?: string; request?: string } | undefined;
+      const entries = args?.request ? [{ label: "", text: args.request }] : [];
+      return {
+        render(width: number) {
+          return renderRequestPreview(entries, options.expanded, TASKFORCE_BADGE_COLOR, width);
+        },
+        invalidate() {},
+      };
     },
 
     // ── execute: 활성 백엔드 병렬 job 등록 ──
@@ -253,6 +217,20 @@ async function runTaskForceJobInBackground(opts: TaskForceBackgroundOptions): Pr
   let finalStatus: CarrierJobStatus = "done";
   let finalError: string | undefined;
   let results: TaskForceResult[] = [];
+  registerTaskforceJob(
+    opts.jobId,
+    opts.carrierId,
+    `${opts.activeBackends.length} backends`,
+    opts.activeBackends.map((cliType) => ({
+      trackId: `${opts.jobId}:${cliType}`,
+      streamKey: buildTaskForceRunId(opts.carrierId, cliType),
+      displayCli: cliType,
+      runId: getVisibleRun(buildTaskForceRunId(opts.carrierId, cliType))?.runId,
+      displayName: CLI_DISPLAY_NAMES[cliType] ?? cliType,
+      subtitle: resolveCarrierDisplayName(opts.carrierId),
+      kind: "backend" as const,
+    })),
+  );
   try {
     const settledResults = await Promise.allSettled(
       opts.activeBackends.map((cliType) =>
@@ -261,12 +239,10 @@ async function runTaskForceJobInBackground(opts: TaskForceBackgroundOptions): Pr
     );
     opts.state.finishedAt = Date.now();
     results = collectTaskForceResults(settledResults, opts.activeBackends);
-    const elapsedMs = opts.state.finishedAt - opts.state.startedAt;
-    setResultCache(opts.requestKey, opts.carrierId, results, elapsedMs);
     finalStatus = computeFinalStatus(results);
     getLogAPI().debug(
       TASKFORCE_LOG_CATEGORY_RESULT,
-      `carrier=${opts.carrierId} success=${results.filter((r) => r.status === "done").length} failure=${results.filter((r) => r.status !== "done").length} cacheSaved=true`,
+      `carrier=${opts.carrierId} success=${results.filter((r) => r.status === "done").length} failure=${results.filter((r) => r.status !== "done").length}`,
     );
   } catch (error) {
     finalStatus = "error";
@@ -279,6 +255,7 @@ async function runTaskForceJobInBackground(opts: TaskForceBackgroundOptions): Pr
     enqueueCarrierCompletionPush(opts.pi, { jobId: opts.jobId, summary: summary.summary });
     unregisterJobAbortControllers(opts.jobId);
     opts.permit.release({ status: finalStatus, error: finalError, finishedAt });
+    finalizeJob(opts.jobId, finalStatus === "done" ? "done" : finalStatus === "aborted" ? "aborted" : "error");
     clearTaskForceState(opts.requestKey);
     getLogAPI().debug(TASKFORCE_LOG_CATEGORY_INVOKE, `execute end carrier=${opts.carrierId} elapsedMs=${finishedAt - opts.startedAt}`);
   }
@@ -544,11 +521,8 @@ function initTaskForceState(
     backends: new Map(
       cliTypes.map((ct) => [ct, { status: "queued", toolCallCount: 0, lineCount: 0 }]),
     ),
-    frame: 0,
-    timer: null,
     startedAt: Date.now(),
   };
-  state.timer = setInterval(() => { state.frame++; }, 100);
   (globalThis as any)[TASKFORCE_STATE_KEY] = state;
   return state;
 }
@@ -556,326 +530,7 @@ function initTaskForceState(
 function clearTaskForceState(requestKey?: string): void {
   const state = getTaskForceState();
   if (requestKey && state?.requestKey !== requestKey) return;
-  if (state?.timer) clearInterval(state.timer);
   (globalThis as any)[TASKFORCE_STATE_KEY] = null;
-}
-
-// ─── 결과 캐시 ───────────────────────────────────────────
-
-/** 결과 캐시 엔트리 */
-interface TaskForceResultCacheEntry {
-  carrierId: string;
-  results: TaskForceResult[];
-  elapsedMs?: number;
-}
-
-function getResultCacheStore(): Map<string, TaskForceResultCacheEntry> {
-  let store = (globalThis as any)[TASKFORCE_RESULT_CACHE_KEY] as
-    | Map<string, TaskForceResultCacheEntry>
-    | undefined;
-  if (!store) {
-    store = new Map();
-    (globalThis as any)[TASKFORCE_RESULT_CACHE_KEY] = store;
-  }
-  return store;
-}
-
-function setResultCache(requestKey: string, carrierId: string, results: TaskForceResult[], elapsedMs?: number): void {
-  const store = getResultCacheStore();
-  store.delete(requestKey);
-  store.set(requestKey, { carrierId, results, elapsedMs });
-
-  while (store.size > MAX_RESULT_CACHE_ENTRIES) {
-    const oldestKey = store.keys().next().value;
-    if (!oldestKey) break;
-    store.delete(oldestKey);
-  }
-}
-
-function getResultCache(requestKey: string): TaskForceResultCacheEntry | null {
-  return getResultCacheStore().get(requestKey) ?? null;
-}
-
-function countBackendStatuses(backends: Iterable<BackendProgress>): { done: number; error: number } {
-  let done = 0;
-  let error = 0;
-
-  for (const backend of backends) {
-    if (backend.status === "done") done++;
-    if (backend.status === "error") error++;
-  }
-
-  return { done, error };
-}
-
-function countResultStatuses(results: TaskForceResult[]): { done: number; error: number } {
-  let done = 0;
-  let error = 0;
-
-  for (const result of results) {
-    if (result.status === "done") {
-      done++;
-      continue;
-    }
-    error++;
-  }
-
-  return { done, error };
-}
-
-// ─── partial 업데이트 ────────────────────────────────────
-
-export function buildPartialUpdate(
-  carrierId: string,
-  state: TaskForceState,
-): { content: { type: "text"; text: string }[]; details: any } {
-  const { done: doneCount } = countBackendStatuses(state.backends.values());
-  const total = state.backends.size;
-  const carrierDisplay = sanitizeChunk(resolveCarrierDisplayName(carrierId));
-  return {
-    content: [{
-      type: "text" as const,
-      text: `Task Force [${carrierDisplay}]: ${doneCount}/${total} backends completed`,
-    }],
-    details: {},
-  };
-}
-
-// ─── renderCall 컴포넌트 ─────────────────────────────────
-
-class TaskForceCallComponent {
-  private carrierId = "";
-  private requestKey = "";
-  private theme: any = null;
-  private context: TaskForceRenderContext | undefined = undefined;
-  private lastRenderedLineCount = 0;
-  private compactCleanupTimer: ReturnType<typeof setTimeout> | null = null;
-  private compactCleanupPending = false;
-
-  setState(carrierId: string, request: string, theme: any, context: TaskForceRenderContext | undefined): void {
-    this.carrierId = carrierId;
-    this.requestKey = buildTaskForceRequestKey(carrierId, request);
-    this.theme = theme;
-    this.context = context;
-  }
-
-  invalidate(): void {
-    if (this.compactCleanupTimer) {
-      clearTimeout(this.compactCleanupTimer);
-      this.compactCleanupTimer = null;
-    }
-    this.compactCleanupPending = false;
-  }
-
-  render(width: number): string[] {
-    const lines = this.buildLines(width);
-    const nextLineCount = lines.length;
-
-    const needsCompactCleanup =
-      this.lastRenderedLineCount > nextLineCount && !this.compactCleanupPending;
-
-    if (needsCompactCleanup) {
-      const padded = [...lines];
-      for (let i = nextLineCount; i < this.lastRenderedLineCount; i++) {
-        padded.push(" ".repeat(width));
-      }
-      this.scheduleCompactCleanup(nextLineCount);
-      this.lastRenderedLineCount = padded.length;
-      return padded;
-    }
-
-    this.lastRenderedLineCount = nextLineCount;
-    return lines;
-  }
-
-  private scheduleCompactCleanup(compactLineCount: number): void {
-    if (this.compactCleanupTimer) clearTimeout(this.compactCleanupTimer);
-    this.compactCleanupPending = true;
-    this.compactCleanupTimer = setTimeout(() => {
-      this.compactCleanupTimer = null;
-      this.compactCleanupPending = false;
-      this.lastRenderedLineCount = compactLineCount;
-      this.context?.invalidate?.();
-    }, 0);
-  }
-
-  private buildLines(width: number): string[] {
-    const termCols = process.stdout.columns || 80;
-    const effectiveWidth = Math.min(width, termCols);
-    const globalState = getTaskForceState();
-    const state = globalState?.requestKey === this.requestKey ? globalState : null;
-    const cache = getResultCache(this.requestKey);
-    const frame = state?.frame ?? 0;
-    const cachedResults = cache?.carrierId === this.carrierId ? cache.results : [];
-    const renderableCachedResults = state
-      ? cachedResults
-      : getRenderableCachedResults(this.carrierId, cachedResults);
-    const activeCliTypes = state
-      ? [...state.backends.keys()]
-      : renderableCachedResults.length > 0
-        ? renderableCachedResults.map((result) => result.cliType)
-        : [];
-    const lines: string[] = [];
-
-    // ── 경과시간 계산 ──
-    let elapsedSuffix = "";
-    if (state) {
-      const elapsed = state.finishedAt
-        ? state.finishedAt - state.startedAt
-        : Date.now() - state.startedAt;
-      elapsedSuffix = this.theme.fg("dim", ` · ${formatElapsed(elapsed)}`);
-    } else if (cache?.elapsedMs != null) {
-      elapsedSuffix = this.theme.fg("dim", ` · ${formatElapsed(cache.elapsedMs)}`);
-    }
-
-    // ── 헤더 ──
-    const carrierDisplay = this.carrierId
-      ? resolveCarrierDisplayName(this.carrierId)
-      : "...";
-    const headerTitle = this.theme.fg("toolTitle", this.theme.bold("◈ Task Force"));
-
-    lines.push(
-      `${headerTitle} ${PANEL_DIM_COLOR}·${ANSI_RESET} ${PANEL_COLOR}${carrierDisplay}${ANSI_RESET} ${this.theme.fg("dim", `· ${buildTaskForceHeaderSuffix(state, cachedResults)}`)}${elapsedSuffix}`,
-    );
-
-    // ── 백엔드 트리 ──
-    for (let i = 0; i < activeCliTypes.length; i++) {
-      const cliType = activeCliTypes[i]!;
-      const isLast = i === activeCliTypes.length - 1;
-      const treePrefix = isLast ? "└─" : "├─";
-      const connector = isLast ? "   " : "│  ";
-
-      const displayName = CLI_DISPLAY_NAMES[cliType] ?? cliType;
-      const color = CARRIER_COLORS[cliType] ?? PANEL_COLOR;
-      const progress = state?.backends.get(cliType);
-      const cachedResult = renderableCachedResults.find((result) => result.cliType === cliType);
-      const icon = resolveBackendIcon(progress, cachedResult, frame, cliType);
-
-      const pText = progress ? progressText(progress) : "";
-      const progressSuffix = pText
-        ? ` ${PANEL_DIM_COLOR}[${pText}]${ANSI_RESET}`
-        : "";
-
-      lines.push(
-        `  ${PANEL_DIM_COLOR}${treePrefix}${ANSI_RESET} ${icon} ${color}${displayName}${ANSI_RESET}${progressSuffix}`,
-      );
-
-      // 스트리밍 중인 백엔드만 콘텐츠 표시
-      const isStreaming = progress && (progress.status === "connecting" || progress.status === "streaming");
-      if (isStreaming) {
-        const syntheticId = buildTaskForceRunId(this.carrierId, cliType);
-        const contentLines = renderBackendContentLines(syntheticId, connector, effectiveWidth, this.theme);
-        for (const cl of contentLines) {
-          lines.push(cl);
-        }
-      }
-    }
-
-    return lines.map((line) =>
-      visibleWidth(line) > effectiveWidth ? truncateToWidth(line, effectiveWidth) : line,
-    );
-  }
-}
-
-// ─── 내부 렌더링 헬퍼 ────────────────────────────────────
-
-function buildTaskForceHeaderSuffix(
-  state: TaskForceState | null,
-  cachedResults: TaskForceResult[],
-): string {
-  if (state) {
-    const { done, error } = countBackendStatuses(state.backends.values());
-    const total = state.backends.size;
-    const running = total - done - error;
-    const parts: string[] = [`${total} backends`];
-    if (running > 0) parts.push(`${running} running`);
-    if (done > 0) parts.push(`${done} done`);
-    if (error > 0) parts.push(`${error} err`);
-    return parts.join(", ");
-  }
-
-  if (cachedResults.length > 0) {
-    const { done, error } = countResultStatuses(cachedResults);
-    const parts: string[] = [`${cachedResults.length} backends`];
-    if (done > 0) parts.push(`${done} done`);
-    if (error > 0) parts.push(`${error} error`);
-    return parts.join(", ");
-  }
-
-  return `launching backends`;
-}
-
-function getRenderableCachedResults(
-  carrierId: string,
-  cachedResults: TaskForceResult[],
-): TaskForceResult[] {
-  if (cachedResults.length === 0) return cachedResults;
-  const currentBackends = new Set(getConfiguredTaskForceBackends(carrierId));
-  const isSubset = cachedResults.every((result) => currentBackends.has(result.cliType));
-  return isSubset ? cachedResults : [];
-}
-
-function resolveBackendIcon(
-  progress: BackendProgress | undefined,
-  cachedResult: TaskForceResult | undefined,
-  frame: number,
-  cliType: TaskForceCliType,
-): string {
-  if (progress) {
-    return backendStatusIcon(progress.status, frame, cliType);
-  }
-
-  if (cachedResult) {
-    return cachedResult.status === "done"
-      ? `\x1b[38;2;100;200;100m${SYM_INDICATOR}${ANSI_RESET}`
-      : `\x1b[38;2;255;80;80m${SYM_INDICATOR}${ANSI_RESET}`;
-  }
-
-  return `${PANEL_DIM_COLOR}○${ANSI_RESET}`;
-}
-
-function backendStatusIcon(status: BackendProgress["status"], frame: number, cliType: TaskForceCliType): string {
-  const color = CARRIER_COLORS[cliType] ?? PANEL_COLOR;
-  switch (status) {
-    case "queued":
-      return `${PANEL_DIM_COLOR}○${ANSI_RESET}`;
-    case "connecting":
-    case "streaming":
-      return `${color}${SPINNER_FRAMES[frame % SPINNER_FRAMES.length]}${ANSI_RESET}`;
-    case "done":
-      return `\x1b[38;2;100;200;100m${SYM_INDICATOR}${ANSI_RESET}`;
-    case "error":
-      return `\x1b[38;2;255;80;80m${SYM_INDICATOR}${ANSI_RESET}`;
-  }
-}
-
-function progressText(p: BackendProgress): string {
-  const parts: string[] = [];
-  if (p.toolCallCount > 0) parts.push(`${p.toolCallCount}T`);
-  if (p.lineCount > 0) parts.push(`${p.lineCount}L`);
-  return parts.length > 0 ? parts.join("·") : "";
-}
-
-function renderBackendContentLines(
-  syntheticId: string,
-  connector: string,
-  contentWidth: number,
-  _theme: any,
-): string[] {
-  const run = getVisibleRun(syntheticId);
-  if (!run || run.blocks.length === 0) return [];
-
-  const blockLines = renderBlockLines(run.blocks);
-  if (blockLines.length === 0) return [];
-
-  const nonEmpty = blockLines.filter((bl) => bl.text.trim());
-  const tail = nonEmpty.slice(-MAX_CONTENT_LINES);
-  const indent = `  ${PANEL_DIM_COLOR}${connector}${ANSI_RESET}    `;
-
-  return tail.map((bl) => {
-    const coloredText = blockLineToAnsi(bl);
-    return truncateToWidth(`${indent}${coloredText}`, contentWidth);
-  });
 }
 
 function buildTaskForceRequestKey(carrierId: string, request: string): string {

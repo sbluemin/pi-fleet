@@ -43,10 +43,6 @@ export interface SquadronState {
   subtasks: Map<number, SubtaskProgress>;
   /** 서브태스크 제목 목록 (렌더링용) */
   subtaskTitles: string[];
-  /** 애니메이션 프레임 카운터 */
-  frame: number;
-  /** 프레임 타이머 */
-  timer: ReturnType<typeof setInterval> | null;
   /** 실행 시작 시각 (Date.now()) */
   startedAt: number;
   /** 모든 작업 완료 시각 */
@@ -60,6 +56,3 @@ export const SQUADRON_MAX_INSTANCES = 10;
 
 /** globalThis 진행 상태 키 */
 export const SQUADRON_STATE_KEY = "__pi_carrier_squadron_state__";
-
-/** globalThis 결과 캐시 키 */
-export const SQUADRON_RESULT_CACHE_KEY = "__pi_carrier_squadron_result_cache__";

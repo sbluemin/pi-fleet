@@ -8,4 +8,4 @@ ensureShipyardLogCategories();
 
 export { buildTaskForceToolConfig } from "./taskforce.js";
 export type { BackendProgress, TaskForceResult, TaskForceState } from "./types.js";
-export { TASKFORCE_STATE_KEY, TASKFORCE_RESULT_CACHE_KEY } from "./types.js";
+export { TASKFORCE_STATE_KEY } from "./types.js";

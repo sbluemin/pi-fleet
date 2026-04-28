@@ -45,10 +45,6 @@ export interface TaskForceState {
   requestKey: string;
   /** cliType → 진행 상태 */
   backends: Map<TaskForceCliType, BackendProgress>;
-  /** 애니메이션 프레임 카운터 */
-  frame: number;
-  /** 프레임 타이머 */
-  timer: ReturnType<typeof setInterval> | null;
   /** 실행 시작 시각 (Date.now()) */
   startedAt: number;
   /** 모든 작업 완료 시각 */
@@ -62,6 +58,3 @@ export const TASKFORCE_CLI_TYPES = ["claude", "codex", "gemini"] as const satisf
 
 /** globalThis 진행 상태 키 */
 export const TASKFORCE_STATE_KEY = "__pi_carrier_taskforce_state__";
-
-/** globalThis 결과 캐시 키 */
-export const TASKFORCE_RESULT_CACHE_KEY = "__pi_carrier_taskforce_result_cache__";

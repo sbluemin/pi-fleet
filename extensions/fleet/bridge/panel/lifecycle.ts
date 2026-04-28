@@ -8,7 +8,8 @@
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { ANIM_INTERVAL_MS, formatPanelMultiColHint, PANEL_DETAIL_HINT } from "../../constants.js";
 import { getActiveBackgroundJobCount, onActiveJobCountChange } from "../../shipyard/_shared/concurrency-guard.js";
-import { getState, makeCols, syncColsWithRegisteredOrder } from "./state.js";
+import { getActiveJobs } from "./jobs.js";
+import { getRegisteredCarrierCols, getState, makeCols, syncColsWithRegisteredOrder } from "./state.js";
 import type { AgentCol } from "./types.js";
 import { detachWidgetSync, syncCurrentWidget, syncWidget } from "./widget-sync.js";
 
@@ -21,17 +22,17 @@ let unsubscribeActiveJobCount: (() => void) | null = null;
 
 /**
  * 패널 로컬 상세 뷰를 설정합니다.
- * carrierId를 지정하면 해당 carrier의 1칼럼 상세 뷰로 전환합니다.
+ * trackId를 지정하면 해당 ColumnTrack의 1칼럼 상세 뷰로 전환합니다.
  * null이면 N칼럼 멀티 뷰로 복귀합니다.
  */
 export function setDetailView(
   ctx: ExtensionContext,
-  carrierId: string | null,
+  trackId: string | null,
 ): void {
   const s = getState();
-  s.detailCarrierId = carrierId;
+  s.detailTrackId = trackId;
 
-  if (carrierId === null) {
+  if (trackId === null) {
     s.bottomHint = formatPanelMultiColHint();
   } else {
     s.bottomHint = PANEL_DETAIL_HINT;
@@ -40,9 +41,9 @@ export function setDetailView(
   syncWidget(ctx);
 }
 
-/** 현재 상세 뷰 대상 carrier ID를 반환합니다. (null = N칼럼) */
-export function getDetailCarrierId(): string | null {
-  return getState().detailCarrierId;
+/** 현재 상세 뷰 대상 ColumnTrack ID를 반환합니다. (null = N칼럼) */
+export function getDetailTrackId(): string | null {
+  return getState().detailTrackId;
 }
 
 // ─── 스트리밍 라이프사이클 ───────────────────────────────
@@ -125,7 +126,7 @@ export function updateAgentCol(index: number, update: Partial<AgentCol>): void {
 
 /** 현재 칼럼 배열을 반환합니다 (참조 — 직접 수정 주의). */
 export function getAgentPanelCols(): AgentCol[] {
-  return getState().cols;
+  return getRegisteredCarrierCols();
 }
 
 /** 칼럼을 초기화하고 스트리밍을 중단합니다. */
@@ -200,7 +201,6 @@ export function beginColStreaming(ctx: ExtensionContext, colIndex: number): void
   }
 
   ensureAnimTimer();
-
   syncWidget(ctx);
 }
 
@@ -236,7 +236,11 @@ export function ensureAnimTimer(): void {
 
 function stopAnimTimerIfIdle(): void {
   const s = getState();
-  const stillStreaming = s.streaming || s.cols.some((col) => col.status === "conn" || col.status === "stream");
+  const activeJobs = getActiveJobs();
+  const stillStreaming =
+    s.streaming ||
+    s.cols.some((col) => col.status === "conn" || col.status === "stream") ||
+    activeJobs.length > 0;
   if (stillStreaming || getActiveBackgroundJobCount() > 0) return;
   if (!s.animTimer) return;
   clearInterval(s.animTimer);
