@@ -222,7 +222,7 @@ async function runTaskForceJobInBackground(opts: TaskForceBackgroundOptions): Pr
     opts.carrierId,
     `${opts.activeBackends.length} backends`,
     opts.activeBackends.map((cliType) => ({
-      trackId: cliType,
+      trackId: `${opts.jobId}:${cliType}`,
       streamKey: buildTaskForceRunId(opts.carrierId, cliType),
       displayCli: cliType,
       runId: getVisibleRun(buildTaskForceRunId(opts.carrierId, cliType))?.runId,

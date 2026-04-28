@@ -237,7 +237,7 @@ async function runSquadronJobInBackground(opts: SquadronBackgroundOptions): Prom
     opts.carrierId,
     `${opts.sanitizedSubtasks.length} subtasks`,
     opts.sanitizedSubtasks.map((subtask, index) => ({
-      trackId: `${index}`,
+      trackId: `${opts.jobId}:${index}`,
       streamKey: buildSquadronRunId(opts.requestKey, index),
       displayCli: opts.carrierId,
       runId: getVisibleRun(buildSquadronRunId(opts.requestKey, index))?.runId,
