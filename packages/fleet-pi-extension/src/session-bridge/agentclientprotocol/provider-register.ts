@@ -78,13 +78,13 @@ export default function (pi: ExtensionAPI) {
 
   // ── 세션 라이프사이클 ──
 
-  pi.on("session_start", (event, ctx) => {
+  pi.on("session_start", async (event, ctx) => {
     reconcileAcpThinkingLevel(pi, ctx.model);
 
     if (event.reason === "new" || event.reason === "resume" || event.reason === "fork") {
       const piSessionId = ctx.sessionManager.getSessionId();
       onHostSessionChange(piSessionId);
-      handleSessionStart(event.reason, piSessionId).catch((err) => {
+      await handleSessionStart(event.reason, piSessionId).catch((err) => {
         console.error("[fleet-acp] session_start 처리 실패:", err);
       });
     }
@@ -98,8 +98,8 @@ export default function (pi: ExtensionAPI) {
     reconcileAcpThinkingLevel(pi, event.model);
   });
 
-  pi.on("session_shutdown", (_event, ctx) => {
-    cleanupAll().catch((err) => {
+  pi.on("session_shutdown", async (_event, ctx) => {
+    await cleanupAll().catch((err) => {
       console.error("[fleet-acp] session_shutdown 정리 실패:", err);
     });
 
