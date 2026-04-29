@@ -168,6 +168,7 @@ vi.mock("@sbluemin/fleet-core/agent/tool-snapshot", () => ({
 import { handleSessionStart, streamAcp } from "../../../src/session-bridge/agentclientprotocol/provider-stream.js";
 import { GLOBAL_STATE_KEY, type AcpProviderState, type AcpSessionState } from "@sbluemin/fleet-core/agent/provider-types";
 import { onHostSessionChange } from "@sbluemin/fleet-core/agent/runtime";
+import { enqueueSessionLifecycleTask } from "../../../src/session-bridge/agentclientprotocol/lifecycle-barrier.js";
 
 describe("provider-stream", () => {
   afterEach(() => {
@@ -220,6 +221,83 @@ describe("provider-stream", () => {
     }));
     expect(mockState.client.sendMessage).toHaveBeenCalledWith(expect.stringContaining("<conversation-history>"));
     expect(mockState.sessionStoreState["host:codex"]).toBe("acp-session-1");
+  });
+
+  it("pending lifecycle cleanup 중 fresh stream은 ensureSession/connect/sendMessage를 cleanup 이후로 미룬다", async () => {
+    let releaseCleanup!: () => void;
+    const cleanupPromise = new Promise<void>((resolve) => {
+      releaseCleanup = resolve;
+    });
+    const lifecycleResult = enqueueSessionLifecycleTask(async () => cleanupPromise, () => {});
+
+    streamAcp(
+      { id: "gpt-5.4", provider: "Fleet ACP", reasoning: true } as any,
+      {
+        systemPrompt: "system",
+        messages: [{ role: "user", content: "hello" } as any],
+      } as any,
+      { cwd: "/tmp/pi-fleet", sessionId: "pi-cleanup-race" } as any,
+    );
+
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(mockState.client.connect).not.toHaveBeenCalled();
+    expect(mockState.client.sendMessage).not.toHaveBeenCalled();
+
+    releaseCleanup();
+    await lifecycleResult;
+
+    await vi.waitFor(() => {
+      expect(mockState.client.connect).toHaveBeenCalledTimes(1);
+      expect(mockState.client.sendMessage).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("reload로 새 module instance가 로드되어도 pending lifecycle cleanup barrier를 공유한다", async () => {
+    let releaseCleanup!: () => void;
+    const cleanupPromise = new Promise<void>((resolve) => {
+      releaseCleanup = resolve;
+    });
+    const lifecycleResult = enqueueSessionLifecycleTask(async () => cleanupPromise, () => {});
+
+    vi.resetModules();
+    const freshBarrier = await import("../../../src/session-bridge/agentclientprotocol/lifecycle-barrier.js");
+    let barrierSettled = false;
+    const barrierResult = freshBarrier.waitForSessionLifecycleBarrier().then(() => {
+      barrierSettled = true;
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(barrierSettled).toBe(false);
+
+    releaseCleanup();
+    await lifecycleResult;
+    await barrierResult;
+    expect(barrierSettled).toBe(true);
+  });
+
+  it("rejected lifecycle barrier 이후 fresh stream이 정상 진행된다", async () => {
+    await enqueueSessionLifecycleTask(
+      async () => {
+        throw new Error("cleanup failed");
+      },
+      () => {},
+    );
+
+    streamAcp(
+      { id: "gpt-5.4", provider: "Fleet ACP", reasoning: true } as any,
+      {
+        systemPrompt: "system",
+        messages: [{ role: "user", content: "hello" } as any],
+      } as any,
+      { cwd: "/tmp/pi-fleet", sessionId: "pi-cleanup-recovered" } as any,
+    );
+
+    await vi.waitFor(() => {
+      expect(mockState.client.connect).toHaveBeenCalledTimes(1);
+      expect(mockState.client.sendMessage).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("저장된 host provider sessionId를 resume하면 첫 메시지를 follow-up으로 보낸다", async () => {
