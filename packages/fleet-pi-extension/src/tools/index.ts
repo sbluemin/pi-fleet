@@ -1,6 +1,5 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import registerDiagnostics from "../diagnostics/index.js";
 import { onStatusUpdate } from "./carrier/framework.js";
 import { syncModelConfig } from "../commands/carrier/model-ui.js";
 import { registerPushModeSettingsSection } from "../config-bridge/fleet-push-mode-settings.js";
@@ -16,6 +15,5 @@ export function registerTools(pi: ExtensionAPI, fleetEnabled: boolean): void {
     registerPushModeSettingsSection();
   }
 
-  registerDiagnostics(pi);
   registerExperimentalWiki(pi);
 }

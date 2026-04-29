@@ -70,7 +70,6 @@ During the intermediate stage, Pi ownership is expressed through these buckets:
 - `src/config-bridge/` — settings/keybind/log/HUD/provider-guard bridges
 - `src/adapters/` — Pi-bound adapters over `fleet-core`
 - `src/compat/` — compatibility-only seams
-- `src/diagnostics/` — optional diagnostics extension surfaces
 
 These are the **current doctrinal homes** even though the package still physically retains `src/`.
 

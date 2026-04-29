@@ -24,7 +24,6 @@
 - `src/config-bridge/` — owns settings/keybind/log/HUD/provider-guard bridges
 - `src/adapters/` — owns Pi-bound adapters over `fleet-core` ports and public APIs
 - `src/compat/` — owns compatibility seams, including the sole `@mariozechner/pi-ai` bridge
-- `src/diagnostics/` — owns optional diagnostics-only Pi extension surfaces
 
 ## Must Own
 

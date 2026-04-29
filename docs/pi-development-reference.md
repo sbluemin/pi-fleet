@@ -63,7 +63,6 @@ Current intermediate buckets:
 | `src/config-bridge/` | Settings/keybind/log/HUD/provider-guard bridge code |
 | `src/adapters/` | Pi-bound adapters over `fleet-core` ports |
 | `src/compat/` | Compatibility-only seams |
-| `src/diagnostics/` | Diagnostics-only extension surfaces |
 
 ## 5. Removed Legacy Directory Guidance
 
