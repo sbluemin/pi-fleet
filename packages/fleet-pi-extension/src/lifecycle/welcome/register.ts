@@ -22,6 +22,7 @@ import {
   discoverLoadedCounts,
   getRecentSessions,
 } from "../../tui/welcome/welcome.js";
+import { isStaleExtensionContextError } from "../../tui/context-errors.js";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 내부 상태
@@ -34,6 +35,8 @@ interface WelcomeState {
   headerActive: boolean;
   /** dismiss가 오버레이 설정 전에 요청되었는지 (race condition 방지) */
   shouldDismiss: boolean;
+  /** 현재 세션 ctx. 세션 교체 중에는 null로 비워 stale ctx 접근을 피한다. */
+  currentCtx: any | null;
 }
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -50,20 +53,18 @@ export default function welcome(pi: ExtensionAPI) {
     dismissFn: null,
     headerActive: false,
     shouldDismiss: false,
+    currentCtx: null,
   };
 
   // globalThis 브릿지 등록 — 다른 확장이 dismiss를 트리거할 수 있음
   (globalThis as any)[WELCOME_GLOBAL_KEY] = {
-    dismiss: () => dismissWelcome(state as any, state),
+    dismiss: () => dismissWelcome(state.currentCtx, state),
   } satisfies WelcomeBridge;
 
   // ── 이벤트 핸들러 ──
 
   pi.on("session_start", async (event, ctx) => {
-    // globalThis 브릿지 업데이트 (ctx 바인딩)
-    (globalThis as any)[WELCOME_GLOBAL_KEY] = {
-      dismiss: () => dismissWelcome(ctx, state),
-    } satisfies WelcomeBridge;
+    state.currentCtx = ctx;
 
     if (event.reason === "resume" || event.reason === "new") {
       dismissWelcome(ctx, state);
@@ -81,6 +82,13 @@ export default function welcome(pi: ExtensionAPI) {
 
     // 항상 헤더 모드로 렌더링
     setupWelcomeHeader(ctx, state);
+  });
+
+  pi.on("session_shutdown", async () => {
+    state.dismissFn = null;
+    state.headerActive = false;
+    state.shouldDismiss = false;
+    state.currentCtx = null;
   });
 
   pi.on("agent_start", async (_event, ctx) => {
@@ -113,14 +121,27 @@ function createFleetUpdatePrompt(fleetRoot: string): string {
 
 function dismissWelcome(ctx: any, state: WelcomeState): void {
   if (state.dismissFn) {
-    state.dismissFn();
+    try {
+      state.dismissFn();
+    } catch (error) {
+      if (!isStaleExtensionContextError(error)) throw error;
+    }
     state.dismissFn = null;
   } else {
     state.shouldDismiss = true;
   }
   if (state.headerActive) {
     state.headerActive = false;
+    clearWelcomeHeader(ctx);
+  }
+}
+
+function clearWelcomeHeader(ctx: any): void {
+  if (!ctx?.ui?.setHeader) return;
+  try {
     ctx.ui.setHeader(undefined);
+  } catch (error) {
+    if (!isStaleExtensionContextError(error)) throw error;
   }
 }
 
@@ -163,79 +184,84 @@ function setupWelcomeOverlay(ctx: any, state: WelcomeState): void {
 
   // pi 초기화 완료를 기다리는 짧은 지연
   setTimeout(() => {
-    // 이미 해제 요청됨이면 스킵
-    if (state.shouldDismiss) {
-      state.shouldDismiss = false;
-      return;
-    }
+    try {
+      // 이미 해제 요청됨이면 스킵
+      if (state.shouldDismiss) {
+        state.shouldDismiss = false;
+        return;
+      }
 
-    // 세션에 이미 활동이 있으면 스킵 (p "command" 케이스)
-    const sessionEvents = ctx.sessionManager?.getBranch?.() ?? [];
-    const hasActivity = sessionEvents.some((e: any) =>
-      (e.type === "message" && e.message?.role === "assistant") ||
-      e.type === "tool_call" ||
-      e.type === "tool_result"
-    );
-    if (hasActivity) {
-      return;
-    }
+      // 세션에 이미 활동이 있으면 스킵 (p "command" 케이스)
+      const sessionEvents = ctx.sessionManager?.getBranch?.() ?? [];
+      const hasActivity = sessionEvents.some((e: any) =>
+        (e.type === "message" && e.message?.role === "assistant") ||
+        e.type === "tool_call" ||
+        e.type === "tool_result"
+      );
+      if (hasActivity) {
+        return;
+      }
 
-    ctx.ui.custom(
-      (tui: any, _theme: any, _keybindings: any, done: (result: void) => void) => {
-        const welcome = new WelcomeComponent(
-          modelName,
-          providerName,
-          recentSessions,
-          loadedCounts,
-          gitUpdate,
-        );
+      ctx.ui.custom(
+        (tui: any, _theme: any, _keybindings: any, done: (result: void) => void) => {
+          const welcome = new WelcomeComponent(
+            modelName,
+            providerName,
+            recentSessions,
+            loadedCounts,
+            gitUpdate,
+          );
 
-        let countdown = 30;
-        let dismissed = false;
+          let countdown = 30;
+          let dismissed = false;
+          let interval: ReturnType<typeof setInterval> | null = null;
 
-        const dismiss = () => {
-          if (dismissed) return;
-          dismissed = true;
-          clearInterval(interval);
-          state.dismissFn = null;
-          done();
-        };
-
-        state.dismissFn = dismiss;
-
-        // 외부 체크와 이 콜백 사이에 해제 요청이 들어왔을 수 있음
-        if (state.shouldDismiss) {
-          state.shouldDismiss = false;
-          dismiss();
-        }
-
-        const interval = setInterval(() => {
-          if (dismissed) return;
-          countdown--;
-          welcome.setCountdown(countdown);
-          tui.requestRender();
-          if (countdown <= 0) dismiss();
-        }, 1000);
-
-        return {
-          focused: false,
-          invalidate: () => welcome.invalidate(),
-          render: (width: number) => welcome.render(width),
-          handleInput: () => dismiss(),
-          dispose: () => {
+          const dismiss = () => {
+            if (dismissed) return;
             dismissed = true;
-            clearInterval(interval);
-          },
-        };
-      },
-      {
-        overlay: true,
-        overlayOptions: () => ({
-          verticalAlign: "center",
-          horizontalAlign: "center",
-        }),
-      },
-    ).catch(() => {});
+            if (interval) clearInterval(interval);
+            state.dismissFn = null;
+            done();
+          };
+
+          state.dismissFn = dismiss;
+
+          // 외부 체크와 이 콜백 사이에 해제 요청이 들어왔을 수 있음
+          if (state.shouldDismiss) {
+            state.shouldDismiss = false;
+            dismiss();
+          }
+
+          interval = setInterval(() => {
+            if (dismissed) return;
+            countdown--;
+            welcome.setCountdown(countdown);
+            tui.requestRender();
+            if (countdown <= 0) dismiss();
+          }, 1000);
+
+          return {
+            focused: false,
+            invalidate: () => welcome.invalidate(),
+            render: (width: number) => welcome.render(width),
+            handleInput: () => dismiss(),
+            dispose: () => {
+              dismissed = true;
+              if (interval) clearInterval(interval);
+            },
+          };
+        },
+        {
+          overlay: true,
+          overlayOptions: () => ({
+            verticalAlign: "center",
+            horizontalAlign: "center",
+          }),
+        },
+      ).catch(() => {});
+    } catch (error) {
+      if (!isStaleExtensionContextError(error)) throw error;
+    }
   }, 100);
 }
 

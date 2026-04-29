@@ -21,6 +21,7 @@ import {
   renderPanelFull,
 } from "../render/panel-renderer.js";
 import { renderCarrierStatus } from "../carrier-ui/status-renderer.js";
+import { isStaleExtensionContextError } from "../context-errors.js";
 import { getState, makeFooterCols, WIDGET_KEY } from "./state.js";
 
 const FLEET_CARRIER_STATUS_WIDGET_KEY = "fleet-carrier-status";
@@ -82,25 +83,6 @@ function readSessionId(ctx: ExtensionContext): string | null {
     if (isStaleExtensionContextError(error)) detachWidgetSync();
     return null;
   }
-}
-
-export function isStaleExtensionContextError(error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
-  const message = error.message.toLowerCase();
-  if (message.includes("agent listener invoked outside active run")) return true;
-  const mentionsExtensionCtx =
-    message.includes("extensioncontext") ||
-    message.includes("extension ctx") ||
-    message.includes("extension context");
-  const mentionsStaleSession =
-    message.includes("stale") ||
-    message.includes("session") ||
-    message.includes("replacement") ||
-    message.includes("reload");
-  return (
-    mentionsExtensionCtx &&
-    mentionsStaleSession
-  );
 }
 
 function applyWidgetSync(ctx: ExtensionContext): void {

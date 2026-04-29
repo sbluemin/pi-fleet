@@ -43,6 +43,13 @@ export function getKeybindAPI(): CoreKeybindAPI {
   return (globalThis as any)[CORE_KEYBIND_KEY];
 }
 
+export function prepareKeybindBridgeForExtensionLoad(): void {
+  const bridge = (globalThis as any)[CORE_KEYBIND_KEY];
+  bridge._impl = null;
+  bridge._queue.length = 0;
+  bridge._bindings.length = 0;
+}
+
 export function _bootstrapKeybind(impl: CoreKeybindAPI): void {
   const bridge = (globalThis as any)[CORE_KEYBIND_KEY];
   if (bridge._warnTimer) {

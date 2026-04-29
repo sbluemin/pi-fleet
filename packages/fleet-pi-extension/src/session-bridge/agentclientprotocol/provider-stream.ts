@@ -59,7 +59,6 @@ import {
 } from "@sbluemin/fleet-core/agent/tool-snapshot";
 import { getSessionStore, onHostSessionChange } from "@sbluemin/fleet-core/agent/runtime";
 import { classifyResumeFailure, isDeadSessionError } from "@sbluemin/fleet-core/agent/session-resume-utils";
-import { waitForSessionLifecycleBarrier } from "./lifecycle-barrier.js";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types / Interfaces
@@ -864,7 +863,7 @@ export function streamAcp(
     });
   } else {
     // ── Case 1: fresh query ──
-    runFreshQueryAfterLifecycleBarrier(cli, backendModel, scopeKey, cwd, context, systemPrompt, systemPromptHash, model, options, mapper).catch((err) => {
+    runFreshQuery(cli, backendModel, scopeKey, cwd, context, systemPrompt, systemPromptHash, model, options, mapper).catch((err) => {
       debug(`streamAcp 치명적 에러:`, errorMessage(err));
       mapper.finishWithError("error", errorMessage(err));
     });
@@ -876,22 +875,6 @@ export function streamAcp(
 // ═══════════════════════════════════════════════════════════════════════════
 // Case 1: Fresh query — sendMessage 호출
 // ═══════════════════════════════════════════════════════════════════════════
-
-async function runFreshQueryAfterLifecycleBarrier(
-  cli: CliType,
-  backendModel: string,
-  scopeKey: string,
-  cwd: string,
-  context: Context,
-  systemPrompt: string | undefined,
-  systemPromptHash: string,
-  model: Model<any>,
-  options: SimpleStreamOptions | undefined,
-  mapper: ReturnType<typeof createEventMapper>,
-): Promise<void> {
-  await waitForSessionLifecycleBarrier();
-  await runFreshQuery(cli, backendModel, scopeKey, cwd, context, systemPrompt, systemPromptHash, model, options, mapper);
-}
 
 async function runFreshQuery(
   cli: CliType,

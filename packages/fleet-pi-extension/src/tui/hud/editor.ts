@@ -17,6 +17,7 @@ import { getPreset } from "../../tui/hud/presets.js";
 import { buildSegmentContext } from "../../session-bridge/fleet/hud-context.js";
 import { computeResponsiveLayout } from "../../tui/hud/layout.js";
 import { WELCOME_GLOBAL_KEY } from "../welcome/types.js";
+import { isStaleExtensionContextError } from "../context-errors.js";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 상태바 설정 (footerDataRef 획득 목적)
@@ -82,164 +83,170 @@ export function setupStatusBar(ctx: any, state: HudEditorState): void {
 /** 커스텀 에디터 팩토리 + HUD + 위젯 등록 */
 export function setupCustomEditor(ctx: any, state: HudEditorState): void {
   import("@mariozechner/pi-coding-agent").then(({ CustomEditor }) => {
-    let autocompleteFixed = false;
+    try {
+      let autocompleteFixed = false;
 
-    const editorFactory = (tui: any, editorTheme: any, keybindings: any) => {
-      const editor = new CustomEditor(tui, editorTheme, keybindings);
-      state.currentEditor = editor;
+      const editorFactory = (tui: any, editorTheme: any, keybindings: any) => {
+        const editor = new CustomEditor(tui, editorTheme, keybindings);
+        state.currentEditor = editor;
 
-      const originalHandleInput = editor.handleInput.bind(editor);
-      editor.handleInput = (data: string) => {
-        if (!autocompleteFixed && !(editor as any).autocompleteProvider) {
-          autocompleteFixed = true;
-          ctx.ui.setEditorComponent(editorFactory);
-          state.currentEditor?.handleInput(data);
-          return;
-        }
-        // 타이핑 시작 → welcome 디스미스 (core-welcome globalThis 경유)
-        setTimeout(() => dismissWelcomeViaGlobal(), 0);
-        originalHandleInput(data);
-      };
-
-      const originalRender = editor.render.bind(editor);
-
-      // 오버라이드: 상태 바 + 테두리 + 프롬프트 접두사 + 자동완성
-      editor.render = (width: number): string[] => {
-        if (width < 10) {
-          return originalRender(width);
-        }
-
-        // 테두리: 외부 override가 있으면 사용, 없으면 sep 색상
-        const override = getEditorBorderColor();
-        const bc = (s: string) => override
-          ? `${override}${s}${ansi.reset}`
-          : `${getFgAnsiCode("sep")}${s}${ansi.reset}`;
-        // 프롬프트 `>`: 회색 고정
-        const prompt = `${ansi.getFgAnsi(200, 200, 200)}>${ansi.reset}`;
-
-        const promptPrefix = ` ${prompt} `;
-        const contPrefix = "   ";
-        const contentWidth = Math.max(1, width - 3);
-        const lines = originalRender(contentWidth);
-
-        if (lines.length === 0 || !state.currentCtx) return lines;
-
-        // 하단 테두리 찾기 (자동완성 항목은 그 아래)
-        let bottomBorderIndex = lines.length - 1;
-        for (let i = lines.length - 1; i >= 1; i--) {
-          const stripped = lines[i]?.replace(/\x1b\[[0-9;]*m/g, "") || "";
-          if (stripped.length > 0 && /^─{3,}/.test(stripped)) {
-            bottomBorderIndex = i;
-            break;
+        const originalHandleInput = editor.handleInput.bind(editor);
+        editor.handleInput = (data: string) => {
+          if (!autocompleteFixed && !(editor as any).autocompleteProvider) {
+            autocompleteFixed = true;
+            if (!setEditorComponent(ctx, editorFactory)) return;
+            state.currentEditor?.handleInput(data);
+            return;
           }
-        }
+          // 타이핑 시작 → welcome 디스미스 (core-welcome globalThis 경유)
+          setTimeout(() => dismissWelcomeViaGlobal(), 0);
+          originalHandleInput(data);
+        };
 
-        const result: string[] = [];
+        const originalRender = editor.render.bind(editor);
 
-        // 상단 테두리 — 레이블을 중앙에 삽입
-        const rightLabel = getEditorRightLabel();
-        if (rightLabel) {
-          const rawLabel = rightLabel.replace(/\x1b\[[0-9;]*m/g, "");
-          const labelVisibleWidth = visibleWidth(rawLabel);
-          const totalDash = width - 2 - labelVisibleWidth - 2; // 양쪽 공백 각 1칸
-          if (totalDash >= 2) {
-            const leftDash = Math.floor(totalDash / 2);
-            const rightDash = totalDash - leftDash;
-            result.push(" " + bc("─".repeat(leftDash)) + " " + rightLabel + " " + bc("─".repeat(rightDash)));
+        // 오버라이드: 상태 바 + 테두리 + 프롬프트 접두사 + 자동완성
+        editor.render = (width: number): string[] => {
+          if (width < 10) {
+            return originalRender(width);
+          }
+
+          // 테두리: 외부 override가 있으면 사용, 없으면 sep 색상
+          const override = getEditorBorderColor();
+          const bc = (s: string) => override
+            ? `${override}${s}${ansi.reset}`
+            : `${getFgAnsiCode("sep")}${s}${ansi.reset}`;
+          // 프롬프트 `>`: 회색 고정
+          const prompt = `${ansi.getFgAnsi(200, 200, 200)}>${ansi.reset}`;
+
+          const promptPrefix = ` ${prompt} `;
+          const contPrefix = "   ";
+          const contentWidth = Math.max(1, width - 3);
+          const lines = originalRender(contentWidth);
+
+          if (lines.length === 0 || !state.currentCtx) return lines;
+
+          // 하단 테두리 찾기 (자동완성 항목은 그 아래)
+          let bottomBorderIndex = lines.length - 1;
+          for (let i = lines.length - 1; i >= 1; i--) {
+            const stripped = lines[i]?.replace(/\x1b\[[0-9;]*m/g, "") || "";
+            if (stripped.length > 0 && /^─{3,}/.test(stripped)) {
+              bottomBorderIndex = i;
+              break;
+            }
+          }
+
+          const result: string[] = [];
+
+          // 상단 테두리 — 레이블을 중앙에 삽입
+          const rightLabel = getEditorRightLabel();
+          if (rightLabel) {
+            const rawLabel = rightLabel.replace(/\x1b\[[0-9;]*m/g, "");
+            const labelVisibleWidth = visibleWidth(rawLabel);
+            const totalDash = width - 2 - labelVisibleWidth - 2; // 양쪽 공백 각 1칸
+            if (totalDash >= 2) {
+              const leftDash = Math.floor(totalDash / 2);
+              const rightDash = totalDash - leftDash;
+              result.push(" " + bc("─".repeat(leftDash)) + " " + rightLabel + " " + bc("─".repeat(rightDash)));
+            } else {
+              result.push(" " + bc("─".repeat(width - 2)));
+            }
           } else {
             result.push(" " + bc("─".repeat(width - 2)));
           }
-        } else {
-          result.push(" " + bc("─".repeat(width - 2)));
-        }
 
-        // 콘텐츠 줄: 첫 줄 "> " 프롬프트, 이후 들여쓰기
-        for (let i = 1; i < bottomBorderIndex; i++) {
-          const prefix = i === 1 ? promptPrefix : contPrefix;
-          result.push(`${prefix}${lines[i] || ""}`);
-        }
-
-        // 빈 에디터면 프롬프트만 표시
-        if (bottomBorderIndex === 1) {
-          result.push(`${promptPrefix}${" ".repeat(contentWidth)}`);
-        }
-
-        // 하단 테두리 — solid 라인 복원 [Feature]
-        result.push(" " + bc("─".repeat(width - 2)));
-
-        // 자동완성 항목
-        for (let i = bottomBorderIndex + 1; i < lines.length; i++) {
-          result.push(lines[i] || "");
-        }
-
-        return result;
-      };
-
-      return editor;
-    };
-
-    ctx.ui.setEditorComponent(editorFactory);
-
-    // 상태바 위젯 (belowEditor)
-    ctx.ui.setWidget("hud-status-bar", (_tui: any, theme: Theme) => {
-      return {
-        dispose() {},
-        invalidate() {},
-        render(width: number): string[] {
-          if (!state.currentCtx) return [];
-          // pi 0.69: 세션 교체/종료 직후 stale ctx 접근 시 sessionManager getter가 throw.
-          // 마지막 render tick이 teardown과 레이스할 수 있으므로 방어적으로 무시.
-          try {
-            const layout = getResponsiveLayout(width, theme, state);
-            const lines: string[] = [];
-
-            if (layout.topContent) {
-              lines.push(centerLine(` ${layout.topContent}`, width));
-            }
-
-            if (layout.secondaryContent) {
-              lines.push(centerLine(` ${layout.secondaryContent}`, width));
-            }
-
-            return lines;
-          } catch {
-            return [];
+          // 콘텐츠 줄: 첫 줄 "> " 프롬프트, 이후 들여쓰기
+          for (let i = 1; i < bottomBorderIndex; i++) {
+            const prefix = i === 1 ? promptPrefix : contPrefix;
+            result.push(`${prefix}${lines[i] || ""}`);
           }
-        },
+
+          // 빈 에디터면 프롬프트만 표시
+          if (bottomBorderIndex === 1) {
+            result.push(`${promptPrefix}${" ".repeat(contentWidth)}`);
+          }
+
+          // 하단 테두리 — solid 라인 복원 [Feature]
+          result.push(" " + bc("─".repeat(width - 2)));
+
+          // 자동완성 항목
+          for (let i = bottomBorderIndex + 1; i < lines.length; i++) {
+            result.push(lines[i] || "");
+          }
+
+          return result;
+        };
+
+        return editor;
       };
-    }, { placement: "belowEditor" });
 
-    // 확장 상태 알림 위젯 (에디터 아래)
-    ctx.ui.setWidget("hud-notification", () => {
-      return {
-        dispose() {},
-        invalidate() {},
-        render(width: number): string[] {
-          if (!state.currentCtx) return [];
-          // pi 0.69 stale ctx 방어 — 상태바와 동일 레이스 윈도우.
-          try {
-            const statuses = state.footerDataRef?.getExtensionStatuses();
-            if (!statuses || statuses.size === 0) return [];
+      if (!setEditorComponent(ctx, editorFactory)) return;
 
-            const notifications: string[] = [];
-            for (const value of statuses.values()) {
-              if (value && value.trimStart().startsWith('[')) {
-                const lineContent = ` ${value}`;
-                const contentWidth = visibleWidth(lineContent);
-                if (contentWidth <= width) {
-                  notifications.push(centerLine(lineContent, width));
+      // 상태바 위젯 (belowEditor)
+      ctx.ui.setWidget("hud-status-bar", (_tui: any, theme: Theme) => {
+        return {
+          dispose() {},
+          invalidate() {},
+          render(width: number): string[] {
+            if (!state.currentCtx) return [];
+            // pi 0.69: 세션 교체/종료 직후 stale ctx 접근 시 sessionManager getter가 throw.
+            // 마지막 render tick이 teardown과 레이스할 수 있으므로 방어적으로 무시.
+            try {
+              const layout = getResponsiveLayout(width, theme, state);
+              const lines: string[] = [];
+
+              if (layout.topContent) {
+                lines.push(centerLine(` ${layout.topContent}`, width));
+              }
+
+              if (layout.secondaryContent) {
+                lines.push(centerLine(` ${layout.secondaryContent}`, width));
+              }
+
+              return lines;
+            } catch {
+              return [];
+            }
+          },
+        };
+      }, { placement: "belowEditor" });
+
+      // 확장 상태 알림 위젯 (에디터 아래)
+      ctx.ui.setWidget("hud-notification", () => {
+        return {
+          dispose() {},
+          invalidate() {},
+          render(width: number): string[] {
+            if (!state.currentCtx) return [];
+            // pi 0.69 stale ctx 방어 — 상태바와 동일 레이스 윈도우.
+            try {
+              const statuses = state.footerDataRef?.getExtensionStatuses();
+              if (!statuses || statuses.size === 0) return [];
+
+              const notifications: string[] = [];
+              for (const value of statuses.values()) {
+                if (value && value.trimStart().startsWith('[')) {
+                  const lineContent = ` ${value}`;
+                  const contentWidth = visibleWidth(lineContent);
+                  if (contentWidth <= width) {
+                    notifications.push(centerLine(lineContent, width));
+                  }
                 }
               }
+
+              return notifications;
+            } catch {
+              return [];
             }
+          },
+        };
+      }, { placement: "belowEditor" });
+    } catch (error) {
+      if (!isStaleExtensionContextError(error)) throw error;
+    }
 
-            return notifications;
-          } catch {
-            return [];
-          }
-        },
-      };
-    }, { placement: "belowEditor" });
-
+  }).catch((error) => {
+    if (!isStaleExtensionContextError(error)) throw error;
   });
 }
 
@@ -248,7 +255,21 @@ export function setupCustomEditor(ctx: any, state: HudEditorState): void {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function dismissWelcomeViaGlobal(): void {
-  (globalThis as any)[WELCOME_GLOBAL_KEY]?.dismiss?.();
+  try {
+    (globalThis as any)[WELCOME_GLOBAL_KEY]?.dismiss?.();
+  } catch (error) {
+    if (!isStaleExtensionContextError(error)) throw error;
+  }
+}
+
+function setEditorComponent(ctx: any, editorFactory: (...args: any[]) => any): boolean {
+  try {
+    ctx.ui.setEditorComponent(editorFactory);
+    return true;
+  } catch (error) {
+    if (!isStaleExtensionContextError(error)) throw error;
+    return false;
+  }
 }
 
 function centerLine(line: string, width: number): string {

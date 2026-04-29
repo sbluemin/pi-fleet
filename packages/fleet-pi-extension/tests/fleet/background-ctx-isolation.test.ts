@@ -25,7 +25,8 @@ import { executeWithPool } from "@sbluemin/fleet-core/agent";
 import { runAgentRequestBackground } from "../../src/session-bridge/fleet/operation-runner.js";
 import { getRunById, getVisibleRun, resetRuns } from "@sbluemin/fleet-core/bridge/streaming";
 import { CARRIER_FRAMEWORK_KEY } from "@sbluemin/fleet-core/carrier";
-import { isStaleExtensionContextError, syncCurrentWidget, syncWidget } from "../../src/tui/panel/widget-sync.js";
+import { isStaleExtensionContextError } from "../../src/tui/context-errors.js";
+import { syncCurrentWidget, syncWidget } from "../../src/tui/panel/widget-sync.js";
 
 describe("background ctx isolation", () => {
   it("runs background carrier requests with explicit cwd and no ExtensionContext", async () => {
