@@ -13,6 +13,8 @@
 
 - Fleet domain modules such as `admiral/`, `agent/`, `boot/`, `bridge/`, `carrier/`, `carrier-jobs/`, `core-services/`, `grand-fleet/`, `job/`, `metaphor/`, `operation/`, `push/`, `squadron/`, `store/`, and `taskforce/`
 - Public API contracts and frozen consumer surfaces
+- `createFleetCoreRuntime` as the canonical composition entry point that runs `initRuntime`, `initStore`, and optional `initServiceStatus`; it also owns the `shutdown` lifecycle that resets service status
+- `AgentRequestService` owns unified-agent request orchestration and emits host column lifecycle through `FleetHostPorts.streamingSink`; it supports an optional `AgentColumnStream` token for stateful host tracking from `onColumnBegin` to `onColumnEnd`
 - Fleet tool specs and registry factories that are host-agnostic and registered by adapters through public APIs
 - Global runtime stores and compatibility keys used by Pi adapters
 - Pure prompt composition and domain-level orchestration logic

@@ -23,6 +23,11 @@
       "import": "./dist/agent.js",
       "require": "./dist/agent.cjs"
     },
+    "./agent/request": {
+      "types": "./dist/agent/request.d.ts",
+      "import": "./dist/agent/request.js",
+      "require": "./dist/agent/request.cjs"
+    },
     "./agent/provider-types": {
       "types": "./dist/agent/provider-types.d.ts",
       "import": "./dist/agent/provider-types.js",
@@ -87,6 +92,11 @@
       "types": "./dist/constants.d.ts",
       "import": "./dist/constants.js",
       "require": "./dist/constants.cjs"
+    },
+    "./streaming-sink": {
+      "types": "./dist/streaming-sink.d.ts",
+      "import": "./dist/streaming-sink.js",
+      "require": "./dist/streaming-sink.cjs"
     },
     "./job": {
       "types": "./dist/job.d.ts",

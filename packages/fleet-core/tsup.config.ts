@@ -4,6 +4,7 @@ export default defineConfig({
   entry: {
     index: "src/index.ts",
     agent: "src/agent/index.ts",
+    "agent/request": "src/public/agent-request.ts",
     "agent/provider-types": "src/agent/provider-types.ts",
     "agent/types": "src/agent/types.ts",
     "agent/runtime": "src/agent/runtime.ts",
@@ -17,6 +18,7 @@ export default defineConfig({
     "agent/log-port": "src/agent/log-port.ts",
     "agent/service-status": "src/agent/service-status/index.ts",
     constants: "src/constants.ts",
+    "streaming-sink": "src/public/streaming-sink.ts",
     job: "src/job/index.ts",
     carrier: "src/carrier/index.ts",
     "carrier/personas": "src/carrier/personas/index.ts",

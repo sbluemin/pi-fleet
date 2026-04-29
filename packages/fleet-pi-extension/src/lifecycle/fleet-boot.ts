@@ -1,23 +1,26 @@
 import type { CliType } from "@sbluemin/unified-agent";
+import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import { initRuntime } from "@sbluemin/fleet-core/agent/runtime";
-import { initServiceStatus } from "@sbluemin/fleet-core/agent/service-status";
+import { createFleetCoreRuntime, type FleetCoreRuntime } from "@sbluemin/fleet-core";
 import {
-  initStore,
   loadCliTypeOverrides,
   loadSortieDisabled,
   loadSquadronEnabled,
 } from "@sbluemin/fleet-core/store";
 
-import { setAgentPanelServiceLoading, setAgentPanelServiceStatus } from "../tui/panel/config.js";
+import { createFleetBootHostPorts } from "../adapters/host-ports/boot-ports.js";
+import { createPanelStreamingSink } from "../adapters/streaming/panel-streaming-sink.js";
 import { exposeAgentApi } from "../session-bridge/fleet/operation-runner.js";
 import {
   setPendingCliTypeOverrides,
   setSortieDisabledCarriers,
   setSquadronEnabledCarriers,
 } from "../tools/carrier/framework.js";
+
+let fleetRuntime: FleetCoreRuntime | undefined;
+let currentAgentRequestCtx: ExtensionContext | undefined;
 
 export function shouldBootFleet(): boolean {
   const bootCfg = (globalThis as any)["__fleet_boot_config__"];
@@ -28,14 +31,38 @@ export function resolveFleetDataDir(): string {
   return path.join(os.homedir(), ".pi", "fleet");
 }
 
-export function initializeFleetRuntime(dataDir: string): void {
-  initRuntime(dataDir);
-  initStore(dataDir);
-  initServiceStatus({
-    setLoading: setAgentPanelServiceLoading,
-    setStatus: setAgentPanelServiceStatus,
+export function initializeFleetRuntime(dataDir: string, ctx?: ExtensionContext): void {
+  fleetRuntime = createFleetCoreRuntime({
+    dataDir,
+    ports: createFleetBootHostPorts(createPanelStreamingSink(() => currentAgentRequestCtx ?? ctx)),
   });
   exposeAgentApi();
+}
+
+export async function withAgentRequestContext<T>(
+  ctx: ExtensionContext,
+  run: () => Promise<T>,
+): Promise<T> {
+  const previous = currentAgentRequestCtx;
+  currentAgentRequestCtx = ctx;
+  try {
+    return await run();
+  } finally {
+    currentAgentRequestCtx = previous;
+  }
+}
+
+export function getFleetRuntime(): FleetCoreRuntime {
+  if (!fleetRuntime) {
+    throw new Error("Fleet core runtime has not been initialized.");
+  }
+  return fleetRuntime;
+}
+
+export async function shutdownFleetRuntime(): Promise<void> {
+  const runtime = fleetRuntime;
+  fleetRuntime = undefined;
+  await runtime?.shutdown();
 }
 
 export function restoreFleetPreRegistrationState(): void {

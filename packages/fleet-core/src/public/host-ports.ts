@@ -1,4 +1,8 @@
 import type { CompletionPushPayload } from "./types.js";
+import type { ServiceStatusCallbacks } from "../agent/service-status/store.js";
+import type { AgentStreamingSink } from "./streaming-sink.js";
+
+export type { ServiceStatusCallbacks };
 
 export type FleetLogLevel = "debug" | "info" | "warn" | "error";
 
@@ -27,8 +31,17 @@ export interface LlmClient {
 }
 
 export interface FleetHostPorts {
+  /**
+   * @deprecated Will be removed in the next minor public-API cycle. Implement `streamingSink` instead.
+   */
   appendStreamBlock(columnId: string, block: unknown): void | Promise<void>;
+  /**
+   * @deprecated Will be removed in the next minor public-API cycle. Implement `streamingSink` instead.
+   */
   syncPanelColumn(columnId: string, state: unknown): void | Promise<void>;
+  /**
+   * @deprecated Will be removed in the next minor public-API cycle. Implement `streamingSink` instead.
+   */
   endStreamColumn(columnId: string, reason?: string): void | Promise<void>;
   sendCarrierResultPush(payload: CompletionPushPayload): void | Promise<void>;
   notify(level: FleetLogLevel, message: string): void | Promise<void>;
@@ -39,4 +52,8 @@ export interface FleetHostPorts {
   now(): number;
   getDeliverAs(): string | undefined;
   llmClient?: LlmClient;
+  /** Optional callbacks used by hosts that render Fleet service-status state. */
+  serviceStatus?: ServiceStatusCallbacks;
+  /** Optional sink used by core-owned agent request orchestration to report column lifecycle. */
+  streamingSink?: AgentStreamingSink;
 }

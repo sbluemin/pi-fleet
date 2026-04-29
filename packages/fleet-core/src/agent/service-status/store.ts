@@ -119,6 +119,17 @@ export function initServiceStatus(callbacks: ServiceStatusCallbacks): void {
   store.callbacks = callbacks;
 }
 
+export function resetServiceStatus(): void {
+  const store = getStore();
+  store.callbacks = null;
+  currentStatusCtx = null;
+  statusContextGeneration++;
+  if (store.timer) {
+    clearInterval(store.timer);
+    store.timer = null;
+  }
+}
+
 export function attachStatusContext(ctx: ServiceStatusContextPort): void {
   const store = getStore();
   setStatusContext(ctx);

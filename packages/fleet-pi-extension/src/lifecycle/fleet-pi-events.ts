@@ -15,6 +15,7 @@ import { ensureBridgeKeybinds } from "../tui/fleet-bridge.js";
 import { detachAgentPanelUi, refreshAgentPanel } from "../tui/panel-lifecycle.js";
 import { persistDirectChatIfEmpty } from "../session-bridge/fleet/direct-chat-session.js";
 import { syncModelConfig } from "../commands/carrier/model-ui.js";
+import { shutdownFleetRuntime } from "./fleet-boot.js";
 
 export function wireFleetPiEvents(pi: ExtensionAPI): void {
   pi.on("before_agent_start", (event) => {
@@ -43,6 +44,7 @@ export function wireFleetPiEvents(pi: ExtensionAPI): void {
     detachStatusContext();
     clearFleetAcpPrompts();
     persistDirectChatIfEmpty(ctx);
+    await shutdownFleetRuntime();
   });
 }
 
