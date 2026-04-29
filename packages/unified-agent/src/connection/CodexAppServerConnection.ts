@@ -6,7 +6,11 @@ import type { ChildProcess } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { BaseConnection, type BaseConnectionOptions } from './BaseConnection.js';
-import type { AcpPermissionRequestParams, AcpPermissionResponse } from '../types/acp.js';
+import type {
+  AcpPermissionOption,
+  AcpPermissionRequestParams,
+  AcpPermissionResponse,
+} from '../types/acp.js';
 import type {
   ConnectionState,
   StructuredLogEntry,
@@ -83,9 +87,8 @@ interface PendingMcpReadyWaiter {
 }
 
 interface SyntheticPermissionOption {
-  id: string;
-  label: string;
-  description: string;
+  decision: CodexApprovalDecision;
+  option: AcpPermissionOption;
 }
 
 interface SendMessageOptions {
@@ -103,7 +106,11 @@ interface ConnectSessionOptions {
 }
 
 interface ResumeSessionOptions {
+  cwd?: string;
+  developerInstructions?: string;
   model?: string;
+  approvalPolicy?: string;
+  sandbox?: string;
   config?: Record<string, CodexJsonValue>;
 }
 
@@ -135,7 +142,7 @@ export interface CodexAppServerEventMap {
   mcpServerStatus: [status: CodexMcpServerStartupStatusNotification];
   promptComplete: [sessionId: string];
   permissionRequest: [
-    params: AcpPermissionRequestParams | Record<string, unknown>,
+    params: AcpPermissionRequestParams,
     resolve: (response: AcpPermissionResponse | { optionId: string }) => void,
   ];
   sessionUpdate: [update: unknown];
@@ -570,6 +577,7 @@ export class CodexAppServerConnection extends BaseConnection {
           toolInput: approval.reason ?? '',
           reason: approval.reason,
           availableDecisions: null,
+          approvedPermissions: approval.permissions,
         });
         break;
       }
@@ -593,38 +601,51 @@ export class CodexAppServerConnection extends BaseConnection {
       toolInput: string;
       reason?: string | null;
       availableDecisions?: CodexApprovalDecision[] | null;
+      approvedPermissions?: unknown;
     },
   ): void {
     const decisions = info.availableDecisions ?? ['accept', 'decline'];
-    const decisionMap = new Map<string, CodexApprovalDecision>();
-    const permissions: SyntheticPermissionOption[] = decisions.map((decision, index) => {
-      const optionId = `decision_${index}`;
-      const label = typeof decision === 'string'
-        ? decision
-        : Object.keys(decision)[0] ?? optionId;
-      decisionMap.set(optionId, decision);
-      return {
-        id: optionId,
-        label,
-        description: info.reason ?? '',
-      };
-    });
+    const permissionOptions = decisions.map((decision, index) => this.toPermissionOption(decision, index));
+    const decisionMap = new Map(
+      permissionOptions.map(({ decision, option }) => [option.optionId, decision]),
+    );
 
-    const syntheticParams = {
-      toolName: info.toolName,
-      toolInput: info.toolInput,
-      permissions,
+    const syntheticParams: AcpPermissionRequestParams = {
+      sessionId: this.sessionId ?? '',
+      options: permissionOptions.map(({ option }) => option),
+      toolCall: {
+        toolCallId: `${info.toolName}:${jsonRpcId}`,
+        title: info.toolName,
+        kind: 'execute',
+        status: 'pending',
+        rawInput: {
+          input: info.toolInput,
+          reason: info.reason ?? null,
+          requestedPermissions: info.approvedPermissions ?? null,
+        },
+      },
+      _meta: {
+        'sbluemin/codexApproval': {
+          method,
+          requestedPermissions: info.approvedPermissions ?? null,
+        },
+      },
     };
 
-    if (this.autoApprove && permissions.length > 0) {
-      const firstDecision = decisionMap.get(permissions[0].id)!;
-      this.resolveApproval(jsonRpcId, method, firstDecision);
+    if (this.autoApprove && permissionOptions.length > 0) {
+      const autoDecision = this.selectAutoApprovalDecision(permissionOptions, decisionMap);
+      this.resolveApproval(jsonRpcId, method, autoDecision, info.approvedPermissions);
       this.emit('permissionRequest', syntheticParams, () => {});
       return;
     }
 
     this.emit('permissionRequest', syntheticParams, (response) => {
-      const optionId = 'optionId' in response ? response.optionId : '';
+      const optionId = this.extractPermissionOptionId(response);
+      if (!optionId) {
+        const fallbackDecision = this.selectCancellationDecision(decisions);
+        this.resolveApproval(jsonRpcId, method, fallbackDecision, info.approvedPermissions);
+        return;
+      }
       const decision = decisionMap.get(optionId);
       if (!decision) {
         this.sendJsonRpc({
@@ -638,7 +659,7 @@ export class CodexAppServerConnection extends BaseConnection {
         return;
       }
 
-      this.resolveApproval(jsonRpcId, method, decision);
+      this.resolveApproval(jsonRpcId, method, decision, info.approvedPermissions);
     });
   }
 
@@ -646,12 +667,16 @@ export class CodexAppServerConnection extends BaseConnection {
     jsonRpcId: number,
     method: string,
     decision: CodexApprovalDecision,
+    approvedPermissions?: unknown,
   ): void {
     if (method === CODEX_SERVER_REQUESTS.PERMISSIONS_APPROVAL) {
+      const permissions = this.isAcceptDecision(decision) && approvedPermissions !== undefined
+        ? approvedPermissions
+        : {};
       this.sendJsonRpc({
         jsonrpc: '2.0',
         id: jsonRpcId,
-        result: { permissions: decision, scope: null },
+        result: { permissions, scope: null },
       });
       return;
     }
@@ -660,6 +685,77 @@ export class CodexAppServerConnection extends BaseConnection {
       id: jsonRpcId,
       result: { decision },
     });
+  }
+
+  private selectAutoApprovalDecision(
+    permissions: SyntheticPermissionOption[],
+    decisionMap: Map<string, CodexApprovalDecision>,
+  ): CodexApprovalDecision {
+    for (const preferredName of ['acceptForSession', 'accept']) {
+      const matchedPermission = permissions.find((permission) => permission.option.name === preferredName);
+      if (!matchedPermission) {
+        continue;
+      }
+      const matchedDecision = decisionMap.get(matchedPermission.option.optionId);
+      if (matchedDecision) {
+        return matchedDecision;
+      }
+    }
+
+    return permissions[0]?.decision ?? 'accept';
+  }
+
+  private selectCancellationDecision(decisions: CodexApprovalDecision[]): CodexApprovalDecision {
+    return decisions.find((decision) => decision === 'decline' || decision === 'cancel') ?? 'decline';
+  }
+
+  private extractPermissionOptionId(
+    response: AcpPermissionResponse | { optionId: string },
+  ): string | null {
+    if ('optionId' in response) {
+      return response.optionId;
+    }
+    if (response.outcome.outcome === 'selected') {
+      return response.outcome.optionId;
+    }
+    return null;
+  }
+
+  private toPermissionOption(
+    decision: CodexApprovalDecision,
+    index: number,
+  ): SyntheticPermissionOption {
+    const name = typeof decision === 'string'
+      ? decision
+      : Object.keys(decision)[0] ?? `decision_${index}`;
+    return {
+      decision,
+      option: {
+        optionId: `decision_${index}`,
+        name,
+        kind: this.toPermissionOptionKind(name),
+        _meta: {
+          'sbluemin/codexApprovalDecision': decision,
+        },
+      },
+    };
+  }
+
+  private toPermissionOptionKind(name: string): AcpPermissionOption['kind'] {
+    if (name === 'acceptForSession') {
+      return 'allow_always';
+    }
+    if (name.startsWith('accept') || name.startsWith('apply')) {
+      return 'allow_once';
+    }
+    return 'reject_once';
+  }
+
+  private isAcceptDecision(decision: CodexApprovalDecision): boolean {
+    if (typeof decision === 'string') {
+      return decision === 'accept' || decision === 'acceptForSession';
+    }
+    return 'acceptWithExecpolicyAmendment' in decision || 'applyNetworkPolicyAmendment' in decision;
   }
 
   private setupStdoutReader(child: ChildProcess): void {
@@ -844,7 +940,11 @@ export class CodexAppServerConnection extends BaseConnection {
       {
         threadId,
         path: rolloutPath ?? null,
+        cwd: options?.cwd ?? this.cwd,
         model: options?.model ?? null,
+        approvalPolicy: options?.approvalPolicy ?? null,
+        sandbox: options?.sandbox ?? null,
+        developerInstructions: options?.developerInstructions ?? null,
         config: options?.config ?? null,
       },
     );

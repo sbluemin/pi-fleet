@@ -339,7 +339,16 @@ describe('CodexAppServerConnection lifecycle', () => {
       );
       await connectPromise;
 
-      const loadPromise = connection.loadSession(threadId);
+      const loadPromise = connection.loadSession(threadId, {
+        cwd: '/resume-workspace',
+        developerInstructions: '재개 개발자 지침',
+        model: 'gpt-5.4',
+        approvalPolicy: 'on-request',
+        sandbox: 'read-only',
+        config: {
+          reasoning_summary: 'auto',
+        },
+      });
       await flushMicrotask();
       child.stdout.emit('data', `${jsonRpcError(2, `no rollout found for thread id ${threadId}`)}\n`);
       await flushMicrotask();
@@ -354,13 +363,29 @@ describe('CodexAppServerConnection lifecycle', () => {
       expect(resumeRequests[0]).toMatchObject({
         params: {
           threadId,
+          cwd: '/resume-workspace',
           path: null,
+          developerInstructions: '재개 개발자 지침',
+          model: 'gpt-5.4',
+          approvalPolicy: 'on-request',
+          sandbox: 'read-only',
+          config: {
+            reasoning_summary: 'auto',
+          },
         },
       });
       expect(resumeRequests[1]).toMatchObject({
         params: {
           threadId,
+          cwd: '/resume-workspace',
           path: rolloutPath,
+          developerInstructions: '재개 개발자 지침',
+          model: 'gpt-5.4',
+          approvalPolicy: 'on-request',
+          sandbox: 'read-only',
+          config: {
+            reasoning_summary: 'auto',
+          },
         },
       });
       expect(connection.sessionId).toBe(threadId);

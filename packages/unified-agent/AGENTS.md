@@ -149,6 +149,6 @@ ait (gemini) ❯ {입력}           # effort 미지원 시 생략
 5. **Graceful Process Management**: 2단계 종료 (SIGTERM → SIGKILL), 환경변수 정제로 자식 프로세스 간섭 방지.
 6. **System Prompt Injection (Provider-aware)**:
    - **Claude**: `AcpConnection`이 `session/new` 호출 시 `_meta.systemPrompt.append`로 native system prompt에 append합니다. `claude-agent-acp` 브릿지가 이를 처리합니다.
-   - **Codex**: `systemPrompt`를 thread 생성 시 `developerInstructions`로 전달합니다. 첫 user turn 프리픽싱은 사용하지 않습니다.
+   - **Codex**: `systemPrompt`를 thread 생성/재개 시 `developerInstructions`로 전달합니다. 첫 user turn 프리픽싱은 사용하지 않습니다.
    - **Gemini**: `UnifiedGeminiAgentClient`가 `firstPromptPending` 상태를 관리하며, 새 세션 직후 첫 `sendMessage()` 성공 시 선행 text `ContentBlock` 프리픽싱 후 consume합니다. true system-role 보장은 아닙니다.
-   - **세션 유지 계약**: `resetSession()` 후 새 세션에는 다시 arm되지만, `sessionId` 기반 **resume/load 경로에서는 자동 재주입이나 drift 감지가 일어나지 않습니다.** 대화의 연속성을 위해 원 세션의 프롬프트를 유지하는 best-effort 정책을 따르며, 의도적인 변경이 필요하면 상위에서 `resetSession()`을 호출해야 합니다.
+   - **세션 유지 계약**: `resetSession()` 후 새 세션에는 다시 arm되며, Codex `sessionId` 기반 resume/load 경로는 현재 클라이언트의 `systemPrompt`, 정책(`approvalPolicy`/`sandbox`), thread config를 `thread/resume`에 다시 전달합니다. Claude/Gemini의 기존 세션 재개는 대화 연속성을 우선하는 best-effort 정책을 따르며, 의도적인 drift 정리가 필요하면 상위에서 `resetSession()`을 호출해야 합니다.
