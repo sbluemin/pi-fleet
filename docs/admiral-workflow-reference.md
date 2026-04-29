@@ -7,14 +7,16 @@ This document is the operational doctrine for Admiral and Carrier agents working
 The migration target is already fixed:
 
 - `packages/fleet-core` owns Fleet **domain logic**
-- `packages/fleet-pi-extension` owns Pi **capability buckets**
+- `packages/fleet-core/src/gfleet` owns the internalized **Grand Fleet domain**
+- `packages/pi-fleet-extension` owns Pi **capability buckets**
 
 The repository uses this **current physical state**:
 
 - `packages/fleet-core` remains under `packages/fleet-core/src/`
-- `packages/fleet-pi-extension` capability buckets still remain under `packages/fleet-pi-extension/src/<bucket>/`
+- `packages/fleet-core/src/gfleet` is an internalized domain within `fleet-core` with public subpaths `./`, `./ipc`, and `./formation`
+- `packages/pi-fleet-extension` capability buckets still remain under `packages/pi-fleet-extension/src/<bucket>/`
 
-Agents must not confuse logical ownership with bucket relocation. `packages/fleet-pi-extension/src/` remains the active physical home, and the old legacy domain folders under it have been removed and must not be recreated.
+Agents must not confuse logical ownership with bucket relocation. `packages/pi-fleet-extension/src/` remains the active physical home, and the old legacy domain folders under it have been removed and must not be recreated.
 
 ## 2. Ownership Model
 
@@ -27,8 +29,8 @@ Agents must not confuse logical ownership with bucket relocation. `packages/flee
 - persona, tone, worldview, operation-name, and directive-refinement domain logic
 - carrier, squadron, taskforce, and job domain logic
 - bridge state/data layers
-- grand-fleet domain logic
 - pure runtime stores, ports, and adapter-facing contracts
+- shared doctrine/runtime surfaces consumed by extracted leaf packages
 
 `fleet-core` must not own:
 
@@ -40,10 +42,25 @@ Agents must not confuse logical ownership with bucket relocation. `packages/flee
 - `pi.registerProvider(...)`
 - `pi.sendMessage(...)`
 - Pi TUI rendering
+- Grand Fleet domain ownership extracted to `@sbluemin/fleet-core/gfleet`
 
-### 2.2 `fleet-pi-extension`
+### 2.2 `fleet-core/src/gfleet`
 
-`fleet-pi-extension` owns:
+`fleet-core/src/gfleet` owns:
+
+- Grand Fleet prompt composition and status source logic
+- Grand Fleet IPC protocol contracts and formation/tmux helpers
+- Grand Fleet reporter output helpers, tool specs, text sanitization, and shared types
+
+`fleet-core/src/gfleet` must not own:
+
+- Pi runtime wiring or `@mariozechner/pi-*` imports
+- deep imports into `fleet-core`
+- any reverse dependency from `fleet-core`
+
+### 2.3 `pi-fleet-extension`
+
+`pi-fleet-extension` owns:
 
 - Pi lifecycle registration
 - command registration
@@ -54,7 +71,7 @@ Agents must not confuse logical ownership with bucket relocation. `packages/flee
 - Pi overlays, widgets, editor/footer rendering
 - compatibility adapters and push delivery seams
 
-`fleet-pi-extension` must not become a new home for Fleet domain business logic.
+`pi-fleet-extension` must not become a new home for Fleet domain business logic.
 
 ## 3. Capability Buckets
 
@@ -76,30 +93,40 @@ These are the **current doctrinal homes** even though the package still physical
 
 The former legacy directories below are already removed:
 
-- `packages/fleet-pi-extension/src/fleet/`
-- `packages/fleet-pi-extension/src/grand-fleet/`
-- `packages/fleet-pi-extension/src/metaphor/`
-- `packages/fleet-pi-extension/src/core/`
-- `packages/fleet-pi-extension/src/boot/`
-- `packages/fleet-pi-extension/src/experimental-wiki/`
+- `packages/pi-fleet-extension/src/fleet/`
+- `packages/pi-fleet-extension/src/grand-fleet/`
+- `packages/pi-fleet-extension/src/metaphor/`
+- `packages/pi-fleet-extension/src/core/`
+- `packages/pi-fleet-extension/src/boot/`
+- `packages/pi-fleet-extension/src/experimental-wiki/`
 
-Agents must not use those historical paths as permission to reintroduce domain-first architecture inside `fleet-pi-extension`.
+Agents must not use those historical paths as permission to reintroduce domain-first architecture inside `pi-fleet-extension`.
 
 ## 5. Allowed Dependency Direction
 
 The intended dependency direction is:
 
 ```text
-fleet-pi-extension capability buckets
+fleet-wiki
+  -> (leaf package; no workspace imports)
+
+fleet-core
+  -> gfleet public subpaths
+
+pi-fleet-extension capability buckets
   -> fleet-core public APIs
+  -> fleet-core gfleet public APIs
+  -> fleet-wiki
   -> Pi runtime / TUI / host facilities
 ```
 
 Forbidden patterns:
 
 - `fleet-core` importing Pi packages
-- `fleet-pi-extension` deep-importing `fleet-core/src/**`
-- new pure domain logic landing under `fleet-pi-extension/src/fleet/**`
+- `fleet-core` duplicating internal gfleet ownership via a separate package
+- `pi-fleet-extension` deep-importing `fleet-core/src/**`
+- `pi-fleet-extension` importing Grand Fleet surfaces from the deprecated Fleet Core location
+- new pure domain logic landing under `pi-fleet-extension/src/fleet/**`
 - new Pi registration code landing inside `fleet-core`
 
 ## 6. Operational Guidance For Agents
@@ -110,7 +137,7 @@ When editing or reviewing this repo:
 2. Put pure logic in `fleet-core`.
 3. Put Pi lifecycle/registration/rendering in the appropriate capability bucket.
 4. If a legacy module mixes both, split by ownership instead of preserving the old directory boundary.
-5. Keep documentation and code organization aligned with the active `packages/fleet-pi-extension/src/<bucket>/` layout.
+5. Keep documentation and code organization aligned with the active `packages/pi-fleet-extension/src/<bucket>/` layout.
 
 ## 7. Compatibility Invariants
 
@@ -129,4 +156,4 @@ When updating docs during this migration:
 - describe the **current observable state**
 - separate **logical ownership** from **physical bucket placement**
 - mention that legacy domain folders have been removed when that context matters
-- avoid stating or implying that Pi capability buckets are scheduled to move out of `packages/fleet-pi-extension/src/`
+- avoid stating or implying that Pi capability buckets are scheduled to move out of `packages/pi-fleet-extension/src/`

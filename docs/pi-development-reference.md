@@ -7,7 +7,8 @@ This guide explains how PI-facing Fleet development is organized during the capa
 Fleet development now follows a hard split:
 
 - `packages/fleet-core` — Pi-agnostic Fleet product core
-- `packages/fleet-pi-extension` — Pi capability package
+- `packages/fleet-core/src/gfleet` — internalized Grand Fleet domain
+- `packages/pi-fleet-extension` — Pi capability package
 
 Use this split as the first decision point for every change.
 
@@ -16,8 +17,8 @@ Use this split as the first decision point for every change.
 The codebase is in a capability-flattening stage:
 
 - logical ownership already follows the final direction
-- `packages/fleet-pi-extension/src/` remains the active physical home for Pi capability buckets
-- capability buckets currently live under `packages/fleet-pi-extension/src/<bucket>/`
+- `packages/pi-fleet-extension/src/` remains the active physical home for Pi capability buckets
+- capability buckets currently live under `packages/pi-fleet-extension/src/<bucket>/`
 
 Do not document or implement relocation of these buckets out of `src/`.
 
@@ -34,7 +35,18 @@ Put code here when it is:
 
 Do not put Pi registration or TUI mounting here.
 
-### 3.2 `packages/fleet-pi-extension`
+### 3.2 `packages/fleet-core/src/gfleet`
+
+Put code here when it is:
+
+- Grand Fleet prompt composition or reporter logic
+- Grand Fleet IPC protocol contracts
+- Grand Fleet formation helpers exposed through `@sbluemin/fleet-core/gfleet/formation`
+- Grand Fleet shared types, tool specs, status source logic, or text sanitization
+
+Keep dependencies one-way: `fleet-core`.
+
+### 3.3 `packages/pi-fleet-extension`
 
 Put code here when it requires:
 
@@ -65,7 +77,7 @@ Current capability buckets:
 
 ## 5. Removed Legacy Directory Guidance
 
-The following legacy domain directories under `packages/fleet-pi-extension/src/` are already removed and must not be reintroduced:
+The following legacy domain directories under `packages/pi-fleet-extension/src/` are already removed and must not be reintroduced:
 
 - `src/fleet/`
 - `src/grand-fleet/`
@@ -84,10 +96,14 @@ When migrating or restoring behavior that once lived under those paths:
 
 ## 6. Import Rules
 
-- `fleet-pi-extension` must consume `fleet-core` through public exports only.
+- `pi-fleet-extension` must consume `fleet-core` through public exports only.
+- `pi-fleet-extension` must consume Grand Fleet surfaces through `@sbluemin/fleet-core/gfleet`, `@sbluemin/fleet-core/gfleet/ipc`, or `@sbluemin/fleet-core/gfleet/formation`.
+- `pi-fleet-extension` may consume `@sbluemin/fleet-wiki` for experimental wiki adapters.
 - Do not deep-import `@sbluemin/fleet-core/src/**` or `@sbluemin/fleet-core/internal/**`.
+- Do not import Grand Fleet surfaces from the deprecated Fleet Core location.
 - `fleet-core` must not import Pi packages.
-- `@mariozechner/pi-ai` imports stay confined to `packages/fleet-pi-extension/src/bindings/compat/pi-ai-bridge.ts`.
+- `fleet-core` must not split internal gfleet ownership back out into a separate package.
+- `@mariozechner/pi-ai` imports stay confined to `packages/pi-fleet-extension/src/bindings/compat/pi-ai-bridge.ts`.
 
 ## 7. PI Runtime Rules
 
@@ -97,4 +113,4 @@ When migrating or restoring behavior that once lived under those paths:
 
 ## 8. Physical Layout Reminder
 
-`packages/fleet-pi-extension/src/` is the active physical home for Pi capability buckets. Any documentation or review must keep that layout explicit and avoid implying that these buckets are scheduled to move.
+`packages/pi-fleet-extension/src/` is the active physical home for Pi capability buckets. Any documentation or review must keep that layout explicit and avoid implying that these buckets are scheduled to move.

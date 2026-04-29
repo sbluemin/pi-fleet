@@ -5,8 +5,18 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Added
+- Extracted the experimental wiki domain into the new `@sbluemin/fleet-wiki` workspace package and moved its source and tests out of `fleet-core`.
+
 ### Changed
-- Move `request_directive` schema and validators, carrier framework mutators, and grand-fleet tool spec definitions into `@sbluemin/fleet-core`; `fleet-pi-extension/src/tools` retains its current structure and consumes host-agnostic specs from fleet-core.
+- Move `request_directive` schema and validators, carrier framework mutators, and grand-fleet tool spec definitions into `@sbluemin/fleet-core`; `pi-fleet-extension/src/tools` retains its current structure and consumes host-agnostic specs from fleet-core.
+- Updated `pi-fleet-extension` experimental wiki adapters to consume `@sbluemin/fleet-wiki`, while `FleetCoreRuntime.experimentalWiki` remains as a compatibility key typed as `unknown`.
+- Re-embedded the gfleet domain under `packages/fleet-core/src/gfleet/`, exposed again through `@sbluemin/fleet-core/gfleet`, `@sbluemin/fleet-core/gfleet/ipc`, and `@sbluemin/fleet-core/gfleet/formation`.
+
+### Removed
+
+### Breaking Changes
+- External consumers of the former Fleet Core Grand Fleet entrypoints must migrate to `@sbluemin/fleet-core/gfleet*`; symbol names are unchanged.
 
 ## [0.5.0] - 2026-04-28
 

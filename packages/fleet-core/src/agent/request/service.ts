@@ -10,7 +10,7 @@ import {
   getVisibleRun,
   updateRunStatus,
   upsertToolBlock,
-} from "../../bridge/streaming/index.js";
+} from "../../bridge/run-stream/index.js";
 import { loadModels as getModelConfig } from "../../store/index.js";
 import type {
   AgentRequestService,

@@ -15,7 +15,7 @@ vi.mock("../../src/store/index.js", () => ({
 }));
 
 import { createAgentRequestService } from "../../src/agent/request/service.js";
-import { getVisibleRun, resetRuns } from "../../src/bridge/streaming/index.js";
+import { getVisibleRun, resetRuns } from "../../src/bridge/run-stream/index.js";
 import type { AgentStreamingSink } from "../../src/public/streaming-sink.js";
 
 beforeEach(() => {

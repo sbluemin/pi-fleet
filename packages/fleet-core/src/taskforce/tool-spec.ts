@@ -11,7 +11,7 @@
 import type { AgentToolSpec } from "../public/tool-registry.js";
 import { executeOneShot } from "../agent/executor.js";
 import { registerToolPromptManifest } from "../admiral/tool-prompt-manifest/index.js";
-import { finalizeJob, registerTaskforceJob } from "../bridge/panel/index.js";
+import { finalizeJob, registerTaskforceJob } from "../bridge/carrier-panel/index.js";
 import {
   createRun,
   appendTextBlock,
@@ -20,7 +20,7 @@ import {
   finalizeRun,
   updateRunStatus,
   getVisibleRun,
-} from "../bridge/streaming/index.js";
+} from "../bridge/run-stream/index.js";
 import {
   ANSI_RESET,
   CLI_DISPLAY_NAMES,
@@ -41,6 +41,13 @@ import {
   putJobSummary,
 } from "../job/index.js";
 import {
+  FLEET_TASKFORCE_DESCRIPTION,
+  TASKFORCE_MANIFEST,
+  buildTaskForcePromptSnippet,
+  buildTaskForcePromptGuidelines,
+  buildTaskForceSchema,
+} from "./prompts.js";
+import {
   assertTaskForceBackendCount,
   buildTaskForceErrorResult as buildCoreTaskForceErrorResult,
   buildTaskForceJobSummary,
@@ -49,17 +56,14 @@ import {
   computeTaskForceFinalStatus,
   sanitizeTaskForceChunk,
   sanitizeTaskForceToolLabel,
-  FLEET_TASKFORCE_DESCRIPTION,
-  TASKFORCE_MANIFEST,
-  buildTaskForcePromptSnippet,
-  buildTaskForcePromptGuidelines,
-  buildTaskForceSchema,
+} from "./taskforce-execute.js";
+import {
   TASKFORCE_STATE_KEY,
   type BackendProgress,
   type TaskForceCliType,
   type TaskForceResult,
   type TaskForceState,
-} from "./index.js";
+} from "./types.js";
 import type { CarrierJobLaunchResponse, CarrierJobSummary, CarrierJobStatus } from "../job/index.js";
 import {
   getTaskForceModelConfig,

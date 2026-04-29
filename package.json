@@ -5,10 +5,11 @@
   "workspaces": [
     "packages/unified-agent",
     "packages/fleet-core",
-    "packages/fleet-pi-extension"
+    "packages/fleet-wiki",
+    "packages/pi-fleet-extension"
   ],
   "scripts": {
-    "postinstall": "npm run build -w packages/unified-agent && npm run build -w packages/fleet-core && npm run build -w packages/fleet-pi-extension"
+    "postinstall": "npm run build -w packages/unified-agent && npm run build -w packages/fleet-core && npm run build -w packages/fleet-wiki && npm run build -w packages/pi-fleet-extension"
   },
   "bin": {
     "fleet": "bin/fleet.js",

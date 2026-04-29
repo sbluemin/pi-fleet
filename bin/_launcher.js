@@ -49,7 +49,7 @@ function launch({ mode, dev, experimental }) {
 }
 
 function getDevExtensionArgs() {
-  const extensionEntryPath = path.join(repoRoot, "packages", "fleet-pi-extension", "src", "index.ts");
+  const extensionEntryPath = path.join(repoRoot, "packages", "pi-fleet-extension", "src", "index.ts");
 
   return ["-ne", "-e", extensionEntryPath];
 }
@@ -57,7 +57,7 @@ function getDevExtensionArgs() {
 function getExtensionArgs(dev) {
   if (dev) return getDevExtensionArgs();
 
-  const extensionEntryPath = path.join(repoRoot, "packages", "fleet-pi-extension", "dist", "index.js");
+  const extensionEntryPath = path.join(repoRoot, "packages", "pi-fleet-extension", "dist", "index.js");
 
   return ["-ne", "-e", extensionEntryPath];
 }

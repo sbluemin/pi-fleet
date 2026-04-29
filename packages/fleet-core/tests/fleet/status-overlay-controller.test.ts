@@ -1,12 +1,12 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-import { StatusOverlayController } from "../../src/bridge/carrier-ui/status-overlay-controller.js";
+import { StatusOverlayController } from "../../src/bridge/carrier-control/status-overlay-controller.js";
 import type {
   CarrierCliType,
   CarrierStatusEntry,
   CliModelInfo,
   ModelSelection,
-} from "../../src/bridge/carrier-ui/types.js";
+} from "../../src/bridge/carrier-control/types.js";
 import type { CarrierConfig } from "../../src/carrier/types.js";
 
 interface TestState {

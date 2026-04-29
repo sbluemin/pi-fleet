@@ -24,10 +24,6 @@ export interface MetaphorServices {
   readonly [key: string]: unknown;
 }
 
-export interface ExperimentalWikiServices {
-  readonly [key: string]: unknown;
-}
-
 export interface GrandFleetServices {
   readonly [key: string]: unknown;
 }
@@ -45,7 +41,7 @@ export interface FleetCoreRuntime {
   readonly carriers: CarrierServices;
   readonly admiral: AdmiralServices;
   readonly metaphor: MetaphorServices;
-  readonly experimentalWiki?: ExperimentalWikiServices;
+  readonly experimentalWiki?: unknown;
   readonly grandFleet?: GrandFleetServices;
   readonly toolRegistry: AgentToolRegistry;
   readonly mcp: McpRegistryAPI;

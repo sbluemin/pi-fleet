@@ -26,23 +26,22 @@ The bridge state layer preserves these global compatibility keys by default:
 
 Adapters may replace storage through **`configureBridgeStateStorage(storage)`** for tests, isolated runtimes, or non-global hosts. When provided, the bridge will use the injected storage instead of `globalThis`.
 
-## Render Subpath
+## Subpaths
 
-The **`@sbluemin/fleet-core/bridge/render`** subpath is strictly for **View-Models**. It provides:
+The bridge public surface is intentionally split by adapter-facing data concern:
 
-- Pure data interfaces (`PanelJobViewModel`, `PanelTrackViewModel`).
-- Deterministic builders (`buildPanelViewModel`) that transform bridge state into render-ready snapshots.
+- **`@sbluemin/fleet-core/bridge/run-stream`** owns per-run stream state, stream DTOs, and `BridgeStateStorage` injection.
+- **`@sbluemin/fleet-core/bridge/carrier-panel`** owns carrier job/track state plus pure panel view-model builders.
+- **`@sbluemin/fleet-core/bridge/carrier-control`** owns carrier control overlay DTOs and host-port-driven controller logic.
 
-Host adapters (like Pi) must consume these view-models to drive their native UI components. The bridge does not know how to mount or render these models.
+Host adapters (like Pi) consume these data models to drive native UI components. The bridge does not know how to mount or render them.
 
 ## Public Surface
 
 Keep consumers on public package exports only:
 
-- `@sbluemin/fleet-core/bridge`
-- `@sbluemin/fleet-core/bridge/streaming`
-- `@sbluemin/fleet-core/bridge/panel`
-- `@sbluemin/fleet-core/bridge/render` (View-Model only)
-- `@sbluemin/fleet-core/bridge/carrier-ui`
+- `@sbluemin/fleet-core/bridge/run-stream`
+- `@sbluemin/fleet-core/bridge/carrier-panel`
+- `@sbluemin/fleet-core/bridge/carrier-control`
 
 Do not add `@sbluemin/fleet-core/src/**` or `@sbluemin/fleet-core/internal/**` consumers.

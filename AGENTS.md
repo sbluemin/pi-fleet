@@ -11,17 +11,18 @@
 |------|-------------|
 | `docs/pi-development-reference.md` | **Main Developer Guide** — Comprehensive reference for PI SDK, extensions, TUI, themes, and RPC |
 | `docs/admiral-workflow-reference.md` | **Operational Doctrine** — High-level architecture, naval hierarchy, and delegation workflows |
-| `packages/` | First-party workspace packages: `unified-agent`, `fleet-core`, `fleet-pi-extension` |
-| `packages/fleet-core/` | Pi-agnostic Fleet product core — Fleet domain logic, prompts, runtime contracts, MCP/tool/job internals, bridge state, and public APIs |
-| `packages/fleet-core/src/` | Current physical home of Fleet domain modules during the migration (`admiral`, `agent`, `bridge`, `carrier`, `grand-fleet`, `metaphor`, `operation`, etc.) |
-| `packages/fleet-pi-extension/` | Pi capability package — host runtime bindings, commands, keybinds, tools, TUI, provider registration, session features, and compat seams |
-| `packages/fleet-pi-extension/src/` | Current physical home of Pi capability buckets |
-| `packages/fleet-pi-extension/src/{bindings,commands,keybinds,tools,tui,provider,session}/` | Current doctrinal homes for Pi-specific ownership |
-| `packages/fleet-pi-extension/src/{fleet,grand-fleet,metaphor,core,boot,experimental-wiki}/` | Removed legacy domain directories. Do not reintroduce these homes inside `fleet-pi-extension`; use the current capability buckets under `src/` instead. |
+| `packages/` | First-party workspace packages: `unified-agent`, `fleet-core`, `fleet-wiki`, `pi-fleet-extension` |
+| `packages/fleet-core/` | Pi-agnostic Fleet product core — Fleet domain logic, prompts, runtime contracts, MCP/tool/job internals, **bridge (run-stream, carrier-panel, carrier-control)**, and public APIs |
+| `packages/fleet-core/src/` | Current physical home of Fleet domain modules during the migration (`admiral`, `agent`, **`bridge/{run-stream,carrier-panel,carrier-control}`**, `carrier`, `gfleet`, `metaphor`, `operation`, etc.) |
+| `packages/fleet-core/src/gfleet/` | Grand Fleet domain home inside `fleet-core`. Exposed via `@sbluemin/fleet-core/gfleet`, `@sbluemin/fleet-core/gfleet/ipc`, and `@sbluemin/fleet-core/gfleet/formation`. |
+| `packages/pi-fleet-extension/` | Pi capability package — host runtime bindings, commands, keybinds, tools, TUI, provider registration, session features, and compat seams |
+| `packages/pi-fleet-extension/src/` | Current physical home of Pi capability buckets |
+| `packages/pi-fleet-extension/src/{bindings,commands,keybinds,tools,tui,provider,session}/` | Current doctrinal homes for Pi-specific ownership |
+| `packages/pi-fleet-extension/src/{fleet,grand-fleet,metaphor,core,boot,experimental-wiki}/` | Removed legacy domain directories. Do not reintroduce these homes inside `pi-fleet-extension`; use the current capability buckets under `src/` instead. |
 
 > Currently, there is no `pi/` directory — symlink setup is not required.
 >
-> Migration note: the **logical split is already final** (`fleet-core` owns domain logic, `fleet-pi-extension` owns Pi capability buckets), and `packages/fleet-pi-extension/src/` remains the active physical home for Pi capability buckets.
+> Migration note: the **logical split is already final** (`fleet-core` owns Fleet domain logic including the internalized `gfleet` domain, and `pi-fleet-extension` owns Pi capability buckets), and `packages/pi-fleet-extension/src/` remains the active physical home for Pi capability buckets.
 
 ## Fleet Architecture (Metaphor)
 
@@ -38,7 +39,7 @@ Beyond simple parallel API calls, the system adopts a **naval fleet metaphor** t
 | 3 | **Admiral** | 제독 (Host PI) | A single **workspace PI instance**. Plans operations and dispatches Carriers within its operational zone. |
 | 4 | **Captain** | 함장 (Carrier Persona) | The **persona of a Carrier agent**. While a Carrier is the system entity, the Captain is its personified commander. |
 
-> **Note on Persona & Tone**: The naming conventions, personified personas, and linguistic tone for all tiers are centrally managed by `packages/fleet-core/src/metaphor/`. The former `packages/fleet-pi-extension/src/metaphor/` legacy directory has been removed and must not be recreated as a Pi-side domain home.
+> **Note on Persona & Tone**: The naming conventions, personified personas, and linguistic tone for all tiers are centrally managed by `packages/fleet-core/src/metaphor/`. The former `packages/pi-fleet-extension/src/metaphor/` legacy directory has been removed and must not be recreated as a Pi-side domain home.
 
 #### Carrier vs Captain Separation
 - **Carrier**: The **system entity** (ID: `genesis`, `sentinel`, etc.). Represents the execution instance, process, and configuration.
@@ -191,7 +192,7 @@ Each feature area maps to exactly one command domain. Use the domain below regar
 | Feature Area | Domain | Rationale |
 |-----------|--------|-----------|
 | `fleet` agent orchestration surfaces | `agent` | Sub-agent orchestration features |
-| `experimental-wiki` surfaces | `wiki` | Experimental Fleet Wiki store, patch queue, AAR ingest |
+| `fleet-wiki` surfaces | `wiki` | Fleet Wiki store, patch queue, AAR ingest |
 | Admiral protocol and doctrine surfaces | `admiral` | Host-agent prompt policy, protocols, and operational doctrine |
 | Detached carrier job surfaces | `jobs` | Detached carrier job rendering and verbose toggle |
 | Metaphor/persona/worldview surfaces | `metaphor` | Naval Fleet persona prompts, worldview management, and shared metaphor controls |

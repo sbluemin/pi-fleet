@@ -28,7 +28,7 @@ The returned `shutdown()` method is responsible for cleaning up the agent and re
 - `UnifiedAgentResult`
 - `UnifiedAgentRequestStatus`
 
-`AgentRequestService` owns unified-agent request orchestration in fleet-core. It wraps the existing executor contract, owns the bridge/streaming Run lifecycle, and returns the same `UnifiedAgentResult` field set consumed by Pi adapters: `status`, `responseText`, `sessionId`, `error`, `thinking`, `toolCalls`, and `blocks`.
+`AgentRequestService` owns unified-agent request orchestration in fleet-core. It wraps the existing executor contract, owns the bridge/run-stream Run lifecycle, and returns the same `UnifiedAgentResult` field set consumed by Pi adapters: `status`, `responseText`, `sessionId`, `error`, `thinking`, `toolCalls`, and `blocks`.
 
 ## Tool Registry
 
@@ -88,26 +88,47 @@ The adapter is structurally compatible with unified-agent without depending on i
 
 The MCP server subscribes through `registry.onChange` and does not poll.
 
-## Bridge
+## Bridge Run Stream
 
-- Subpath: `@sbluemin/fleet-core/bridge`
+- Subpath: `@sbluemin/fleet-core/bridge/run-stream`
 - `BridgeStateStorage`
 - `configureBridgeStateStorage(storage: BridgeStateStorage | null): void`
 - `getBridgeStateStorage(): BridgeStateStorage`
 - `readBridgeState<T>(key: string): T | undefined`
 - `writeBridgeState<T>(key: string, value: T): T`
+- `createRun(...)`
+- `updateRunStatus(...)`
+- `finalizeRun(...)`
+- `resetRuns()`
+- `getVisibleRun()`
+- `getRunById(runId)`
 
-The bridge layer owns host-agnostic state persistence and normalization. It defaults to `globalThis` for compatibility but allows host injection through `configureBridgeStateStorage`.
+The run-stream layer owns host-agnostic per-run stream state and state persistence. It defaults to `globalThis` for compatibility but allows host injection through `configureBridgeStateStorage`.
 
-### Bridge Render
+### Bridge Carrier Panel
 
-- Subpath: `@sbluemin/fleet-core/bridge/render`
+- Subpath: `@sbluemin/fleet-core/bridge/carrier-panel`
+- `registerSortieJob(...)`
+- `registerSquadronJob(...)`
+- `registerTaskforceJob(...)`
+- `finalizeJob(...)`
+- `getActiveJobs()`
 - `PanelJobViewModel`
 - `PanelTrackViewModel`
 - `buildPanelViewModel(jobs, options?): PanelJobViewModel[]`
 - `buildPanelTrackViewModel(track, maxBlocks?): PanelTrackViewModel`
 
-This subpath is for **view-models only**. It provides deterministic data snapshots for host renderers (e.g., Pi TUI) to consume. It contains no UI logic or rendering code.
+This subpath owns host-agnostic carrier panel job/track state plus deterministic data snapshots for host renderers (e.g., Pi TUI) to consume. It contains no UI mounting or rendering code.
+
+### Bridge Control
+
+- Subpath: `@sbluemin/fleet-core/bridge/carrier-control`
+- `StatusOverlayController`
+- `CarrierOverlayCallbacks`
+- `CarrierStatusEntry`
+- `CliModelInfo`
+- `CliTypeChangeResult`
+- `ResolvedCliSelection`
 
 ## Adapter Types
 
@@ -131,26 +152,58 @@ This subpath is for **view-models only**. It provides deterministic data snapsho
 - `./agent/executor`
 - `./agent/tool-snapshot`
 - `./agent/provider-mcp`
+- `./agent/thinking-level-patch`
 - `./agent/log-port`
+- `./agent/service-status`
+- `./constants`
 - `./streaming-sink`
 - `./job`
 - `./carrier`
+- `./carrier/personas`
 - `./squadron`
 - `./taskforce`
 - `./carrier-jobs`
 - `./store`
-- `./bridge`
+- `./gfleet`
+- `./gfleet/ipc`
+- `./gfleet/formation`
+- `./bridge/run-stream`
+- `./bridge/carrier-panel`
+- `./bridge/carrier-control`
 - `./admiral`
+- `./admiral/protocols`
+- `./admiral/standing-orders`
+- `./admiral/tool-prompt-manifest`
 - `./metaphor`
-- `./grand-fleet`
-- `./experimental-wiki`
+- `./metaphor/operation-name`
+- `./metaphor/directive-refinement`
+- `./core-services`
+- `./core-services/settings`
+- `./core-services/keybind`
+- `./core-services/log`
+- `./core-services/provider-guard`
 
 Deep imports through `./internal/*` or `./src/*` are not part of this API.
 
 ## Stable Subpath Additions
 
 - `@sbluemin/fleet-core/admiral`: `HEADER_MAX_LENGTH`, `RequestDirectiveParams`, directive schemas/types, `validateQuestions`, `clampHeader`, `hasPreview`, and `errorResult` for `request_directive`.
-- `@sbluemin/fleet-core/grand-fleet`: grand-fleet tool parameter schemas plus name, label, and description constants for `grand_fleet_deploy`, `grand_fleet_dispatch`, `grand_fleet_recall`, `grand_fleet_broadcast`, `grand_fleet_status`, and `mission_report`.
 - `@sbluemin/fleet-core/agent/request`: `AgentRequestService`, `createAgentRequestService`, and unified-agent request/result types.
+- `@sbluemin/fleet-core/agent/service-status`: service-status store and runtime lifecycle helpers for host-visible provider status.
+- `@sbluemin/fleet-core/constants`: shared Fleet constants for colors, labels, and runtime display contracts.
 - `@sbluemin/fleet-core/streaming-sink`: host column lifecycle port types for agent streaming.
+- `@sbluemin/fleet-core/carrier/personas`: default carrier persona definitions and persona registration helpers.
+- `@sbluemin/fleet-core/gfleet`: Grand Fleet domain prompt builders, reporter helpers, status-source logic, text sanitization, tool specs, and shared types.
+- `@sbluemin/fleet-core/gfleet/ipc`: Grand Fleet JSON-RPC protocol contracts and message helpers.
+- `@sbluemin/fleet-core/gfleet/formation`: Grand Fleet tmux formation helpers.
+- `@sbluemin/fleet-core/admiral/protocols`: protocol catalogs and active-protocol prompt builders for Admiral orchestration.
+- `@sbluemin/fleet-core/admiral/standing-orders`: always-on standing-order prompt builders and related doctrine helpers.
+- `@sbluemin/fleet-core/admiral/tool-prompt-manifest`: tool prompt manifest registration and lookup helpers.
+- `@sbluemin/fleet-core/metaphor/operation-name`: operation-name prompt builders, schemas, and runtime helpers.
+- `@sbluemin/fleet-core/metaphor/directive-refinement`: directive-refinement prompt builders, schemas, and runtime helpers.
+- `@sbluemin/fleet-core/core-services`: shared pure service barrels for Pi adapter consumption.
+- `@sbluemin/fleet-core/core-services/settings`: settings registry/store contracts and helpers.
+- `@sbluemin/fleet-core/core-services/keybind`: keybind registry/store contracts and helpers.
+- `@sbluemin/fleet-core/core-services/log`: log store contracts and file-backed helpers.
+- `@sbluemin/fleet-core/core-services/provider-guard`: provider-guard settings contracts and pure runtime helpers.
 - `FleetHostPorts.appendStreamBlock`, `syncPanelColumn`, and `endStreamColumn` are deprecated for one public-API cycle. They will be removed in the next minor public-API cycle; implement `streamingSink` instead.

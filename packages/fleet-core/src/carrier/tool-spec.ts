@@ -16,8 +16,8 @@ import {
   buildSortieJobSummary,
   computeSortieFinalStatus,
   validateSortieAssignments,
-  type CarrierSortieOutcome,
-} from "./index.js";
+} from "./sortie-execute.js";
+import type { CarrierSortieOutcome } from "./sortie-execute.js";
 
 import { registerToolPromptManifest } from "../admiral/tool-prompt-manifest/index.js";
 import {
@@ -25,7 +25,7 @@ import {
   registerSortieJob,
   updateColumnTrackRunId,
   updateColumnTrackStatus,
-} from "../bridge/panel/index.js";
+} from "../bridge/carrier-panel/index.js";
 import { toMessageArchiveBlock, toThoughtArchiveBlock } from "../job/index.js";
 import { combineAbortSignals } from "../job/index.js";
 import { acquireJobPermit } from "../job/index.js";
@@ -35,7 +35,7 @@ import { formatLaunchResponseText } from "../job/index.js";
 import { appendBlock, createJobArchive, finalizeJobArchive } from "../job/index.js";
 import type { CarrierJobLaunchResponse, CarrierJobSummary, CarrierJobStatus } from "../job/index.js";
 import { putJobSummary } from "../job/index.js";
-import { getVisibleRun } from "../bridge/streaming/index.js";
+import { getVisibleRun } from "../bridge/run-stream/index.js";
 import {
   getRegisteredOrder,
   getSortieEnabledIds,

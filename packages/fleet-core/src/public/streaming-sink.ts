@@ -1,7 +1,7 @@
 import type { CliType } from "@sbluemin/unified-agent";
 import type { AgentStatus } from "../agent/types.js";
-import type { ColStatus } from "../bridge/streaming/types.js";
-import type { CollectedStreamData } from "../bridge/streaming/types.js";
+import type { ColStatus } from "../bridge/run-stream/types.js";
+import type { CollectedStreamData } from "../bridge/run-stream/types.js";
 
 export type AgentColumnEndReason = "done" | "error" | "aborted";
 

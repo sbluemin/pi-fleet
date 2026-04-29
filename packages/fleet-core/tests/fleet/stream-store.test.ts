@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
-import { configureBridgeStateStorage } from "../../src/bridge/state-store.js";
+import { configureBridgeStateStorage } from "../../src/bridge/run-stream/state-store.js";
 import {
   createRun,
   appendTextBlock,
@@ -18,7 +18,7 @@ import {
   getRunById,
   resetRuns,
   setStreamStoreRegisteredOrderProvider,
-} from "../../src/bridge/streaming/stream-store.js";
+} from "../../src/bridge/run-stream/stream-store.js";
 
 // 각 테스트 전에 globalThis 상태 초기화
 beforeEach(() => {

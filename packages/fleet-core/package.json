@@ -133,30 +133,35 @@
       "import": "./dist/store.js",
       "require": "./dist/store.cjs"
     },
-    "./bridge": {
-      "types": "./dist/bridge.d.ts",
-      "import": "./dist/bridge.js",
-      "require": "./dist/bridge.cjs"
+    "./gfleet": {
+      "types": "./dist/gfleet.d.ts",
+      "import": "./dist/gfleet.js",
+      "require": "./dist/gfleet.cjs"
     },
-    "./bridge/streaming": {
-      "types": "./dist/bridge/streaming.d.ts",
-      "import": "./dist/bridge/streaming.js",
-      "require": "./dist/bridge/streaming.cjs"
+    "./gfleet/ipc": {
+      "types": "./dist/gfleet/ipc.d.ts",
+      "import": "./dist/gfleet/ipc.js",
+      "require": "./dist/gfleet/ipc.cjs"
     },
-    "./bridge/panel": {
-      "types": "./dist/bridge/panel.d.ts",
-      "import": "./dist/bridge/panel.js",
-      "require": "./dist/bridge/panel.cjs"
+    "./gfleet/formation": {
+      "types": "./dist/gfleet/formation.d.ts",
+      "import": "./dist/gfleet/formation.js",
+      "require": "./dist/gfleet/formation.cjs"
     },
-    "./bridge/render": {
-      "types": "./dist/bridge/render.d.ts",
-      "import": "./dist/bridge/render.js",
-      "require": "./dist/bridge/render.cjs"
+    "./bridge/run-stream": {
+      "types": "./dist/bridge/run-stream.d.ts",
+      "import": "./dist/bridge/run-stream.js",
+      "require": "./dist/bridge/run-stream.cjs"
     },
-    "./bridge/carrier-ui": {
-      "types": "./dist/bridge/carrier-ui.d.ts",
-      "import": "./dist/bridge/carrier-ui.js",
-      "require": "./dist/bridge/carrier-ui.cjs"
+    "./bridge/carrier-panel": {
+      "types": "./dist/bridge/carrier-panel.d.ts",
+      "import": "./dist/bridge/carrier-panel.js",
+      "require": "./dist/bridge/carrier-panel.cjs"
+    },
+    "./bridge/carrier-control": {
+      "types": "./dist/bridge/carrier-control.d.ts",
+      "import": "./dist/bridge/carrier-control.js",
+      "require": "./dist/bridge/carrier-control.cjs"
     },
     "./admiral": {
       "types": "./dist/admiral.d.ts",
@@ -193,21 +198,6 @@
       "import": "./dist/metaphor/directive-refinement.js",
       "require": "./dist/metaphor/directive-refinement.cjs"
     },
-    "./grand-fleet": {
-      "types": "./dist/grand-fleet.d.ts",
-      "import": "./dist/grand-fleet.js",
-      "require": "./dist/grand-fleet.cjs"
-    },
-    "./grand-fleet/ipc": {
-      "types": "./dist/grand-fleet/ipc.d.ts",
-      "import": "./dist/grand-fleet/ipc.js",
-      "require": "./dist/grand-fleet/ipc.cjs"
-    },
-    "./grand-fleet/formation": {
-      "types": "./dist/grand-fleet/formation.d.ts",
-      "import": "./dist/grand-fleet/formation.js",
-      "require": "./dist/grand-fleet/formation.cjs"
-    },
     "./core-services": {
       "types": "./dist/core-services.d.ts",
       "import": "./dist/core-services.js",
@@ -232,11 +222,6 @@
       "types": "./dist/core-services/provider-guard.d.ts",
       "import": "./dist/core-services/provider-guard.js",
       "require": "./dist/core-services/provider-guard.cjs"
-    },
-    "./experimental-wiki": {
-      "types": "./dist/experimental-wiki.d.ts",
-      "import": "./dist/experimental-wiki.js",
-      "require": "./dist/experimental-wiki.cjs"
     }
   },
   "scripts": {

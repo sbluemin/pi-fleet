@@ -11,7 +11,7 @@
 import type { AgentToolSpec } from "../public/tool-registry.js";
 import { executeOneShot } from "../agent/executor.js";
 import { registerToolPromptManifest } from "../admiral/tool-prompt-manifest/index.js";
-import { finalizeJob, registerSquadronJob } from "../bridge/panel/index.js";
+import { finalizeJob, registerSquadronJob } from "../bridge/carrier-panel/index.js";
 import {
   createRun,
   appendTextBlock,
@@ -20,7 +20,7 @@ import {
   finalizeRun,
   updateRunStatus,
   getVisibleRun,
-} from "../bridge/streaming/index.js";
+} from "../bridge/run-stream/index.js";
 import { ANSI_RESET, SQUADRON_BADGE_COLOR } from "../constants.js";
 import {
   toMessageArchiveBlock,
@@ -37,6 +37,13 @@ import {
   putJobSummary,
 } from "../job/index.js";
 import {
+  FLEET_SQUADRON_DESCRIPTION,
+  SQUADRON_MANIFEST,
+  buildSquadronPromptSnippet,
+  buildSquadronPromptGuidelines,
+  buildSquadronSchema,
+} from "./prompts.js";
+import {
   buildSquadronJobSummary,
   buildSquadronRequestKey,
   buildSquadronRunId,
@@ -45,17 +52,14 @@ import {
   sanitizeSquadronTitle,
   validateSquadronSubtaskCount,
   validateSquadronSubtaskLimit,
-  FLEET_SQUADRON_DESCRIPTION,
-  SQUADRON_MANIFEST,
-  buildSquadronPromptSnippet,
-  buildSquadronPromptGuidelines,
-  buildSquadronSchema,
+} from "./squadron-execute.js";
+import {
   SQUADRON_STATE_KEY,
   SQUADRON_MAX_INSTANCES,
   type SubtaskProgress,
   type SquadronResult,
   type SquadronState,
-} from "./index.js";
+} from "./types.js";
 import type { CarrierJobLaunchResponse, CarrierJobSummary, CarrierJobStatus } from "../job/index.js";
 import { loadModels } from "../store/index.js";
 

@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { buildPanelViewModel } from "../../src/bridge/render/index.js";
+import { buildPanelViewModel } from "../../src/bridge/carrier-panel/index.js";
 import {
   appendTextBlock,
   createRun,
   finalizeRun,
   upsertToolBlock,
-} from "../../src/bridge/streaming/stream-store.js";
-import { configureBridgeStateStorage } from "../../src/bridge/state-store.js";
-import type { PanelJob } from "../../src/bridge/panel/types.js";
+} from "../../src/bridge/run-stream/stream-store.js";
+import { configureBridgeStateStorage } from "../../src/bridge/run-stream/state-store.js";
+import type { PanelJob } from "../../src/bridge/carrier-panel/types.js";
 
 beforeEach(() => {
   configureBridgeStateStorage(null);

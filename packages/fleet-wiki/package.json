@@ -1,0 +1,31 @@
+{
+  "name": "@sbluemin/fleet-wiki",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "files": ["dist", "AGENTS.md"],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.41"
+  },
+  "devDependencies": {
+    "@types/node": "^24.9.1",
+    "tsup": "^8.5.0",
+    "typescript": "^6.0.2",
+    "vitest": "^3.2.4"
+  }
+}
