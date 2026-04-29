@@ -7,10 +7,10 @@ import {
   type ReportType,
 } from "@sbluemin/fleet-core/grand-fleet";
 
-import { sendMissionReport } from "../adapters/grand-fleet/fleet/reporter.js";
-import { flushFleetStatus, getFleetClient, getFleetRuntime } from "../adapters/grand-fleet/fleet/runtime.js";
-import { getLogAPI } from "../config-bridge/log/bridge.js";
-import { getState } from "../lifecycle/grand-fleet-state.js";
+import { sendMissionReport } from "../bindings/grand-fleet/fleet/reporter.js";
+import { flushFleetStatus, getFleetClient, getFleetRuntime } from "../bindings/grand-fleet/fleet/runtime.js";
+import { getLogAPI } from "../bindings/config/log/bridge.js";
+import { getState } from "../bindings/grand-fleet/state.js";
 
 const LOG_SOURCE = "grand-fleet";
 

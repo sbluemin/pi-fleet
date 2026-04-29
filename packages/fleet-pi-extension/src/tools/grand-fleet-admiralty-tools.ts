@@ -33,11 +33,11 @@ import {
 } from "@sbluemin/fleet-core/grand-fleet";
 import * as tmux from "@sbluemin/fleet-core/grand-fleet/formation";
 
-import { getAdmiraltyRegistry, getAdmiraltyServer } from "../adapters/grand-fleet/admiralty/runtime.js";
-import type { AdmiraltyServer } from "../adapters/grand-fleet/admiralty/server.js";
-import type { FleetRegistry } from "../adapters/grand-fleet/admiralty/fleet-registry.js";
-import { getLogAPI } from "../config-bridge/log/bridge.js";
-import { getState } from "../lifecycle/grand-fleet-state.js";
+import { getAdmiraltyRegistry, getAdmiraltyServer } from "../bindings/grand-fleet/admiralty/runtime.js";
+import type { AdmiraltyServer } from "../bindings/grand-fleet/admiralty/server.js";
+import type { FleetRegistry } from "../bindings/grand-fleet/admiralty/fleet-registry.js";
+import { getLogAPI } from "../bindings/config/log/bridge.js";
+import { getState } from "../bindings/grand-fleet/state.js";
 import { syncRosterWidget } from "../tui/grand-fleet/admiralty/roster-widget.js";
 
 interface DeployParams {

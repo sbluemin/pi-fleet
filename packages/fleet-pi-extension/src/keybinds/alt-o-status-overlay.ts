@@ -1,8 +1,8 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { CliType } from "@sbluemin/unified-agent";
 
-import { getKeybindAPI } from "../config-bridge/keybind/bridge.js";
-import { getServiceSnapshots, refreshStatusQuiet } from "../session-bridge/agentclientprotocol/service-status-store.js";
+import { getKeybindAPI } from "../bindings/config/keybind/bridge.js";
+import { getServiceSnapshots, refreshStatusQuiet } from "../provider/service-status-store.js";
 import { refreshAgentPanel } from "../tui/panel-lifecycle.js";
 import {
   disableSortieCarrier,

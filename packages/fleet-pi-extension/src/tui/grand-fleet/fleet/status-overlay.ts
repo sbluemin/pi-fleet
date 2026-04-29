@@ -2,10 +2,10 @@ import type { ExtensionContext, Theme } from "@mariozechner/pi-coding-agent";
 import type { Component, Focusable, TUI } from "@mariozechner/pi-tui";
 import { Key, matchesKey } from "@mariozechner/pi-tui";
 
-import { getState } from "../../../lifecycle/grand-fleet-state.js";
+import { getState } from "../../../bindings/grand-fleet/state.js";
 import { createOverlayFrame } from "../overlay-frame.js";
 import { stripControlChars } from "@sbluemin/fleet-core/grand-fleet";
-import { getFleetOverlayRuntimeState } from "../../../adapters/grand-fleet/fleet/register.js";
+import { getFleetOverlayRuntimeState } from "../../../bindings/grand-fleet/fleet/register.js";
 
 const ANSI_RESET = "\x1b[0m";
 const ANSI_DIM = "\x1b[38;2;120;120;120m";

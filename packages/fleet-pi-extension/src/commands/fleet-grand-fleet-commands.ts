@@ -1,8 +1,8 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import { getLogAPI } from "../config-bridge/log/bridge.js";
-import { getState } from "../lifecycle/grand-fleet-state.js";
-import { connectToAdmiralty, disconnectFromAdmiralty, getFleetClient } from "../adapters/grand-fleet/fleet/runtime.js";
+import { getLogAPI } from "../bindings/config/log/bridge.js";
+import { getState } from "../bindings/grand-fleet/state.js";
+import { connectToAdmiralty, disconnectFromAdmiralty, getFleetClient } from "../bindings/grand-fleet/fleet/runtime.js";
 
 const LOG_SOURCE = "grand-fleet";
 

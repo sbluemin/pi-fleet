@@ -11,12 +11,12 @@ import type { FleetHostPorts } from "@sbluemin/fleet-core";
 import type { FleetLogPort } from "@sbluemin/fleet-core";
 
 import { CARRIER_RESULT_CUSTOM_TYPE, carrierResultRenderer } from "./carrier-result-renderer.js";
-import { enqueueCarrierCompletionPush } from "../adapters/push/carrier-completion.js";
+import { enqueueCarrierCompletionPush } from "../bindings/jobs/carrier-completion.js";
 import { renderCarrierJobsCall, renderCarrierJobsResult } from "./carrier_jobs/jobs.js";
 import type { CarrierJobsToolResult } from "./carrier_jobs/render.js";
-import { getLogAPI } from "../config-bridge/log/bridge.js";
+import { getLogAPI } from "../bindings/config/log/bridge.js";
 import { renderRequestPreview } from "./request-preview.js";
-import { runAgentRequestBackground } from "../session-bridge/fleet/operation-runner.js";
+import { runAgentRequestBackground } from "../session/fleet/operation-runner.js";
 
 interface PiRenderContext {
   readonly args?: unknown;

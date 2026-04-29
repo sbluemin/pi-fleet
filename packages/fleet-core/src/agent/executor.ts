@@ -1,5 +1,5 @@
 /**
- * core/agentclientprotocol/executor.ts — 실행 엔진
+ * agent/executor.ts — 실행 엔진
  *
  * 풀 기반 실행, 원샷 실행, 저수준 세션 획득 API를 제공합니다.
  * 세션 관리가 완전 캡슐화되어 외부에서 sessionId를 직접 주입할 필요가 없습니다.

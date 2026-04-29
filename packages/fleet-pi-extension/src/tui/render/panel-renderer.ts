@@ -15,15 +15,16 @@ import {
   SPINNER_FRAMES,
   SYM_INDICATOR,
 } from "@sbluemin/fleet-core/constants";
-import { getVisibleRun, getRunById } from "@sbluemin/fleet-core/bridge/streaming";
 import type { ColStatus } from "@sbluemin/fleet-core/bridge/streaming";
+import { buildPanelViewModel } from "@sbluemin/fleet-core/bridge/render";
+import type { PanelJobViewModel, PanelTrackViewModel } from "@sbluemin/fleet-core/bridge/render";
 
 import {
   resolveCarrierBgColor,
   resolveCarrierColor,
   resolveCarrierRgb,
 } from "../../tools/carrier/framework.js";
-import type { ColumnTrack, PanelJob } from "../panel/types.js";
+import type { PanelJob } from "../panel/types.js";
 import { blockLineToAnsi, renderBlockLines } from "./block-renderer.js";
 
 interface WaveConfig {
@@ -45,7 +46,7 @@ export function renderPanelFull(
   bodyH: number,
   cursorColumn = -1,
 ): string[] {
-  const visibleJobs = jobs;
+  const visibleJobs = buildPanelViewModel(jobs, { maxTrackBlocks: MAX_TRACK_STREAM_LINES });
   const detailTarget = detailTrackId ? findTrackById(visibleJobs, detailTrackId) : null;
   const panelH = 3 + bodyH + 1;
   const totalDiag = (w - 1) + (panelH - 1);
@@ -109,8 +110,8 @@ export function waveText(
 
 function renderDetailView(
   w: number,
-  job: PanelJob,
-  track: ColumnTrack,
+  job: PanelJobViewModel,
+  track: PanelTrackViewModel,
   frame: number,
   FC: string,
   bottomHint: string,
@@ -150,7 +151,7 @@ function renderDetailView(
 
 function renderMultiJobView(
   w: number,
-  jobs: PanelJob[],
+  jobs: PanelJobViewModel[],
   frame: number,
   FC: string,
   bottomHint: string,
@@ -240,7 +241,7 @@ function renderEmptyPanel(
   return rows;
 }
 
-function buildJobHeader(job: PanelJob, frame: number): string {
+function buildJobHeader(job: PanelJobViewModel, frame: number): string {
   const color = resolveCarrierColor(job.ownerCarrierId) || PANEL_COLOR;
   const label = `${capitalize(job.kind)} · ${job.label} · ${formatElapsed((job.finishedAt ?? Date.now()) - job.startedAt)}`;
   if (job.status !== "active") {
@@ -249,14 +250,14 @@ function buildJobHeader(job: PanelJob, frame: number): string {
   return `${color}◈ ${waveText(label, resolveCarrierRgb(job.ownerCarrierId), frame, 0, { speed: 0.45 })}${ANSI_RESET}`;
 }
 
-function buildJobColumnContent(job: PanelJob, width: number, bodyH: number, frame: number): string[] {
+function buildJobColumnContent(job: PanelJobViewModel, width: number, bodyH: number, frame: number): string[] {
   const contentWidth = Math.max(0, width);
   const lines: string[] = [];
   for (let index = 0; index < job.tracks.length; index++) {
     const track = job.tracks[index];
     const treePrefix = index === job.tracks.length - 1 ? "└─" : "├─";
     const connector = index === job.tracks.length - 1 ? "   " : "│  ";
-    const liveStatus = resolveTrackLiveStatus(track);
+    const liveStatus = track.status;
     const stats = buildTrackStats(track);
     const icon = trackIcon(liveStatus, frame, job.ownerCarrierId);
     const nameColor = track.displayCli ? (resolveCarrierColor(track.displayCli) || PANEL_COLOR) : "";
@@ -270,21 +271,8 @@ function buildJobColumnContent(job: PanelJob, width: number, bodyH: number, fram
   return lines.slice(-bodyH);
 }
 
-function resolveTrackLiveStatus(track: ColumnTrack): ColStatus {
-  if (track.runId) {
-    const run = getRunById(track.runId);
-    if (run) return run.status;
-  }
-  const run = getVisibleRun(track.streamKey);
-  if (run) {
-    track.runId = run.runId;
-    return run.status;
-  }
-  return track.status;
-}
-
-function buildTrackContent(track: ColumnTrack, bodyH: number, frame: number): string[] {
-  const liveStatus = resolveTrackLiveStatus(track);
+function buildTrackContent(track: PanelTrackViewModel, bodyH: number, frame: number): string[] {
+  const liveStatus = track.status;
   const stats = buildTrackStats(track);
   return [
     `${trackIcon(liveStatus, frame, track.displayCli)} ${track.displayName}${stats ? ` ${PANEL_DIM_COLOR}[${stats}]${ANSI_RESET}` : ""}`,
@@ -292,15 +280,14 @@ function buildTrackContent(track: ColumnTrack, bodyH: number, frame: number): st
   ].slice(-bodyH);
 }
 
-function getTrackStreamTail(track: ColumnTrack, connector: string, width: number, liveStatus?: ColStatus): string[] {
-  const run = track.runId ? getRunById(track.runId) : getVisibleRun(track.streamKey);
+function getTrackStreamTail(track: PanelTrackViewModel, connector: string, width: number, liveStatus?: ColStatus): string[] {
   const effectiveStatus = liveStatus ?? track.status;
-  if (!run || run.blocks.length === 0) {
+  if (track.blocks.length === 0) {
     return effectiveStatus === "done"
       ? [truncateToWidth(`${PANEL_DIM_COLOR}${connector}${ANSI_RESET}   ✓ Completed`, width)]
       : [];
   }
-  const blockLines = renderBlockLines(run.blocks).filter((line) => line.text.trim());
+  const blockLines = renderBlockLines(track.blocks).filter((line) => line.text.trim());
   const tail = blockLines.slice(-MAX_TRACK_STREAM_LINES);
   const prefix = `${PANEL_DIM_COLOR}${connector}${ANSI_RESET}   `;
   const rendered = tail.map((line) => truncateToWidth(`${prefix}${blockLineToAnsi(line)}`, width));
@@ -310,21 +297,11 @@ function getTrackStreamTail(track: ColumnTrack, connector: string, width: number
   return rendered;
 }
 
-function buildTrackStats(track: ColumnTrack): string {
-  const run = track.runId ? getRunById(track.runId) : getVisibleRun(track.streamKey);
-  if (!run || run.blocks.length === 0) return "";
-  let toolCalls = 0;
-  let lines = 0;
-  for (const block of run.blocks) {
-    if (block.type === "tool") {
-      toolCalls++;
-      continue;
-    }
-    lines += block.text.split("\n").filter((line) => line.trim()).length;
-  }
+function buildTrackStats(track: PanelTrackViewModel): string {
+  if (track.toolCallCount === 0 && track.textLineCount === 0) return "";
   const parts: string[] = [];
-  if (toolCalls > 0) parts.push(`${toolCalls}T`);
-  if (lines > 0) parts.push(`${lines}L`);
+  if (track.toolCallCount > 0) parts.push(`${track.toolCallCount}T`);
+  if (track.textLineCount > 0) parts.push(`${track.textLineCount}L`);
   return parts.join("·");
 }
 
@@ -346,7 +323,7 @@ function joinCells(cells: string[], widths: number[], vx: number[], FC: string, 
   return line;
 }
 
-function findTrackById(jobs: PanelJob[], trackId: string): { job: PanelJob; track: ColumnTrack } | null {
+function findTrackById(jobs: PanelJobViewModel[], trackId: string): { job: PanelJobViewModel; track: PanelTrackViewModel } | null {
   for (const job of jobs) {
     const track = job.tracks.find((item) => item.trackId === trackId);
     if (track) return { job, track };

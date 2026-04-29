@@ -4,7 +4,7 @@
 Fleet has completed the logical product split that separates the product core from the Pi host adapter.
 
 - `packages/fleet-core` owns Fleet domain logic, prompts, runtime contracts, MCP/tool/job internals, bridge state, and public APIs.
-- `packages/fleet-pi-extension` owns Pi lifecycle wiring, command/keybind/tool registration, TUI rendering, session/event bridges, config bridges, adapters, and compatibility seams.
+- `packages/fleet-pi-extension` owns Pi lifecycle wiring, command/keybind/tool registration, TUI rendering, provider registration/stream glue, non-provider session features, config bridges, adapters, and compatibility seams.
 - `packages/unified-agent` remains an independent backend client package used by the Fleet runtime.
 
 This split is the foundation for turning Fleet into a product that can keep running inside Pi while also becoming easier to expose through future hosts such as a standalone CLI.
@@ -26,7 +26,7 @@ The lightweight follow-up exists to reduce the amount of product behavior that s
 - **Future host readiness:** Leave the architecture in a state where a future `fleet-cli` or other host can reuse the same core without depending on Pi runtime objects.
 
 ## Non-Goals
-- **Physical `src/` removal:** Removing `packages/fleet-pi-extension/src/` is intentionally deferred. Do not resume Wave 14 unless explicitly reauthorized.
+- **Active Pi source layout:** Treat `packages/fleet-pi-extension/src/` as the active Pi capability-bucket home.
 - **New end-user features:** This is a structural refinement phase, not a feature expansion phase.
 - **Carrier behavior rewrites:** Preserve existing carrier behavior, dispatch semantics, detached-job behavior, and MCP/provider FIFO behavior unless a change is explicitly scoped.
 - **Deep import shortcuts:** Do not solve adapter friction by importing `@sbluemin/fleet-core/src/**` or `@sbluemin/fleet-core/internal/**`.
@@ -39,14 +39,14 @@ fleet-core
   owns product behavior, domain policy, prompt assets, job logic, public APIs
 
 fleet-pi-extension
-  adapts Fleet to Pi through commands, keybinds, tools, TUI, session/events
+  adapts Fleet to Pi through commands, keybinds, tools, TUI, provider glue, session features
 ```
 
 The Pi extension should increasingly read like host wiring. If a module requires product reasoning to understand why Fleet behaves a certain way, that reasoning probably belongs in `fleet-core`.
 
 ## Guardrails
 - Keep `fleet-core` Pi-agnostic. No `ExtensionContext`, `ExtensionAPI`, Pi TUI, `pi.register*`, or `pi.sendMessage` imports.
-- Keep Pi imports in `fleet-pi-extension`, with `@mariozechner/pi-ai` confined to the compatibility bridge.
+- Keep Pi imports in `fleet-pi-extension`, with `@mariozechner/pi-ai` confined to the compatibility bridge (`src/bindings/compat/pi-ai-bridge.ts`).
 - Keep `fleet-pi-extension` imports on public `fleet-core` exports only.
 - Preserve slash command names, global compatibility keys, detached-job acceptance/completion-push semantics, and provider FIFO behavior.
 - Treat deleted legacy domain folders as deleted. Do not recreate them as shims.
@@ -64,7 +64,7 @@ The Pi extension should increasingly read like host wiring. If a module requires
 - Fleet tool specs for carrier sortie, squadron, taskforce, and carrier job lookup now live behind the `fleet-core` public registry surface.
 - `fleet-pi-extension/src/tools/fleet-pi-tools.ts` acts as a Pi adapter loop: it builds the host ports, iterates the core registry, binds Pi renderers/push delivery, and calls `pi.registerTool(...)`.
 - Pi-only surfaces such as custom message rendering and modal/request UI remain in the Pi extension.
-- `createFleetCoreRuntime` (in `fleet-core`) centralizes the initialization of agent runtime, domain stores, and optional service status; the Pi extension (via `fleet-boot.ts`) acts as the host that triggers this composition and manages its shutdown lifecycle.
+- `createFleetCoreRuntime` (in `fleet-core`) centralizes the initialization of agent runtime, domain stores, and optional service status; the Pi extension (via `src/bindings/runtime/index.ts`) acts as the host that triggers this composition and manages its shutdown lifecycle.
 - Foreground carrier requests now flow through `runtime.agentRequest.run(...)` in `fleet-core`. Pi supplies a host `AgentStreamingSink` that maps core column lifecycle events back to panel APIs.
 - The `AgentStreamingSink` supports an optional `AgentColumnStream` token returned by `onColumnBegin` and passed back to `onColumnEnd`. This allows the Pi adapter to capture the `ExtensionContext` and column index at the start of a run for deterministic routing when the run finishes.
 - Background requests use `runBackground(...)` which executes without triggering the host `streamingSink` panel lifecycle.

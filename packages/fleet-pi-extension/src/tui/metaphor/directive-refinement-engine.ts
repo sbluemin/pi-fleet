@@ -4,9 +4,9 @@
  * 작전 지령 재다듬기 LLM 호출 + BorderedLoader UI 로직.
  */
 
-import { completeSimple } from "../../compat/pi-ai-bridge.js";
+import { completeSimple } from "../../bindings/compat/pi-ai-bridge.js";
 import { composeDirectiveRefinementRequest } from "@sbluemin/fleet-core/metaphor";
-import type { Api, Model, ThinkingLevel } from "../../compat/pi-ai-bridge.js";
+import type { Api, Model, ThinkingLevel } from "../../bindings/compat/pi-ai-bridge.js";
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { BorderedLoader } from "@mariozechner/pi-coding-agent";
 

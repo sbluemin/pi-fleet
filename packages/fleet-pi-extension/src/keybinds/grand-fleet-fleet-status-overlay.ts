@@ -1,4 +1,4 @@
-import { getKeybindAPI } from "../config-bridge/keybind/bridge.js";
+import { getKeybindAPI } from "../bindings/config/keybind/bridge.js";
 import { openFleetStatusOverlay } from "../tui/grand-fleet/fleet/status-overlay.js";
 
 let activeStatusPopup: Promise<void> | null = null;

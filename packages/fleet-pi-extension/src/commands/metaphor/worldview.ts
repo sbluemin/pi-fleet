@@ -8,7 +8,7 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 import registerDirectiveRefinement from "./directive-refinement-register.js";
-import registerOperationName from "../../lifecycle/metaphor/operation-name-register.js";
+import { registerOperationName } from "../../bindings/metaphor/operation-name-register.js";
 import { isWorldviewEnabled, setWorldviewEnabled } from "@sbluemin/fleet-core/metaphor";
 
 /**

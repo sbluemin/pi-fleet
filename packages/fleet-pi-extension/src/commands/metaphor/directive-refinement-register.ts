@@ -4,7 +4,7 @@
  * 배선(wiring)만 담당: 커맨드, 단축키 등록.
  */
 
-import type { Api, Model } from "../../compat/pi-ai-bridge.js";
+import type { Api, Model } from "../../bindings/compat/pi-ai-bridge.js";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 import type { ReasoningLevel } from "@sbluemin/fleet-core/metaphor/directive-refinement";
@@ -18,8 +18,8 @@ import {
 import { loadSettings, saveSettings, SECTION_KEY } from "@sbluemin/fleet-core/metaphor/directive-refinement";
 import type { DirectiveRefinementSettings } from "@sbluemin/fleet-core/metaphor/directive-refinement";
 import { resolveModel, refineDirectiveWithLoader } from "../../tui/metaphor/directive-refinement-engine.js";
-import { getSettingsAPI } from "../../config-bridge/settings/bridge.js";
-import { getKeybindAPI } from "../../config-bridge/keybind/bridge.js";
+import { getSettingsAPI } from "../../bindings/config/settings/bridge.js";
+import { getKeybindAPI } from "../../bindings/config/keybind/bridge.js";
 import { isWorldviewEnabled } from "@sbluemin/fleet-core/metaphor";
 
 export function registerDirectiveRefinement(pi: ExtensionAPI): void {

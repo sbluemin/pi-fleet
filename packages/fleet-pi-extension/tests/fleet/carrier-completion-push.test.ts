@@ -4,7 +4,7 @@ import {
   enqueueCarrierCompletionPush,
   flushCarrierCompletionPush,
   resetCarrierCompletionPushForTest,
-} from "../../src/adapters/push/carrier-completion.js";
+} from "../../src/bindings/jobs/carrier-completion.js";
 
 beforeEach(() => {
   resetCarrierCompletionPushForTest();

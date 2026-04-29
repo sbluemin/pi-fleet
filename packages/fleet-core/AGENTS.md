@@ -2,22 +2,22 @@
 
 `packages/fleet-core` is the Pi-agnostic Fleet product core. It owns Fleet domain logic, prompt assets, tool contracts, MCP/runtime internals, job services, bridge data/state layers, and adapter-facing public APIs.
 
-## Wave 12 Migration Status
+## Current Architecture Status
 
 - The **ownership model is already final**: Fleet domain logic belongs in `fleet-core`; Pi runtime integration belongs in `fleet-pi-extension`.
 - The current implementation still lives under `packages/fleet-core/src/`.
-- `packages/fleet-pi-extension` also still uses `src/` during the intermediate migration stage.
-- **Wave 14 has not happened yet**. Do not document or assume that `packages/fleet-pi-extension/src/` has already been physically removed.
+- `packages/fleet-pi-extension` uses `src/` as the active Pi capability-bucket home.
+- Do not document or assume that Pi capability buckets have moved out of `packages/fleet-pi-extension/src/`.
 
 ## Owns
 
-- Fleet domain modules such as `admiral/`, `agent/`, `boot/`, `bridge/`, `carrier/`, `carrier-jobs/`, `core-services/`, `grand-fleet/`, `job/`, `metaphor/`, `operation/`, `push/`, `squadron/`, `store/`, and `taskforce/`
+- Fleet domain modules such as `admiral/`, `agent/`, `bridge/`, `carrier/`, `job/` including `job/carrier-jobs/`, `core-services/`, `grand-fleet/`, `metaphor/`, `squadron/`, `store/`, and `taskforce/`
 - Public API contracts and frozen consumer surfaces
 - `createFleetCoreRuntime` as the canonical composition entry point that runs `initRuntime`, `initStore`, and optional `initServiceStatus`; it also owns the `shutdown` lifecycle that resets service status
 - `AgentRequestService` owns unified-agent request orchestration and emits host column lifecycle through `FleetHostPorts.streamingSink`; it supports an optional `AgentColumnStream` token for stateful host tracking from `onColumnBegin` to `onColumnEnd`
 - Fleet tool specs and registry factories that are host-agnostic and registered by adapters through public APIs
-- Global runtime stores and compatibility keys used by Pi adapters
-- Pure prompt composition and domain-level orchestration logic
+- Global runtime stores, **bridge state storage ports**, and compatibility keys used by Pi adapters
+- Pure prompt composition, domain-level orchestration logic, and **render-agnostic view-model builders**
 
 ## Must Not Own
 

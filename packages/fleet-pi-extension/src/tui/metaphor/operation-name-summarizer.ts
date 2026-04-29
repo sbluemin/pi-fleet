@@ -2,9 +2,9 @@
  * operation-name/summarizer.ts — 작전명 생성 비즈니스 로직
  */
 
-import { completeSimple } from "../../compat/pi-ai-bridge.js";
+import { completeSimple } from "../../bindings/compat/pi-ai-bridge.js";
 import { composeOperationNameRequest } from "@sbluemin/fleet-core/metaphor";
-import type { Api, Model, ThinkingLevel } from "../../compat/pi-ai-bridge.js";
+import type { Api, Model, ThinkingLevel } from "../../bindings/compat/pi-ai-bridge.js";
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 
 import type { ReasoningLevel, OperationNameSettings } from "@sbluemin/fleet-core/metaphor/operation-name";

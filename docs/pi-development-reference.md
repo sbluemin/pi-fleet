@@ -13,14 +13,13 @@ Use this split as the first decision point for every change.
 
 ## 2. Migration Stage
 
-The codebase is in an intermediate stage:
+The codebase is in a capability-flattening stage:
 
 - logical ownership already follows the final direction
-- physical layout has **not** reached the final Wave 14 shape
-- `packages/fleet-pi-extension/src/` still exists today
+- `packages/fleet-pi-extension/src/` remains the active physical home for Pi capability buckets
 - capability buckets currently live under `packages/fleet-pi-extension/src/<bucket>/`
 
-Do not document or implement as if the package-root bucket layout already exists.
+Do not document or implement relocation of these buckets out of `src/`.
 
 ## 3. Where New Work Goes
 
@@ -50,19 +49,19 @@ Put code here when it requires:
 
 ## 4. Capability Bucket Map
 
-Current intermediate buckets:
+Current capability buckets:
 
 | Bucket | Responsibility |
 |--------|----------------|
-| `src/lifecycle/` | PI lifecycle listeners and event sequencing |
+| `src/bindings/runtime/` | PI lifecycle listeners and host event sequencing |
+| `src/bindings/compat/` | Compatibility-only seams, including the pi-ai bridge |
+| `src/bindings/` | Pi-bound wrappers/adapters over `fleet-core` ports (config, HUD, jobs, etc.) |
 | `src/commands/` | Slash command registration |
 | `src/keybinds/` | Shortcut registration |
 | `src/tools/` | Tool registration and custom message/render wiring |
 | `src/tui/` | Editor, footer, widgets, overlays, panel, shell, welcome |
-| `src/session-bridge/` | Session/provider glue and active-run-safe wrappers |
-| `src/config-bridge/` | Settings/keybind/log/HUD/provider-guard bridge code |
-| `src/adapters/` | Pi-bound adapters over `fleet-core` ports |
-| `src/compat/` | Compatibility-only seams |
+| `src/provider/` | Provider registration, provider stream wiring, and provider lifecycle glue |
+| `src/session/` | Non-provider Pi session features and active-run-safe wrappers |
 
 ## 5. Removed Legacy Directory Guidance
 
@@ -88,7 +87,7 @@ When migrating or restoring behavior that once lived under those paths:
 - `fleet-pi-extension` must consume `fleet-core` through public exports only.
 - Do not deep-import `@sbluemin/fleet-core/src/**` or `@sbluemin/fleet-core/internal/**`.
 - `fleet-core` must not import Pi packages.
-- `@mariozechner/pi-ai` imports stay confined to `packages/fleet-pi-extension/src/compat/pi-ai-bridge.ts`.
+- `@mariozechner/pi-ai` imports stay confined to `packages/fleet-pi-extension/src/bindings/compat/pi-ai-bridge.ts`.
 
 ## 7. PI Runtime Rules
 
@@ -96,13 +95,6 @@ When migrating or restoring behavior that once lived under those paths:
 - Detached-job completion delivery remains a Pi-side responsibility.
 - Tool registration, custom renderer registration, and push-message wiring remain Pi capability concerns even when the underlying job logic lives in `fleet-core`.
 
-## 8. Final Shape Reminder
+## 8. Physical Layout Reminder
 
-Wave 14 is the physical cleanup wave:
-
-- capability buckets move from `packages/fleet-pi-extension/src/<bucket>/...`
-  to `packages/fleet-pi-extension/<bucket>/...`
-- `packages/fleet-pi-extension/index.ts` becomes the package-root entry
-- `packages/fleet-pi-extension/src/` is removed
-
-That final shape is **not** the current state. Any documentation or review must say so explicitly.
+`packages/fleet-pi-extension/src/` is the active physical home for Pi capability buckets. Any documentation or review must keep that layout explicit and avoid implying that these buckets are scheduled to move.

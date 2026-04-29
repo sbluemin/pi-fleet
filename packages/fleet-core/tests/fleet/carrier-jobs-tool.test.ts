@@ -6,8 +6,8 @@ import { appendBlock, createJobArchive, finalizeJobArchive, resetJobArchivesForT
 import { toMessageArchiveBlock } from "../../src/job/archive-block-converter.js";
 import type { CarrierJobRecord, CarrierJobSummary } from "../../src/job/job-types.js";
 import { putJobSummary, resetJobSummaryCacheForTest } from "../../src/job/lru-cache.js";
-import { dispatchCarrierJobsAction } from "../../src/carrier-jobs/index.js";
-import { buildCarrierJobsSchema, CARRIER_JOBS_MANIFEST } from "../../src/carrier-jobs/prompts.js";
+import { dispatchCarrierJobsAction } from "../../src/job/carrier-jobs/index.js";
+import { buildCarrierJobsSchema, CARRIER_JOBS_MANIFEST } from "../../src/job/carrier-jobs/prompts.js";
 
 beforeEach(() => {
   resetJobArchivesForTest();

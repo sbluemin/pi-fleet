@@ -133,11 +133,6 @@
       "import": "./dist/store.js",
       "require": "./dist/store.cjs"
     },
-    "./push": {
-      "types": "./dist/push.d.ts",
-      "import": "./dist/push.js",
-      "require": "./dist/push.cjs"
-    },
     "./bridge": {
       "types": "./dist/bridge.d.ts",
       "import": "./dist/bridge.js",
@@ -162,11 +157,6 @@
       "types": "./dist/bridge/carrier-ui.d.ts",
       "import": "./dist/bridge/carrier-ui.js",
       "require": "./dist/bridge/carrier-ui.cjs"
-    },
-    "./operation": {
-      "types": "./dist/operation.d.ts",
-      "import": "./dist/operation.js",
-      "require": "./dist/operation.cjs"
     },
     "./admiral": {
       "types": "./dist/admiral.d.ts",
@@ -217,11 +207,6 @@
       "types": "./dist/grand-fleet/formation.d.ts",
       "import": "./dist/grand-fleet/formation.js",
       "require": "./dist/grand-fleet/formation.cjs"
-    },
-    "./boot": {
-      "types": "./dist/boot.d.ts",
-      "import": "./dist/boot.js",
-      "require": "./dist/boot.cjs"
     },
     "./core-services": {
       "types": "./dist/core-services.d.ts",

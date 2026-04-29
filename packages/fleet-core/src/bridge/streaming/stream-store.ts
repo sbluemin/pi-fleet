@@ -10,10 +10,12 @@
  * 내부적으로 runId 기반 식별을 사용하며, 패널 레이아웃용으로
  * `visibleRunIdByCli` 매핑을 통해 CLI당 현재 표시할 run을 결정합니다.
  *
- * ⚠️ globalThis 기반 — pi가 확장을 별도 번들로 로드하므로 필수.
+ * 기본 저장소는 globalThis 기반입니다. pi가 확장을 별도 번들로
+ * 로드해도 compatibility key를 공유해야 하므로 키 이름은 안정적으로 유지합니다.
  */
 
 import type { AgentStatus } from "../../agent/types.js";
+import { readBridgeState, writeBridgeState } from "../state-store.js";
 import type { ColBlock, ColStatus, CollectedStreamData } from "./types.js";
 
 // 스트리밍 타입 re-export
@@ -310,14 +312,14 @@ export function ensureVisibleRun(cli: string): StreamRun {
 }
 
 function getStoreState(): StreamStoreState {
-  let s = (globalThis as any)[STORE_KEY] as StreamStoreState | undefined;
+  let s = readBridgeState<StreamStoreState>(STORE_KEY);
   if (!s) {
     s = {
       runs: new Map(),
       visibleRunIdByCli: new Map(),
       counter: 0,
     };
-    (globalThis as any)[STORE_KEY] = s;
+    writeBridgeState(STORE_KEY, s);
   }
   return s;
 }

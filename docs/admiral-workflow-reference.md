@@ -9,13 +9,12 @@ The migration target is already fixed:
 - `packages/fleet-core` owns Fleet **domain logic**
 - `packages/fleet-pi-extension` owns Pi **capability buckets**
 
-The repository is still in an **intermediate physical state**:
+The repository uses this **current physical state**:
 
 - `packages/fleet-core` remains under `packages/fleet-core/src/`
 - `packages/fleet-pi-extension` capability buckets still remain under `packages/fleet-pi-extension/src/<bucket>/`
-- Wave 14 has **not** happened yet, so `packages/fleet-pi-extension/src/` still exists today
 
-Agents must not confuse logical ownership with final physical layout. `packages/fleet-pi-extension/src/` still exists, but the old legacy domain folders under it have been removed and must not be recreated.
+Agents must not confuse logical ownership with bucket relocation. `packages/fleet-pi-extension/src/` remains the active physical home, and the old legacy domain folders under it have been removed and must not be recreated.
 
 ## 2. Ownership Model
 
@@ -50,7 +49,7 @@ Agents must not confuse logical ownership with final physical layout. `packages/
 - command registration
 - keybind registration
 - tool registration
-- provider/session glue
+- provider registration/stream glue and non-provider session handling
 - settings/keybind/log/HUD bridges
 - Pi overlays, widgets, editor/footer rendering
 - compatibility adapters and push delivery seams
@@ -59,17 +58,17 @@ Agents must not confuse logical ownership with final physical layout. `packages/
 
 ## 3. Capability Buckets
 
-During the intermediate stage, Pi ownership is expressed through these buckets:
+In the current layout, Pi ownership is expressed through these buckets:
 
-- `src/lifecycle/` — `pi.on(...)` listeners and event sequencing
+- `src/bindings/runtime/` — `pi.on(...)` listeners and host event sequencing
+- `src/bindings/compat/` — compatibility-only seams, including the pi-ai bridge
+- `src/bindings/` — Pi-bound wrappers/adapters over `fleet-core` (config, HUD, jobs, etc.)
 - `src/commands/` — slash command registration
 - `src/keybinds/` — shortcut registration
 - `src/tools/` — tool registration and Pi-side renderer/message wiring
 - `src/tui/` — all Pi TUI rendering
-- `src/session-bridge/` — provider/session lifecycle glue
-- `src/config-bridge/` — settings/keybind/log/HUD/provider-guard bridges
-- `src/adapters/` — Pi-bound adapters over `fleet-core`
-- `src/compat/` — compatibility-only seams
+- `src/provider/` — provider registration, provider stream wiring, and provider lifecycle glue
+- `src/session/` — non-provider Pi session features and active-run-safe wrappers
 
 These are the **current doctrinal homes** even though the package still physically retains `src/`.
 
@@ -111,7 +110,7 @@ When editing or reviewing this repo:
 2. Put pure logic in `fleet-core`.
 3. Put Pi lifecycle/registration/rendering in the appropriate capability bucket.
 4. If a legacy module mixes both, split by ownership instead of preserving the old directory boundary.
-5. Do not claim Wave 14 is complete until `packages/fleet-pi-extension/src/` is physically gone.
+5. Keep documentation and code organization aligned with the active `packages/fleet-pi-extension/src/<bucket>/` layout.
 
 ## 7. Compatibility Invariants
 
@@ -128,6 +127,6 @@ The migration does **not** authorize silent behavioral drift. Preserve:
 When updating docs during this migration:
 
 - describe the **current observable state**
-- separate **logical ownership now** from **physical shape later**
-- mention that legacy domain folders have been removed and Wave 13 test relocation is complete when that context matters
-- avoid stating or implying that Wave 14 `src/` removal is already complete
+- separate **logical ownership** from **physical bucket placement**
+- mention that legacy domain folders have been removed when that context matters
+- avoid stating or implying that Pi capability buckets are scheduled to move out of `packages/fleet-pi-extension/src/`

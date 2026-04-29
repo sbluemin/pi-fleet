@@ -4,7 +4,7 @@
  * 배선(wiring)만 담당: 이벤트 핸들러, 커맨드 등록.
  */
 
-import type { Api, Model } from "../../compat/pi-ai-bridge.js";
+import type { Api, Model } from "../../bindings/compat/pi-ai-bridge.js";
 import type { ExtensionAPI, Theme } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
@@ -13,7 +13,7 @@ import { REASONING_LEVELS, REASONING_LABELS, REASONING_COLORS, isValidReasoning 
 import { loadSettings, saveSettings } from "@sbluemin/fleet-core/metaphor/operation-name";
 import type { OperationNameSettings } from "@sbluemin/fleet-core/metaphor/operation-name";
 import { generateOperationName, OPERATION_PREFIX, resolveModel } from "../../tui/metaphor/operation-name-summarizer.js";
-import { getSettingsAPI } from "../../config-bridge/settings/bridge.js";
+import { getSettingsAPI } from "../../bindings/config/settings/bridge.js";
 import { isWorldviewEnabled } from "@sbluemin/fleet-core/metaphor";
 
 const OPERATION_NAME_STATUS_KEY = "metaphor-operation-name-status";

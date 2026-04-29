@@ -14,7 +14,7 @@ import type { SegmentStateProvider } from "../../tui/hud/types.js";
 import { ansi, getFgAnsiCode } from "../../tui/hud/colors.js";
 import { getEditorBorderColor, getEditorRightLabel } from "../../tui/hud/border-bridge.js";  // [Feature] rightLabel을 상단 테두리 우측에 삽입
 import { getPreset } from "../../tui/hud/presets.js";
-import { buildSegmentContext } from "../../session-bridge/fleet/hud-context.js";
+import { buildSegmentContext } from "../../session/fleet/hud-context.js";
 import { computeResponsiveLayout } from "../../tui/hud/layout.js";
 import { WELCOME_GLOBAL_KEY } from "../welcome/types.js";
 import { isStaleExtensionContextError } from "../context-errors.js";

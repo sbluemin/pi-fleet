@@ -1,12 +1,13 @@
 import { buildSortieToolSpec } from "../carrier/tool-spec.js";
-import { dispatchCarrierJobsAction, type CarrierJobsParams } from "../carrier-jobs/index.js";
 import {
   CARRIER_JOBS_DESCRIPTION,
   CARRIER_JOBS_MANIFEST,
   buildCarrierJobsPromptGuidelines,
   buildCarrierJobsPromptSnippet,
   buildCarrierJobsSchema,
-} from "../carrier-jobs/index.js";
+  dispatchCarrierJobsAction,
+  type CarrierJobsParams,
+} from "../job/carrier-jobs/index.js";
 import { registerToolPromptManifest } from "../admiral/tool-prompt-manifest/index.js";
 import { buildSquadronToolSpec } from "../squadron/tool-spec.js";
 import { buildTaskForceToolSpec } from "../taskforce/tool-spec.js";

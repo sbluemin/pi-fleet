@@ -1,8 +1,8 @@
 import { type ExtensionAPI, DynamicBorder } from "@mariozechner/pi-coding-agent";
 import { Container, type SelectItem, SelectList, Text } from "@mariozechner/pi-tui";
 
-import { refreshStatusNow } from "../session-bridge/agentclientprotocol/service-status-store.js";
-import { getDeliverAs, setDeliverAs } from "../config-bridge/fleet-push-mode-settings.js";
+import { refreshStatusNow } from "../provider/service-status-store.js";
+import { getDeliverAs, setDeliverAs } from "../bindings/config/fleet-push-mode-settings.js";
 import {
   setCarrierJobsVerbose,
   toggleCarrierJobsVerbose,

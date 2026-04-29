@@ -1,6 +1,6 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
 
-import { collectCaptureSession } from "../../session-bridge/experimental-wiki/capture.js";
+import { collectCaptureSession } from "../../session/experimental-wiki/capture.js";
 import { runDryDock } from "@sbluemin/fleet-core/experimental-wiki";
 import { approvePatch, listQueue, rejectPatch, showQueue } from "@sbluemin/fleet-core/experimental-wiki";
 import { ensureMemoryRoot, resolveMemoryPaths } from "@sbluemin/fleet-core/experimental-wiki";

@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import registerWelcome from "../lifecycle/welcome/register.js";
+import registerWelcome from "./welcome/register.js";
 import { bootBridge } from "./fleet-bridge.js";
 import { bindPanelBackgroundJobAnimation } from "./panel-lifecycle.js";
 

@@ -12,9 +12,9 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 
-import { getGuardState } from "../config-bridge/provider-guard/types.js";
-import { saveSettings } from "../config-bridge/provider-guard/settings.js";
-import { getSettingsAPI } from "../config-bridge/settings/bridge.js";
+import { getGuardState } from "../bindings/config/provider-guard/types.js";
+import { saveSettings } from "../bindings/config/provider-guard/settings.js";
+import { getSettingsAPI } from "../bindings/config/settings/bridge.js";
 
 // Provider Guard 활성 시 유지할 허용 프로바이더
 const GUARDED_ALLOWED_PROVIDERS = new Set(["Fleet ACP", "openai-codex"]);

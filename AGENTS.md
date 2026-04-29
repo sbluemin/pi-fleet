@@ -14,14 +14,14 @@
 | `packages/` | First-party workspace packages: `unified-agent`, `fleet-core`, `fleet-pi-extension` |
 | `packages/fleet-core/` | Pi-agnostic Fleet product core — Fleet domain logic, prompts, runtime contracts, MCP/tool/job internals, bridge state, and public APIs |
 | `packages/fleet-core/src/` | Current physical home of Fleet domain modules during the migration (`admiral`, `agent`, `bridge`, `carrier`, `grand-fleet`, `metaphor`, `operation`, etc.) |
-| `packages/fleet-pi-extension/` | Pi capability package — lifecycle wiring, commands, keybinds, tools, TUI, config bridges, session bridges, adapters, and compat seams |
-| `packages/fleet-pi-extension/src/` | Current intermediate physical home of Pi capability buckets before Wave 14 removes `src/` |
-| `packages/fleet-pi-extension/src/{lifecycle,commands,keybinds,tools,tui,session-bridge,config-bridge,adapters,compat}/` | Current doctrinal homes for Pi-specific ownership during Waves 12-13 |
+| `packages/fleet-pi-extension/` | Pi capability package — host runtime bindings, commands, keybinds, tools, TUI, provider registration, session features, and compat seams |
+| `packages/fleet-pi-extension/src/` | Current physical home of Pi capability buckets |
+| `packages/fleet-pi-extension/src/{bindings,commands,keybinds,tools,tui,provider,session}/` | Current doctrinal homes for Pi-specific ownership |
 | `packages/fleet-pi-extension/src/{fleet,grand-fleet,metaphor,core,boot,experimental-wiki}/` | Removed legacy domain directories. Do not reintroduce these homes inside `fleet-pi-extension`; use the current capability buckets under `src/` instead. |
 
 > Currently, there is no `pi/` directory — symlink setup is not required.
 >
-> Migration note: the **logical split is already final** (`fleet-core` owns domain logic, `fleet-pi-extension` owns Pi capability buckets), but the **physical Wave 14 `src/` removal has not happened yet**.
+> Migration note: the **logical split is already final** (`fleet-core` owns domain logic, `fleet-pi-extension` owns Pi capability buckets), and `packages/fleet-pi-extension/src/` remains the active physical home for Pi capability buckets.
 
 ## Fleet Architecture (Metaphor)
 

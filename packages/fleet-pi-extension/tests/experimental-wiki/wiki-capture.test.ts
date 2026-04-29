@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { collectCaptureSession } from "../../src/session-bridge/experimental-wiki/capture.js";
+import { collectCaptureSession } from "../../src/session/experimental-wiki/capture.js";
 import { registerWikiCommands } from "../../src/commands/wiki-menu.js";
 import { runCapture } from "../../src/commands/experimental-wiki/handlers.js";
 import { buildWikiCaptureDirective } from "@sbluemin/fleet-core/experimental-wiki";

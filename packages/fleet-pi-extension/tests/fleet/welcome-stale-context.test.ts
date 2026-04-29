@@ -22,7 +22,7 @@ vi.mock("../../src/tui/welcome/welcome.js", () => ({
   getRecentSessions: () => [],
 }));
 
-import registerWelcome from "../../src/lifecycle/welcome/register.js";
+import registerWelcome from "../../src/tui/welcome/register.js";
 import { WELCOME_GLOBAL_KEY } from "../../src/tui/welcome/types.js";
 
 type Handler = (event: any, ctx: any) => unknown;

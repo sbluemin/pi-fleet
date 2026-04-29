@@ -5,7 +5,7 @@ import {
   _bootstrapKeybind,
   getKeybindAPI,
   prepareKeybindBridgeForExtensionLoad,
-} from "../../src/config-bridge/keybind/bridge.js";
+} from "../../src/bindings/config/keybind/bridge.js";
 
 describe("keybind bridge reload lifecycle", () => {
   it("clears stale keybind implementation before extension reload registrations", () => {

@@ -1,0 +1,70 @@
+/**
+ * fleet/reporter.ts — 작전 보고 모듈
+ *
+ * Admiral (제독) 인스턴스의 작전 결과를 구조화하여 Admiralty에 mission.report를 전송한다.
+ */
+import { getLogAPI } from "../../config/log/bridge.js";
+import {
+  buildCompleteReport,
+  buildFailedReport,
+  buildMissionReportPayload,
+  buildProgressReport,
+  type MissionReportData,
+} from "@sbluemin/fleet-core/grand-fleet";
+import type { FleetClient } from "./client.js";
+import type {
+  FileStats,
+  FleetId,
+  MissionId,
+  PhaseRecord,
+} from "@sbluemin/fleet-core/grand-fleet";
+
+const LOG_SOURCE = "grand-fleet";
+
+/** 작전 보고 전송 */
+export function sendMissionReport(
+  client: FleetClient,
+  report: MissionReportData,
+): void {
+  getLogAPI().info(
+    LOG_SOURCE,
+    `보고 전송: ${report.type} (missionId=${report.missionId})`,
+  );
+  client.sendNotification(
+    "mission.report",
+    { ...buildMissionReportPayload(report) },
+  );
+}
+
+/** 진행 보고 (중간 마일스톤) */
+export function sendProgressReport(
+  client: FleetClient,
+  fleetId: FleetId,
+  missionId: MissionId,
+  summary: string,
+): void {
+  sendMissionReport(client, buildProgressReport(fleetId, missionId, summary));
+}
+
+/** 완료 보고 */
+export function sendCompleteReport(
+  client: FleetClient,
+  fleetId: FleetId,
+  missionId: MissionId,
+  summary: string,
+  phases?: PhaseRecord,
+  fileStats?: FileStats,
+): void {
+  sendMissionReport(client, buildCompleteReport(fleetId, missionId, summary, phases, fileStats));
+}
+
+/** 실패 보고 */
+export function sendFailedReport(
+  client: FleetClient,
+  fleetId: FleetId,
+  missionId: MissionId,
+  summary: string,
+  openIssues?: string[],
+): void {
+  sendMissionReport(client, buildFailedReport(fleetId, missionId, summary, openIssues));
+}

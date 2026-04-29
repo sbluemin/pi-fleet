@@ -88,6 +88,27 @@ The adapter is structurally compatible with unified-agent without depending on i
 
 The MCP server subscribes through `registry.onChange` and does not poll.
 
+## Bridge
+
+- Subpath: `@sbluemin/fleet-core/bridge`
+- `BridgeStateStorage`
+- `configureBridgeStateStorage(storage: BridgeStateStorage | null): void`
+- `getBridgeStateStorage(): BridgeStateStorage`
+- `readBridgeState<T>(key: string): T | undefined`
+- `writeBridgeState<T>(key: string, value: T): T`
+
+The bridge layer owns host-agnostic state persistence and normalization. It defaults to `globalThis` for compatibility but allows host injection through `configureBridgeStateStorage`.
+
+### Bridge Render
+
+- Subpath: `@sbluemin/fleet-core/bridge/render`
+- `PanelJobViewModel`
+- `PanelTrackViewModel`
+- `buildPanelViewModel(jobs, options?): PanelJobViewModel[]`
+- `buildPanelTrackViewModel(track, maxBlocks?): PanelTrackViewModel`
+
+This subpath is for **view-models only**. It provides deterministic data snapshots for host renderers (e.g., Pi TUI) to consume. It contains no UI logic or rendering code.
+
 ## Adapter Types
 
 - `ArchiveBlock`
@@ -118,9 +139,7 @@ The MCP server subscribes through `registry.onChange` and does not poll.
 - `./taskforce`
 - `./carrier-jobs`
 - `./store`
-- `./push`
 - `./bridge`
-- `./operation`
 - `./admiral`
 - `./metaphor`
 - `./grand-fleet`

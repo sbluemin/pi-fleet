@@ -5,6 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
+import { configureBridgeStateStorage } from "../../src/bridge/state-store.js";
 import {
   createRun,
   appendTextBlock,
@@ -21,6 +22,7 @@ import {
 
 // 각 테스트 전에 globalThis 상태 초기화
 beforeEach(() => {
+  configureBridgeStateStorage(null);
   (globalThis as any)["__pi_stream_store__"] = undefined;
   setStreamStoreRegisteredOrderProvider(() => ["genesis", "sentinel", "vanguard"]);
 });
@@ -267,5 +269,31 @@ describe("캐시 무효화", () => {
     appendTextBlock("genesis", "B");
     // 같은 text 블록이라 병합됨
     expect(run.text).toBe("AB");
+  });
+});
+
+describe("bridge state storage", () => {
+  it("주입된 저장소를 사용하되 기본 globalThis key 계약을 변경하지 않는다", () => {
+    const storage = new Map<string, unknown>();
+    configureBridgeStateStorage({
+      get: <T>(key: string) => storage.get(key) as T | undefined,
+      set: (key, value) => {
+        storage.set(key, value);
+      },
+      delete: (key) => {
+        storage.delete(key);
+      },
+    });
+
+    try {
+      createRun("genesis");
+      appendTextBlock("genesis", "isolated");
+
+      expect(getVisibleRun("genesis")!.text).toBe("isolated");
+      expect(storage.has("__pi_stream_store__")).toBe(true);
+      expect((globalThis as any)["__pi_stream_store__"]).toBeUndefined();
+    } finally {
+      configureBridgeStateStorage(null);
+    }
   });
 });

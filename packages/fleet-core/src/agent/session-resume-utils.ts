@@ -1,5 +1,5 @@
 /**
- * core/agentclientprotocol/session-resume-utils.ts — 세션 복원 실패 분류
+ * agent/session-resume-utils.ts — 세션 복원 실패 분류
  *
  * imports → types/interfaces → constants → functions 순서 준수.
  */

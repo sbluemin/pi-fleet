@@ -1,5 +1,5 @@
 /**
- * core/agentclientprotocol/provider-tools — ACP provider 도구 스냅샷 + 스키마 변환
+ * agent/tool-snapshot — ACP provider 도구 스냅샷 + 스키마 변환
  *
  * 세션별 MCP 도구 스냅샷을 관리하고, TypeBox 기반 Tool.parameters를
  * MCP inputSchema 호환 JSON Schema로 정제한다.
