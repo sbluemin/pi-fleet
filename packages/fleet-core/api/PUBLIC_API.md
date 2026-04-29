@@ -93,3 +93,8 @@ The MCP server subscribes through `registry.onChange` and does not poll.
 - `./experimental-wiki`
 
 Deep imports through `./internal/*` or `./src/*` are not part of this API.
+
+## Stable Subpath Additions
+
+- `@sbluemin/fleet-core/admiral`: `HEADER_MAX_LENGTH`, `RequestDirectiveParams`, directive schemas/types, `validateQuestions`, `clampHeader`, `hasPreview`, and `errorResult` for `request_directive`.
+- `@sbluemin/fleet-core/grand-fleet`: grand-fleet tool parameter schemas plus name, label, and description constants for `grand_fleet_deploy`, `grand_fleet_dispatch`, `grand_fleet_recall`, `grand_fleet_broadcast`, `grand_fleet_status`, and `mission_report`.

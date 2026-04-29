@@ -87,7 +87,7 @@ export const PROTOCOL_PREAMBLE = String.raw`All task execution follows the activ
 
 **Parallel execution default:** When multiple Captain-led Carriers can be dispatched for the same phase or step, bundle them into a single ${"``"}carriers_sortie${"``"} call with all Carriers in the array. Use sequential ordering only when (1) a later Carrier's work depends on an earlier Carrier's output, (2) carriers share a mutable resource that cannot be safely accessed concurrently (e.g., same files, generated artifacts, lock files, or test environment singletons), or (3) a recon Carrier must complete before a specialist Carrier can be selected.
 
-Carrier tool calls register background jobs and return immediately with plain-text acceptance guidance. Results arrive through a <system-reminder source="carrier-completion">-wrapped [carrier:result] framework push delivered via pi.sendMessage. The source attribute marks a carrier job completion event delivered through the push channel, not user input. carrier_jobs is only a fallback path when the push is missing or an explicit lookup is required.
+Carrier tool calls register background jobs and return immediately with plain-text acceptance guidance. Results arrive through a <system-reminder source="carrier-completion">-wrapped [carrier:result] framework push delivered by the host. The source attribute marks a carrier job completion event delivered through the push channel, not user input. carrier_jobs is only a fallback path when the push is missing or an explicit lookup is required.
 Do not poll, wait-check, or call carrier_jobs merely to see whether the job is done. Continue independent work if available; otherwise stop tool use and wait passively for the [carrier:result] follow-up push.
 
 ${"``"}carrier_jobs(action:"result", format:"full")${"``"} is finalized-only and remains available for repeated lookups for 3 hours. Re-checks are allowed within that TTL; after expiry the full response is unavailable.`;
@@ -95,7 +95,7 @@ ${"``"}carrier_jobs(action:"result", format:"full")${"``"} is finalized-only and
 /** 시스템 태그 힌트 — carrier 시스템 프롬프트 전용 (admiral은 boot 프리앰블에서 처리) */
 export const SYSTEM_REMINDER_HINT = String.raw`
 Tool results and user messages may include <system-reminder> or other tags. Tags contain information from the system and bear no direct relation to the specific tool results or user messages in which they appear.
-<system-reminder source="carrier-completion">: carrier job completion event delivered through the pi.sendMessage push channel. This is an automated framework signal carrying [carrier:result].
+<system-reminder source="carrier-completion">: carrier job completion event delivered through the host push channel. This is an automated framework signal carrying [carrier:result].
 `;
 
 /** Admiral 런타임 컨텍스트 태그 해석 규칙 — ACP 초기 프롬프트에만 포함 */

@@ -5,6 +5,9 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Changed
+- Move `request_directive` schema and validators, carrier framework mutators, and grand-fleet tool spec definitions into `@sbluemin/fleet-core`; `fleet-pi-extension/src/tools` retains its current structure and consumes host-agnostic specs from fleet-core.
+
 ## [0.5.0] - 2026-04-28
 
 Release v0.5.0

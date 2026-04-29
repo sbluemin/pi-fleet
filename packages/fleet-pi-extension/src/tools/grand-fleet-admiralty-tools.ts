@@ -4,16 +4,41 @@ import type { Socket } from "node:net";
 import * as path from "node:path";
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { Type } from "@sinclair/typebox";
-
-import { getLogAPI } from "../config-bridge/log/bridge.js";
+import {
+  GRAND_FLEET_BROADCAST_DESCRIPTION,
+  GRAND_FLEET_BROADCAST_LABEL,
+  GRAND_FLEET_BROADCAST_NAME,
+  GRAND_FLEET_DEPLOY_DESCRIPTION,
+  GRAND_FLEET_DEPLOY_LABEL,
+  GRAND_FLEET_DEPLOY_NAME,
+  GRAND_FLEET_DISPATCH_DESCRIPTION,
+  GRAND_FLEET_DISPATCH_LABEL,
+  GRAND_FLEET_DISPATCH_NAME,
+  GRAND_FLEET_RECALL_DESCRIPTION,
+  GRAND_FLEET_RECALL_LABEL,
+  GRAND_FLEET_RECALL_NAME,
+  GRAND_FLEET_STATUS_DESCRIPTION,
+  GRAND_FLEET_STATUS_LABEL,
+  GRAND_FLEET_STATUS_NAME,
+  GrandFleetBroadcastParams,
+  GrandFleetDeployParams,
+  GrandFleetDispatchParams,
+  GrandFleetRecallParams,
+  GrandFleetStatusParams,
+  normalizePriority,
+  type CarrierMap,
+  type ConnectedFleet,
+  type FleetStatus,
+  type MissionId,
+} from "@sbluemin/fleet-core/grand-fleet";
 import * as tmux from "@sbluemin/fleet-core/grand-fleet/formation";
-import { getState } from "../lifecycle/grand-fleet-state.js";
-import type { AdmiraltyServer } from "../adapters/grand-fleet/admiralty/server.js";
-import type { CarrierMap, ConnectedFleet, FleetStatus, MissionId } from "@sbluemin/fleet-core/grand-fleet";
-import type { FleetRegistry } from "../adapters/grand-fleet/admiralty/fleet-registry.js";
-import { syncRosterWidget } from "../tui/grand-fleet/admiralty/roster-widget.js";
+
 import { getAdmiraltyRegistry, getAdmiraltyServer } from "../adapters/grand-fleet/admiralty/runtime.js";
+import type { AdmiraltyServer } from "../adapters/grand-fleet/admiralty/server.js";
+import type { FleetRegistry } from "../adapters/grand-fleet/admiralty/fleet-registry.js";
+import { getLogAPI } from "../config-bridge/log/bridge.js";
+import { getState } from "../lifecycle/grand-fleet-state.js";
+import { syncRosterWidget } from "../tui/grand-fleet/admiralty/roster-widget.js";
 
 interface DeployParams {
   designation: string;
@@ -92,69 +117,17 @@ interface RecallSnapshot {
   status: string;
 }
 
-const DEFAULT_PRIORITY = "normal";
 const LOG_SOURCE = "grand-fleet";
 const DEPLOY_SESSION_NAME = "grand-fleet-admiralty";
-
-const DeployParamsSchema = Type.Object({
-  directory: Type.String({
-    minLength: 1,
-    description: "함대를 파견할 대상 하위 디렉토리 경로",
-  }),
-  designation: Type.String({
-    minLength: 1,
-    description: "함대 표시명. UI와 프롬프트에 노출되는 식별명",
-  }),
-});
-
-const DispatchParamsSchema = Type.Object({
-  fleetId: Type.String({
-    minLength: 1,
-    description: "작전을 하달할 함대 식별자",
-  }),
-  directive: Type.String({
-    minLength: 1,
-    description: "함대에 전달할 작전 지시",
-  }),
-  priority: Type.Optional(Type.String({
-    default: DEFAULT_PRIORITY,
-    description: "작전 우선순위",
-  })),
-});
-
-const BroadcastParamsSchema = Type.Object({
-  directive: Type.String({
-    minLength: 1,
-    description: "전 함대에 전달할 공통 작전 지시",
-  }),
-  priority: Type.Optional(Type.String({
-    default: DEFAULT_PRIORITY,
-    description: "작전 우선순위",
-  })),
-});
-
-const StatusParamsSchema = Type.Object({
-  fleetId: Type.Optional(Type.String({
-    minLength: 1,
-    description: "특정 함대 식별자. 생략 시 전체 함대 현황을 반환",
-  })),
-});
-
-const RecallParamsSchema = Type.Object({
-  fleetId: Type.String({
-    minLength: 1,
-    description: "철수시킬 함대 식별자",
-  }),
-});
 
 export function registerAdmiraltyTools(
   pi: ExtensionAPI,
 ): void {
   pi.registerTool({
-    name: "grand_fleet_deploy",
-    label: "Grand Fleet Deploy",
-    description: "Admiral of the Navy (대원수)의 지시에 따라 대상 하위 디렉토리에 Fleet PI를 파견하거나 기존 Fleet을 재사용한다.",
-    parameters: DeployParamsSchema as any,
+    name: GRAND_FLEET_DEPLOY_NAME,
+    label: GRAND_FLEET_DEPLOY_LABEL,
+    description: GRAND_FLEET_DEPLOY_DESCRIPTION,
+    parameters: GrandFleetDeployParams as any,
     async execute(_toolCallId: string, params: DeployParams) {
       const log = getLogAPI();
       const { registry } = requireRuntime();
@@ -180,10 +153,10 @@ export function registerAdmiraltyTools(
   });
 
   pi.registerTool({
-    name: "grand_fleet_dispatch",
-    label: "Grand Fleet Dispatch",
-    description: "Admiral of the Navy (대원수)의 명령을 특정 함대에 작전으로 하달한다.",
-    parameters: DispatchParamsSchema as any,
+    name: GRAND_FLEET_DISPATCH_NAME,
+    label: GRAND_FLEET_DISPATCH_LABEL,
+    description: GRAND_FLEET_DISPATCH_DESCRIPTION,
+    parameters: GrandFleetDispatchParams as any,
     async execute(_toolCallId: string, params: DispatchParams) {
       const log = getLogAPI();
       const { registry, server } = requireRuntime();
@@ -244,10 +217,10 @@ export function registerAdmiraltyTools(
   });
 
   pi.registerTool({
-    name: "grand_fleet_recall",
-    label: "Grand Fleet Recall",
-    description: "Admiral of the Navy (대원수)의 철수 명령에 따라 특정 함대를 회수하고 진행 중인 임무를 중단한다.",
-    parameters: RecallParamsSchema as any,
+    name: GRAND_FLEET_RECALL_NAME,
+    label: GRAND_FLEET_RECALL_LABEL,
+    description: GRAND_FLEET_RECALL_DESCRIPTION,
+    parameters: GrandFleetRecallParams as any,
     async execute(_toolCallId: string, params: RecallParams) {
       const log = getLogAPI();
       const { registry } = requireRuntime();
@@ -283,10 +256,10 @@ export function registerAdmiraltyTools(
   });
 
   pi.registerTool({
-    name: "grand_fleet_broadcast",
-    label: "Grand Fleet Broadcast",
-    description: "Admiral of the Navy (대원수)의 공통 명령을 연결된 모든 함대에 동시에 하달한다.",
-    parameters: BroadcastParamsSchema as any,
+    name: GRAND_FLEET_BROADCAST_NAME,
+    label: GRAND_FLEET_BROADCAST_LABEL,
+    description: GRAND_FLEET_BROADCAST_DESCRIPTION,
+    parameters: GrandFleetBroadcastParams as any,
     async execute(_toolCallId: string, params: BroadcastParams) {
       const log = getLogAPI();
       const { registry, server } = requireRuntime();
@@ -343,10 +316,10 @@ export function registerAdmiraltyTools(
   });
 
   pi.registerTool({
-    name: "grand_fleet_status",
-    label: "Grand Fleet Status",
-    description: "Admiral of the Navy (대원수)에게 보고할 함대별 상태, carrier 가동 현황, 비용을 조회한다.",
-    parameters: StatusParamsSchema as any,
+    name: GRAND_FLEET_STATUS_NAME,
+    label: GRAND_FLEET_STATUS_LABEL,
+    description: GRAND_FLEET_STATUS_DESCRIPTION,
+    parameters: GrandFleetStatusParams as any,
     async execute(_toolCallId: string, params: StatusParams) {
       const log = getLogAPI();
       const { registry } = requireRuntime();
@@ -455,9 +428,6 @@ async function ensureDeploySession(): Promise<void> {
   }
 }
 
-function normalizePriority(priority?: string): string {
-  return priority?.trim() || DEFAULT_PRIORITY;
-}
 
 function normalizeDesignation(designation: string): string {
   const normalized = designation.trim();

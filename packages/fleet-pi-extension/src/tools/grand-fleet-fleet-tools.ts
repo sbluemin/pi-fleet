@@ -1,12 +1,16 @@
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
-import { Type } from "@sinclair/typebox";
+import {
+  MISSION_REPORT_DESCRIPTION,
+  MISSION_REPORT_LABEL,
+  MISSION_REPORT_NAME,
+  MissionReportParamsSchema,
+  type ReportType,
+} from "@sbluemin/fleet-core/grand-fleet";
 
-import { StringEnum } from "../compat/pi-ai-bridge.js";
-import { getLogAPI } from "../config-bridge/log/bridge.js";
-import { getState } from "../lifecycle/grand-fleet-state.js";
-import { type ReportType } from "@sbluemin/fleet-core/grand-fleet";
 import { sendMissionReport } from "../adapters/grand-fleet/fleet/reporter.js";
 import { flushFleetStatus, getFleetClient, getFleetRuntime } from "../adapters/grand-fleet/fleet/runtime.js";
+import { getLogAPI } from "../config-bridge/log/bridge.js";
+import { getState } from "../lifecycle/grand-fleet-state.js";
 
 const LOG_SOURCE = "grand-fleet";
 
@@ -16,13 +20,10 @@ export function registerFleetPiTools(pi: ExtensionAPI): void {
   const log = getLogAPI();
 
   pi.registerTool({
-    name: "mission_report",
-    label: "Mission Report",
-    description: "작전 보고를 Admiralty에 전송한다. 임무 완료/실패/차단 시 반드시 호출해야 한다.",
-    parameters: Type.Object({
-      type: StringEnum(["complete", "failed", "blocked"]) as any,
-      summary: Type.String({ description: "작전 결과 요약" }),
-    }) as any,
+    name: MISSION_REPORT_NAME,
+    label: MISSION_REPORT_LABEL,
+    description: MISSION_REPORT_DESCRIPTION,
+    parameters: MissionReportParamsSchema as any,
     async execute(
       _toolCallId: string,
       params: any,
