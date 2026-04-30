@@ -1,6 +1,6 @@
 import {
   type SectionDisplayConfig,
-} from "@sbluemin/fleet-core/core-services/settings";
+} from "@sbluemin/fleet-core/services/settings";
 
 import { getSettingsAPI } from "./bridge.js";
 

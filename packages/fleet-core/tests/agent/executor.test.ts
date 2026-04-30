@@ -106,7 +106,7 @@ vi.mock("@sbluemin/unified-agent", () => ({
   }),
 }));
 
-vi.mock("../../src/agent/pool.js", () => ({
+vi.mock("../../src/services/agent/pool.js", () => ({
   getClientPool: vi.fn(() => mockState.pool),
   isClientAlive: vi.fn((client: { getConnectionInfo: () => { state?: string } }) => {
     const info = client.getConnectionInfo();
@@ -123,7 +123,7 @@ vi.mock("../../src/agent/pool.js", () => ({
   }),
 }));
 
-vi.mock("../../src/agent/runtime.js", () => ({
+vi.mock("../../src/services/agent/runtime.js", () => ({
   getSessionStore: vi.fn(() => ({
     restore: vi.fn(),
     get: vi.fn((key: string) => mockState.sessionStoreState[key]),
@@ -137,7 +137,7 @@ vi.mock("../../src/agent/runtime.js", () => ({
   })),
 }));
 
-vi.mock("../../src/agent/provider-types.js", () => ({
+vi.mock("../../src/services/agent/provider-types.js", () => ({
   buildModelId: vi.fn((cli: string, model: string) => `acp:${cli}:${model}`),
   setSessionLaunchConfig: vi.fn((key: string, config: { modelId: string; effort?: string; budgetTokens?: number }) => {
     const previous = mockState.launchConfigs.get(key);
@@ -149,7 +149,7 @@ vi.mock("../../src/agent/provider-types.js", () => ({
   getSessionLaunchConfig: vi.fn((key: string) => mockState.launchConfigs.get(key)),
 }));
 
-import { executeOneShot, executeWithPool } from "../../src/agent/executor.js";
+import { executeOneShot, executeWithPool } from "../../src/services/agent/executor.js";
 
 describe("executor", () => {
   beforeEach(() => {
@@ -167,7 +167,7 @@ describe("executor", () => {
     mockState.reasoningEffortLevels = null;
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    await executeWithPool({
+    const result = await executeWithPool({
       carrierId: "carrier-1",
       cliType: "codex",
       request: "hello",
@@ -178,6 +178,13 @@ describe("executor", () => {
     const client = mockState.instances[0];
     expect(client.setConfigOption).not.toHaveBeenCalledWith("reasoning_effort", "high");
     expect(warnSpy).not.toHaveBeenCalled();
+    expect(result.streamData).toMatchObject({
+      text: "(no output)",
+      thinking: "",
+      toolCalls: [],
+      blocks: [{ type: "text", text: "(no output)" }],
+      lastStatus: "done",
+    });
   });
 
   it("executeWithPool 기존 연결 재사용에서 explicit effort가 있으면 적용한다", async () => {

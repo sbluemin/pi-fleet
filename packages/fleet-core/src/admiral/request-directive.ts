@@ -4,7 +4,7 @@
 
 import { Type } from "@sinclair/typebox";
 
-import type { ToolPromptManifest } from "./tool-prompt-manifest/index.js";
+import type { ToolPromptManifest } from "../services/tool-registry/index.js";
 
 export interface DirectiveOption {
   label: string;

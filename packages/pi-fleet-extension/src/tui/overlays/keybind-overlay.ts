@@ -2,7 +2,7 @@ import type { Component, Focusable } from "@mariozechner/pi-tui";
 import { visibleWidth } from "@mariozechner/pi-tui";
 import type { Theme } from "@mariozechner/pi-coding-agent";
 
-import type { ResolvedBinding } from "@sbluemin/fleet-core/core-services/keybind";
+import type { ResolvedBinding } from "@sbluemin/fleet-core/services/keybind";
 
 const KEY_WIDTH = 14;
 const PANEL_COLOR = "\x1b[38;2;180;160;220m";

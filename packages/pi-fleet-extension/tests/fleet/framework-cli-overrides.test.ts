@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import type { CliType } from "@sbluemin/unified-agent";
+import type { CliType } from "@sbluemin/fleet-core/agent/provider-client";
 
 import {
   getRegisteredCarrierConfig,
@@ -9,7 +9,7 @@ import {
   registerCarrier,
   setPendingCliTypeOverrides,
 } from "../../src/tools/carrier/framework.js";
-import { CARRIER_FRAMEWORK_KEY, type CarrierConfig } from "@sbluemin/fleet-core/carrier";
+import { CARRIER_FRAMEWORK_KEY, type CarrierConfig } from "@sbluemin/fleet-core/admiral/carrier";
 
 const TEST_EXTENSION_API = {
   registerMessageRenderer: vi.fn(),

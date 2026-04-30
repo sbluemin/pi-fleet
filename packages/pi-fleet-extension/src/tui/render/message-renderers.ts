@@ -16,7 +16,7 @@ import {
   SYM_INDICATOR,
   TOOLS_COLOR,
 } from "@sbluemin/fleet-core/constants";
-import type { ColBlock } from "@sbluemin/fleet-core/bridge/run-stream";
+import type { ColBlock } from "@sbluemin/fleet-core/agent/types";
 
 import { renderBlockLines, blockLineToAnsi, renderBlocksToContainer, renderLegacyToContainer } from "./block-renderer.js";
 import type { BlockLine } from "./block-renderer.js";

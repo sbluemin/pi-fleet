@@ -1,7 +1,7 @@
 import {
   CORE_SETTINGS_KEY,
   type SectionDisplayConfig,
-} from "@sbluemin/fleet-core/core-services/settings";
+} from "@sbluemin/fleet-core/services/settings";
 
 import { getFleetRuntime } from "../../runtime/fleet-boot.js";
 

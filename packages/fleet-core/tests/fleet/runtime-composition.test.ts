@@ -3,10 +3,10 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import { refreshStatusNow, type ServiceStatusContextPort } from "../../src/agent/service-status/store.js";
-import { getDataDir } from "../../src/agent/runtime.js";
-import { getSettingsService } from "../../src/core-services/settings/runtime.js";
-import { getToolsForSession } from "../../src/agent/tool-snapshot.js";
+import { refreshStatusNow, type ServiceStatusContextPort } from "../../src/services/agent/service-status/store.js";
+import { getDataDir } from "../../src/services/agent/runtime.js";
+import { getSettingsService } from "../../src/services/settings/runtime.js";
+import { getToolsForSession } from "../../src/services/agent/tool-snapshot.js";
 import * as agentRuntimeModule from "../../src/public/agent-runtime.js";
 import { createFleetCoreRuntime } from "../../src/public/runtime.js";
 import type { FleetHostPorts } from "../../src/public/host-ports.js";
@@ -193,9 +193,6 @@ describe("createFleetCoreRuntime", () => {
 
 function createMinimalPorts(): FleetHostPorts {
   return {
-    appendStreamBlock() {},
-    syncPanelColumn() {},
-    endStreamColumn() {},
     sendCarrierResultPush() {},
     notify() {},
     loadSetting() { return undefined; },

@@ -9,9 +9,11 @@
 import type {
   ColBlock,
   ColStatus,
+} from "@sbluemin/fleet-core/agent/types";
+import type {
   PanelJobKind,
   PanelJobStatus,
-} from "@sbluemin/fleet-core/bridge/run-stream";
+} from "@sbluemin/fleet-core/admiral/bridge/run-stream";
 
 /** 에이전트 패널 칼럼 데이터 */
 export interface AgentCol {

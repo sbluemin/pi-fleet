@@ -5,7 +5,7 @@ import {
   MISSION_REPORT_NAME,
   MissionReportParamsSchema,
   type ReportType,
-} from "@sbluemin/fleet-core/gfleet";
+} from "@sbluemin/fleet-core/admiralty";
 
 import { sendMissionReport } from "../bindings/grand-fleet/fleet/reporter.js";
 import { flushFleetStatus, getFleetClient, getFleetRuntime } from "../bindings/grand-fleet/fleet/runtime.js";

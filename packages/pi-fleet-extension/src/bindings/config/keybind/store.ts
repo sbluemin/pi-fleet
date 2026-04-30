@@ -5,7 +5,7 @@ import {
   getOverrideKeyFromConfig,
   loadKeybindingsFromPaths,
   type KeybindingsConfig,
-} from "@sbluemin/fleet-core/core-services/keybind";
+} from "@sbluemin/fleet-core/services/keybind";
 
 const EXT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const KEYBINDINGS_PATH = path.resolve(EXT_DIR, "..", "keybindings.json");

@@ -1,1 +1,1 @@
-export * from "@sbluemin/fleet-core/carrier";
+export * from "@sbluemin/fleet-core/admiral/carrier";

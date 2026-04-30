@@ -4,7 +4,7 @@ import {
   type FleetPingPayload,
   type FleetId,
   type StreamStoreLikeState,
-} from "@sbluemin/fleet-core/gfleet";
+} from "@sbluemin/fleet-core/admiralty";
 
 import { getState } from "../state.js";
 

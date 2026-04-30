@@ -1,9 +1,9 @@
-import { initRuntime } from "../agent/runtime.js";
-import { initServiceStatus, resetServiceStatus } from "../agent/service-status/store.js";
-import type { CoreSettingsAPI } from "../core-services/settings/index.js";
-import { initSettingsService, resetSettingsService } from "../core-services/settings/runtime.js";
-import { SettingsService } from "../core-services/settings/service.js";
-import { initStore } from "../store/fleet-store.js";
+import { initRuntime } from "../services/agent/runtime.js";
+import { initServiceStatus, resetServiceStatus } from "../services/agent/service-status/store.js";
+import type { CoreSettingsAPI } from "../services/settings/index.js";
+import { initSettingsService, resetSettingsService } from "../services/settings/runtime.js";
+import { SettingsService } from "../services/settings/service.js";
+import { initStore } from "../admiral/store/fleet-store.js";
 import { createAgentRuntime, type AgentRuntime } from "./agent-runtime.js";
 import type { AgentRequestService } from "./agent-request.js";
 import type { BackendAdapter } from "./backend-adapter.js";

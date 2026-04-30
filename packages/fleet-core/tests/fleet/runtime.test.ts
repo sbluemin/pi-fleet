@@ -19,7 +19,7 @@ import {
   getSessionStore,
   getSessionId,
   getDataDir,
-} from "../../src/agent/runtime.js";
+} from "../../src/services/agent/runtime.js";
 import {
   initStore,
   loadModels as getModelConfig,
@@ -30,7 +30,7 @@ import {
   savePerCliSettings,
   loadCliTypeOverrides,
   updateCliTypeOverride,
-} from "../../src/store/index.js";
+} from "../../src/admiral/store/index.js";
 
 let tmpDir: string;
 

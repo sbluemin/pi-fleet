@@ -7,7 +7,7 @@ This guide explains how PI-facing Fleet development is organized during the capa
 Fleet development now follows a hard split:
 
 - `packages/fleet-core` — Pi-agnostic Fleet product core
-- `packages/fleet-core/src/gfleet` — internalized Grand Fleet domain
+- `packages/fleet-core/src/admiralty` — internalized Grand Fleet domain (formerly `gfleet`)
 - `packages/pi-fleet-extension` — Pi capability package
 
 Use this split as the first decision point for every change.
@@ -35,13 +35,12 @@ Put code here when it is:
 
 Do not put Pi registration or TUI mounting here.
 
-### 3.2 `packages/fleet-core/src/gfleet`
+### 3.2 `packages/fleet-core/src/admiralty`
 
 Put code here when it is:
 
 - Grand Fleet prompt composition or reporter logic
 - Grand Fleet IPC protocol contracts
-- Grand Fleet formation helpers exposed through `@sbluemin/fleet-core/gfleet/formation`
 - Grand Fleet shared types, tool specs, status source logic, or text sanitization
 
 Keep dependencies one-way: `fleet-core`.
@@ -100,12 +99,12 @@ When migrating or restoring behavior that once lived under those paths:
 ## 6. Import Rules
 
 - `pi-fleet-extension` must consume `fleet-core` through public exports only.
-- `pi-fleet-extension` must consume Grand Fleet surfaces through `@sbluemin/fleet-core/gfleet`, `@sbluemin/fleet-core/gfleet/ipc`, or `@sbluemin/fleet-core/gfleet/formation`.
+- `pi-fleet-extension` must consume Grand Fleet surfaces through `@sbluemin/fleet-core/admiralty` or `@sbluemin/fleet-core/admiralty/ipc`.
 - `pi-fleet-extension` may consume `@sbluemin/fleet-wiki` for Fleet Wiki adapters that live in the active bucket-local `src/*/fleet-wiki/` homes.
 - Do not deep-import `@sbluemin/fleet-core/src/**` or `@sbluemin/fleet-core/internal/**`.
 - Do not import Grand Fleet surfaces from the deprecated Fleet Core location.
 - `fleet-core` must not import Pi packages.
-- `fleet-core` must not split internal gfleet ownership back out into a separate package.
+- `fleet-core` must not split internal admiralty ownership back out into a separate package.
 - `@mariozechner/pi-ai` imports stay confined to `packages/pi-fleet-extension/src/bindings/compat/pi-ai-bridge.ts`.
 
 ## 7. PI Runtime Rules

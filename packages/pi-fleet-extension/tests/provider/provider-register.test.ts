@@ -6,8 +6,8 @@ const mockState = vi.hoisted(() => ({
   handlers: new Map<string, Function>(),
 }));
 
-vi.mock("@sbluemin/unified-agent", () => ({
-  getModelsRegistry: () => ({
+vi.mock("@sbluemin/fleet-core/agent/provider-client", () => ({
+  getProviderModelsRegistry: () => ({
     providers: {
       codex: {
         models: [{ modelId: "gpt-5.4", name: "GPT-5.4" }],
@@ -24,6 +24,13 @@ vi.mock("@sbluemin/unified-agent", () => ({
 vi.mock("@sbluemin/fleet-core/agent/runtime", () => ({
   initRuntime: vi.fn(),
   onHostSessionChange: vi.fn(),
+}));
+
+vi.mock("../../src/bindings/config/log/bridge.js", () => ({
+  getLogAPI: () => ({
+    debug: vi.fn(),
+    registerCategory: vi.fn(),
+  }),
 }));
 
 vi.mock("../../src/provider/provider-stream.js", () => ({

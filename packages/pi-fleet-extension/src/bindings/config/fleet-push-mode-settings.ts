@@ -1,4 +1,4 @@
-import type { CoreSettingsAPI } from "@sbluemin/fleet-core/core-services/settings";
+import type { CoreSettingsAPI } from "@sbluemin/fleet-core/services/settings";
 
 import { getSettingsAPI } from "./settings/bridge.js";
 

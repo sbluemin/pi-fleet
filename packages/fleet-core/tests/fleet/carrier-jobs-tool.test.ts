@@ -1,13 +1,13 @@
 import { describe, expect, beforeEach, it } from "vitest";
 
-import { registerJobAbortController, resetJobCancelRegistryForTest } from "../../src/job/job-cancel-registry.js";
-import { acquireJobPermit, resetJobConcurrencyForTest } from "../../src/job/concurrency-guard.js";
-import { appendBlock, createJobArchive, finalizeJobArchive, resetJobArchivesForTest } from "../../src/job/job-stream-archive.js";
-import { toMessageArchiveBlock } from "../../src/job/archive-block-converter.js";
-import type { CarrierJobRecord, CarrierJobSummary } from "../../src/job/job-types.js";
-import { putJobSummary, resetJobSummaryCacheForTest } from "../../src/job/lru-cache.js";
-import { dispatchCarrierJobsAction } from "../../src/job/carrier-jobs/index.js";
-import { buildCarrierJobsSchema, CARRIER_JOBS_MANIFEST } from "../../src/job/carrier-jobs/prompts.js";
+import { registerJobAbortController, resetJobCancelRegistryForTest } from "../../src/services/job/job-cancel-registry.js";
+import { acquireJobPermit, resetJobConcurrencyForTest } from "../../src/services/job/concurrency-guard.js";
+import { appendBlock, createJobArchive, finalizeJobArchive, resetJobArchivesForTest } from "../../src/services/job/job-stream-archive.js";
+import { toMessageArchiveBlock } from "../../src/services/job/archive-block-converter.js";
+import type { CarrierJobRecord, CarrierJobSummary } from "../../src/services/job/job-types.js";
+import { putJobSummary, resetJobSummaryCacheForTest } from "../../src/services/job/lru-cache.js";
+import { dispatchCarrierJobsAction } from "../../src/admiral/carrier-jobs/index.js";
+import { buildCarrierJobsSchema, CARRIER_JOBS_MANIFEST } from "../../src/admiral/carrier-jobs/prompts.js";
 
 beforeEach(() => {
   resetJobArchivesForTest();
@@ -103,6 +103,34 @@ describe("carrier_jobs tool", () => {
     expect(first.full_result).toContain("chronological output");
     expect(second.ok).toBe(true);
     expect(second.full_result).toContain("chronological output");
+  });
+
+  it("returns summary results without serializing full archive content", () => {
+    putJobSummary(buildSummary("sortie:done", 1000), 1000);
+    createJobArchive("sortie:done", 1000);
+    appendBlock("sortie:done", toMessageArchiveBlock("genesis", "full secret", undefined, 1001), 1001);
+    finalizeJobArchive("sortie:done", "done", 1002);
+
+    const response = dispatchCarrierJobsAction({ action: "result", format: "summary", job_id: "sortie:done" }, 1003);
+
+    expect(response.ok).toBe(true);
+    expect(response.format).toBe("summary");
+    expect(response.summary?.summary).toBe("completed");
+    expect(response.full_available).toBe(true);
+    expect(response.full_result).toBeUndefined();
+    expect(JSON.stringify(response)).not.toContain("full secret");
+  });
+
+  it("defaults result format to full for compatibility", () => {
+    putJobSummary(buildSummary("sortie:done", 1000), 1000);
+    createJobArchive("sortie:done", 1000);
+    appendBlock("sortie:done", toMessageArchiveBlock("genesis", "chronological output", undefined, 1001), 1001);
+    finalizeJobArchive("sortie:done", "done", 1002);
+
+    const response = dispatchCarrierJobsAction({ action: "result", job_id: "sortie:done" }, 1003);
+
+    expect(response.format).toBe("full");
+    expect(response.full_result).toContain("chronological output");
   });
 
   it("cancels by job ID without touching unrelated jobs", () => {

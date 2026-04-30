@@ -4,13 +4,13 @@
 
 import type { Socket } from "node:net";
 
-import { MAX_MESSAGE_SIZE } from "@sbluemin/fleet-core/gfleet";
+import { MAX_MESSAGE_SIZE } from "@sbluemin/fleet-core/admiralty";
 import type {
   JsonRpcMessage,
   JsonRpcNotification,
   JsonRpcRequest,
   JsonRpcResponse,
-} from "@sbluemin/fleet-core/gfleet";
+} from "@sbluemin/fleet-core/admiralty";
 
 type JsonRpcParams = Record<string, unknown>;
 

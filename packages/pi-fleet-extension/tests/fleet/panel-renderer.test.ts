@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { configureBridgeStateStorage } from "@sbluemin/fleet-core/bridge/run-stream";
+import { configureBridgeStateStorage } from "@sbluemin/fleet-core/admiral/bridge/run-stream";
 import {
   appendTextBlock,
   createRun,
-} from "@sbluemin/fleet-core/bridge/run-stream";
+} from "@sbluemin/fleet-core/admiral/bridge/run-stream";
 import type { PanelJob } from "../../src/tui/panel/types.js";
 import { renderPanelFull } from "../../src/tui/render/panel-renderer.js";
 

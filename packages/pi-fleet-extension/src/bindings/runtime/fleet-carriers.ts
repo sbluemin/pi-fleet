@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { registerDefaultCarrierPersonas } from "@sbluemin/fleet-core/carrier/personas";
+import { registerDefaultCarrierPersonas } from "@sbluemin/fleet-core/admiral/carrier/personas";
 
 import { registerSingleCarrier } from "../../tools/carrier/register.js";
 

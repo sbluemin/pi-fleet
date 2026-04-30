@@ -7,7 +7,7 @@
 
 import { DEFAULT_BODY_H, formatPanelMultiColHint } from "@sbluemin/fleet-core/constants";
 import { getSessionStore } from "@sbluemin/fleet-core/agent/runtime";
-import { ensureVisibleRun, setRunSessionId } from "@sbluemin/fleet-core/bridge/run-stream";
+import { ensureVisibleRun, setRunSessionId } from "@sbluemin/fleet-core/admiral/bridge/run-stream";
 import { getRegisteredOrder, isSquadronCarrierEnabled } from "../../tools/carrier/framework.js";
 import type { AgentCol, PanelJob } from "./types.js";
 import type { ServiceSnapshot } from "@sbluemin/fleet-core/agent/types";

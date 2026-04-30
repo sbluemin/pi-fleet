@@ -1,12 +1,12 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import * as core from "@sbluemin/fleet-core/carrier";
+import * as core from "@sbluemin/fleet-core/admiral/carrier";
 
 import {
   createDefaultResponseRenderer,
   createDefaultUserRenderer,
 } from "../../tui/render/message-renderers.js";
 
-export type { CarrierConfig } from "@sbluemin/fleet-core/carrier";
+export type { CarrierConfig } from "@sbluemin/fleet-core/admiral/carrier";
 
 export {
   disableSortieCarrier,
@@ -37,7 +37,7 @@ export {
   setSquadronEnabledCarriers,
   setTaskForceConfiguredCarriers,
   updateCarrierCliType,
-} from "@sbluemin/fleet-core/carrier";
+} from "@sbluemin/fleet-core/admiral/carrier";
 
 export function registerCarrier(
   pi: ExtensionAPI,

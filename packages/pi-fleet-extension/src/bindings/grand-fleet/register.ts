@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import type { GrandFleetRole } from "@sbluemin/fleet-core/gfleet";
+import type { GrandFleetRole } from "@sbluemin/fleet-core/admiralty";
 
 import { getLogAPI } from "../config/log/bridge.js";
 import registerAdmiralty from "./admiralty/register.js";

@@ -33,6 +33,11 @@
       "import": "./dist/agent/provider-types.js",
       "require": "./dist/agent/provider-types.cjs"
     },
+    "./agent/provider-client": {
+      "types": "./dist/agent/provider-client.d.ts",
+      "import": "./dist/agent/provider-client.js",
+      "require": "./dist/agent/provider-client.cjs"
+    },
     "./agent/types": {
       "types": "./dist/agent/types.d.ts",
       "import": "./dist/agent/types.js",
@@ -103,65 +108,50 @@
       "import": "./dist/job.js",
       "require": "./dist/job.cjs"
     },
-    "./carrier": {
-      "types": "./dist/carrier.d.ts",
-      "import": "./dist/carrier.js",
-      "require": "./dist/carrier.cjs"
+    "./admiral/carrier": {
+      "types": "./dist/admiral/carrier.d.ts",
+      "import": "./dist/admiral/carrier.js",
+      "require": "./dist/admiral/carrier.cjs"
     },
-    "./carrier/personas": {
-      "types": "./dist/carrier/personas.d.ts",
-      "import": "./dist/carrier/personas.js",
-      "require": "./dist/carrier/personas.cjs"
+    "./admiral/carrier/personas": {
+      "types": "./dist/admiral/carrier/personas.d.ts",
+      "import": "./dist/admiral/carrier/personas.js",
+      "require": "./dist/admiral/carrier/personas.cjs"
     },
-    "./squadron": {
-      "types": "./dist/squadron.d.ts",
-      "import": "./dist/squadron.js",
-      "require": "./dist/squadron.cjs"
+    "./admiral/squadron": {
+      "types": "./dist/admiral/squadron.d.ts",
+      "import": "./dist/admiral/squadron.js",
+      "require": "./dist/admiral/squadron.cjs"
     },
-    "./taskforce": {
-      "types": "./dist/taskforce.d.ts",
-      "import": "./dist/taskforce.js",
-      "require": "./dist/taskforce.cjs"
+    "./admiral/taskforce": {
+      "types": "./dist/admiral/taskforce.d.ts",
+      "import": "./dist/admiral/taskforce.js",
+      "require": "./dist/admiral/taskforce.cjs"
+    },
+    "./admiral/store": {
+      "types": "./dist/admiral/store.d.ts",
+      "import": "./dist/admiral/store.js",
+      "require": "./dist/admiral/store.cjs"
     },
     "./carrier-jobs": {
       "types": "./dist/carrier-jobs.d.ts",
       "import": "./dist/carrier-jobs.js",
       "require": "./dist/carrier-jobs.cjs"
     },
-    "./store": {
-      "types": "./dist/store.d.ts",
-      "import": "./dist/store.js",
-      "require": "./dist/store.cjs"
+    "./admiral/bridge/run-stream": {
+      "types": "./dist/admiral/bridge/run-stream.d.ts",
+      "import": "./dist/admiral/bridge/run-stream.js",
+      "require": "./dist/admiral/bridge/run-stream.cjs"
     },
-    "./gfleet": {
-      "types": "./dist/gfleet.d.ts",
-      "import": "./dist/gfleet.js",
-      "require": "./dist/gfleet.cjs"
+    "./admiral/bridge/carrier-panel": {
+      "types": "./dist/admiral/bridge/carrier-panel.d.ts",
+      "import": "./dist/admiral/bridge/carrier-panel.js",
+      "require": "./dist/admiral/bridge/carrier-panel.cjs"
     },
-    "./gfleet/ipc": {
-      "types": "./dist/gfleet/ipc.d.ts",
-      "import": "./dist/gfleet/ipc.js",
-      "require": "./dist/gfleet/ipc.cjs"
-    },
-    "./gfleet/formation": {
-      "types": "./dist/gfleet/formation.d.ts",
-      "import": "./dist/gfleet/formation.js",
-      "require": "./dist/gfleet/formation.cjs"
-    },
-    "./bridge/run-stream": {
-      "types": "./dist/bridge/run-stream.d.ts",
-      "import": "./dist/bridge/run-stream.js",
-      "require": "./dist/bridge/run-stream.cjs"
-    },
-    "./bridge/carrier-panel": {
-      "types": "./dist/bridge/carrier-panel.d.ts",
-      "import": "./dist/bridge/carrier-panel.js",
-      "require": "./dist/bridge/carrier-panel.cjs"
-    },
-    "./bridge/carrier-control": {
-      "types": "./dist/bridge/carrier-control.d.ts",
-      "import": "./dist/bridge/carrier-control.js",
-      "require": "./dist/bridge/carrier-control.cjs"
+    "./admiral/bridge/carrier-control": {
+      "types": "./dist/admiral/bridge/carrier-control.d.ts",
+      "import": "./dist/admiral/bridge/carrier-control.js",
+      "require": "./dist/admiral/bridge/carrier-control.cjs"
     },
     "./admiral": {
       "types": "./dist/admiral.d.ts",
@@ -173,15 +163,15 @@
       "import": "./dist/admiral/protocols.js",
       "require": "./dist/admiral/protocols.cjs"
     },
-    "./admiral/standing-orders": {
-      "types": "./dist/admiral/standing-orders.d.ts",
-      "import": "./dist/admiral/standing-orders.js",
-      "require": "./dist/admiral/standing-orders.cjs"
+    "./admiral/protocols/standing-orders": {
+      "types": "./dist/admiral/protocols/standing-orders.d.ts",
+      "import": "./dist/admiral/protocols/standing-orders.js",
+      "require": "./dist/admiral/protocols/standing-orders.cjs"
     },
-    "./admiral/tool-prompt-manifest": {
-      "types": "./dist/admiral/tool-prompt-manifest.d.ts",
-      "import": "./dist/admiral/tool-prompt-manifest.js",
-      "require": "./dist/admiral/tool-prompt-manifest.cjs"
+    "./services/tool-registry": {
+      "types": "./dist/services/tool-registry.d.ts",
+      "import": "./dist/services/tool-registry.js",
+      "require": "./dist/services/tool-registry.cjs"
     },
     "./metaphor": {
       "types": "./dist/metaphor.d.ts",
@@ -198,25 +188,35 @@
       "import": "./dist/metaphor/directive-refinement.js",
       "require": "./dist/metaphor/directive-refinement.cjs"
     },
-    "./core-services": {
-      "types": "./dist/core-services.d.ts",
-      "import": "./dist/core-services.js",
-      "require": "./dist/core-services.cjs"
+    "./services": {
+      "types": "./dist/services.d.ts",
+      "import": "./dist/services.js",
+      "require": "./dist/services.cjs"
     },
-    "./core-services/settings": {
-      "types": "./dist/core-services/settings.d.ts",
-      "import": "./dist/core-services/settings.js",
-      "require": "./dist/core-services/settings.cjs"
+    "./services/settings": {
+      "types": "./dist/services/settings.d.ts",
+      "import": "./dist/services/settings.js",
+      "require": "./dist/services/settings.cjs"
     },
-    "./core-services/keybind": {
-      "types": "./dist/core-services/keybind.d.ts",
-      "import": "./dist/core-services/keybind.js",
-      "require": "./dist/core-services/keybind.cjs"
+    "./services/keybind": {
+      "types": "./dist/services/keybind.d.ts",
+      "import": "./dist/services/keybind.js",
+      "require": "./dist/services/keybind.cjs"
     },
-    "./core-services/log": {
-      "types": "./dist/core-services/log.d.ts",
-      "import": "./dist/core-services/log.js",
-      "require": "./dist/core-services/log.cjs"
+    "./services/log": {
+      "types": "./dist/services/log.d.ts",
+      "import": "./dist/services/log.js",
+      "require": "./dist/services/log.cjs"
+    },
+    "./admiralty": {
+      "types": "./dist/admiralty.d.ts",
+      "import": "./dist/admiralty.js",
+      "require": "./dist/admiralty.cjs"
+    },
+    "./admiralty/ipc": {
+      "types": "./dist/admiralty/ipc.d.ts",
+      "import": "./dist/admiralty/ipc.js",
+      "require": "./dist/admiralty/ipc.cjs"
     }
   },
   "scripts": {

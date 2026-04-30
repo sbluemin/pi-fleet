@@ -5,12 +5,12 @@
 import type { Socket } from "node:net";
 
 import { getLogAPI } from "../../config/log/bridge.js";
-import type { FleetId, ConnectedFleet, CarrierMap } from "@sbluemin/fleet-core/gfleet";
+import type { FleetId, ConnectedFleet, CarrierMap } from "@sbluemin/fleet-core/admiralty";
 import {
   PROTOCOL_VERSION,
   HEARTBEAT_TIMEOUT_MS,
   GRAND_FLEET_ERRORS,
-} from "@sbluemin/fleet-core/gfleet";
+} from "@sbluemin/fleet-core/admiralty";
 import { getState } from "../state.js";
 
 type RegisterParams = Record<string, unknown>;

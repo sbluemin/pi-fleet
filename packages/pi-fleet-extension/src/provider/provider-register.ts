@@ -11,7 +11,10 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import * as os from "node:os";
 import * as path from "node:path";
-import { getModelsRegistry, type CliType } from "@sbluemin/unified-agent";
+import {
+  getProviderModelsRegistry,
+  type CliType,
+} from "@sbluemin/fleet-core/agent/provider-client";
 
 import { getLogAPI } from "../bindings/config/log/bridge.js";
 import { setAgentLogPort } from "@sbluemin/fleet-core/agent/log-port";
@@ -39,7 +42,7 @@ import { registerProviderGuard } from "./provider-guard.js";
  * provider 내부 cli/backendModel 복원은 provider-types의 parseModelId /
  * buildModelId가 담당하며, thinking level UI 보정은 thinking-level-patch.ts가 맡는다.
  */
-const MODELS = Object.entries(getModelsRegistry().providers).flatMap(
+const MODELS = Object.entries(getProviderModelsRegistry().providers).flatMap(
   ([cliKey, provider]) => {
     const cli = cliKey as CliType;
     const defaults = CLI_DEFAULTS[cli];

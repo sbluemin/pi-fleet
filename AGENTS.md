@@ -12,9 +12,11 @@
 | `docs/pi-development-reference.md` | **Main Developer Guide** — Comprehensive reference for PI SDK, extensions, TUI, themes, and RPC |
 | `docs/admiral-workflow-reference.md` | **Operational Doctrine** — High-level architecture, naval hierarchy, and delegation workflows |
 | `packages/` | First-party workspace packages: `unified-agent`, `fleet-core`, `fleet-wiki`, `pi-fleet-extension` |
-| `packages/fleet-core/` | Pi-agnostic Fleet product core — Fleet domain logic, prompts, runtime contracts, MCP/tool/job internals, **bridge (run-stream, carrier-panel, carrier-control)**, and public APIs |
-| `packages/fleet-core/src/` | Current physical home of Fleet domain modules during the migration (`admiral`, `agent`, **`bridge/{run-stream,carrier-panel,carrier-control}`**, `carrier`, `gfleet`, `metaphor`, `operation`, etc.) |
-| `packages/fleet-core/src/gfleet/` | Grand Fleet domain home inside `fleet-core`. Exposed via `@sbluemin/fleet-core/gfleet`, `@sbluemin/fleet-core/gfleet/ipc`, and `@sbluemin/fleet-core/gfleet/formation`. |
+| `packages/fleet-core/` | Pi-agnostic Fleet product core — Fleet domain logic, prompts, runtime contracts, MCP/tool/job internals, **Admiral orchestration runtime**, and public APIs |
+| `packages/fleet-core/src/admiral/` | Admiral-owned Fleet orchestration/runtime modules: `bridge/`, `carrier/`, `carrier-jobs/`, `squadron/`, `taskforce/`, `store/`, and `protocols/`. **Standing orders** are integrated under `protocols/standing-orders/`. |
+| `packages/fleet-core/src/services/` | Shared pure service modules, renamed from `core-services`. Includes `agent/`, `job/`, settings, keybind, log, and **tool-registry** (renamed from `tool-prompt-manifest`). |
+| `packages/fleet-core/src/admiralty/` | Grand Fleet domain home inside `fleet-core` (renamed from `gfleet`). Exposed via `@sbluemin/fleet-core/admiralty` and `@sbluemin/fleet-core/admiralty/ipc`. Formation/tmux helpers are removed. |
+| `packages/fleet-core/src/public/` | Public API surfaces. `fleet-tool-registry` has been folded into `public/tool-registry.ts`. |
 | `packages/pi-fleet-extension/` | Pi capability package — host runtime bindings, commands, keybinds, tools, TUI, provider registration, session features, and compat seams |
 | `packages/pi-fleet-extension/src/` | Current physical home of Pi capability buckets |
 | `packages/pi-fleet-extension/src/{bindings,commands,keybinds,tools,tui,provider,session}/` | Current doctrinal homes for Pi-specific ownership |
@@ -23,7 +25,7 @@
 
 > Currently, there is no `pi/` directory — symlink setup is not required.
 >
-> Migration note: the **logical split is already final** (`fleet-core` owns Fleet domain logic including the internalized `gfleet` domain, and `pi-fleet-extension` owns Pi capability buckets), and `packages/pi-fleet-extension/src/` remains the active physical home for Pi capability buckets.
+> Migration note: the **logical split is already final** (`fleet-core` owns Fleet domain logic including the internalized `admiralty` domain, and `pi-fleet-extension` owns Pi capability buckets), and `packages/pi-fleet-extension/src/` remains the active physical home for Pi capability buckets.
 
 ## Fleet Architecture (Metaphor)
 
@@ -36,7 +38,7 @@ Beyond simple parallel API calls, the system adopts a **naval fleet metaphor** t
 | Layer | Entity | Metaphor | Definition |
 |-------|--------|----------|------------|
 | 1 | **Admiral of the Navy** (ATN) | 대원수 (User) | **The user** who wields the tool. Sets ultimate strategy and final objectives for the fleet. |
-| 2 | **Fleet Admiral** | 사령관 (Grand Fleet) | The **Admiralty LLM persona** in `grand-fleet` mode. Responsible for multi-fleet orchestration. *Does not exist in single-fleet mode; the user communicates directly with the Admiral.* |
+| 2 | **Fleet Admiral** | 사령관 (Grand Fleet) | The **Admiralty LLM persona** (internalized domain in `fleet-core`). Responsible for multi-fleet orchestration. *Does not exist in single-fleet mode; the user communicates directly with the Admiral.* |
 | 3 | **Admiral** | 제독 (Host PI) | A single **workspace PI instance**. Plans operations and dispatches Carriers within its operational zone. |
 | 4 | **Captain** | 함장 (Carrier Persona) | The **persona of a Carrier agent**. While a Carrier is the system entity, the Captain is its personified commander. |
 

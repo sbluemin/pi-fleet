@@ -3,7 +3,7 @@ import {
   getBindingsFromList,
   getKeyFromList,
   type ResolvedBinding,
-} from "@sbluemin/fleet-core/core-services/keybind";
+} from "@sbluemin/fleet-core/services/keybind";
 
 import { CORE_KEYBIND_KEY } from "./bridge.js";
 

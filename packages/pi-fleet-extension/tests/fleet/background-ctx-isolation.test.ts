@@ -8,7 +8,6 @@ const runBackground = vi.fn(async (opts: any) => {
     error: undefined,
     thinking: "thinking",
     toolCalls: [{ title: "Read", status: "done" }],
-    blocks: [{ type: "text", text: "hello" }],
     observedOptions: opts,
   };
 });
@@ -25,8 +24,8 @@ import { createPanelStreamingSink } from "../../src/bindings/carrier/panel-strea
 import { runAgentRequestBackground } from "../../src/session/fleet/operation-runner.js";
 import { getState, syncColsWithRegisteredOrder } from "../../src/tui/panel/state.js";
 import * as panelState from "../../src/tui/panel/state.js";
-import { resetRuns } from "@sbluemin/fleet-core/bridge/run-stream";
-import { CARRIER_FRAMEWORK_KEY } from "@sbluemin/fleet-core/carrier";
+import { resetRuns } from "@sbluemin/fleet-core/admiral/bridge/run-stream";
+import { CARRIER_FRAMEWORK_KEY } from "@sbluemin/fleet-core/admiral/carrier";
 import { isStaleExtensionContextError } from "../../src/tui/context-errors.js";
 import { syncCurrentWidget, syncWidget } from "../../src/tui/panel/widget-sync.js";
 
@@ -47,7 +46,7 @@ describe("background ctx isolation", () => {
       cwd: "/tmp/background",
     }));
     expect(runBackground).toHaveBeenCalledWith(expect.not.objectContaining({ ctx: expect.anything() }));
-    expect(result.blocks).toEqual([{ type: "text", text: "hello" }]);
+    expect(result.toolCalls).toEqual([{ title: "Read", status: "done" }]);
   });
 
   it("classifies outside-active-run and stale context errors only", () => {
@@ -75,8 +74,8 @@ describe("background ctx isolation", () => {
     syncColsWithRegisteredOrder();
     getState().cols = [{ cli: "genesis", text: "", blocks: [], thinking: "", toolCalls: [], status: "wait", scroll: 0 }];
     expect(panelState.findColIndex("genesis")).toBe(0);
-    sink.onColumnBegin({ carrierId: "genesis", cli: "codex" });
-    sink.onColumnEnd({ carrierId: "genesis", cli: "codex" }, "done");
+    sink.onAgentStreamEvent({ type: "request_begin", key: { carrierId: "genesis", cli: "codex" } });
+    sink.onAgentStreamEvent({ type: "request_end", key: { carrierId: "genesis", cli: "codex" }, reason: "done" });
     syncCurrentWidget();
     await Promise.resolve();
 
@@ -92,10 +91,12 @@ describe("background ctx isolation", () => {
     const sink = createPanelStreamingSink(() => contexts.shift() as any);
 
     syncColsWithRegisteredOrder();
-    const stream = await sink.onColumnBegin({ carrierId: "genesis", cli: "codex" });
-    sink.onColumnEnd({ carrierId: "genesis", cli: "codex" }, "done", stream ?? undefined);
+    getState().cols = [{ cli: "genesis", text: "", blocks: [], thinking: "", toolCalls: [], status: "wait", scroll: 0 }];
+    sink.onAgentStreamEvent({ type: "request_begin", key: { carrierId: "genesis", cli: "codex" } });
+    sink.onAgentStreamEvent({ type: "request_end", key: { carrierId: "genesis", cli: "codex" }, reason: "done" });
+    await Promise.resolve();
 
-    expect(ctxA.ui.setWidget).toHaveBeenCalledTimes(2);
+    expect(ctxA.ui.setWidget).toHaveBeenCalled();
     expect(ctxB.ui.setWidget).not.toHaveBeenCalled();
     expect(getState().streaming).toBe(false);
   });

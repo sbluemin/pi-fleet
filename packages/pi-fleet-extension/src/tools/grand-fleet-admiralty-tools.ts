@@ -30,8 +30,7 @@ import {
   type ConnectedFleet,
   type FleetStatus,
   type MissionId,
-} from "@sbluemin/fleet-core/gfleet";
-import * as tmux from "@sbluemin/fleet-core/gfleet/formation";
+} from "@sbluemin/fleet-core/admiralty";
 
 import { getAdmiraltyRegistry, getAdmiraltyServer } from "../bindings/grand-fleet/admiralty/runtime.js";
 import type { AdmiraltyServer } from "../bindings/grand-fleet/admiralty/server.js";
@@ -50,8 +49,6 @@ interface DeployResult {
   directory: string;
   fleetId: string;
   reused: boolean;
-  sessionName: string;
-  windowName: string;
 }
 
 interface DispatchParams {
@@ -118,7 +115,8 @@ interface RecallSnapshot {
 }
 
 const LOG_SOURCE = "grand-fleet";
-const DEPLOY_SESSION_NAME = "grand-fleet-admiralty";
+const FORMATION_DEPLOY_REMOVED_MESSAGE =
+  "Grand Fleet formation/tmux 기반 배치는 제거되었습니다. 이미 연결된 Fleet만 재사용할 수 있습니다.";
 
 export function registerAdmiraltyTools(
   pi: ExtensionAPI,
@@ -232,15 +230,8 @@ export function registerAdmiraltyTools(
         `recall: ${snapshot.designation} (${snapshot.fleetId})`,
       );
 
-      try {
-        await tmux.killWindow(DEPLOY_SESSION_NAME, params.fleetId);
-      } catch (error) {
-        log.error(
-          LOG_SOURCE,
-          `recall 실패: Fleet ${params.fleetId} — ${toErrorMessage(error)}`,
-        );
-        throw error;
-      }
+      registry.deregister(params.fleetId);
+      syncRosterWidget();
 
       return {
         content: [{
@@ -354,13 +345,8 @@ async function deployFleet(
   registry: FleetRegistry,
   params: DeployParams,
 ): Promise<DeployResult> {
-  const socketPath = getState().socketPath;
-  if (!socketPath) {
+  if (!getState().socketPath) {
     throw new Error("Admiralty 소켓 경로가 초기화되지 않았습니다.");
-  }
-
-  if (!(await tmux.checkTmuxAvailable())) {
-    throw new Error("tmux가 설치되어 있지 않습니다.");
   }
 
   const designation = normalizeDesignation(params.designation);
@@ -381,51 +367,10 @@ async function deployFleet(
       directory,
       fleetId: existingFleet.id,
       reused: true,
-      sessionName: DEPLOY_SESSION_NAME,
-      windowName: existingFleet.id,
     };
   }
 
-  await ensureDeploySession();
-
-  if (await tmux.hasWindow(DEPLOY_SESSION_NAME, fleetId)) {
-    await tmux.killWindow(DEPLOY_SESSION_NAME, fleetId);
-  }
-
-  const command = buildFleetCommand({
-    designation,
-    directory,
-    fleetId,
-    socketPath,
-  });
-
-  try {
-    await tmux.createCommandWindow(DEPLOY_SESSION_NAME, fleetId, command);
-  } catch (error) {
-    throw new Error(`Fleet 파견 실패: ${toErrorMessage(error)}`);
-  }
-
-  return {
-    designation,
-    directory,
-    fleetId,
-    reused: false,
-    sessionName: DEPLOY_SESSION_NAME,
-    windowName: fleetId,
-  };
-}
-
-async function ensureDeploySession(): Promise<void> {
-  const alreadyExists = await tmux.hasSession(DEPLOY_SESSION_NAME);
-  await tmux.ensureSession(DEPLOY_SESSION_NAME);
-
-  if (!alreadyExists && !(await tmux.hasWindow(DEPLOY_SESSION_NAME, "Admiralty"))) {
-    try {
-      await tmux.createWindow(DEPLOY_SESSION_NAME, "Admiralty");
-    } catch {
-      // 초기 세션 생성 시 기본 윈도우가 이미 존재할 수 있다.
-    }
-  }
+  throw new Error(FORMATION_DEPLOY_REMOVED_MESSAGE);
 }
 
 
@@ -466,26 +411,6 @@ function createFleetId(directory: string): string {
   const base = path.basename(directory).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
   const safeBase = base || "fleet";
   return `${safeBase}-${hash}`;
-}
-
-function buildFleetCommand(args: {
-  designation: string;
-  directory: string;
-  fleetId: string;
-  socketPath: string;
-}): string {
-  const envSegments = [
-    "PI_GRAND_FLEET_ROLE=fleet",
-    `PI_FLEET_ID=${quoteForShell(args.fleetId)}`,
-    `PI_FLEET_DESIGNATION=${quoteForShell(args.designation)}`,
-    `PI_GRAND_FLEET_SOCK=${quoteForShell(args.socketPath)}`,
-  ];
-
-  return `cd ${quoteForShell(args.directory)} && env ${envSegments.join(" ")} pi`;
-}
-
-function quoteForShell(value: string): string {
-  return "'" + value.replace(/'/g, "'\"'\"'") + "'";
 }
 
 function createMissionId(): string {

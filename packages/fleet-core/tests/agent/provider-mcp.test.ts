@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../src/agent/log-port.js", () => ({
+vi.mock("../../src/services/agent/log-port.js", () => ({
   agentLog: vi.fn(),
   setAgentLogPort: vi.fn(),
 }));
@@ -10,12 +10,12 @@ import {
   setOnToolCallArrived,
   startMcpServer,
   stopMcpServer,
-} from "../../src/agent/provider-mcp.js";
+} from "../../src/services/agent/provider-mcp.js";
 import {
   clearAllTools,
   registerToolsForSession,
   removeToolsForSession,
-} from "../../src/agent/tool-snapshot.js";
+} from "../../src/services/agent/tool-snapshot.js";
 
 describe("provider-mcp", () => {
   beforeEach(() => {

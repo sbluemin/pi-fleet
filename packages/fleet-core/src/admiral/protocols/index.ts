@@ -7,7 +7,7 @@
 
 import type { AdmiralProtocol } from "./types.js";
 
-import { getSettingsService } from "../../core-services/settings/runtime.js";
+import { getSettingsService } from "../../services/settings/runtime.js";
 import { FLEET_ACTION } from "./fleet-action.js";
 import { POSITIVE_CONTROL } from "./positive-control.js";
 

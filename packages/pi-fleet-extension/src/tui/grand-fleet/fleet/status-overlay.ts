@@ -4,7 +4,7 @@ import { Key, matchesKey } from "@mariozechner/pi-tui";
 
 import { getState } from "../../../bindings/grand-fleet/state.js";
 import { createOverlayFrame } from "../overlay-frame.js";
-import { stripControlChars } from "@sbluemin/fleet-core/gfleet";
+import { stripControlChars } from "@sbluemin/fleet-core/admiralty";
 import { getFleetOverlayRuntimeState } from "../../../bindings/grand-fleet/fleet/register.js";
 
 const ANSI_RESET = "\x1b[0m";

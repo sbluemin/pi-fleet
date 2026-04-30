@@ -10,15 +10,15 @@ import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-age
 import {
   CLI_DISPLAY_NAMES,
 } from "@sbluemin/fleet-core/constants";
-import type { ModelSelection, SelectedModelsConfig } from "@sbluemin/fleet-core/store";
+import type { ModelSelection, SelectedModelsConfig } from "@sbluemin/fleet-core/admiral/store";
 import {
   getAvailableModels,
   getEffortLevels,
   getDefaultBudgetTokens,
   loadModels as getModelConfig,
   updateAllModelSelections,
-} from "@sbluemin/fleet-core/store";
-import type { CliType } from "@sbluemin/unified-agent";
+} from "@sbluemin/fleet-core/admiral/store";
+import type { CliType } from "@sbluemin/fleet-core/agent/provider-client";
 
 import { setAgentPanelModelConfig } from "../../tui/panel/config.js";
 import {

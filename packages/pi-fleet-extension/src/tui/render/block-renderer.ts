@@ -12,7 +12,7 @@
 
 import { getMarkdownTheme } from "@mariozechner/pi-coding-agent";
 import { Container, Markdown, Spacer, Text } from "@mariozechner/pi-tui";
-import type { ColBlock } from "@sbluemin/fleet-core/bridge/run-stream";
+import type { ColBlock } from "@sbluemin/fleet-core/agent/types";
 import {
   ANSI_RESET,
   PANEL_DIM_COLOR,

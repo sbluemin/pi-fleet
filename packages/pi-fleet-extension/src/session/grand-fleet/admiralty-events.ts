@@ -1,6 +1,6 @@
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 
-import { buildAdmiraltySystemPrompt } from "@sbluemin/fleet-core/gfleet";
+import { buildAdmiraltySystemPrompt } from "@sbluemin/fleet-core/admiralty";
 
 import { getState } from "../../bindings/grand-fleet/state.js";
 import {

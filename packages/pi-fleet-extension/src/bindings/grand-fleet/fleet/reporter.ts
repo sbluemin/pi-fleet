@@ -10,14 +10,14 @@ import {
   buildMissionReportPayload,
   buildProgressReport,
   type MissionReportData,
-} from "@sbluemin/fleet-core/gfleet";
+} from "@sbluemin/fleet-core/admiralty";
 import type { FleetClient } from "./client.js";
 import type {
   FileStats,
   FleetId,
   MissionId,
   PhaseRecord,
-} from "@sbluemin/fleet-core/gfleet";
+} from "@sbluemin/fleet-core/admiralty";
 
 const LOG_SOURCE = "grand-fleet";
 

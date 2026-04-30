@@ -6,5 +6,5 @@ import { ensureShipyardLogCategories } from "../carrier/register.js";
 
 ensureShipyardLogCategories();
 
-export type { BackendProgress, TaskForceResult, TaskForceState } from "@sbluemin/fleet-core/taskforce";
-export { TASKFORCE_STATE_KEY } from "@sbluemin/fleet-core/taskforce";
+export type { BackendProgress, TaskForceResult, TaskForceState } from "@sbluemin/fleet-core/admiral/taskforce";
+export { TASKFORCE_STATE_KEY } from "@sbluemin/fleet-core/admiral/taskforce";

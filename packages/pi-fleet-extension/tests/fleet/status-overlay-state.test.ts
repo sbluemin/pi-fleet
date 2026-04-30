@@ -6,7 +6,7 @@ import type {
   CarrierStatusEntry,
   CliModelInfo,
   OverlayState,
-} from "@sbluemin/fleet-core/bridge/carrier-control";
+} from "@sbluemin/fleet-core/admiral/bridge/carrier-control";
 
 interface DeferredPromise<T> {
   promise: Promise<T>;

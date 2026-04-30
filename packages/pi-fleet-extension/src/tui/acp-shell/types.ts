@@ -1,4 +1,4 @@
-import type { CliType } from "@sbluemin/unified-agent";
+import type { CliType } from "@sbluemin/fleet-core/agent/provider-client";
 
 import type { ShellPopupBridge } from "../shell/types.js";
 

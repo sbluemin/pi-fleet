@@ -33,9 +33,6 @@ const fleetLogPort: FleetLogPort = (level, message, details) => {
 };
 
 const noopHostPorts: FleetHostPorts = {
-  appendStreamBlock() {},
-  syncPanelColumn() {},
-  endStreamColumn() {},
   sendCarrierResultPush() {},
   notify(level, message) {
     getLogAPI().log(level, "fleet-tool", message);

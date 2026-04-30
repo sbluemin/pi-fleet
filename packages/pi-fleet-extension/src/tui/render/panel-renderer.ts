@@ -15,9 +15,9 @@ import {
   SPINNER_FRAMES,
   SYM_INDICATOR,
 } from "@sbluemin/fleet-core/constants";
-import type { ColStatus } from "@sbluemin/fleet-core/bridge/run-stream";
-import { buildPanelViewModel } from "@sbluemin/fleet-core/bridge/carrier-panel";
-import type { PanelJobViewModel, PanelTrackViewModel } from "@sbluemin/fleet-core/bridge/carrier-panel";
+import type { ColStatus } from "@sbluemin/fleet-core/agent/types";
+import { buildPanelViewModel } from "@sbluemin/fleet-core/admiral/bridge/carrier-panel";
+import type { PanelJobViewModel, PanelTrackViewModel } from "@sbluemin/fleet-core/admiral/bridge/carrier-panel";
 
 import {
   resolveCarrierBgColor,

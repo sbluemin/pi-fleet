@@ -26,7 +26,7 @@ pi-fleet solves this by treating LLM agents as **Carriers** within a naval **Fle
 A 4-tier command structure maps users, orchestrators, and agents into clear roles:
 
 - **Admiral of the Navy** — The user. Sets strategy and gives orders.
-- **Fleet Admiral** — Multi-fleet orchestrator in grand-fleet mode.
+- **Fleet Admiral** — Multi-fleet orchestrator (Admiralty persona internalized in `fleet-core`).
 - **Admiral** — A workspace PI instance. Plans and dispatches Carriers.
 - **Captain** — The commander persona of a Carrier agent.
 

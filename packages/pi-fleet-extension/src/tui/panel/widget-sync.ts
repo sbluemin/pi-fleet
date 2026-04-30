@@ -15,7 +15,7 @@ import {
   MIN_BODY_H,
 } from "@sbluemin/fleet-core/constants";
 import { getActiveBackgroundJobCount } from "@sbluemin/fleet-core/job";
-import { getActiveJobs } from "@sbluemin/fleet-core/bridge/carrier-panel";
+import { getActiveJobs } from "@sbluemin/fleet-core/admiral/bridge/carrier-panel";
 
 import {
   renderPanelFull,

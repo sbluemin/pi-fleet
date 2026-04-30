@@ -8,7 +8,7 @@ import {
   type AdmiraltyPresenter,
   type AdmiraltyRuntimeState,
   type MissionReportParams,
-} from "@sbluemin/fleet-core/gfleet";
+} from "@sbluemin/fleet-core/admiralty";
 import { registerAdmiraltyHandlers } from "./methods.js";
 import { AdmiraltyServer } from "./server.js";
 import { renderFleetEvent, renderReport } from "./report-renderer.js";

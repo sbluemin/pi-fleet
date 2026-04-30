@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { acquireJobPermit, resetJobConcurrencyForTest } from "../../src/job/concurrency-guard.js";
-import { formatLaunchResponseText, JOB_LAUNCH_NOTICE } from "../../src/job/job-reminders.js";
-import type { CarrierJobLaunchResponse, CarrierJobRecord, CarrierJobStatus } from "../../src/job/job-types.js";
+import { acquireJobPermit, resetJobConcurrencyForTest } from "../../src/services/job/concurrency-guard.js";
+import { formatLaunchResponseText, JOB_LAUNCH_NOTICE } from "../../src/services/job/job-reminders.js";
+import type { CarrierJobLaunchResponse, CarrierJobRecord, CarrierJobStatus } from "../../src/services/job/job-types.js";
 
 describe("carrier launch contract", () => {
   it("launch responses contain job_id and accepted but no synchronous payload fields", () => {

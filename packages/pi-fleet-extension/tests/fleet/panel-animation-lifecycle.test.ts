@@ -5,12 +5,12 @@ import {
   getActiveBackgroundJobCount,
   resetJobConcurrencyForTest,
 } from "@sbluemin/fleet-core/job";
-import { CARRIER_FRAMEWORK_KEY } from "@sbluemin/fleet-core/carrier";
+import { CARRIER_FRAMEWORK_KEY } from "@sbluemin/fleet-core/admiral/carrier";
 import { SPINNER_FRAMES } from "@sbluemin/fleet-core/constants";
 import {
   registerSquadronJob,
   registerTaskforceJob,
-} from "@sbluemin/fleet-core/bridge/carrier-panel";
+} from "@sbluemin/fleet-core/admiral/bridge/carrier-panel";
 import type { CarrierJobRecord } from "@sbluemin/fleet-core/job";
 import {
   bindPanelBackgroundJobAnimation,

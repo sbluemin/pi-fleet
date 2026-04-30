@@ -16,12 +16,14 @@ import {
   type DirectiveResult,
   type RenderOption,
   clampHeader,
-  deriveToolDescription,
   errorResult,
   hasPreview,
-  registerToolPromptManifest,
   validateQuestions,
 } from "@sbluemin/fleet-core/admiral";
+import {
+  deriveToolDescription,
+  registerToolPromptManifest,
+} from "@sbluemin/fleet-core/services/tool-registry";
 
 // ─────────────────────────────────────────────────────────
 // 도구 등록

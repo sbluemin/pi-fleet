@@ -17,8 +17,8 @@
 import { FLEET_PI_PERSONA_PROMPT, FLEET_TONE_PROMPT } from "../metaphor/prompts.js";
 import { isWorldviewEnabled } from "../metaphor/worldview.js";
 import { getActiveProtocol, getAllProtocols } from "./protocols/index.js";
-import { getAllStandingOrders } from "./standing-orders/index.js";
-import { getAllToolPromptManifests, renderToolPromptManifestTagBlock } from "./tool-prompt-manifest/index.js";
+import { getAllStandingOrders } from "./protocols/standing-orders/index.js";
+import { getAllToolPromptManifests, renderToolPromptManifestTagBlock } from "../services/tool-registry/index.js";
 import {
   getActiveSquadronIds,
   getActiveTaskForceIds,
@@ -26,7 +26,7 @@ import {
   getRegisteredOrder,
   getSortieEnabledIds,
   getSortieDisabledIds,
-} from "../carrier/framework.js";
+} from "./carrier/framework.js";
 import { isFleetCoreDevMode } from "../runtime-flags.js";
 
 // ─────────────────────────────────────────────────────────

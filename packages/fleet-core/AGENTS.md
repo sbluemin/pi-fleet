@@ -11,12 +11,12 @@
 
 ## Owns
 
-- Fleet domain modules such as `admiral/`, `agent/`, `bridge/` (including `run-stream/`, `carrier-panel/`, and `carrier-control/`), `carrier/`, `gfleet/`, `job/` including `job/carrier-jobs/`, `core-services/`, `metaphor/`, `squadron/`, `store/`, and `taskforce/`
-- Public API contracts and frozen consumer surfaces
+- Fleet domain modules such as `admiral/` (including `bridge/`, `carrier/`, `carrier-jobs/`, `squadron/`, `store/`, `taskforce/`, and `protocols/` with integrated `standing-orders/`), `admiralty/` (internalized Grand Fleet domain, no tmux helpers), `services/agent/` (internal physical implementation for normalized agent stream contract), `services/job/`, `services/` (renamed from `core-services`), and `metaphor/`
+- Public API contracts and frozen consumer surfaces, including the canonical `@sbluemin/fleet-core/agent/types` stream contract
 - `createFleetCoreRuntime` as the canonical composition entry point that initializes the runtime-owned state (data directory, storage, settings) and optional service status tracking; it also owns the `shutdown` lifecycle that cleans up the agent, resets the settings service, and cleans up service status state
-- `AgentRequestService` owns unified-agent request orchestration and emits host column lifecycle through `FleetHostPorts.streamingSink`; it supports an optional `AgentColumnStream` token for stateful host tracking from `onColumnBegin` to `onColumnEnd`
+- `AgentRequestService` owns unified-agent request orchestration and emits minimal semantic execution events (including `requestId` and normalized `streamData` on `request_end`) through `FleetHostPorts.streamingSink`; host adapters own rendering-state accumulation and panel lifecycle mapping
 - Fleet tool specs and registry factories that are host-agnostic and registered by adapters through public APIs
-- Global runtime stores, **runtime-owned settings singletons (owned by `core-services/settings`)**, **`BridgeStateStorage` (owned by `bridge/run-stream`)**, and compatibility keys used by Pi adapters
+- Global runtime stores, **runtime-owned settings singletons (owned by `services/settings`)**, **`BridgeStateStorage` (owned by `admiral/bridge/run-stream`)**, and compatibility keys used by Pi adapters
 - Pure prompt composition, domain-level orchestration logic, and **render-agnostic view-model builders**
 - The Fleet Wiki domain extracted to the leaf `packages/fleet-wiki`
 

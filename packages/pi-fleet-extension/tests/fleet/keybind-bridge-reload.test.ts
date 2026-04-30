@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { CoreKeybindAPI, KeybindRegistration } from "@sbluemin/fleet-core/core-services/keybind";
+import type { CoreKeybindAPI, KeybindRegistration } from "@sbluemin/fleet-core/services/keybind";
 import {
   _bootstrapKeybind,
   getKeybindAPI,

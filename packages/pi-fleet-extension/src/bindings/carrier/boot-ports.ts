@@ -10,9 +10,6 @@ const fleetBootLogPort: FleetLogPort = (level, message, details) => {
 
 export function createFleetBootHostPorts(streamingSink?: AgentStreamingSink): FleetHostPorts {
   return {
-    appendStreamBlock() {},
-    syncPanelColumn() {},
-    endStreamColumn() {},
     sendCarrierResultPush() {},
     notify(level, message) {
       getLogAPI().log(level, "fleet-boot", message);

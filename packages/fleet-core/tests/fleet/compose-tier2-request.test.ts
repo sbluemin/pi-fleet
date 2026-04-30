@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { composeTier2Request } from "../../src/carrier/prompts.js";
-import type { CarrierMetadata } from "../../src/carrier/types.js";
+import { composeTier2Request } from "../../src/admiral/carrier/prompts.js";
+import type { CarrierMetadata } from "../../src/admiral/carrier/types.js";
 
 describe("composeTier2Request", () => {
   const dummyRequest = "This is the original request.";

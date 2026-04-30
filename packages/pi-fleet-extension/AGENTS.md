@@ -1,6 +1,6 @@
 # pi-fleet-extension Doctrine
 
-`packages/pi-fleet-extension` is the Pi capability package for Fleet. It owns Pi runtime wiring, capability-bucket entry points, TUI mounting, lifecycle listeners, bindings, provider registration, and compatibility adapters while consuming `@sbluemin/fleet-core` public exports, `@sbluemin/fleet-core/gfleet*`, and `@sbluemin/fleet-wiki`.
+`packages/pi-fleet-extension` is the Pi capability package for Fleet. It owns Pi runtime wiring, capability-bucket entry points, TUI mounting, lifecycle listeners, bindings, provider registration, and compatibility adapters while consuming `@sbluemin/fleet-core` public exports, `@sbluemin/fleet-core/admiralty*` (internalized Grand Fleet domain, formerly `gfleet`), and `@sbluemin/fleet-wiki`.
 
 ## Current Architecture Status
 
@@ -44,7 +44,7 @@
 ## Import Boundaries
 
 - Consume `@sbluemin/fleet-core` only through documented public root or subpath exports.
-- Consume Grand Fleet domain APIs through `@sbluemin/fleet-core/gfleet`, `@sbluemin/fleet-core/gfleet/ipc`, and `@sbluemin/fleet-core/gfleet/formation`.
+- Consume Grand Fleet domain APIs through `@sbluemin/fleet-core/admiralty` and `@sbluemin/fleet-core/admiralty/ipc`.
 - Pi capability buckets may depend on each other when their responsibilities require it, but keep ownership clear: registration belongs to the owning bucket.
 - Historical legacy homes under `src/` are already removed. Do not use their old paths as ownership signals or recreate them as transitional homes.
 - Tool definitions should come from `fleet-core` registries where possible; Pi files add only host adapters, renderers, push delivery, and lifecycle gates.

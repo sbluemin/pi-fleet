@@ -7,7 +7,7 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 import { getLogAPI } from "../../config/log/bridge.js";
-import type { FleetId, MissionReportParams } from "@sbluemin/fleet-core/gfleet";
+import type { FleetId, MissionReportParams } from "@sbluemin/fleet-core/admiralty";
 
 interface FleetEventOptions {
   designation?: string;

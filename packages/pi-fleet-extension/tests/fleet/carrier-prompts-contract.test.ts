@@ -3,11 +3,11 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { PROTOCOL_PREAMBLE } from "@sbluemin/fleet-core/admiral";
-import { DELEGATION_POLICY } from "@sbluemin/fleet-core/admiral/standing-orders";
-import { SORTIE_MANIFEST, buildSortieToolSchema } from "@sbluemin/fleet-core/carrier";
+import { DELEGATION_POLICY } from "@sbluemin/fleet-core/admiral/protocols/standing-orders";
+import { SORTIE_MANIFEST, buildSortieToolSchema } from "@sbluemin/fleet-core/admiral/carrier";
 import { CARRIER_JOBS_MANIFEST, buildCarrierJobsSchema } from "@sbluemin/fleet-core/carrier-jobs";
-import { SQUADRON_MANIFEST, buildSquadronSchema } from "@sbluemin/fleet-core/squadron";
-import { TASKFORCE_MANIFEST, buildTaskForceSchema } from "@sbluemin/fleet-core/taskforce";
+import { SQUADRON_MANIFEST, buildSquadronSchema } from "@sbluemin/fleet-core/admiral/squadron";
+import { TASKFORCE_MANIFEST, buildTaskForceSchema } from "@sbluemin/fleet-core/admiral/taskforce";
 import { CARRIER_RESULT_CUSTOM_TYPE } from "../../src/tools/carrier-result-renderer.js";
 
 const testDir = dirname(fileURLToPath(import.meta.url));

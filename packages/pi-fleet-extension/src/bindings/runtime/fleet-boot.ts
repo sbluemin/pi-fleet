@@ -1,4 +1,4 @@
-import type { CliType } from "@sbluemin/unified-agent";
+import type { CliType } from "@sbluemin/fleet-core/agent/provider-client";
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -8,7 +8,7 @@ import {
   loadCliTypeOverrides,
   loadSortieDisabled,
   loadSquadronEnabled,
-} from "@sbluemin/fleet-core/store";
+} from "@sbluemin/fleet-core/admiral/store";
 
 import { createFleetBootHostPorts } from "../carrier/boot-ports.js";
 import { createPanelStreamingSink } from "../carrier/panel-streaming-sink.js";

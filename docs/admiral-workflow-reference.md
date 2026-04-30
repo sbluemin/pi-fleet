@@ -7,13 +7,13 @@ This document is the operational doctrine for Admiral and Carrier agents working
 The migration target is already fixed:
 
 - `packages/fleet-core` owns Fleet **domain logic**
-- `packages/fleet-core/src/gfleet` owns the internalized **Grand Fleet domain**
+- `packages/fleet-core/src/admiralty` owns the internalized **Grand Fleet domain**
 - `packages/pi-fleet-extension` owns Pi **capability buckets**
 
 The repository uses this **current physical state**:
 
 - `packages/fleet-core` remains under `packages/fleet-core/src/`
-- `packages/fleet-core/src/gfleet` is an internalized domain within `fleet-core` with public subpaths `./`, `./ipc`, and `./formation`
+- `packages/fleet-core/src/admiralty` is an internalized domain within `fleet-core` with public subpaths `./admiralty` and `./admiralty/ipc`
 - `packages/pi-fleet-extension` capability buckets still remain under `packages/pi-fleet-extension/src/<bucket>/`
 
 Agents must not confuse logical ownership with bucket relocation. `packages/pi-fleet-extension/src/` remains the active physical home, and the old legacy domain folders under it have been removed and must not be recreated.
@@ -27,8 +27,8 @@ Agents must not confuse logical ownership with bucket relocation. `packages/pi-f
 - Fleet domain orchestration
 - prompt composition and doctrine assets
 - persona, tone, worldview, operation-name, and directive-refinement domain logic
-- carrier, squadron, taskforce, and job domain logic
-- bridge state/data layers
+- Admiral-owned carrier, carrier-jobs, squadron, taskforce, store, and bridge state/data layers under `src/admiral/`
+- agent and job domain logic under `src/services/`
 - pure runtime stores, ports, and adapter-facing contracts
 - shared doctrine/runtime surfaces consumed by extracted leaf packages
 
@@ -42,21 +42,22 @@ Agents must not confuse logical ownership with bucket relocation. `packages/pi-f
 - `pi.registerProvider(...)`
 - `pi.sendMessage(...)`
 - Pi TUI rendering
-- Grand Fleet domain ownership extracted to `@sbluemin/fleet-core/gfleet`
+- Grand Fleet formation/tmux process management
 
-### 2.2 `fleet-core/src/gfleet`
+### 2.2 `fleet-core/src/admiralty`
 
-`fleet-core/src/gfleet` owns:
+`fleet-core/src/admiralty` (renamed from `gfleet`) owns:
 
 - Grand Fleet prompt composition and status source logic
-- Grand Fleet IPC protocol contracts and formation/tmux helpers
+- Grand Fleet IPC protocol contracts
 - Grand Fleet reporter output helpers, tool specs, text sanitization, and shared types
 
-`fleet-core/src/gfleet` must not own:
+`fleet-core/src/admiralty` must not own:
 
 - Pi runtime wiring or `@mariozechner/pi-*` imports
 - deep imports into `fleet-core`
 - any reverse dependency from `fleet-core`
+- formation/tmux process management (removed)
 
 ### 2.3 `pi-fleet-extension`
 
@@ -114,11 +115,11 @@ fleet-wiki
   -> (leaf package; no workspace imports)
 
 fleet-core
-  -> gfleet public subpaths
+  -> admiralty public subpaths
 
 pi-fleet-extension capability buckets
   -> fleet-core public APIs
-  -> fleet-core gfleet public APIs
+  -> fleet-core admiralty public APIs
   -> fleet-wiki
   -> Pi runtime / TUI / host facilities
 ```
@@ -126,7 +127,7 @@ pi-fleet-extension capability buckets
 Forbidden patterns:
 
 - `fleet-core` importing Pi packages
-- `fleet-core` duplicating internal gfleet ownership via a separate package
+- `fleet-core` duplicating internal admiralty ownership via a separate package
 - `pi-fleet-extension` deep-importing `fleet-core/src/**`
 - `pi-fleet-extension` importing Grand Fleet surfaces from the deprecated Fleet Core location
 - new pure domain logic landing under `pi-fleet-extension/src/fleet/**`

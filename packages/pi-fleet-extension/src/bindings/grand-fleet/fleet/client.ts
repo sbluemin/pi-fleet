@@ -7,8 +7,8 @@
  */
 import * as net from "node:net";
 
-import type { JsonRpcMessage, JsonRpcResponse } from "@sbluemin/fleet-core/gfleet";
-import { RECONNECT_BASE_MS, RECONNECT_MAX_MS } from "@sbluemin/fleet-core/gfleet";
+import type { JsonRpcMessage, JsonRpcResponse } from "@sbluemin/fleet-core/admiralty";
+import { RECONNECT_BASE_MS, RECONNECT_MAX_MS } from "@sbluemin/fleet-core/admiralty";
 import {
   createFramer,
   sendMessage,

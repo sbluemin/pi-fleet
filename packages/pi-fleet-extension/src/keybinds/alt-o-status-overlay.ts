@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import type { CliType } from "@sbluemin/unified-agent";
+import type { CliType } from "@sbluemin/fleet-core/agent/provider-client";
 
 import { getKeybindAPI } from "../bindings/config/keybind/bridge.js";
 import { getServiceSnapshots, refreshStatusQuiet } from "../provider/service-status-store.js";
@@ -36,11 +36,11 @@ import {
   updateCliTypeOverride,
   updateModelSelection,
   updateTaskForceModelSelection,
-} from "@sbluemin/fleet-core/store";
+} from "@sbluemin/fleet-core/admiral/store";
 import { syncModelConfig } from "../commands/carrier/model-ui.js";
-import { TASKFORCE_CLI_TYPES, type TaskForceCliType } from "@sbluemin/fleet-core/taskforce";
+import { TASKFORCE_CLI_TYPES, type TaskForceCliType } from "@sbluemin/fleet-core/admiral/taskforce";
 import { CarrierStatusOverlay } from "../tui/carrier-ui/status-overlay.js";
-import { StatusOverlayController } from "@sbluemin/fleet-core/bridge/carrier-control";
+import { StatusOverlayController } from "@sbluemin/fleet-core/admiral/bridge/carrier-control";
 import { TaskForceConfigOverlay } from "../tui/carrier-ui/taskforce-config-overlay.js";
 import type { TaskForceOverlayCallbacks } from "../tui/carrier-ui/taskforce-config-overlay.js";
 import type {
@@ -48,7 +48,7 @@ import type {
   CarrierStatusEntry,
   CliModelInfo,
   ModelSelection as OverlayModelSelection,
-} from "@sbluemin/fleet-core/bridge/carrier-control";
+} from "@sbluemin/fleet-core/admiral/bridge/carrier-control";
 
 let activeStatusPopup: Promise<void> | null = null;
 let dismissStatusPopup: (() => void) | null = null;

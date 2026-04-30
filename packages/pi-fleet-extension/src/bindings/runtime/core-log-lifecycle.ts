@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import type { LogLevel } from "@sbluemin/fleet-core/core-services/log";
-import { CORE_LOG_FOOTER_KEY } from "@sbluemin/fleet-core/core-services/log";
-import { loadSettings, getLatestVisibleLogs } from "@sbluemin/fleet-core/core-services/log";
+import type { LogLevel } from "@sbluemin/fleet-core/services/log";
+import { CORE_LOG_FOOTER_KEY } from "@sbluemin/fleet-core/services/log";
+import { loadSettings, getLatestVisibleLogs } from "@sbluemin/fleet-core/services/log";
 import { getSettingsAPI } from "../config/settings/bridge.js";
 
 const LOG_LEVEL_COLORS: Record<LogLevel, string> = {

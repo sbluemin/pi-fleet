@@ -1,6 +1,6 @@
-export { CORE_LOG_KEY } from "@sbluemin/fleet-core/core-services/log";
-import { CORE_LOG_KEY } from "@sbluemin/fleet-core/core-services/log";
-import type { CoreLogAPI } from "@sbluemin/fleet-core/core-services/log";
+export { CORE_LOG_KEY } from "@sbluemin/fleet-core/services/log";
+import { CORE_LOG_KEY } from "@sbluemin/fleet-core/services/log";
+import type { CoreLogAPI } from "@sbluemin/fleet-core/services/log";
 
 if (!(globalThis as any)[CORE_LOG_KEY]) {
   const noop: CoreLogAPI = {

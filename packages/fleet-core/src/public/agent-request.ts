@@ -1,6 +1,10 @@
-import type { CliType } from "@sbluemin/unified-agent";
-import type { AgentStatus } from "../agent/types.js";
-import type { CollectedStreamData } from "../bridge/run-stream/types.js";
+import type { CliType } from "../services/agent/provider-client.js";
+import type { AgentStatus, CollectedStreamData } from "../services/agent/types.js";
+
+export interface UnifiedAgentToolCall {
+  readonly title: string;
+  readonly status: string;
+}
 
 export type UnifiedAgentRequestStatus = Extract<AgentStatus, "done" | "error" | "aborted">;
 
@@ -43,9 +47,9 @@ export interface UnifiedAgentResult {
   responseText: string;
   sessionId?: string;
   error?: string;
-  thinking?: CollectedStreamData["thinking"];
-  toolCalls?: CollectedStreamData["toolCalls"];
-  blocks?: CollectedStreamData["blocks"];
+  thinking?: string;
+  toolCalls?: UnifiedAgentToolCall[];
+  streamData?: CollectedStreamData;
 }
 
 export interface AgentRequestService {
@@ -53,4 +57,4 @@ export interface AgentRequestService {
   runBackground(options: UnifiedAgentBackgroundRequestOptions): Promise<UnifiedAgentResult>;
 }
 
-export { createAgentRequestService } from "../agent/request/service.js";
+export { createAgentRequestService } from "../services/agent/request/service.js";

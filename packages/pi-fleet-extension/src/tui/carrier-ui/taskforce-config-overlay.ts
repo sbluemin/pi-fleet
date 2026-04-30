@@ -11,11 +11,11 @@ import type { Component, Focusable, TUI } from "@mariozechner/pi-tui";
 import { Key, matchesKey } from "@mariozechner/pi-tui";
 import type { Theme } from "@mariozechner/pi-coding-agent";
 import { CARRIER_BG_COLORS } from "@sbluemin/fleet-core/constants";
-import type { ProviderInfo } from "@sbluemin/fleet-core/store";
+import type { ProviderInfo } from "@sbluemin/fleet-core/admiral/store";
 import {
   TASKFORCE_CLI_TYPES,
   type TaskForceCliType,
-} from "@sbluemin/fleet-core/taskforce";
+} from "@sbluemin/fleet-core/admiral/taskforce";
 
 import { createOverlayFrame } from "./overlay-frame.js";
 import { buildModelEffortTransition } from "./overlay-model-flow.js";

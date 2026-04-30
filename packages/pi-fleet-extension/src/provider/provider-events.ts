@@ -13,7 +13,7 @@
 
 import type { AssistantMessage } from "../bindings/compat/pi-ai-bridge.js";
 import { createAssistantMessageEventStream } from "../bindings/compat/pi-ai-bridge.js";
-import type { AcpToolCall, AcpToolCallUpdate } from "@sbluemin/unified-agent";
+import type { FleetAcpToolCall, FleetAcpToolCallUpdate } from "@sbluemin/fleet-core/agent/provider-client";
 
 import { PROVIDER_ID } from "@sbluemin/fleet-core/agent/provider-types";
 import { getLogAPI } from "../bindings/config/log/bridge.js";
@@ -32,8 +32,8 @@ export interface EventMapperHandle {
   listeners: {
     onMessageChunk: (text: string, sessionId: string) => void;
     onThoughtChunk: (text: string, sessionId: string) => void;
-    onToolCall: (title: string, status: string, sessionId: string, data?: AcpToolCall) => void;
-    onToolCallUpdate: (title: string, status: string, sessionId: string, data?: AcpToolCallUpdate) => void;
+    onToolCall: (title: string, status: string, sessionId: string, data?: FleetAcpToolCall) => void;
+    onToolCallUpdate: (title: string, status: string, sessionId: string, data?: FleetAcpToolCallUpdate) => void;
     onPromptComplete: (sessionId: string) => void;
     onError: (error: Error) => void;
     onExit: (code: number | null, signal: string | null) => void;
@@ -256,12 +256,19 @@ export function createEventMapper(
     title: string,
     status: string,
     sessionId: string,
-    data?: AcpToolCall,
+    data?: FleetAcpToolCall,
   ): void => {
     if (sessionId !== targetSessionId || finished) return;
     ensureStarted();
 
-    debug(`toolcall raw: title=${JSON.stringify(title)} kind=${data?.kind} status=${status} rawInput=${JSON.stringify(data?.rawInput)?.slice(0, 200)}`);
+    debug(
+      "toolcall:",
+      `title=${JSON.stringify(title)}`,
+      `status=${status}`,
+      `kind=${data?.kind ?? "unknown"}`,
+      `rawInputSize=${estimatePayloadSize(data?.rawInput)}`,
+      `callId=${extractCallId(data?.rawInput) ?? "none"}`,
+    );
 
     // MCP tool 판별 — title에서 tool 이름 추출
     const rawToolName = (data?.rawInput as Record<string, unknown> | undefined)?.tool;
@@ -290,11 +297,18 @@ export function createEventMapper(
     title: string,
     status: string,
     sessionId: string,
-    data?: AcpToolCallUpdate,
+    data?: FleetAcpToolCallUpdate,
   ): void => {
     if (sessionId !== targetSessionId || finished) return;
 
-    debug(`toolcall_update raw: title=${JSON.stringify(title)} status=${status} content=${JSON.stringify(data?.content)?.slice(0, 300)} rawOutput=${JSON.stringify(data?.rawOutput)?.slice(0, 300)}`);
+    debug(
+      "toolcall_update:",
+      `title=${JSON.stringify(title)}`,
+      `status=${status}`,
+      `contentSize=${estimatePayloadSize(data?.content)}`,
+      `rawOutputSize=${estimatePayloadSize(data?.rawOutput)}`,
+      `callId=${extractCallId(data?.rawOutput) ?? "none"}`,
+    );
 
     // MCP tool 판별
     const rawToolName = (data as Record<string, unknown> | undefined)?.tool;
@@ -452,6 +466,17 @@ function extractMcpToolName(title: string): string | null {
   const geminiMatch = title.match(/^(.+?)\s+\([^)]+\s+MCP Server\)$/);
   if (geminiMatch) return geminiMatch[1];
   return null;
+}
+
+/** payload 본문 없이 대략적인 직렬화 크기만 계산 */
+function estimatePayloadSize(payload: unknown): number {
+  if (payload === undefined || payload === null) return 0;
+  if (typeof payload === "string") return payload.length;
+  try {
+    return JSON.stringify(payload)?.length ?? 0;
+  } catch {
+    return 0;
+  }
 }
 
 /** rawInput/rawOutput에서 call_id 추출 */

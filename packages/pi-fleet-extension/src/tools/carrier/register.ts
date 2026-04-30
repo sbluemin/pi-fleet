@@ -7,11 +7,11 @@
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import type { CliType } from "@sbluemin/unified-agent";
+import type { CliType } from "@sbluemin/fleet-core/agent/provider-client";
 
 import { getLogAPI } from "../../bindings/config/log/bridge.js";
 import { registerCarrier, reorderRegisteredByCliType } from "./framework.js";
-import type { CarrierConfig, CarrierMetadata } from "@sbluemin/fleet-core/carrier";
+import type { CarrierConfig, CarrierMetadata } from "@sbluemin/fleet-core/admiral/carrier";
 import {
   CLI_DISPLAY_NAMES,
   CARRIER_COLORS,

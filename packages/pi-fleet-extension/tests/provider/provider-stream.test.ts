@@ -35,14 +35,12 @@ vi.mock("@mariozechner/pi-ai", () => ({
   }),
 }));
 
-vi.mock("@sbluemin/unified-agent", () => ({
-  UnifiedAgent: {
-    build: vi.fn(async (opts: unknown) => {
-      mockState.buildArgs.push(opts);
-      return mockState.client;
-    }),
-  },
-  getModelsRegistry: () => ({
+vi.mock("@sbluemin/fleet-core/agent/provider-client", () => ({
+  buildProviderClient: vi.fn(async (opts: unknown) => {
+    mockState.buildArgs.push(opts);
+    return mockState.client;
+  }),
+  getProviderModelsRegistry: () => ({
     providers: {
       claude: {
         models: [{ modelId: "opus", name: "Claude Opus" }],

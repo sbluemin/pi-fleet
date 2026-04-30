@@ -5,12 +5,12 @@ import {
   registerToolsForSession,
   removeToolsForSession,
   type Tool,
-} from "../agent/tool-snapshot.js";
+} from "../services/agent/tool-snapshot.js";
 import {
   startMcpServer,
   stopMcpServer,
   type McpCallToolResult,
-} from "../agent/provider-mcp.js";
+} from "../services/agent/provider-mcp.js";
 
 export interface PendingToolCall {
   readonly token: string;

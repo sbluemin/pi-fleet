@@ -5,20 +5,24 @@
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
-import { configureBridgeStateStorage } from "../../src/bridge/run-stream/state-store.js";
+import { configureBridgeStateStorage } from "../../src/admiral/bridge/run-stream/state-store.js";
 import {
   createRun,
   appendTextBlock,
+  appendTextBlockByRunId,
   appendThoughtBlock,
   upsertToolBlock,
+  upsertToolBlockByRunId,
   updateRunStatus,
+  updateRunStatusByRunId,
   finalizeRun,
+  finalizeRunByRunId,
   getVisibleRun,
   getAllVisibleRuns,
   getRunById,
   resetRuns,
   setStreamStoreRegisteredOrderProvider,
-} from "../../src/bridge/run-stream/stream-store.js";
+} from "../../src/admiral/bridge/run-stream/stream-store.js";
 
 // 각 테스트 전에 globalThis 상태 초기화
 beforeEach(() => {
@@ -156,6 +160,31 @@ describe("동시성 격리", () => {
     // 첫 번째 run의 데이터는 보존됨
     const old = getRunById(runId1)!;
     expect(old.text).toBe("first response");
+  });
+
+  it("runId 대상 helper는 같은 CLI의 최신 visible run에 오기입하지 않는다", () => {
+    const runId1 = createRun("genesis");
+    const runId2 = createRun("genesis");
+
+    appendTextBlockByRunId(runId1, "first");
+    upsertToolBlockByRunId(runId1, "Read", "done", "tool-1");
+    updateRunStatusByRunId(runId1, "running");
+    appendTextBlockByRunId(runId2, "second");
+    finalizeRunByRunId(runId1, "done", { sessionId: "session-first" });
+    finalizeRunByRunId(runId2, "err", { error: "second failed" });
+
+    expect(getRunById(runId1)).toMatchObject({
+      text: "first",
+      status: "done",
+      sessionId: "session-first",
+    });
+    expect(getRunById(runId1)!.toolCalls).toEqual([{ title: "Read", status: "done" }]);
+    expect(getVisibleRun("genesis")).toMatchObject({
+      runId: runId2,
+      text: "second",
+      status: "err",
+      error: "second failed",
+    });
   });
 });
 

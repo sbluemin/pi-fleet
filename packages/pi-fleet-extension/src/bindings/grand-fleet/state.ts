@@ -2,7 +2,7 @@ import {
   GRAND_FLEET_STATE_KEY,
   type GrandFleetRole,
   type GrandFleetState,
-} from "@sbluemin/fleet-core/gfleet";
+} from "@sbluemin/fleet-core/admiralty";
 
 export function getState(): GrandFleetState {
   return (globalThis as any)[GRAND_FLEET_STATE_KEY] as GrandFleetState;

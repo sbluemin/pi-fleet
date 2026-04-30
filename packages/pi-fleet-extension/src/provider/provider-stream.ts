@@ -18,8 +18,13 @@ import type {
   Tool,
 } from "../bindings/compat/pi-ai-bridge.js";
 import crypto from "crypto";
-import type { CliType, IUnifiedAgentClient, McpServerConfig, UnifiedClientOptions } from "@sbluemin/unified-agent";
-import { UnifiedAgent } from "@sbluemin/unified-agent";
+import {
+  buildProviderClient,
+  type CliType,
+  type FleetAgentClient,
+  type FleetMcpConfig,
+  type FleetProviderConnectOptions,
+} from "@sbluemin/fleet-core/agent/provider-client";
 
 import {
   type ActivePromptState,
@@ -91,6 +96,7 @@ const TRANSPORT_RECOVERY_PATTERNS = [
   /ECONNRESET/i,
   /disconnect/i,
 ];
+const PROMPT_PAYLOAD_LOG_ENV = "PI_FLEET_LOG_PROVIDER_PROMPTS";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Functions
@@ -102,7 +108,7 @@ function debug(...args: unknown[]): void {
   log.debug("acp-provider", args.map(String).join(" "), { category: "acp" });
 }
 
-/** finalPrompt 원문을 파일 로그에 남긴다. Footer에는 노출하지 않는다. */
+/** 명시적 디버그 플래그에서만 prompt 원문을 파일 로그에 남긴다. */
 function logFinalPrompt(
   cli: CliType,
   backendModel: string,
@@ -112,16 +118,67 @@ function logFinalPrompt(
   const log = getLogAPI();
   const phase = session.firstPromptSent ? "follow-up" : "initial";
   const sessionId = session.sessionId ?? "unknown";
+  const metadata = `ACP finalPrompt [${phase}] cli=${cli} model=${backendModel} session=${formatSessionPrefix(sessionId)} scope=${session.scopeKey} len=${prompt.length} sha256=${hashLogPayload(prompt)}`;
+  if (!shouldLogPromptPayload()) {
+    log.debug(
+      "acp-provider",
+      metadata,
+      { hideFromFooter: true, category: "acp" },
+    );
+    return;
+  }
   log.debug(
     "acp-provider",
     [
-      `ACP finalPrompt [${phase}] cli=${cli} model=${backendModel} session=${sessionId} scope=${session.scopeKey}`,
+      `${metadata} payload=enabled env=${PROMPT_PAYLOAD_LOG_ENV}`,
       "----- BEGIN FINAL PROMPT -----",
       prompt,
       "----- END FINAL PROMPT -----",
     ].join("\n"),
     { hideFromFooter: true, category: "acp" },
   );
+}
+
+function logSystemPromptMetadata(
+  cli: CliType,
+  backendModel: string,
+  scopeKey: string,
+  systemPrompt: string,
+): void {
+  const log = getLogAPI();
+  const metadata = `ACP systemPrompt cli=${cli} model=${backendModel} scope=${scopeKey} len=${systemPrompt.length} sha256=${hashLogPayload(systemPrompt)}`;
+  if (!shouldLogPromptPayload()) {
+    log.debug(
+      "acp-provider",
+      metadata,
+      { category: "acp-system-prompt", hideFromFooter: true },
+    );
+    return;
+  }
+  log.debug(
+    "acp-provider",
+    [
+      `${metadata} payload=enabled env=${PROMPT_PAYLOAD_LOG_ENV}`,
+      "----- BEGIN SYSTEM PROMPT -----",
+      systemPrompt,
+      "----- END SYSTEM PROMPT -----",
+    ].join("\n"),
+    { category: "acp-system-prompt", hideFromFooter: true },
+  );
+}
+
+function shouldLogPromptPayload(): boolean {
+  const value = process.env[PROMPT_PAYLOAD_LOG_ENV];
+  return value === "1" || value?.toLowerCase() === "true";
+}
+
+function hashLogPayload(payload: string): string {
+  return crypto.createHash("sha256").update(payload).digest("hex");
+}
+
+function formatSessionPrefix(sessionId: string): string {
+  if (sessionId === "unknown") return sessionId;
+  return `${sessionId.slice(0, 8)}...`;
 }
 
 /** 에러 메시지 추출 */
@@ -565,14 +622,14 @@ async function ensureSession(
         ...(effortOverrides?.effort ? { effort: effortOverrides.effort } : {}),
         ...(effortOverrides?.budgetTokens ? { budgetTokens: effortOverrides.budgetTokens } : {}),
       });
-      debug(`기존 세션 재사용: ${session.sessionId!.slice(0, 8)}`);
+      debug(`기존 세션 재사용: session=${formatSessionPrefix(session.sessionId!)}`);
       return session;
     }
   }
 
   // ── MCP 서버 기동 + tool 등록 ──
   const sessionToken = crypto.randomUUID();
-  let mcpServers: McpServerConfig[] | undefined;
+  let mcpServers: FleetMcpConfig[] | undefined;
   let mcpActive = false;
 
   if (tools && tools.length > 0) {
@@ -587,7 +644,7 @@ async function ensureSession(
         toolTimeout: 1800,
       }];
       mcpActive = true;
-      debug(`MCP 활성화: ${tools.length}개 tool, token=${sessionToken.slice(0, 8)}`);
+      debug(`MCP 활성화: ${tools.length}개 tool`);
     } catch (err) {
       debug(`MCP 서버 기동 실패, fallback:`, errorMessage(err));
     }
@@ -617,13 +674,13 @@ async function ensureSession(
   const store = getSessionStore();
   const storeKey = getHostSessionStoreKey(cli, scopeKey);
   const savedSessionId = store.get(storeKey) ?? undefined;
-  let client: IUnifiedAgentClient | null = null;
+  let client: FleetAgentClient | null = null;
   let resumedFromSavedSession = false;
 
   try {
-    debug(savedSessionId ? `session/load 복원 시도: ${savedSessionId.slice(0, 8)}` : `새 연결 시작: cli=${cli}`);
+    debug(savedSessionId ? `session/load 복원 시도: session=${formatSessionPrefix(savedSessionId)}` : `새 연결 시작: cli=${cli}`);
     // Admiral host 응답 생성 경로는 전역 systemPrompt를 connect 옵션으로 직접 전달한다.
-    client = await UnifiedAgent.build({ cli, sessionId: savedSessionId });
+    client = await buildProviderClient({ cli, sessionId: savedSessionId });
     let connectResult;
     try {
       connectResult = await client.connect(buildProviderConnectOptions(
@@ -643,11 +700,11 @@ async function ensureSession(
         throw connectError;
       }
 
-      debug(`session/load 실패, fresh fallback: ${savedSessionId.slice(0, 8)} ${errorMessage(connectError)}`);
+      debug(`session/load 실패, fresh fallback: session=${formatSessionPrefix(savedSessionId)} ${errorMessage(connectError)}`);
       store.clear(storeKey);
       await client.disconnect().catch(() => {});
       client.removeAllListeners();
-      client = await UnifiedAgent.build({ cli });
+      client = await buildProviderClient({ cli });
       resumedFromSavedSession = false;
       connectResult = await client.connect(buildProviderConnectOptions(
         cli,
@@ -672,7 +729,7 @@ async function ensureSession(
       ...(effortOverrides?.budgetTokens ? { budgetTokens: effortOverrides.budgetTokens } : {}),
     });
     if (newSession.sessionId) {
-      debug(`세션 생성 완료: ${newSession.sessionId.slice(0, 8)}`);
+      debug(`세션 생성 완료: session=${formatSessionPrefix(newSession.sessionId)}`);
     }
     return newSession;
   } catch (err) {
@@ -808,17 +865,7 @@ export function streamAcp(
   }
   const systemPrompt = context.systemPrompt ?? undefined;
   if (systemPrompt) {
-    const log = getLogAPI();
-    log.debug(
-      "acp-provider",
-      [
-        `ACP systemPrompt cli=${cli} model=${backendModel} scope=${scopeKey}`,
-        "----- BEGIN SYSTEM PROMPT -----",
-        systemPrompt,
-        "----- END SYSTEM PROMPT -----",
-      ].join("\n"),
-      { category: "acp-system-prompt", hideFromFooter: true },
-    );
+    logSystemPromptMetadata(cli, backendModel, scopeKey, systemPrompt);
   }
   const systemPromptHash = hashSystemPrompt(systemPrompt);
   const state = getOrInitState();
@@ -970,7 +1017,7 @@ async function runFreshQuery(
   // MCP tool call 시 event-mapper가 done="toolUse"로 스트림 종료.
   // sendMessage는 계속 pending — ACP CLI가 MCP 응답 대기 중이므로 이벤트 없음.
   logFinalPrompt(cli, backendModel, session, finalPrompt);
-  debug(`sendMessage: cli=${cli} model=${backendModel} prompt=${finalPrompt.slice(0, 60)}...`);
+  debug(`sendMessage: cli=${cli} model=${backendModel} promptLen=${finalPrompt.length} promptSha256=${hashLogPayload(finalPrompt)}`);
 
   client.sendMessage(finalPrompt).then(() => {
     if (!isCurrentActivePrompt(session, promptId, promptGeneration)) {
@@ -1137,7 +1184,7 @@ function setupAbortHandling(
 
 /** Unified Agent provider client에 이벤트 리스너 등록 — 해제 함수 반환 */
 function wireListeners(
-  client: IUnifiedAgentClient,
+  client: FleetAgentClient,
   mapper: ReturnType<typeof createEventMapper>,
   session: AcpSessionState,
   mcpToken?: string,
@@ -1264,10 +1311,10 @@ function buildProviderConnectOptions(
   cwd: string,
   backendModel: string,
   systemPrompt?: string,
-  mcpServers?: McpServerConfig[],
+  mcpServers?: FleetMcpConfig[],
   sessionId?: string,
-): UnifiedClientOptions {
-  const connectOptions: UnifiedClientOptions = {
+): FleetProviderConnectOptions {
+  const connectOptions: FleetProviderConnectOptions = {
     cwd,
     cli,
     model: backendModel,
@@ -1294,7 +1341,7 @@ function buildProviderConnectOptions(
   return connectOptions;
 }
 
-function isProviderClientAlive(client: IUnifiedAgentClient): boolean {
+function isProviderClientAlive(client: FleetAgentClient): boolean {
   const info = client.getConnectionInfo();
   return info.state === "ready" || info.state === "connected";
 }

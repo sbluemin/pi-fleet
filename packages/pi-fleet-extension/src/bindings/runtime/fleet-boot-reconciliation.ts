@@ -1,9 +1,9 @@
-import type { CliType } from "@sbluemin/unified-agent";
+import type { CliType } from "@sbluemin/fleet-core/agent/provider-client";
 import {
   getConfiguredTaskForceCarrierIds,
   reconcileActiveModelSelections,
   saveSquadronEnabled,
-} from "@sbluemin/fleet-core/store";
+} from "@sbluemin/fleet-core/admiral/store";
 
 import { syncModelConfig } from "../../commands/carrier/model-ui.js";
 import {

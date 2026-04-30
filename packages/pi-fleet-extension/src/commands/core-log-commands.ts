@@ -15,8 +15,8 @@
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import type { CoreLogAPI, LogCategoryMeta, LogFooterBridge, LogEntry, LogLevel, LogOptions } from "@sbluemin/fleet-core/core-services/log";
-import { CORE_LOG_FOOTER_KEY, DEFAULT_LOG_CATEGORY } from "@sbluemin/fleet-core/core-services/log";
+import type { CoreLogAPI, LogCategoryMeta, LogFooterBridge, LogEntry, LogLevel, LogOptions } from "@sbluemin/fleet-core/services/log";
+import { CORE_LOG_FOOTER_KEY, DEFAULT_LOG_CATEGORY } from "@sbluemin/fleet-core/services/log";
 import { _bootstrapLog } from "../bindings/config/log/bridge.js";
 import {
   loadSettings,
@@ -28,7 +28,7 @@ import {
   clearFileLogs,
   registerCategory,
   getRegisteredCategories,
-} from "@sbluemin/fleet-core/core-services/log";
+} from "@sbluemin/fleet-core/services/log";
 import { getSettingsAPI } from "../bindings/config/settings/bridge.js";
 
 // ── 상수 ──

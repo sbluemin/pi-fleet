@@ -3,7 +3,7 @@ export type {
   CarrierJobLaunchResponse,
   CarrierJobSummary,
   JobArchive,
-} from "../job/job-types.js";
+} from "../services/job/job-types.js";
 
 export interface CompletionPushPayload {
   readonly jobId: string;

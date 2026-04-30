@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createFleetToolRegistry } from "../src/public/fleet-tool-registry.js";
-import { createAgentToolRegistry } from "../src/public/tool-registry.js";
+import { createAgentToolRegistry, createFleetToolRegistry } from "../src/public/tool-registry.js";
 
 describe("createAgentToolRegistry", () => {
   it("registers, lists, looks up, and unregisters tools", () => {

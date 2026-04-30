@@ -5,6 +5,7 @@ import type { CarrierJobsParams } from "@sbluemin/fleet-core/carrier-jobs";
 
 interface CarrierJobsRenderResponse {
   action?: string;
+  format?: "summary" | "full";
   job_id?: string;
   status?: string;
   active?: CarrierJobRecord[];
@@ -80,7 +81,7 @@ export function shortenJobId(jobId: string | undefined): string {
 }
 
 function formatQuietCall(args: CarrierJobsParams): string {
-  const action = args.action;
+  const action = args.format ? `${args.action}:${args.format}` : args.action;
   const job = args.action === "list" ? "" : ` · ${shortenJobId(args.job_id)}`;
   return `${DIM}${ICON} Carrier Jobs · ${action}${job}${RESET}`;
 }
@@ -98,12 +99,17 @@ function formatQuietResponse(response: CarrierJobsRenderResponse | null): string
   }
   if (response.action === "result") {
     if (response.full_result) {
-      return `${DIM}${ICON} Carrier Jobs · result · ${shortenJobId(response.job_id)} · ${formatKb(response.full_result)}${RESET}`;
+      return `${DIM}${ICON} Carrier Jobs · ${formatResultAction(response)} · ${shortenJobId(response.job_id)} · ${formatKb(response.full_result)}${RESET}`;
     }
     const status = response.status ?? (response.error ? "error" : "unknown");
-    return `${DIM}${ICON} Carrier Jobs · result · ${shortenJobId(response.job_id)} · ${status}${RESET}`;
+    return `${DIM}${ICON} Carrier Jobs · ${formatResultAction(response)} · ${shortenJobId(response.job_id)} · ${status}${RESET}`;
   }
   return `${DIM}${ICON} Carrier Jobs · ${response.action ?? "unknown"}${RESET}`;
+}
+
+function formatResultAction(response: CarrierJobsRenderResponse): string {
+  if (response.format) return `result:${response.format}`;
+  return response.full_result ? "result:full" : "result";
 }
 
 function parseResultPayload(result: CarrierJobsToolResult): CarrierJobsRenderResponse | null {

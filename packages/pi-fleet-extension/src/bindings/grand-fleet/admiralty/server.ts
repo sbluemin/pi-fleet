@@ -22,7 +22,7 @@ import type {
   JsonRpcNotification,
   JsonRpcRequest,
   JsonRpcResponse,
-} from "@sbluemin/fleet-core/gfleet";
+} from "@sbluemin/fleet-core/admiralty";
 import { getLogAPI } from "../../config/log/bridge.js";
 
 /** Admiralty → Fleet 방향의 메서드 핸들러 */

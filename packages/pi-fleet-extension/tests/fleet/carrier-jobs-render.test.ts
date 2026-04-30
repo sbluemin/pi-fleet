@@ -103,9 +103,11 @@ describe("carrier_jobs rendering", () => {
   it("formats quiet result summaries for action-specific status text", () => {
     const list = formatQuietResult(buildResult({ action: "list", ok: true, active: [{ jobId: "sortie:a" }], recent: [{ jobId: "sortie:b" }] }));
     const full = formatQuietResult(buildResult({ action: "result", ok: true, job_id: "sortie:call_C3yYXMpTDNPAhMBc2J0kfMZk", full_result: "x".repeat(1500) }));
+    const summary = formatQuietResult(buildResult({ action: "result", format: "summary", ok: true, job_id: "sortie:abc123", status: "done" }));
 
     expect(list).toContain("list · 1 active, 1 recent");
     expect(full).toContain("result:full · sortie:…0kfMZk · 2KB");
+    expect(summary).toContain("result:summary · sortie:abc123 · done");
   });
 
   it("registers the verbose slash command in fleet boot", () => {

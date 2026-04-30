@@ -11,7 +11,7 @@ import { registerFleetPiCommands } from "../../../commands/fleet-grand-fleet-com
 import { registerFleetPiEvents } from "../../../session/grand-fleet/fleet-events.js";
 import { registerFleetPiTools } from "../../../tools/grand-fleet-fleet-tools.js";
 import { getFleetRuntime } from "./runtime.js";
-import type { CarrierMap, FleetStatus } from "@sbluemin/fleet-core/gfleet";
+import type { CarrierMap, FleetStatus } from "@sbluemin/fleet-core/admiralty";
 import { buildFleetPingPayload } from "./status-source.js";
 import { registerFleetStatusOverlayKeybind } from "../../../keybinds/grand-fleet-fleet-status-overlay.js";
 

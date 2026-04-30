@@ -14,8 +14,8 @@ import {
   SYM_INDICATOR,
   TASKFORCE_BADGE_COLOR,
 } from "@sbluemin/fleet-core/constants";
-import { getActiveJobs } from "@sbluemin/fleet-core/bridge/carrier-panel";
-import { getConfiguredTaskForceBackends } from "@sbluemin/fleet-core/store";
+import { getActiveJobs } from "@sbluemin/fleet-core/admiral/bridge/carrier-panel";
+import { getConfiguredTaskForceBackends } from "@sbluemin/fleet-core/admiral/store";
 
 import {
   resolveCarrierColor,

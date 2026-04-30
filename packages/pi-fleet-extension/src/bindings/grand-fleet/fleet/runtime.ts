@@ -10,7 +10,7 @@ import {
   PROTOCOL_VERSION,
   type FleetId,
   type FleetRuntimeState,
-} from "@sbluemin/fleet-core/gfleet";
+} from "@sbluemin/fleet-core/admiralty";
 import { buildFleetPingPayload } from "./status-source.js";
 
 const LOG_SOURCE = "grand-fleet";

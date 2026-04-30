@@ -10,7 +10,7 @@ import { Key, matchesKey } from "@mariozechner/pi-tui";
 
 import { getState } from "../../../bindings/grand-fleet/state.js";
 import { createOverlayFrame } from "../overlay-frame.js";
-import { stripControlChars } from "@sbluemin/fleet-core/gfleet";
+import { stripControlChars } from "@sbluemin/fleet-core/admiralty";
 import {
   HEARTBEAT_TIMEOUT_MS,
   PROTOCOL_VERSION,
@@ -18,7 +18,7 @@ import {
   type CarrierStatus,
   type ConnectedFleet,
   type FleetStatus,
-} from "@sbluemin/fleet-core/gfleet";
+} from "@sbluemin/fleet-core/admiralty";
 import { getFleetRegistry } from "../../../bindings/grand-fleet/admiralty/register.js";
 
 const ANSI_RESET = "\x1b[0m";

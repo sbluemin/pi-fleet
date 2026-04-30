@@ -2,7 +2,7 @@ import type { Component, Focusable } from "@mariozechner/pi-tui";
 import { visibleWidth } from "@mariozechner/pi-tui";
 import type { Theme, ThemeColor } from "@mariozechner/pi-coding-agent";
 
-import type { SectionDisplayConfig } from "@sbluemin/fleet-core/core-services/settings";
+import type { SectionDisplayConfig } from "@sbluemin/fleet-core/services/settings";
 
 const LABEL_WIDTH = 11;
 const PANEL_COLOR = "\x1b[38;2;180;160;220m";
