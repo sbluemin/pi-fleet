@@ -92,6 +92,8 @@ describe('UnifiedCodexAgentClient ACP 기본 경로', () => {
         '-c',
         'sandbox_mode="danger-full-access"',
         '-c',
+        'developer_instructions="개발자 지침"',
+        '-c',
         'mcp_servers.test-math.url="http://127.0.0.1:1234"',
         '-c',
         'mcp_servers.test-math.tool_timeout_sec=180',

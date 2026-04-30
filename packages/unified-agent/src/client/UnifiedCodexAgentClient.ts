@@ -34,6 +34,7 @@ import { CodexAppServerConnection } from '../connection/CodexAppServerConnection
 import { AcpConnection } from '../connection/AcpConnection.js';
 import { CliDetector } from '../detector/CliDetector.js';
 import {
+  codexDeveloperInstructionsToConfigArg,
   createSpawnConfig,
   getBackendConfig,
   getYoloModeId,
@@ -861,6 +862,7 @@ export class UnifiedCodexAgentClient extends EventEmitter implements IUnifiedAge
         `approval_policy="${modeMapping.approvalPolicy}"`,
         `sandbox_mode="${modeMapping.sandbox}"`,
         ...(options.configOverrides ?? []),
+        ...(options.systemPrompt ? [codexDeveloperInstructionsToConfigArg(options.systemPrompt)] : []),
         ...(options.mcpServers?.length ? mcpServerConfigsToCodexArgs(options.mcpServers) : []),
       ],
     };

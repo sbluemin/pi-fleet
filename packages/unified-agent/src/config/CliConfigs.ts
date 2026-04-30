@@ -197,6 +197,16 @@ export function mcpServerConfigsToCodexArgs(servers: McpServerConfig[]): string[
 }
 
 /**
+ * Codex ACP bridge가 실제로 읽는 developer_instructions 설정을 생성합니다.
+ *
+ * @param systemPrompt - Codex developer role로 주입할 지침
+ * @returns Codex `-c`에 전달할 `developer_instructions=...` 오버라이드
+ */
+export function codexDeveloperInstructionsToConfigArg(systemPrompt: string): string {
+  return `developer_instructions="${toTomlBasicString(systemPrompt)}"`;
+}
+
+/**
  * TOML dotted key의 bare key segment로 안전한 값인지 확인합니다.
  *
  * @param value - 검사할 key segment

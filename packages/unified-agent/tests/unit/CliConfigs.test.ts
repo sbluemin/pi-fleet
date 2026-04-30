@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  codexDeveloperInstructionsToConfigArg,
   createSpawnConfig,
   getYoloModeId,
   mcpServerConfigsToCodexArgs,
@@ -84,6 +85,12 @@ describe('CliConfigs', () => {
   });
 
   describe('mcpServerConfigsToCodexArgs', () => {
+    it('Codex developer_instructions 값을 TOML basic string으로 escape한다', () => {
+      expect(codexDeveloperInstructionsToConfigArg('첫 줄\n"둘째"\\tail')).toBe(
+        'developer_instructions="첫 줄\\n\\"둘째\\"\\\\tail"',
+      );
+    });
+
     it('TOML 문자열 값을 escape하고 tool timeout을 전달한다', () => {
       expect(mcpServerConfigsToCodexArgs([{
         type: 'http',
