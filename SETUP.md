@@ -45,6 +45,12 @@ pnpm setup
 # and packages/pi-fleet-extension in topological order.
 pnpm install
 
+# Approve native build scripts (one-time per machine).
+# Required for node-pty, esbuild, koffi, protobufjs, and @google/genai.
+# The result is saved to pnpm-workspace.yaml `allowBuilds` — subsequent installs
+# run these scripts automatically without a warning.
+pnpm approve-builds --all
+
 # Register the fleet wrapper commands globally.
 pnpm link --global
 ```
