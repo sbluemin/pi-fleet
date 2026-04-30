@@ -1,8 +1,8 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import type { CliType } from "@sbluemin/fleet-core/agent/shared/client";
+import { getServiceSnapshots, refreshStatusQuiet } from "@sbluemin/unified-agent";
+import type { CliType } from "@sbluemin/unified-agent";
 
 import { getKeybindAPI } from "../../shell/keybinds/core/bridge.js";
-import { getServiceSnapshots, refreshStatusQuiet } from "../provider-internal/service-status-store.js";
 import { refreshAgentPanel } from "./panel-lifecycle.js";
 import {
   disableSortieCarrier,
@@ -101,7 +101,10 @@ export function registerCarrierStatusKeybind(_pi: ExtensionAPI): void {
               getAvailableModels: getCliModelInfo,
               getServiceSnapshots: () =>
                 new Map(
-                  getServiceSnapshots().map((snapshot) => [snapshot.provider as CarrierCliType, { status: snapshot.status }]),
+                  getServiceSnapshots().map((snapshot) => [
+                    snapshot.provider as CarrierCliType,
+                    { status: snapshot.status },
+                  ]),
                 ),
               getDefaultCliType: () => "claude",
               openTaskForce: (carrierId: string) => {

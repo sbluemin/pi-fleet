@@ -12,9 +12,9 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import * as os from "node:os";
 import * as path from "node:path";
 import {
-  getProviderModelsRegistry,
-} from "@sbluemin/fleet-core/agent/provider/client";
-import type { CliType } from "@sbluemin/fleet-core/agent/shared/client";
+  getModelsRegistry,
+  type CliType,
+} from "@sbluemin/unified-agent";
 
 import { getLogAPI } from "@sbluemin/fleet-core/services/log";
 import {
@@ -22,8 +22,8 @@ import {
   ACTIVE_STREAM_KEY,
   CLI_DEFAULTS,
   buildModelId,
-} from "@sbluemin/fleet-core/agent/provider/types";
-import { initRuntime, onHostSessionChange } from "@sbluemin/fleet-core/agent/dispatcher/runtime";
+} from "./state.js";
+import { initRuntime, onHostSessionChange } from "./session-runtime.js";
 import { streamAcp, cleanupAll, handleSessionStart } from "./provider-stream.js";
 import {
   installAcpThinkingLevelPatch,
@@ -41,7 +41,7 @@ import { registerProviderGuard } from "./provider-guard.js";
  * provider 내부 cli/backendModel 복원은 provider/types의 parseModelId /
  * buildModelId가 담당하며, thinking level UI 보정은 thinking-level-patch.ts가 맡는다.
  */
-const MODELS = Object.entries(getProviderModelsRegistry().providers).flatMap(
+const MODELS = Object.entries(getModelsRegistry().providers).flatMap(
   ([cliKey, provider]) => {
     const cli = cliKey as CliType;
     const defaults = CLI_DEFAULTS[cli];

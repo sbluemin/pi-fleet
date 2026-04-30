@@ -3,46 +3,60 @@
 This contract describes the canonical consumer surface for `@sbluemin/fleet-core`.
 Fleet Core now exposes completed domain APIs through `FleetCoreRuntimeContext`;
 legacy public leaf APIs such as `CoreServices`, `AgentRequestService`,
-`agentRequest`, `mcp`, and raw registry handles are not public runtime fields.
+`agentRequest`, and raw registry handles are not public runtime fields.
 
 ## Canonical Runtime
 
 - Subpath: `@sbluemin/fleet-core`
-- `createFleetCoreRuntime(options: FleetCoreRuntimeOptions): FleetCoreRuntimeContext`
-- `FleetCoreRuntimeOptions = { dataDir: string; ports: FleetHostPorts; }`
+- `createFleetCoreRuntime(options: { dataDir: string; ports: FleetServicesPorts }): FleetCoreRuntimeContext`
 
 `FleetCoreRuntimeContext` is the only host-consumer context:
 
 ```ts
 interface FleetCoreRuntimeContext {
-  fleet: FleetServices;
-  grandFleet: GrandFleetServices;
-  metaphor: FleetMetaphorServices;
-  agent: FleetAgentServices;
-  jobs: FleetJobServices;
-  log: FleetLogServices;
-  settings: FleetSettingsServices;
-  toolRegistry: FleetToolRegistryServices;
+  readonly fleet: FleetServices;
+  readonly grandFleet: GrandFleetServices;
+  readonly metaphor: FleetMetaphorServices;
+  readonly jobs: FleetJobServices;
+  readonly log: FleetLogServices;
+  readonly settings: FleetSettingsServices;
   shutdown(): Promise<void>;
 }
 ```
 
-`shutdown()` owns cleanup for the Fleet Core runtime state, agent runtime
-internals, settings singleton, and service-status callbacks.
+`shutdown()` owns cleanup for the Fleet Core runtime state, settings singleton,
+and service-status callbacks.
 
 ## Domain Services
 
 The package root exports the domain services that make up
 `FleetCoreRuntimeContext`:
 
-- `FleetServices` — Admiral carrier, squadron, taskforce, and protocol domain APIs.
+- `FleetServices` — Admiral carrier, squadron, taskforce, protocol, tool, and MCP domain APIs.
+  - `readonly protocols`: Admiral protocol facade (standing orders, etc.)
+  - `readonly carrier`: Carrier service facade (sortie, personas, etc.)
+  - `readonly squadron`: Squadron service facade.
+  - `readonly taskForce`: Taskforce service facade.
+  - `readonly tools`: Lazy getter for `AgentToolSpec[]` (sortie, squadron, taskforce, carrier_jobs).
+  - `readonly mcp`: MCP coordination service.
+- `FleetServices.mcp` exposes request-session MCP coordination:
+  - `url(): Promise<string>`
+  - `setOnToolCallArrived(token, cb)`
+  - `resolveNextToolCall(token, toolCallId, result)`
+  - `hasPendingToolCall(token)`
+  - `clearPendingForSession(token)`
+  - `registerTools(token, tools)`
+  - `getTools(token)`
+  - `getToolNames(token)`
+  - `removeTools(token)`
+  - `clearAllTools()`
+  - `computeToolHash(tools)`
+  - `convertToolSchema(schema)`
 - `GrandFleetServices` — Admiralty/Grand Fleet domain APIs.
 - `FleetMetaphorServices` — worldview, persona, operation-name, and directive-refinement domain APIs.
-- `FleetAgentServices` — high-level agent request execution through `run()` and `runBackground()`.
 - `FleetJobServices` — detached carrier job/archive APIs.
 - `FleetLogServices` — Fleet log domain APIs.
 - `FleetSettingsServices` — runtime-owned settings API.
-- `FleetToolRegistryServices` — tool registry domain API with register/list/get/change/hash methods plus manifest helpers.
 
 The old compatibility names are intentionally absent from the runtime context:
 
@@ -55,20 +69,22 @@ The old compatibility names are intentionally absent from the runtime context:
 - no `admiral` alias
 - no `tools` alias
 - no raw `toolRegistry` object
-- no public `mcp` object
+- no raw `mcp` object outside `FleetServices`
+- no `toolRegistry` runtime field
+- no `mcp` runtime field
 
 ## Support Types
 
 The root export also provides support types needed to host the runtime:
 
-- `FleetHostPorts`
-- `AgentStreamingSink`, `AgentStreamEvent`, `AgentStreamKey`, `ColBlock`, `ColStatus`
-- `UnifiedAgentRequestOptions`, `UnifiedAgentBackgroundRequestOptions`, `UnifiedAgentRequestStatus`, `UnifiedAgentResult`
-- `ServiceStatusCallbacks`
-- `AgentToolSpec`, `AgentToolCtx`, `FleetToolRegistryPorts`
-
-These types support the domain services. They do not reintroduce separate
-public service objects.
+- `FleetServicesPorts` — Host-supplied ports for logging, background execution, and push notifications.
+  - `logDebug`: Debug logging bridge.
+  - `runAgentRequestBackground`: Background execution port for fleet requests.
+  - `enqueueCarrierCompletionPush`: Push notification port for job completion.
+  - `streamingSink`: (Optional) Sink for agent stream events.
+- `AgentToolSpec` — Host-agnostic agent tool metadata and execution contract.
+- `AgentToolCtx` — Execution context passed to registered agent tools.
+- `McpCallToolResult` / `ToolCallArrivedCallback` — Types for MCP interaction.
 
 ## Public Source Layout
 
@@ -79,11 +95,9 @@ composition and domain service modules:
 - `fleet-services.ts`
 - `grand-fleet-services.ts`
 - `metaphor-services.ts`
-- `agent-services.ts`
 - `job-services.ts`
 - `log-services.ts`
 - `settings-services.ts`
-- `tool-registry-services.ts`
 
 `runtime.ts` remains as an internal source leaf for directory structure and root
 composition. It is not exposed as `@sbluemin/fleet-core/runtime`.
@@ -94,31 +108,11 @@ Do not add legacy public leaves such as `agent-request.ts`, `agent-runtime.ts`,
 
 ## Compatibility Subpaths
 
-Some package subpaths still exist for active `pi-fleet-extension` migration
-compatibility. They expose narrow implementation contracts only where current
-consumers still import them. New public functionality must enter through the
-domain service modules above and be reachable from `FleetCoreRuntimeContext`.
+Some package subpaths still exist for active migration compatibility. They expose 
+narrow implementation contracts. New public functionality must enter through 
+the domain service modules above.
 
-Current agent compatibility subpaths:
-
-- `@sbluemin/fleet-core/agent/shared/types`
-- `@sbluemin/fleet-core/agent/shared/client`
-- `@sbluemin/fleet-core/agent/shared/service-status`
-- `@sbluemin/fleet-core/agent/provider/client`
-- `@sbluemin/fleet-core/agent/provider/provider-client` (deprecated compatibility shim for `agent/provider/client`)
-- `@sbluemin/fleet-core/agent/provider/types`
-- `@sbluemin/fleet-core/agent/provider/provider-types` (deprecated compatibility shim for `agent/provider/types`)
-- `@sbluemin/fleet-core/agent/provider/mcp`
-- `@sbluemin/fleet-core/agent/provider/provider-mcp` (deprecated compatibility shim for `agent/provider/mcp`)
-- `@sbluemin/fleet-core/agent/provider/thinking-level-patch`
-- `@sbluemin/fleet-core/agent/provider/tool-snapshot`
-- `@sbluemin/fleet-core/agent/dispatcher/executor`
-- `@sbluemin/fleet-core/agent/dispatcher/pool`
-- `@sbluemin/fleet-core/agent/dispatcher/runtime`
-- `@sbluemin/fleet-core/agent/dispatcher/session-store`
-- `@sbluemin/fleet-core/agent/dispatcher/session-resume-utils`
-
-Current Fleet domain compatibility subpaths:
+Current Fleet domain compatibility subpaths (based on `package.json` exports):
 
 - `@sbluemin/fleet-core/constants`
 - `@sbluemin/fleet-core/job`
@@ -127,22 +121,17 @@ Current Fleet domain compatibility subpaths:
 - `@sbluemin/fleet-core/admiral/carrier/personas`
 - `@sbluemin/fleet-core/admiral/squadron`
 - `@sbluemin/fleet-core/admiral/taskforce`
-- `@sbluemin/fleet-core/admiral/store` (includes `provider-catalog` re-exports for backward compatibility)
+- `@sbluemin/fleet-core/admiral/store`
+- `@sbluemin/fleet-core/admiral/agent-runtime`
 - `@sbluemin/fleet-core/carrier-jobs`
-- `@sbluemin/fleet-core/admiral/protocols/standing-orders`
-- `@sbluemin/fleet-core/admiralty`
-
-Current bridge compatibility subpaths (Allowlist-only named exports):
-
 - `@sbluemin/fleet-core/admiral/bridge/run-stream`
 - `@sbluemin/fleet-core/admiral/bridge/carrier-panel`
 - `@sbluemin/fleet-core/admiral/bridge/carrier-control`
-
-Current service/metaphor compatibility subpaths:
-
+- `@sbluemin/fleet-core/admiral/protocols/standing-orders`
 - `@sbluemin/fleet-core/services/tool-registry`
-- `@sbluemin/fleet-core/services/settings`
-- `@sbluemin/fleet-core/services/log`
 - `@sbluemin/fleet-core/metaphor`
 - `@sbluemin/fleet-core/metaphor/operation-name`
 - `@sbluemin/fleet-core/metaphor/directive-refinement`
+- `@sbluemin/fleet-core/services/settings`
+- `@sbluemin/fleet-core/services/log`
+- `@sbluemin/fleet-core/admiralty`

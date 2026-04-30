@@ -1,16 +1,15 @@
 import { AgentSession, type ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import { getProviderModels } from "@sbluemin/unified-agent";
 import type { Model } from "../provider.js";
-import {
-  clampThinkingLevel,
-  getAcpAvailableThinkingLevels,
-  type UiThinkingLevel,
-} from "@sbluemin/fleet-core/agent/provider/thinking-level-patch";
+
+import { parseModelId, PROVIDER_ID } from "./state.js";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types / Interfaces
 // ═══════════════════════════════════════════════════════════════════════════
 
 type PatchableModel = Pick<Model<any>, "id" | "provider" | "reasoning">;
+export type UiThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
 
 type PatchableAgentSession = InstanceType<typeof AgentSession> & {
   getAvailableThinkingLevels(): UiThinkingLevel[];
@@ -23,6 +22,8 @@ type PatchableAgentSession = InstanceType<typeof AgentSession> & {
 // ═══════════════════════════════════════════════════════════════════════════
 
 const THINKING_LEVEL_PATCH_KEY = Symbol.for("__pi_fleet_acp_thinking_level_patch__");
+const THINKING_LEVEL_ORDER: UiThinkingLevel[] = ["off", "minimal", "low", "medium", "high", "xhigh"];
+const ACP_UI_LEVELS = new Set<UiThinkingLevel>(["low", "medium", "high", "xhigh"]);
 
 export function installAcpThinkingLevelPatch(): void {
   const g = globalThis as Record<symbol, unknown>;
@@ -69,4 +70,54 @@ export function reconcileAcpThinkingLevel(
   }
 }
 
-export { clampThinkingLevel, getAcpAvailableThinkingLevels, type UiThinkingLevel };
+export function getAcpAvailableThinkingLevels(
+  model: PatchableModel | undefined,
+): UiThinkingLevel[] | null {
+  if (!model || model.provider !== PROVIDER_ID || !model.reasoning) {
+    return null;
+  }
+
+  const parsed = parseModelId(model.id);
+  if (!parsed) {
+    return null;
+  }
+
+  const provider = getProviderModels(parsed.cli);
+  if (!provider?.reasoningEffort.supported) {
+    return ["off"];
+  }
+
+  const levels = provider.reasoningEffort.levels.filter(
+    (level): level is UiThinkingLevel => ACP_UI_LEVELS.has(level as UiThinkingLevel),
+  );
+
+  return ["off", ...levels];
+}
+
+export function clampThinkingLevel(
+  level: UiThinkingLevel,
+  availableLevels: UiThinkingLevel[],
+): UiThinkingLevel {
+  const available = new Set(availableLevels);
+  const requestedIndex = THINKING_LEVEL_ORDER.indexOf(level);
+
+  if (requestedIndex === -1) {
+    return availableLevels[0] ?? "off";
+  }
+
+  for (let i = requestedIndex; i < THINKING_LEVEL_ORDER.length; i++) {
+    const candidate = THINKING_LEVEL_ORDER[i];
+    if (available.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  for (let i = requestedIndex - 1; i >= 0; i--) {
+    const candidate = THINKING_LEVEL_ORDER[i];
+    if (available.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  return availableLevels[0] ?? "off";
+}

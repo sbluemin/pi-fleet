@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import type { CliType } from "@sbluemin/fleet-core/agent/shared/client";
+import type { CliType } from "@sbluemin/unified-agent";
 
 import {
   getRegisteredCarrierConfig,
@@ -14,6 +14,19 @@ import { CARRIER_FRAMEWORK_KEY, type CarrierConfig } from "@sbluemin/fleet-core/
 const TEST_EXTENSION_API = {
   registerMessageRenderer: vi.fn(),
 } as unknown as ExtensionAPI;
+
+vi.mock("../../src/fleet.js", () => ({
+  getFleetRuntime: () => ({
+    toolRegistry: {
+      register: vi.fn(),
+      unregister: vi.fn(),
+      list: vi.fn(() => []),
+      get: vi.fn(),
+      onChange: vi.fn(() => () => {}),
+      computeHash: vi.fn(() => "tool-hash"),
+    },
+  }),
+}));
 
 function makeCarrierConfig(id: string, cliType: CliType, slot: number): CarrierConfig {
   return {

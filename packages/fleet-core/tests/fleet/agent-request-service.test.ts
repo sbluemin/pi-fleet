@@ -1,311 +1,182 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 
 const mocks = vi.hoisted(() => ({
-  executeWithPool: vi.fn(),
+  build: vi.fn(),
 }));
 
-vi.mock("../../src/services/agent/dispatcher/executor.js", () => ({
-  executeWithPool: mocks.executeWithPool,
+vi.mock("@sbluemin/unified-agent", () => ({
+  UnifiedAgent: {
+    build: mocks.build,
+  },
+  getReasoningEffortLevels: vi.fn(() => []),
 }));
 
-vi.mock("../../src/admiral/store/index.js", () => ({
-  loadModels: () => ({
-    genesis: { model: "gpt-test", effort: "medium", budgetTokens: 128 },
-  }),
-}));
+import {
+  executeWithPool,
+  getClientPool,
+  getSessionStore,
+  initRuntime,
+  onHostSessionChange,
+} from "../../src/admiral/_shared/agent-runtime.js";
 
-import { createAgentRequestService } from "../../src/services/agent/dispatcher/request/service.js";
-import type { AgentStreamingSink } from "../../src/public/agent-services.js";
+let tmpDir: string;
 
 beforeEach(() => {
-  mocks.executeWithPool.mockReset();
+  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "fleet-agent-runtime-"));
+  getClientPool().clear();
+  mocks.build.mockReset();
 });
 
-describe("createAgentRequestService", () => {
-  it("streams foreground requests through semantic sink events", async () => {
-    mocks.executeWithPool.mockImplementation(async (opts) => {
-      opts.onStatusChange?.("running");
-      opts.onThoughtChunk?.("think");
-      opts.onToolCall?.("Read", "running", "raw", "tool-1");
-      opts.onMessageChunk?.("hello");
-      opts.onToolCall?.("Read", "done", "raw", "tool-1");
-      return {
-        status: "done",
-        responseText: "hello",
-        thoughtText: "think",
-        toolCalls: [{ title: "Read", status: "done", timestamp: 1 }],
-        error: undefined,
-        connectionInfo: { sessionId: "session-1" },
-      };
-    });
-    const events: string[] = [];
-    const sink = createRecordingSink(events);
-    const service = createAgentRequestService({ streamingSink: sink });
+afterEach(() => {
+  getClientPool().clear();
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+});
 
-    const result = await service.run({
+describe("admiral agent runtime executeWithPool", () => {
+  it("신규 carrier 요청을 provider client에 연결하고 정규화 결과를 반환한다", async () => {
+    const client = createClientMock();
+    mocks.build.mockResolvedValueOnce(client);
+    initRuntime(tmpDir);
+    onHostSessionChange("pi-session-1");
+
+    const statuses: string[] = [];
+    const messages: string[] = [];
+    const thoughts: string[] = [];
+    const tools: Array<[string, string, string?, string?]> = [];
+
+    const result = await executeWithPool({
+      cliType: "codex",
+      carrierId: "genesis",
+      request: "work",
+      cwd: "/tmp/project",
+      connectSystemPrompt: "system",
+      onStatusChange: (status) => statuses.push(status),
+      onMessageChunk: (text) => messages.push(text),
+      onThoughtChunk: (text) => thoughts.push(text),
+      onToolCall: (...args) => tools.push(args),
+    });
+
+    expect(mocks.build).toHaveBeenCalledWith({ cli: "codex" });
+    expect(client.connect).toHaveBeenCalledWith(expect.objectContaining({
       cli: "codex",
+      cwd: "/tmp/project",
+      systemPrompt: "system",
+      autoApprove: true,
+    }));
+    expect(client.sendMessage).toHaveBeenCalledWith("work");
+    expect(result).toMatchObject({
+      status: "done",
+      responseText: "hello",
+      thoughtText: "think",
+      connectionInfo: { protocol: "acp", sessionId: "session-1" },
+    });
+    expect(result.toolCalls).toEqual([
+      expect.objectContaining({
+        title: "Read",
+        status: "done",
+        rawOutput: "file content",
+        toolCallId: "tool-1",
+      }),
+    ]);
+    expect(result.streamData).toMatchObject({
+      text: "hello",
+      thinking: "think",
+      lastStatus: "done",
+    });
+    expect(statuses).toEqual(["connecting", "running", "done"]);
+    expect(messages).toEqual(["hello"]);
+    expect(thoughts).toEqual(["think"]);
+    expect(tools).toEqual([["Read", "done", "file content", "tool-1"]]);
+  });
+
+  it("저장된 dead session은 clear 후 같은 요청을 fresh session으로 재시도한다", async () => {
+    const staleConnectArgs: any[] = [];
+    const staleClient = createClientMock({
+      connect: vi.fn(async (opts: any) => {
+        staleConnectArgs.push({ ...opts });
+        throw new Error("session not found: stale-session");
+      }),
+    });
+    const freshClient = createClientMock({
+      sessionId: "fresh-session",
+      responseText: "fresh",
+    });
+    mocks.build
+      .mockResolvedValueOnce(staleClient)
+      .mockResolvedValueOnce(freshClient);
+    initRuntime(tmpDir);
+    onHostSessionChange("pi-session-2");
+
+    const store = getSessionStore();
+    store.set("genesis", "stale-session");
+    expect(store.get("genesis")).toBe("stale-session");
+
+    const result = await executeWithPool({
+      cliType: "codex",
       carrierId: "genesis",
       request: "work",
       cwd: "/tmp/project",
     });
 
-    expect(events[0]).toBe("begin:genesis");
-    expect(events).toContain("status:running");
-    expect(events).toContain("thought:think");
-    expect(events).toContain("tool:Read:done");
-    expect(events).toContain("message:hello");
-    expect(events.at(-1)).toBe("end:done");
+    expect(staleConnectArgs[0]).toEqual(expect.objectContaining({
+      sessionId: "stale-session",
+    }));
+    expect(freshClient.connect).toHaveBeenCalledWith(expect.not.objectContaining({
+      sessionId: expect.any(String),
+    }));
+    expect(freshClient.sendMessage).toHaveBeenCalledWith("work");
     expect(result).toMatchObject({
       status: "done",
-      responseText: "hello",
-      sessionId: "session-1",
-      thinking: "think",
+      responseText: "fresh",
+      connectionInfo: { sessionId: "fresh-session" },
     });
-    expect(result.toolCalls).toEqual([{ title: "Read", status: "done" }]);
-    expect(mocks.executeWithPool).toHaveBeenCalledWith(expect.objectContaining({
-      carrierId: "genesis",
-      cliType: "codex",
-      cwd: "/tmp/project",
-      model: "gpt-test",
-      effort: "medium",
-      budgetTokens: 128,
-    }));
-  });
-
-  it("adds request correlation ids to foreground stream events and omits raw tool output", async () => {
-    mocks.executeWithPool.mockImplementation(async (opts) => {
-      opts.onToolCall?.("Read", "done", "secret raw", "tool-1");
-      return {
-        status: "done",
-        responseText: "ok",
-        thoughtText: "",
-        toolCalls: [{ title: "Read", status: "done", rawOutput: "secret raw", timestamp: 1 }],
-        error: undefined,
-        connectionInfo: {},
-        streamData: createStreamData("ok"),
-      };
-    });
-    const seenRequestIds = new Set<string | undefined>();
-    const toolEvents: unknown[] = [];
-    const sink: AgentStreamingSink = {
-      onAgentStreamEvent(event) {
-        seenRequestIds.add(event.key.requestId);
-        if (event.type === "tool") toolEvents.push(event);
-      },
-    };
-    const service = createAgentRequestService({ streamingSink: sink });
-
-    await service.run({
-      cli: "codex",
-      carrierId: "genesis",
-      request: "first",
-      cwd: "/tmp/project",
-    });
-    await service.run({
-      cli: "codex",
-      carrierId: "genesis",
-      request: "second",
-      cwd: "/tmp/project",
-    });
-
-    expect(seenRequestIds.size).toBe(2);
-    expect([...seenRequestIds].every(Boolean)).toBe(true);
-    expect(toolEvents).toHaveLength(2);
-    expect(toolEvents).toEqual([
-      expect.not.objectContaining({ rawOutput: expect.anything() }),
-      expect.not.objectContaining({ rawOutput: expect.anything() }),
-    ]);
-  });
-
-  it("ends foreground requests with aborted reason", async () => {
-    mocks.executeWithPool.mockResolvedValue({
-      status: "aborted",
-      responseText: "",
-      thoughtText: "",
-      toolCalls: [],
-      error: undefined,
-      connectionInfo: {},
-    });
-    const events: string[] = [];
-    const service = createAgentRequestService({ streamingSink: createRecordingSink(events) });
-
-    const result = await service.run({
-      cli: "codex",
-      carrierId: "genesis",
-      request: "stop",
-      cwd: "/tmp/project",
-    });
-
-    expect(result.status).toBe("aborted");
-    expect(events.at(-1)).toBe("end:aborted");
-  });
-
-  it("ends foreground requests with error reason and rethrows executor errors", async () => {
-    mocks.executeWithPool.mockRejectedValue(new Error("boom"));
-    const events: string[] = [];
-    let endStreamData: unknown;
-    const service = createAgentRequestService({
-      streamingSink: {
-        onAgentStreamEvent(event) {
-          createRecordingSink(events).onAgentStreamEvent(event);
-          if (event.type === "request_end") endStreamData = event.streamData;
-        },
-      },
-    });
-
-    await expect(service.run({
-      cli: "codex",
-      carrierId: "genesis",
-      request: "fail",
-      cwd: "/tmp/project",
-    })).rejects.toThrow("boom");
-
-    expect(events.at(-1)).toBe("end:error");
-    expect(endStreamData).toMatchObject({
-      text: "Error: boom",
-      thinking: "",
-      toolCalls: [],
-      blocks: [{ type: "text", text: "Error: boom" }],
-      lastStatus: "error",
-    });
-  });
-
-  it("runs background requests without sink events while preserving executor result", async () => {
-    mocks.executeWithPool.mockImplementation(async (opts) => {
-      opts.onMessageChunk?.("background");
-      opts.onToolCall?.("Write", "done", "raw", "tool-2");
-      return {
-        status: "done",
-        responseText: "background",
-        thoughtText: "",
-        toolCalls: [{ title: "Write", status: "done", timestamp: 1 }],
-        error: undefined,
-        connectionInfo: { sessionId: "session-bg" },
-      };
-    });
-    const events: string[] = [];
-    const service = createAgentRequestService({ streamingSink: createRecordingSink(events) });
-
-    const result = await service.runBackground({
-      cli: "codex",
-      carrierId: "genesis",
-      request: "background",
-      cwd: "/tmp/project",
-    });
-
-    expect(events).toEqual([]);
-    expect(result.status).toBe("done");
-    expect(result.responseText).toBe("background");
-    expect(result.toolCalls).toEqual([{ title: "Write", status: "done" }]);
-  });
-
-  it("serializes async stream events before final end", async () => {
-    let releaseFirstUpdate: (() => void) | undefined;
-    const events: string[] = [];
-    const sink: AgentStreamingSink = {
-      async onAgentStreamEvent(event) {
-        if (event.type === "message" && event.text === "first") {
-          await new Promise<void>((resolve) => {
-            releaseFirstUpdate = resolve;
-            setTimeout(resolve, 0);
-          });
-        }
-        if (event.type === "request_begin") events.push("begin");
-        if (event.type === "message") events.push(`message:${event.text}`);
-        if (event.type === "request_end") events.push(`end:${event.reason}`);
-      },
-    };
-    mocks.executeWithPool.mockImplementation(async (opts) => {
-      opts.onMessageChunk?.("first");
-      opts.onMessageChunk?.("second");
-      releaseFirstUpdate?.();
-      return {
-        status: "done",
-        responseText: "firstsecond",
-        thoughtText: "",
-        toolCalls: [],
-        error: undefined,
-        connectionInfo: { sessionId: "session-ordered" },
-      };
-    });
-    const service = createAgentRequestService({ streamingSink: sink });
-
-    await service.run({
-      cli: "codex",
-      carrierId: "genesis",
-      request: "ordered",
-      cwd: "/tmp/project",
-    });
-
-    expect(events).toEqual([
-      "begin",
-      "message:first",
-      "message:second",
-      "end:done",
-    ]);
-  });
-
-  it("keeps successful request results when sink updates reject and still attempts end", async () => {
-    const events: string[] = [];
-    const sink: AgentStreamingSink = {
-      async onAgentStreamEvent(event) {
-        if (event.type === "request_begin") {
-          events.push("begin");
-          return;
-        }
-        if (event.type === "message") {
-          events.push("message");
-          throw new Error("sink update failed");
-        }
-        if (event.type === "request_end") events.push(`end:${event.reason}`);
-      },
-    };
-    mocks.executeWithPool.mockImplementation(async (opts) => {
-      opts.onMessageChunk?.("hello");
-      return {
-        status: "done",
-        responseText: "hello",
-        thoughtText: "",
-        toolCalls: [],
-        error: undefined,
-        connectionInfo: { sessionId: "session-sink-fail" },
-      };
-    });
-    const service = createAgentRequestService({ streamingSink: sink });
-
-    const result = await service.run({
-      cli: "codex",
-      carrierId: "genesis",
-      request: "sink rejection",
-      cwd: "/tmp/project",
-    });
-
-    expect(result.status).toBe("done");
-    expect(result.responseText).toBe("hello");
-    expect(events.at(-1)).toBe("end:done");
-    expect(events.filter((event) => event === "message").length).toBeGreaterThan(0);
+    expect(store.get("genesis")).toBe("fresh-session");
   });
 });
 
-function createRecordingSink(events: string[]): AgentStreamingSink {
-  return {
-    onAgentStreamEvent(event) {
-      if (event.type === "request_begin") events.push(`begin:${event.key.carrierId}`);
-      if (event.type === "status") events.push(`status:${event.status}`);
-      if (event.type === "thought") events.push(`thought:${event.text}`);
-      if (event.type === "tool") events.push(`tool:${event.title}:${event.status}`);
-      if (event.type === "message") events.push(`message:${event.text}`);
-      if (event.type === "request_end") events.push(`end:${event.reason}`);
-    },
-  };
-}
+function createClientMock(overrides: Record<string, any> = {}) {
+  const handlers = new Map<string, Set<(...args: any[]) => void>>();
+  const sessionId = overrides.sessionId ?? "session-1";
+  const responseText = overrides.responseText ?? "hello";
 
-function createStreamData(text: string) {
-  return {
-    text,
-    thinking: "",
-    toolCalls: [],
-    blocks: [{ type: "text" as const, text }],
-    lastStatus: "done" as const,
+  const client = {
+    connect: vi.fn(async () => ({
+      protocol: "acp",
+      session: { sessionId },
+    })),
+    sendMessage: vi.fn(async () => {
+      emit("thoughtChunk", "think");
+      emit("toolCall", "Read", "done", sessionId, {
+        toolCallId: "tool-1",
+        content: [{ type: "content", content: { type: "text", text: "file content" } }],
+      });
+      emit("messageChunk", responseText);
+    }),
+    cancelPrompt: vi.fn(async () => {}),
+    disconnect: vi.fn(async () => {}),
+    removeAllListeners: vi.fn(() => handlers.clear()),
+    getConnectionInfo: vi.fn(() => ({ state: "disconnected", protocol: "acp", sessionId })),
+    getCurrentSystemPrompt: vi.fn(() => ""),
+    setConfigOption: vi.fn(async () => {}),
+    on: vi.fn((event: string, handler: (...args: any[]) => void) => {
+      const eventHandlers = handlers.get(event) ?? new Set();
+      eventHandlers.add(handler);
+      handlers.set(event, eventHandlers);
+    }),
+    off: vi.fn((event: string, handler: (...args: any[]) => void) => {
+      handlers.get(event)?.delete(handler);
+    }),
+    ...overrides,
   };
+
+  function emit(event: string, ...args: any[]) {
+    for (const handler of handlers.get(event) ?? []) {
+      handler(...args);
+    }
+  }
+
+  return client;
 }

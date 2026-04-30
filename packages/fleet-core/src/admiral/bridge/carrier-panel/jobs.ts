@@ -5,7 +5,7 @@
  * stream-store와 JobStreamArchive는 건드리지 않고 UI 상태만 보유합니다.
  */
 
-import type { ColStatus } from "../../../services/agent/shared/types.js";
+import type { ColStatus } from "../../_shared/agent-runtime.js";
 import type { PanelJobKind, PanelJobStatus } from "../run-stream/types.js";
 import { getPanelJobs, getState, PANEL_JOB_RETENTION } from "./state.js";
 import type { ColumnTrack, PanelJob } from "./types.js";

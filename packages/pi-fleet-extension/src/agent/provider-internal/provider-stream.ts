@@ -15,24 +15,18 @@ import type {
   Model,
   SimpleStreamOptions,
   ThinkingBudgets,
-  Tool,
 } from "../provider.js";
 import crypto from "crypto";
 import {
-  buildProviderClient,
-} from "@sbluemin/fleet-core/agent/provider/client";
-import type {
-  CliType,
-  FleetAgentClient,
-  FleetMcpConfig,
-  FleetProviderConnectOptions,
-} from "@sbluemin/fleet-core/agent/shared/client";
-
+  getReasoningEffortLevels,
+  UnifiedAgent,
+  type CliType,
+  type IUnifiedAgentClient,
+  type McpServerConfig,
+  type UnifiedClientOptions,
+} from "@sbluemin/unified-agent";
+import type { AgentToolSpec, McpCallToolResult, Tool } from "@sbluemin/fleet-core";
 import {
-  type ActivePromptState,
-  type AcpSessionState,
-  type AcpProviderState,
-  type PendingToolCallState,
   DEFAULT_PROMPT_IDLE_TIMEOUT,
   DEFAULT_BRIDGE_SCOPE,
   buildModelId,
@@ -44,28 +38,17 @@ import {
   hashSystemPrompt,
   getOrInitState,
   getCliRuntimeContext,
-} from "@sbluemin/fleet-core/agent/provider/types";
-import { applyPostConnectConfig } from "@sbluemin/fleet-core/agent/dispatcher/executor";
+} from "./state.js";
+import type {
+  ActivePromptState,
+  AcpProviderState,
+  AcpSessionState,
+  PendingToolCallState,
+} from "./state.js";
 import { createEventMapper } from "./provider-events.js";
 import { getLogAPI } from "@sbluemin/fleet-core/services/log";
-import {
-  startMcpServer,
-  stopMcpServer,
-  resolveNextToolCall,
-  clearPendingForSession,
-  setOnToolCallArrived,
-  type McpCallToolResult,
-} from "@sbluemin/fleet-core/agent/provider/mcp";
-import {
-  registerToolsForSession,
-  removeToolsForSession,
-  clearAllTools,
-  computeToolHash,
-  getToolNamesForSession,
-  type Tool as SnapshotTool,
-} from "@sbluemin/fleet-core/agent/provider/tool-snapshot";
-import { getSessionStore, onHostSessionChange } from "@sbluemin/fleet-core/agent/dispatcher/runtime";
-import { classifyResumeFailure, isDeadSessionError } from "@sbluemin/fleet-core/agent/dispatcher/session-resume-utils";
+import { classifyResumeFailure, getSessionStore, isDeadSessionError, onHostSessionChange } from "./session-runtime.js";
+import { getFleetRuntime } from "../../fleet.js";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types / Interfaces
@@ -82,6 +65,19 @@ interface ToolResultEnvelope {
   content: unknown;
   isError?: boolean;
   toolCallId?: string;
+}
+
+interface FleetMcpApi {
+  url(): Promise<string>;
+  setOnToolCallArrived(token: string, cb: ((toolName: string, args: Record<string, unknown>) => string) | null): void;
+  resolveNextToolCall(token: string, toolCallId: string, result: McpCallToolResult): void;
+  hasPendingToolCall(token: string): boolean;
+  clearPendingForSession(token: string): void;
+  registerTools(token: string, tools: Tool[]): void;
+  getToolNames(token: string): Set<string>;
+  removeTools(token: string): void;
+  clearAllTools(): void;
+  computeToolHash(tools: Tool[]): string;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -108,6 +104,23 @@ const PROMPT_PAYLOAD_LOG_ENV = "PI_FLEET_LOG_PROVIDER_PROMPTS";
 function debug(...args: unknown[]): void {
   const log = getLogAPI();
   log.debug("acp-provider", args.map(String).join(" "), { category: "acp" });
+}
+
+function mcpApi(): FleetMcpApi {
+  return getFleetRuntime().fleet.mcp as unknown as FleetMcpApi;
+}
+
+function specToTool(spec: AgentToolSpec): Tool {
+  return {
+    name: spec.mcp?.exposeAs ?? spec.name,
+    description: spec.description,
+    parameters: spec.parameters,
+  };
+}
+
+function buildMcpTools(piTools: readonly Tool[] | undefined): Tool[] {
+  const fleetTools = getFleetRuntime().fleet.tools.map(specToTool);
+  return [...(piTools ?? []), ...fleetTools];
 }
 
 /** 명시적 디버그 플래그에서만 prompt 원문을 파일 로그에 남긴다. */
@@ -410,7 +423,7 @@ function clearSessionRoutingState(
 /** 세션 수명 종료 시 MCP router를 분리한다 */
 function detachToolCallRouter(session: AcpSessionState): void {
   if (!session.mcpSessionToken) return;
-  setOnToolCallArrived(session.mcpSessionToken, null);
+  mcpApi().setOnToolCallArrived(session.mcpSessionToken, null);
 }
 
 /** 논리적 prompt 종료 시 router와 orphaned MCP 상태를 함께 정리한다 */
@@ -420,7 +433,7 @@ function closeLogicalPromptRouting(
 ): void {
   if (session.mcpSessionToken) {
     detachToolCallRouter(session);
-    clearPendingForSession(session.mcpSessionToken);
+    mcpApi().clearPendingForSession(session.mcpSessionToken);
   }
   clearSessionRoutingState(state, session);
 }
@@ -501,7 +514,7 @@ function installToolCallRouter(
   session: AcpSessionState,
 ): void {
   if (!session.mcpSessionToken) return;
-  setOnToolCallArrived(session.mcpSessionToken, (toolName, args) => {
+  mcpApi().setOnToolCallArrived(session.mcpSessionToken, (toolName, args) => {
     const pending = registerPendingToolCall(state, session, toolName, args);
     session.pendingToolCallNotifier?.();
     return pending.toolCallId;
@@ -555,9 +568,10 @@ async function ensureSession(
   const state = getOrInitState();
   const key = getSessionKey(cli, scopeKey);
   let session = getSessionByScope(state, cli, scopeKey);
+  const mcpTools = buildMcpTools(tools);
 
   // tool hash 계산
-  const currentToolHash = tools && tools.length > 0 ? computeToolHash(tools as SnapshotTool[]) : undefined;
+  const currentToolHash = mcpTools.length > 0 ? mcpApi().computeToolHash(mcpTools) : undefined;
 
   // CLI 변경, systemPrompt drift, tool hash 변경 — 기존 세션 폐기
   // 단, 복원된 세션(client=null, sessionId존재)에서는 systemPrompt drift 무시
@@ -587,8 +601,8 @@ async function ensureSession(
       await session.client?.disconnect().catch(() => {});
       session.client = null;
       if (session.mcpSessionToken) {
-        clearPendingForSession(session.mcpSessionToken);
-        removeToolsForSession(session.mcpSessionToken);
+        mcpApi().clearPendingForSession(session.mcpSessionToken);
+        mcpApi().removeTools(session.mcpSessionToken);
         detachToolCallRouter(session);
       }
       removeSession(state, session);
@@ -629,15 +643,15 @@ async function ensureSession(
     }
   }
 
-  // ── MCP 서버 기동 + tool 등록 ──
+  // ── MCP URL 확보 + tool 등록 ──
   const sessionToken = crypto.randomUUID();
-  let mcpServers: FleetMcpConfig[] | undefined;
+  let mcpServers: McpServerConfig[] | undefined;
   let mcpActive = false;
 
-  if (tools && tools.length > 0) {
+  if (mcpTools.length > 0) {
     try {
-      const mcpUrl = await startMcpServer();
-      registerToolsForSession(sessionToken, tools as SnapshotTool[]);
+      const mcpUrl = await mcpApi().url();
+      mcpApi().registerTools(sessionToken, mcpTools);
       mcpServers = [{
         type: "http",
         url: mcpUrl,
@@ -646,9 +660,9 @@ async function ensureSession(
         toolTimeout: 1800,
       }];
       mcpActive = true;
-      debug(`MCP 활성화: ${tools.length}개 tool`);
+      debug(`MCP 활성화: ${mcpTools.length}개 tool`);
     } catch (err) {
-      debug(`MCP 서버 기동 실패, fallback:`, errorMessage(err));
+      debug(`MCP URL 확보 실패, fallback:`, errorMessage(err));
     }
   }
 
@@ -676,13 +690,13 @@ async function ensureSession(
   const store = getSessionStore();
   const storeKey = getHostSessionStoreKey(cli, scopeKey);
   const savedSessionId = store.get(storeKey) ?? undefined;
-  let client: FleetAgentClient | null = null;
+  let client: IUnifiedAgentClient | null = null;
   let resumedFromSavedSession = false;
 
   try {
     debug(savedSessionId ? `session/load 복원 시도: session=${formatSessionPrefix(savedSessionId)}` : `새 연결 시작: cli=${cli}`);
     // Admiral host 응답 생성 경로는 전역 systemPrompt를 connect 옵션으로 직접 전달한다.
-    client = await buildProviderClient({ cli, sessionId: savedSessionId });
+    client = await UnifiedAgent.build({ cli, sessionId: savedSessionId });
     let connectResult;
     try {
       connectResult = await client.connect(buildProviderConnectOptions(
@@ -706,7 +720,7 @@ async function ensureSession(
       store.clear(storeKey);
       await client.disconnect().catch(() => {});
       client.removeAllListeners();
-      client = await buildProviderClient({ cli });
+      client = await UnifiedAgent.build({ cli });
       resumedFromSavedSession = false;
       connectResult = await client.connect(buildProviderConnectOptions(
         cli,
@@ -738,7 +752,7 @@ async function ensureSession(
     // 실패 시 정리
     await (client ?? newSession.client)?.disconnect().catch(() => {});
     (client ?? newSession.client)?.removeAllListeners();
-    if (mcpActive) removeToolsForSession(sessionToken);
+    if (mcpActive) mcpApi().removeTools(sessionToken);
     throw err;
   }
 }
@@ -761,8 +775,8 @@ async function disconnectSession(
   }
   // MCP tool registry 정리
   if (session.mcpSessionToken) {
-    clearPendingForSession(session.mcpSessionToken);
-    removeToolsForSession(session.mcpSessionToken);
+    mcpApi().clearPendingForSession(session.mcpSessionToken);
+    mcpApi().removeTools(session.mcpSessionToken);
     detachToolCallRouter(session);
     session.mcpSessionToken = undefined;
   }
@@ -1001,7 +1015,7 @@ async function runFreshQuery(
   // 매퍼 설정
   mapper.setTargetSessionId(session.sessionId);
   if (session.mcpSessionToken) {
-    mapper.setPiToolNames(getToolNamesForSession(session.mcpSessionToken));
+    mapper.setPiToolNames(mcpApi().getToolNames(session.mcpSessionToken));
   }
 
   // ── 이벤트 리스너 등록 ──
@@ -1110,7 +1124,7 @@ async function runToolResultDelivery(
     }
 
     // FIFO 큐 resolve — MCP HTTP 응답 반환
-    resolveNextToolCall(session.mcpSessionToken, result.toolCallId, mcpResult);
+    mcpApi().resolveNextToolCall(session.mcpSessionToken, result.toolCallId, mcpResult);
     consumePendingToolCall(state, session, result.toolCallId);
     debug(`tool result → MCP resolve 완료`);
   }
@@ -1118,7 +1132,7 @@ async function runToolResultDelivery(
   // ── 새 이벤트 매퍼로 ACP 이벤트 계속 수신 ──
   mapper.setTargetSessionId(session.sessionId);
   if (session.mcpSessionToken) {
-    mapper.setPiToolNames(getToolNamesForSession(session.mcpSessionToken));
+    mapper.setPiToolNames(mcpApi().getToolNames(session.mcpSessionToken));
   }
 
   // 이벤트 리스너 재등록 — ACP CLI가 MCP 응답 받고 계속 처리
@@ -1186,7 +1200,7 @@ function setupAbortHandling(
 
 /** Unified Agent provider client에 이벤트 리스너 등록 — 해제 함수 반환 */
 function wireListeners(
-  client: FleetAgentClient,
+  client: IUnifiedAgentClient,
   mapper: ReturnType<typeof createEventMapper>,
   session: AcpSessionState,
   mcpToken?: string,
@@ -1258,6 +1272,29 @@ function extractAllToolResults(
   return results;
 }
 
+/** 연결 후 reasoning/budget 설정을 세션에 적용한다. */
+async function applyPostConnectConfig(
+  client: Pick<IUnifiedAgentClient, "setConfigOption">,
+  cli: CliType,
+  overrides?: { effort?: string; budgetTokens?: number },
+): Promise<void> {
+  if (overrides?.effort && getReasoningEffortLevels(cli)) {
+    try {
+      await client.setConfigOption("reasoning_effort", overrides.effort);
+    } catch (err) {
+      console.warn(`[acp] setConfigOption 실패 (cli=${cli}, option=reasoning_effort)`, err);
+    }
+  }
+
+  if (cli === "claude" && overrides?.budgetTokens) {
+    try {
+      await client.setConfigOption("budget_tokens", String(overrides.budgetTokens));
+    } catch (err) {
+      console.warn(`[acp] setConfigOption 실패 (cli=${cli}, option=budget_tokens)`, err);
+    }
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Session lifecycle — register.ts에서 호출
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1270,9 +1307,6 @@ export async function cleanupAll(): Promise<void> {
   const state = getOrInitState();
 
   await clearSessionsAndPreSpawn(state);
-
-  // MCP 서버 종료
-  await stopMcpServer();
 
   debug("cleanupAll 완료");
 }
@@ -1305,7 +1339,7 @@ async function clearSessionsAndPreSpawn(state: AcpProviderState): Promise<void> 
   state.toolCallToSessionKey.clear();
   state.bridgeScopeSessionKeys.clear();
   state.sessionLaunchConfigs.clear();
-  clearAllTools();
+  mcpApi().clearAllTools();
 }
 
 function buildProviderConnectOptions(
@@ -1313,10 +1347,10 @@ function buildProviderConnectOptions(
   cwd: string,
   backendModel: string,
   systemPrompt?: string,
-  mcpServers?: FleetMcpConfig[],
+  mcpServers?: McpServerConfig[],
   sessionId?: string,
-): FleetProviderConnectOptions {
-  const connectOptions: FleetProviderConnectOptions = {
+): UnifiedClientOptions {
+  const connectOptions: UnifiedClientOptions = {
     cwd,
     cli,
     model: backendModel,
@@ -1343,7 +1377,7 @@ function buildProviderConnectOptions(
   return connectOptions;
 }
 
-function isProviderClientAlive(client: FleetAgentClient): boolean {
+function isProviderClientAlive(client: IUnifiedAgentClient): boolean {
   const info = client.getConnectionInfo();
   return info.state === "ready" || info.state === "connected";
 }

@@ -50,6 +50,25 @@ export { AcpConnection, createIdleTimeoutRace, type AcpConnectionOptions, type A
 // === CLI 감지 ===
 export { CliDetector } from './detector/CliDetector.js';
 
+// === 서비스 상태 ===
+export {
+  initServiceStatus,
+  resetServiceStatus,
+  attachStatusContext,
+  detachStatusContext,
+  refreshStatusNow,
+  getServiceSnapshots,
+  refreshStatusQuiet,
+} from './service-status/index.js';
+
+export type {
+  ServiceSnapshot,
+  HealthStatus,
+  ProviderKey,
+  ServiceStatusCallbacks,
+  ServiceStatusContextPort,
+} from './service-status/index.js';
+
 // === CLI 설정 ===
 export {
   CLI_BACKENDS,

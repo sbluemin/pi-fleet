@@ -33,7 +33,7 @@ Put code here when it is:
 - state/store logic that does not require Pi runtime objects
 - runtime contracts, ports, pure controllers, or public APIs
 
-Public consumption should prefer `FleetCoreRuntimeContext` from the package root or `@sbluemin/fleet-core/runtime`. `src/public/runtime.ts` is the canonical composition leaf, and `src/public/` should contain only runtime plus domain service modules. Older one-file public leaves are legacy removal candidates, not new export targets.
+Public consumption should prefer `FleetCoreRuntimeContext` from the package root. `src/public/runtime.ts` is the internal canonical composition leaf, and `src/public/` contains the domain service modules. Older one-file public leaves are legacy removal candidates, not new export targets.
 
 Do not put Pi registration or TUI mounting here.
 
@@ -103,7 +103,7 @@ When migrating or restoring behavior that once lived under those paths:
 ## 6. Import Rules
 
 - `pi-fleet-extension` must consume `fleet-core` through public exports only.
-- For runtime composition, use `@sbluemin/fleet-core` or `@sbluemin/fleet-core/runtime` and consume domain APIs through `FleetCoreRuntimeContext`. Direct shared-service subpaths are migration compatibility surfaces only; new public API should be modeled as a domain service. Keybind is not a Fleet Core public service.
+- For runtime composition, use `@sbluemin/fleet-core` and consume domain APIs through `FleetCoreRuntimeContext`. Direct shared-service subpaths are migration compatibility surfaces only; new public API should be modeled as a domain service. Keybind is not a Fleet Core public service.
 - `pi-fleet-extension` must consume Grand Fleet surfaces through `@sbluemin/fleet-core/admiralty` or `@sbluemin/fleet-core/admiralty/ipc`.
 - `pi-fleet-extension` may consume `@sbluemin/fleet-wiki` for Fleet Wiki adapters that live in the active bucket-local `src/*/fleet-wiki/` homes.
 - Do not deep-import `@sbluemin/fleet-core/src/**` or `@sbluemin/fleet-core/internal/**`.

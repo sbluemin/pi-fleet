@@ -14,10 +14,11 @@
 | `packages/` | First-party workspace packages: `unified-agent`, `fleet-core`, `fleet-wiki`, `pi-fleet-extension` |
 | `packages/fleet-core/` | Pi-agnostic Fleet product core — Fleet domain logic, prompts, runtime contracts, MCP/tool/job internals, **Admiral orchestration runtime**, and public APIs |
 | `packages/fleet-core/src/admiral/` | Admiral-owned Fleet orchestration/runtime modules: `_shared/` (detached-fanout), `bridge/`, `carrier/`, `carrier-jobs/`, `squadron/`, `taskforce/`, `store/` (provider-catalog), and `protocols/`. **Standing orders** are integrated under `protocols/standing-orders/`. |
-| `packages/fleet-core/src/services/` | Shared pure service modules. Includes `agent/` (shared/provider/dispatcher), `job/`, unified settings, unified log, and **tool-registry**. |
+| `packages/fleet-core/src/services/` | Shared pure service modules. Includes `job/`, `log/`, `settings/`, and **tool-registry**. |
 | `packages/fleet-core/src/admiralty/` | Grand Fleet domain home inside `fleet-core` (renamed from `gfleet`). Exposed via `@sbluemin/fleet-core/admiralty`. |
-| `packages/fleet-core/src/public/` | Public composition surface. Keep `runtime.ts` plus domain service modules only (`fleet-services`, `grand-fleet-services`, `metaphor-services`, `agent-services`, `job-services`, `log-services`, `settings-services`, `tool-registry-services`). Do not reintroduce legacy public leaves such as `agent-request`, `agent-runtime`, `host-ports`, `mcp`, `streaming-sink`, or raw `tool-registry`. |
+| `packages/fleet-core/src/public/` | Public composition surface. Keep `runtime.ts` plus domain service modules only (`fleet-services`, `grand-fleet-services`, `metaphor-services`, `job-services`, `log-services`, `settings-services`). Note that `agent-services`, `tool-registry-services`, and `agent-request` have been removed from the public surface. |
 | `packages/pi-fleet-extension/` | Pi capability package — Flat Domain Architecture mirroring fleet-core public services |
+| `packages/unified-agent/` | Minimal-dependency SDK for multi-CLI integration (Gemini, Claude, Codex). Now includes `service-status/` for unified health tracking. |
 | `packages/pi-fleet-extension/src/` | Root of pi-facing domains |
 | `packages/pi-fleet-extension/src/boot.ts` | Entry point — assembles the Fleet runtime by composing domain modules |
 | `packages/pi-fleet-extension/src/fleet.ts` | Fleet lifecycle, runtime initialization, and Pi host port implementation |
@@ -35,14 +36,12 @@ The `pi-fleet-extension` architecture mirrors the public services of `fleet-core
 
 | fleet-core Public Service | pi-fleet-extension Domain | Description |
 |---------------------------|---------------------------|-------------|
-| `agent-services`          | `src/agent/`              | Agent orchestration, providers, and carrier gateway |
+| `fleet-services`          | `src/agent/` & `src/fleet.ts` | Agent orchestration, providers, and carrier gateway |
 | `grand-fleet-services`    | `src/grand-fleet/`        | Multi-instance Grand Fleet orchestration |
-| `fleet-services`          | `src/fleet.ts`            | Fleet-wide bridge and orchestration features |
 | `metaphor-services`       | `src/metaphor.ts`         | Persona, worldview, and naval metaphors |
 | `job-services`            | `src/job.ts`              | Detached carrier job management |
 | `settings-services`       | `src/settings.ts`         | Fleet-wide settings and configuration |
 | `log-services`            | `src/log.ts`              | Fleet activity logging and categories |
-| `tool-registry-services`  | `src/tool-registry.ts`    | Tool registration and discovery |
 | `@sbluemin/fleet-wiki`    | `src/fleet-wiki/`         | Fleet knowledge base and ingest |
 | (Host specific)           | `src/shell/`              | Host shell integration and terminal features |
 
@@ -149,7 +148,7 @@ System Prompt
 
 - **Sub-agents are fully independent** — PI provides only background, objectives, and constraints. Never prescribe implementation details.
 - **Sub-agents are unaware of each other** — Cross-analysis is performed solely by PI after all responses are collected.
-- **Communication layer**: `runAgentRequest()` → `executeWithPool()` → ACP stdio (all CLIs use the same protocol).
+- **Communication layer**: pi consumers call `executeWithPool()` / `executeOneShot()` from `@sbluemin/fleet-core/admiral/agent-runtime` directly → ACP stdio (all CLIs use the same protocol).
 
 ## PI TUI Layout & Terminology
 

@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ExtensionContext, Theme } from "@mariozechner/pi-coding-agent";
 import { keyHint } from "@mariozechner/pi-coding-agent";
 import { Editor, type EditorTheme, Key, matchesKey, Text, truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
-import type { CliType } from "@sbluemin/fleet-core/agent/shared/client";
+import type { CliType } from "@sbluemin/unified-agent";
 import {
   REQUEST_DIRECTIVE_MANIFEST,
   RequestDirectiveParams,
@@ -18,6 +18,12 @@ import {
 import type { CarrierConfig, CarrierMetadata } from "@sbluemin/fleet-core/admiral/carrier";
 import * as carrierCore from "@sbluemin/fleet-core/admiral/carrier";
 import { loadModels as getModelConfig } from "@sbluemin/fleet-core/admiral/store";
+import {
+  executeWithPool,
+  type AgentStatus,
+  type ExecuteOptions,
+} from "@sbluemin/fleet-core/admiral/agent-runtime";
+import type { LogOptions } from "@sbluemin/fleet-core/services/log";
 import type { BackendProgress, TaskForceResult, TaskForceState } from "@sbluemin/fleet-core/admiral/taskforce";
 import type { SubtaskProgress, SquadronResult, SquadronState } from "@sbluemin/fleet-core/admiral/squadron";
 import { SQUADRON_MAX_INSTANCES, SQUADRON_STATE_KEY } from "@sbluemin/fleet-core/admiral/squadron";
@@ -36,19 +42,17 @@ import {
   SQUADRON_BADGE_COLOR,
   TASKFORCE_BADGE_COLOR,
 } from "@sbluemin/fleet-core/constants";
-import {
-  createFleetToolRegistry,
-  type AgentToolCtx,
-  type AgentToolSpec,
-  type FleetHostPorts,
-  type FleetToolRegistryPorts,
+import type {
+  AgentToolCtx,
+  AgentToolSpec,
+  FleetServicesPorts,
 } from "@sbluemin/fleet-core";
 
 import { enqueueCarrierCompletionPush } from "./agent/carrier-completion.js";
 import { createPanelStreamingSink } from "./agent/ui/agent-panel/streaming-sink.js";
-import { getFleetRuntime } from "./fleet.js";
 import { setAgentPanelModelConfig } from "./agent/ui/panel/config.js";
 import { renderCarrierJobsCall, renderCarrierJobsResult, type CarrierJobsToolResult } from "./job.js";
+import { getFleetRuntime } from "./fleet.js";
 import {
   createDefaultResponseRenderer,
   createDefaultUserRenderer,
@@ -68,6 +72,8 @@ interface RenderEntry {
   text: string;
 }
 
+type UnifiedAgentRequestStatus = "done" | "error" | "aborted";
+
 export interface SingleCarrierOptions {
   /** 정렬 및 표시용 슬롯 번호 */
   slot: number;
@@ -85,7 +91,7 @@ const SHIPYARD_PROMPT_CATEGORY_BOOTSTRAP_KEY = "__fleet_shipyard_prompt_category
 const COLLAPSED_MAX_LINES = 5;
 const PREFIX = "╎";
 const DIM = "\x1b[2m";
-const noopHostPorts: FleetHostPorts = {
+const noopToolPorts: AgentToolCtx["ports"] = {
   sendCarrierResultPush() {},
   notify(level, message) {
     getLogAPI().log(level, "fleet-tool", message);
@@ -97,6 +103,8 @@ const noopHostPorts: FleetHostPorts = {
   getDeliverAs() { return undefined; },
 };
 
+let fleetRegistryPi: ExtensionAPI | undefined;
+
 export function registerToolRegistry(ctx: ExtensionAPI, fleetEnabled: boolean): void {
   if (fleetEnabled) {
     registerFleetPiTools(ctx);
@@ -107,7 +115,8 @@ export function registerToolRegistry(ctx: ExtensionAPI, fleetEnabled: boolean): 
 }
 
 export function registerFleetPiTools(pi: ExtensionAPI): void {
-  const specs = createFleetToolRegistry(createFleetRegistryPorts(pi));
+  fleetRegistryPi = pi;
+  const specs = (getFleetRuntime().fleet as unknown as { readonly tools: readonly AgentToolSpec[] }).tools;
 
   for (const spec of specs) {
     pi.registerTool(toPiToolConfig(spec) as any);
@@ -246,16 +255,19 @@ function syncModelConfig(): void {
   setAgentPanelModelConfig(getModelConfig());
 }
 
-function createFleetRegistryPorts(pi: ExtensionAPI): FleetToolRegistryPorts {
+export function createFleetRegistryPorts(pi?: ExtensionAPI): FleetServicesPorts {
   return {
-    logDebug(category, message, options) {
+    logDebug(category: string, message: string, options?: LogOptions) {
       getLogAPI().debug(category, message, options as Parameters<ReturnType<typeof getLogAPI>["debug"]>[2]);
     },
-    runAgentRequestBackground(options) {
-      return getFleetRuntime().agent.runBackground(options);
+    runAgentRequestBackground(options: Parameters<typeof runAgentRequestBackground>[0]) {
+      return runAgentRequestBackground(options);
     },
-    enqueueCarrierCompletionPush(payload) {
-      enqueueCarrierCompletionPush(pi, payload);
+    enqueueCarrierCompletionPush(payload: Parameters<typeof enqueueCarrierCompletionPush>[1]) {
+      const currentPi = pi ?? fleetRegistryPi;
+      if (currentPi) {
+        enqueueCarrierCompletionPush(currentPi, payload);
+      }
     },
     streamingSink: createPanelStreamingSink(),
   };
@@ -287,8 +299,58 @@ function buildAgentToolCtx(toolCallId: string, signal: AbortSignal | undefined, 
     toolCallId,
     signal,
     now: () => Date.now(),
-    ports: noopHostPorts,
+    ports: noopToolPorts,
   };
+}
+
+async function runAgentRequestBackground(options: {
+  cli: ExecuteOptions["cliType"];
+  carrierId: string;
+  request: string;
+  cwd: string;
+  signal?: AbortSignal;
+  connectSystemPrompt?: string | null;
+  onMessageChunk?: ExecuteOptions["onMessageChunk"];
+  onThoughtChunk?: ExecuteOptions["onThoughtChunk"];
+  onToolCall?: ExecuteOptions["onToolCall"];
+}) {
+  const cliConfig = getModelConfig()[options.carrierId];
+  const result = await executeWithPool({
+    carrierId: options.carrierId,
+    cliType: options.cli,
+    request: options.request,
+    cwd: options.cwd,
+    model: cliConfig?.model,
+    effort: cliConfig?.effort,
+    budgetTokens: cliConfig?.budgetTokens,
+    connectSystemPrompt: options.connectSystemPrompt,
+    signal: options.signal,
+    onMessageChunk: options.onMessageChunk,
+    onThoughtChunk: options.onThoughtChunk,
+    onToolCall: options.onToolCall,
+  });
+  const finalStatus = toFinalStatus(result.status);
+  return {
+    status: finalStatus,
+    responseText: result.responseText,
+    sessionId: result.connectionInfo.sessionId ?? undefined,
+    error: result.error,
+    thinking: result.thoughtText || undefined,
+    toolCalls: result.toolCalls.length > 0
+      ? result.toolCalls.map((toolCall) => ({
+        title: toolCall.title,
+        status: toolCall.status,
+      }))
+      : undefined,
+    streamData: result.streamData,
+  };
+}
+
+function toFinalStatus(status: AgentStatus): UnifiedAgentRequestStatus {
+  if (status === "done" || status === "aborted") {
+    return status;
+  }
+  return "error";
 }
 
 function renderToolCall(spec: AgentToolSpec, args: unknown, _theme: Theme, context: PiRenderContext): unknown {

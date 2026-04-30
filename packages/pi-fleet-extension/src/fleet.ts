@@ -1,12 +1,13 @@
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
-import type { CliType } from "@sbluemin/fleet-core/agent/shared/client";
+import { attachStatusContext, detachStatusContext, refreshStatusNow } from "@sbluemin/unified-agent";
+import type { CliType, ServiceStatusContextPort } from "@sbluemin/unified-agent";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
 import { DynamicBorder } from "@mariozechner/pi-coding-agent";
 import { Container, type SelectItem, SelectList, Text } from "@mariozechner/pi-tui";
-import { createFleetCoreRuntime, type AgentStreamingSink, type FleetCoreRuntimeContext, type FleetHostPorts } from "@sbluemin/fleet-core";
+import { createFleetCoreRuntime, type FleetCoreRuntimeContext, type FleetServicesPorts } from "@sbluemin/fleet-core";
 import {
   buildRuntimeContextPrompt,
   buildSystemPrompt,
@@ -14,6 +15,10 @@ import {
   getAllProtocols,
   setActiveProtocol,
 } from "@sbluemin/fleet-core/admiral";
+import {
+  cleanIdleClients,
+  onHostSessionChange,
+} from "@sbluemin/fleet-core/admiral/agent-runtime";
 import {
   composeOperationNameRequest,
   loadSettings as loadOperationNameSettings,
@@ -28,22 +33,17 @@ import {
   reconcileActiveModelSelections,
   saveSquadronEnabled,
 } from "@sbluemin/fleet-core/admiral/store";
-import { cleanIdleClients } from "@sbluemin/fleet-core/agent/dispatcher/pool";
-import { onHostSessionChange } from "@sbluemin/fleet-core/agent/dispatcher/runtime";
-import { setCliRuntimeContext } from "@sbluemin/fleet-core/agent/provider/types";
 import { isWorldviewEnabled } from "@sbluemin/fleet-core/metaphor";
 import { getLogAPI } from "@sbluemin/fleet-core/services/log";
+import { setCliRuntimeContext } from "./agent/provider-internal/state.js";
 import { bootBridge, ensureBridgeKeybinds } from "./agent/ui/acp-shell/register.js";
 import { syncModelConfig } from "./agent/carrier/model-ui.js";
 import { completeSimple } from "./agent/provider.js";
 import type { Api, Model, ThinkingLevel } from "./agent/provider.js";
 import { registerGrandFleet } from "./grand-fleet/index.js";
 import { getKeybindAPI } from "./shell/keybinds/core/bridge.js";
-import { attachStatusContext, detachStatusContext, refreshStatusNow } from "./agent/provider-internal/service-status-store.js";
 import { exposeAgentApi } from "./agent/runner.js";
-import { createPanelStreamingSink } from "./agent/ui/agent-panel/streaming-sink.js";
 import { detachAgentPanelUi, refreshAgentPanel } from "./agent/ui/panel-lifecycle.js";
-import { setAgentPanelServiceLoading, setAgentPanelServiceStatus } from "./agent/ui/panel/config.js";
 import { setDeliverAs, getDeliverAs } from "./settings.js";
 import {
   getRegisteredCarrierConfig,
@@ -52,6 +52,7 @@ import {
   notifyStatusUpdate,
   registerRequestDirective,
   registerSingleCarrier,
+  createFleetRegistryPorts,
   setPendingCliTypeOverrides,
   setSortieDisabledCarriers,
   setSquadronEnabledCarriers,
@@ -92,6 +93,16 @@ interface HudRenderRequestBridge {
   requestRender?: (() => void) | null;
 }
 
+interface PiServiceStatusContextLike {
+  hasUI?: boolean;
+  sessionManager?: {
+    getSessionId?: () => string;
+  };
+  ui?: {
+    notify?: (message: string, level: "info" | "warning") => void;
+  };
+}
+
 const FLEET_PREAMBLE = String.raw`
 This system prompt contains ${"\`"}<fleet section="...">${"\`"} XML blocks that define your identity, doctrine, and operational rules.
 Each block's ${"\`"}section${"\`"} attribute defines its domain; ${"\`"}tool${"\`"} narrows the scope to that specific tool.
@@ -121,7 +132,6 @@ const HUD_RENDER_REQUEST_GLOBAL_KEY = "__pi_hud_render_request__";
 const OPERATION_NAME_ATTEMPTS = new Set<string>();
 
 let fleetRuntime: FleetCoreRuntimeContext | undefined;
-let currentAgentRequestCtx: ExtensionContext | undefined;
 let bootConfig: BootConfig | null = null;
 
 export { bootBridge, ensureBridgeKeybinds };
@@ -135,7 +145,7 @@ export function registerFleetLifecycle(pi: ExtensionAPI): FleetLifecycleRuntime 
   }
 
   const dataDir = resolveFleetDataDir();
-  initializeFleetRuntime(dataDir);
+  initializeFleetRuntime(dataDir, pi);
   restoreFleetPreRegistrationState();
 
   bootAdmiral(pi);
@@ -187,25 +197,13 @@ export function resolveFleetDataDir(): string {
   return path.join(os.homedir(), ".pi", "fleet");
 }
 
-export function initializeFleetRuntime(dataDir: string, ctx?: ExtensionContext): void {
-  fleetRuntime = createFleetCoreRuntime({
-    dataDir,
-    ports: createFleetHostPorts(createPanelStreamingSink(() => currentAgentRequestCtx ?? ctx)),
-  });
+export function initializeFleetRuntime(dataDir: string, pi?: ExtensionAPI): void {
+  const createRuntime = createFleetCoreRuntime as unknown as (options: {
+    dataDir: string;
+    ports: FleetServicesPorts;
+  }) => FleetCoreRuntimeContext;
+  fleetRuntime = createRuntime({ dataDir, ports: createFleetRegistryPorts(pi) });
   exposeAgentApi();
-}
-
-export async function withAgentRequestContext<T>(
-  ctx: ExtensionContext,
-  run: () => Promise<T>,
-): Promise<T> {
-  const previous = currentAgentRequestCtx;
-  currentAgentRequestCtx = ctx;
-  try {
-    return await run();
-  } finally {
-    currentAgentRequestCtx = previous;
-  }
 }
 
 export function getFleetRuntime(): FleetCoreRuntimeContext {
@@ -290,7 +288,7 @@ export function registerFleetPiCommands(pi: ExtensionAPI): void {
   pi.registerCommand("fleet:agent:status", {
     description: "지원 CLI 서비스 상태를 즉시 새로고침",
     handler: async (_args, ctx) => {
-      await refreshStatusNow(ctx);
+      await refreshStatusNow(toServiceStatusContext(ctx));
     },
   });
 
@@ -430,7 +428,7 @@ function bindFleetHostSession(ctx: ExtensionContext): void {
   syncOperationNameSession(sessionId);
   cleanIdleClients();
   refreshAgentPanel(ctx);
-  attachStatusContext(ctx);
+  attachStatusContext(toServiceStatusContext(ctx));
 }
 
 function clearFleetAcpPrompts(): void {
@@ -619,28 +617,15 @@ function requestHudRender(): void {
   bridge?.requestRender?.();
 }
 
-function createFleetHostPorts(streamingSink?: AgentStreamingSink): FleetHostPorts {
+function toServiceStatusContext(ctx: PiServiceStatusContextLike): ServiceStatusContextPort {
   return {
-    sendCarrierResultPush() {},
-    notify(level, message) {
-      getLogAPI().log(level, "fleet-boot", message);
+    hasUI: ctx.hasUI === true,
+    getSessionId() {
+      return ctx.sessionManager?.getSessionId?.() ?? null;
     },
-    loadSetting() {
-      return undefined;
+    notify(message, level) {
+      ctx.ui?.notify?.(message, level);
     },
-    saveSetting() {},
-    registerKeybind() {
-      return () => {};
-    },
-    now: () => Date.now(),
-    getDeliverAs() {
-      return undefined;
-    },
-    serviceStatus: {
-      setLoading: setAgentPanelServiceLoading,
-      setStatus: setAgentPanelServiceStatus,
-    },
-    streamingSink,
   };
 }
 

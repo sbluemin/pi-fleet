@@ -28,11 +28,12 @@ Agents must not confuse logical ownership with physical domain layout. `packages
 - prompt composition and doctrine assets
 - persona, tone, worldview, operation-name, and directive-refinement domain logic
 - Admiral-owned carrier, carrier-jobs, squadron, taskforce, store, and bridge state/data layers under `src/admiral/`
-- agent domain logic (structured into `shared/`, `provider/`, and `dispatcher/`) and job domain logic under `src/services/`
+- Agent execution (session pool, executeWithPool/executeOneShot, MCP server, session-store, runtime) consolidated under `src/admiral/_shared/agent-runtime.ts` + `src/admiral/_shared/mcp.ts`
+- Tool registry/snapshot domain under `src/services/tool-registry/` and job domain logic under `src/services/job/`
 - pure runtime stores, ports, and adapter-facing contracts
 - shared doctrine/runtime surfaces consumed by extracted leaf packages
 
-Runtime composition is exposed through the package root and `@sbluemin/fleet-core/runtime`. Public service access should flow through `FleetCoreRuntimeContext` domain services; legacy direct subpaths remain migration compatibility only.
+Runtime composition is exposed only through the package root (`@sbluemin/fleet-core`). The legacy `@sbluemin/fleet-core/runtime` subpath has been removed. Public service access flows through `FleetCoreRuntimeContext` (`fleet`, `grandFleet`, `metaphor`, `jobs`, `log`, `settings`, `shutdown`); the agent runtime layer is reachable via the `@sbluemin/fleet-core/admiral/agent-runtime` compatibility subpath for adapters that need direct executor access.
 
 `fleet-core` must not own:
 

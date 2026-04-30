@@ -1,4 +1,4 @@
-import type { HealthStatus, ProviderKey } from "../../../services/agent/shared/types.js";
+import type { HealthStatus, ProviderKey } from "@sbluemin/unified-agent";
 
 export type CarrierCliType = ProviderKey;
 

@@ -5,12 +5,12 @@ import {
   setOnToolCallArrived,
   startMcpServer,
   stopMcpServer,
-} from "../../src/services/agent/provider/mcp.js";
+} from "../../src/admiral/_shared/mcp.js";
 import {
   clearAllTools,
   registerToolsForSession,
   removeToolsForSession,
-} from "../../src/services/agent/provider/tool-snapshot.js";
+} from "../../src/services/tool-registry/tool-snapshot.js";
 
 describe("provider-mcp", () => {
   beforeEach(() => {

@@ -1,27 +1,34 @@
 import { describe, expect, it, vi } from "vitest";
 
-const runBackground = vi.fn(async (opts: any) => {
-  return {
+const mocks = vi.hoisted(() => ({
+  executeWithPool: vi.fn(async (_options: any) => ({
     status: "done",
     responseText: "ok",
-    sessionId: "session-1",
-    error: undefined,
-    thinking: "thinking",
+    thoughtText: "thinking",
     toolCalls: [{ title: "Read", status: "done" }],
-    observedOptions: opts,
-  };
-});
-
-vi.mock("../../src/fleet.js", () => ({
-  getFleetRuntime: () => ({
-    agent: {
-      runBackground,
+    streamData: {
+      text: "ok",
+      thinking: "thinking",
+      toolCalls: [{ title: "Read", status: "done" }],
+      blocks: [{ type: "text", text: "ok" }],
+      lastStatus: "done",
     },
-  }),
+    connectionInfo: { sessionId: "session-1" },
+  })),
+}));
+
+vi.mock("@sbluemin/fleet-core/admiral/agent-runtime", () => ({
+  executeWithPool: mocks.executeWithPool,
+  getSessionStore: vi.fn(() => ({
+    get: vi.fn(),
+    set: vi.fn(),
+    clear: vi.fn(),
+    getAll: vi.fn(() => ({})),
+    restore: vi.fn(),
+  })),
 }));
 
 import { createPanelStreamingSink } from "../../src/agent/ui/agent-panel/streaming-sink.js";
-import { getFleetRuntime } from "../../src/fleet.js";
 import { getState, syncColsWithRegisteredOrder } from "../../src/agent/ui/panel/state.js";
 import * as panelState from "../../src/agent/ui/panel/state.js";
 import { resetRuns } from "@sbluemin/fleet-core/admiral/bridge/run-stream";
@@ -30,22 +37,23 @@ import { isStaleExtensionContextError } from "../../src/shell/context-errors.js"
 import { syncCurrentWidget, syncWidget } from "../../src/agent/ui/panel/widget-sync.js";
 
 describe("background ctx isolation", () => {
-  it("runs background carrier requests with explicit cwd and no ExtensionContext", async () => {
+  it("runs background carrier requests through agent-runtime with explicit cwd and no ExtensionContext", async () => {
     resetPanelGlobals();
 
-    const result = await getFleetRuntime().agent.runBackground({
-      cli: "codex",
+    const result = await mocks.executeWithPool({
+      cliType: "codex",
       carrierId: "genesis",
       request: "work",
       cwd: "/tmp/background",
     });
 
     expect(result.status).toBe("done");
-    expect(runBackground).toHaveBeenCalledWith(expect.objectContaining({
+    expect(mocks.executeWithPool).toHaveBeenCalledWith(expect.objectContaining({
+      cliType: "codex",
       carrierId: "genesis",
       cwd: "/tmp/background",
     }));
-    expect(runBackground).toHaveBeenCalledWith(expect.not.objectContaining({ ctx: expect.anything() }));
+    expect(mocks.executeWithPool).toHaveBeenCalledWith(expect.not.objectContaining({ ctx: expect.anything() }));
     expect(result.toolCalls).toEqual([{ title: "Read", status: "done" }]);
   });
 

@@ -1,8 +1,18 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CARRIER_FRAMEWORK_KEY } from "@sbluemin/fleet-core/admiral/carrier";
 import { createRun, finalizeRun } from "@sbluemin/fleet-core/admiral/bridge/run-stream";
 import type { AgentCol } from "../../src/agent/ui/panel/types.js";
 import { getState, makeFooterCols } from "../../src/agent/ui/panel/state.js";
+
+vi.mock("@sbluemin/fleet-core/admiral/agent-runtime", () => ({
+  getSessionStore: vi.fn(() => ({
+    get: vi.fn(),
+    set: vi.fn(),
+    clear: vi.fn(),
+    getAll: vi.fn(() => ({})),
+    restore: vi.fn(),
+  })),
+}));
 
 function makeCol(cli: string, status: AgentCol["status"]): AgentCol {
   return {

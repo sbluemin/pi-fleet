@@ -1,0 +1,50 @@
+{
+  "fleet-core-runtime-context-shape": {
+    "path": "wiki/fleet-core-runtime-context-shape.md",
+    "title": "FleetCoreRuntimeContext shape after destructive cleansing — do not re-add removed fields",
+    "tags": [
+      "fleet-core",
+      "public-api",
+      "doctrine",
+      "invariant"
+    ],
+    "updated": "2026-04-30T17:59:31.228Z"
+  },
+  "fleet-mcp-server-internal-lifecycle": {
+    "path": "wiki/fleet-mcp-server-internal-lifecycle.md",
+    "title": "MCP server lifecycle is internal to fleet-core — startServer/stopServer NOT exposed",
+    "tags": [
+      "fleet-core",
+      "fleet-services",
+      "mcp",
+      "invariant",
+      "lifecycle"
+    ],
+    "updated": "2026-04-30T17:58:21.704Z"
+  },
+  "fleet-services-tools-lazy-getter": {
+    "path": "wiki/fleet-services-tools-lazy-getter.md",
+    "title": "FleetServices.tools must be a lazy getter",
+    "tags": [
+      "fleet-core",
+      "fleet-services",
+      "invariant",
+      "mcp",
+      "tool-spec"
+    ],
+    "updated": "2026-04-30T17:57:54.360Z"
+  },
+  "tool-snapshot-single-store-invariant": {
+    "path": "wiki/tool-snapshot-single-store-invariant.md",
+    "title": "Tool snapshot store has a single source of truth — never duplicate it in pi-fleet-extension",
+    "tags": [
+      "fleet-core",
+      "pi-fleet-extension",
+      "tool-snapshot",
+      "mcp",
+      "invariant",
+      "trap"
+    ],
+    "updated": "2026-04-30T17:58:58.444Z"
+  }
+}

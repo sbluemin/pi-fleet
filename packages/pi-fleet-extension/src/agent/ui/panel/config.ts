@@ -7,8 +7,8 @@
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { MIN_BODY_H, MAX_BODY_H, formatPanelMultiColHint } from "@sbluemin/fleet-core/constants";
-import type { ServiceSnapshot } from "@sbluemin/fleet-core/agent/shared/types";
 import { getState } from "./state.js";
+import type { ServiceSnapshot } from "./state.js";
 import { syncCurrentWidget, syncWidget } from "./widget-sync.js";
 
 // ─── 모델 설정 동기화 ──────────────────────────────────────

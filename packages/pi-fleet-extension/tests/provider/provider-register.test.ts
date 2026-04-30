@@ -6,8 +6,8 @@ const mockState = vi.hoisted(() => ({
   handlers: new Map<string, Function>(),
 }));
 
-vi.mock("@sbluemin/fleet-core/agent/provider/client", () => ({
-  getProviderModelsRegistry: () => ({
+vi.mock("@sbluemin/unified-agent", () => ({
+  getModelsRegistry: () => ({
     providers: {
       codex: {
         models: [{ modelId: "gpt-5.4", name: "GPT-5.4" }],
@@ -21,7 +21,7 @@ vi.mock("@sbluemin/fleet-core/agent/provider/client", () => ({
   }),
 }));
 
-vi.mock("@sbluemin/fleet-core/agent/dispatcher/runtime", () => ({
+vi.mock("../../src/agent/provider-internal/session-runtime.js", () => ({
   initRuntime: vi.fn(),
   onHostSessionChange: vi.fn(),
 }));
@@ -46,7 +46,7 @@ vi.mock("../../src/agent/provider-internal/thinking-level-patch.js", () => ({
 
 import registerProviderRuntime from "../../src/agent/provider-internal/provider-register.js";
 import { handleSessionStart } from "../../src/agent/provider-internal/provider-stream.js";
-import { initRuntime, onHostSessionChange } from "@sbluemin/fleet-core/agent/dispatcher/runtime";
+import { initRuntime, onHostSessionChange } from "../../src/agent/provider-internal/session-runtime.js";
 
 describe("provider register", () => {
   it("provider 자체가 Fleet session-map runtime을 초기화하고 session_start에서 PI session에 바인딩한다", async () => {

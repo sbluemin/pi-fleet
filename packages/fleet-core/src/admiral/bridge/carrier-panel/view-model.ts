@@ -1,5 +1,5 @@
 import { getRunById, getVisibleRun } from "../run-stream/stream-store.js";
-import type { ColBlock, ColStatus } from "../../../services/agent/shared/types.js";
+import type { ColBlock, ColStatus } from "../../_shared/agent-runtime.js";
 import type { ColumnTrack, PanelJob } from "./types.js";
 
 export interface PanelTrackViewModel {

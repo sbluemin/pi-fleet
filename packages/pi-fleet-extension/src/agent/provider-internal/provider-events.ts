@@ -13,10 +13,10 @@
 
 import type { AssistantMessage } from "../provider.js";
 import { createAssistantMessageEventStream } from "../provider.js";
-import type { FleetAcpToolCall, FleetAcpToolCallUpdate } from "@sbluemin/fleet-core/agent/shared/client";
+import type { AcpToolCall, AcpToolCallUpdate } from "@sbluemin/unified-agent";
 
-import { PROVIDER_ID } from "@sbluemin/fleet-core/agent/provider/types";
 import { getLogAPI } from "@sbluemin/fleet-core/services/log";
+import { PROVIDER_ID } from "./state.js";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types / Interfaces
@@ -32,8 +32,8 @@ export interface EventMapperHandle {
   listeners: {
     onMessageChunk: (text: string, sessionId: string) => void;
     onThoughtChunk: (text: string, sessionId: string) => void;
-    onToolCall: (title: string, status: string, sessionId: string, data?: FleetAcpToolCall) => void;
-    onToolCallUpdate: (title: string, status: string, sessionId: string, data?: FleetAcpToolCallUpdate) => void;
+    onToolCall: (title: string, status: string, sessionId: string, data?: AcpToolCall) => void;
+    onToolCallUpdate: (title: string, status: string, sessionId: string, data?: AcpToolCallUpdate) => void;
     onPromptComplete: (sessionId: string) => void;
     onError: (error: Error) => void;
     onExit: (code: number | null, signal: string | null) => void;
@@ -250,7 +250,7 @@ export function createEventMapper(
     title: string,
     status: string,
     sessionId: string,
-    data?: FleetAcpToolCall,
+    data?: AcpToolCall,
   ): void => {
     if (sessionId !== targetSessionId || finished) return;
     ensureStarted();
@@ -291,7 +291,7 @@ export function createEventMapper(
     title: string,
     status: string,
     sessionId: string,
-    data?: FleetAcpToolCallUpdate,
+    data?: AcpToolCallUpdate,
   ): void => {
     if (sessionId !== targetSessionId || finished) return;
 

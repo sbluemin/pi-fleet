@@ -15,7 +15,6 @@ import {
   SPINNER_FRAMES,
   SYM_INDICATOR,
 } from "@sbluemin/fleet-core/constants";
-import type { ColStatus } from "@sbluemin/fleet-core/agent/shared/types";
 import { buildPanelViewModel } from "@sbluemin/fleet-core/admiral/bridge/carrier-panel";
 import type { PanelJobViewModel, PanelTrackViewModel } from "@sbluemin/fleet-core/admiral/bridge/carrier-panel";
 
@@ -25,6 +24,7 @@ import {
   resolveCarrierRgb,
 } from "../../tool-registry.js";
 import type { PanelJob } from "../../agent/ui/panel/types.js";
+import type { ColStatus } from "../../agent/ui/panel/types.js";
 import { blockLineToAnsi, renderBlockLines } from "./block-renderer.js";
 
 interface WaveConfig {

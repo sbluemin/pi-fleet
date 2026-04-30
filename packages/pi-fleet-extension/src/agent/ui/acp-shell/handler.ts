@@ -1,13 +1,12 @@
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
-
+import { getShellPopupBridge } from "../../../shell/tui/shell/types.js";
 import {
   DEFAULT_BRIDGE_SCOPE,
   getBridgeScopeSession,
   getOrInitState,
   getSessionLaunchConfig,
   parseModelId,
-} from "@sbluemin/fleet-core/agent/provider/types";
-import { getShellPopupBridge } from "../../../shell/tui/shell/types.js";
+} from "../../provider-internal/state.js";
 import { buildBridgeCommand } from "./command.js";
 import type { ActiveBridgeSession } from "./types.js";
 

@@ -12,7 +12,6 @@
 
 import { getMarkdownTheme } from "@mariozechner/pi-coding-agent";
 import { Container, Markdown, Spacer, Text } from "@mariozechner/pi-tui";
-import type { ColBlock } from "@sbluemin/fleet-core/agent/shared/types";
 import {
   ANSI_RESET,
   PANEL_DIM_COLOR,
@@ -21,6 +20,7 @@ import {
   SYM_INDICATOR,
   SYM_THINKING,
 } from "@sbluemin/fleet-core/constants";
+import type { ColBlock } from "../../agent/ui/panel/types.js";
 
 /** 렌더링된 블록 라인의 의미적 타입 */
 export type BlockLineType =

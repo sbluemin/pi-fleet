@@ -2,9 +2,7 @@ import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import type {
   AgentStreamEvent,
   AgentStreamKey,
-  AgentStreamingSink,
-} from "@sbluemin/fleet-core";
-import type { ColStatus } from "@sbluemin/fleet-core/agent/shared/types";
+} from "@sbluemin/fleet-core/admiral/agent-runtime";
 import {
   appendTextBlockByRunId,
   appendThoughtBlockByRunId,
@@ -14,6 +12,7 @@ import {
   updateRunStatusByRunId,
   upsertToolBlockByRunId,
 } from "@sbluemin/fleet-core/admiral/bridge/run-stream";
+import type { ColStatus } from "../panel/types.js";
 
 import {
   beginColStreaming,
@@ -23,6 +22,10 @@ import {
 import { findColIndex } from "../panel/state.js";
 
 export type PanelStreamingContextResolver = () => ExtensionContext | undefined;
+
+export interface AgentStreamingSink {
+  onAgentStreamEvent(event: AgentStreamEvent): void | Promise<void>;
+}
 
 interface PanelStreamState {
   readonly ctx?: ExtensionContext;

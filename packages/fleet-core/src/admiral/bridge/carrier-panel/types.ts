@@ -6,7 +6,7 @@
  * ⚠️ 이 파일은 런타임 코드가 아닌 순수 타입/인터페이스만 포함합니다.
  */
 
-import type { ColBlock, ColStatus } from "../../../services/agent/shared/types.js";
+import type { ColBlock, ColStatus } from "../../_shared/agent-runtime.js";
 import type { PanelJobKind, PanelJobStatus } from "../run-stream/types.js";
 
 export interface AgentCol {

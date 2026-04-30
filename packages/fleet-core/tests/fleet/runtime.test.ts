@@ -19,7 +19,7 @@ import {
   getSessionStore,
   getSessionId,
   getDataDir,
-} from "../../src/services/agent/dispatcher/runtime.js";
+} from "../../src/admiral/_shared/agent-runtime.js";
 import {
   initStore,
   loadModels as getModelConfig,

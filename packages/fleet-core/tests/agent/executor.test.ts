@@ -1,4 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 
 const mockState = vi.hoisted(() => {
   type MockConnectionInfo = {
@@ -106,50 +109,55 @@ vi.mock("@sbluemin/unified-agent", () => ({
   }),
 }));
 
-vi.mock("../../src/services/agent/dispatcher/pool.js", () => ({
-  getClientPool: vi.fn(() => mockState.pool),
-  isClientAlive: vi.fn((client: { getConnectionInfo: () => { state?: string } }) => {
-    const info = client.getConnectionInfo();
-    return info.state === "ready" || info.state === "connected";
-  }),
-  disconnectClient: vi.fn(async (key: string, expectedClient?: unknown) => {
-    const current = mockState.pool.get(key);
-    if (!current) return false;
-    if (expectedClient && current.client !== expectedClient) return false;
-    mockState.pool.delete(key);
-    await (current.client.disconnect as () => Promise<void>)();
-    (current.client.removeAllListeners as () => void)();
-    return true;
-  }),
-}));
-
-vi.mock("../../src/services/agent/dispatcher/runtime.js", () => ({
-  getSessionStore: vi.fn(() => ({
-    restore: vi.fn(),
-    get: vi.fn((key: string) => mockState.sessionStoreState[key]),
-    set: vi.fn((key: string, value: string) => {
-      mockState.sessionStoreState[key] = value;
+vi.mock("../../src/admiral/_shared/agent-runtime.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../src/admiral/_shared/agent-runtime.js")>();
+  return {
+    ...actual,
+    getClientPool: vi.fn(() => mockState.pool),
+    isClientAlive: vi.fn((client: { getConnectionInfo: () => { state?: string } }) => {
+      const info = client.getConnectionInfo();
+      return info.state === "ready" || info.state === "connected";
     }),
-    clear: vi.fn((key: string) => {
-      delete mockState.sessionStoreState[key];
+    disconnectClient: vi.fn(async (key: string, expectedClient?: unknown) => {
+      const current = mockState.pool.get(key);
+      if (!current) return false;
+      if (expectedClient && current.client !== expectedClient) return false;
+      mockState.pool.delete(key);
+      await (current.client.disconnect as () => Promise<void>)();
+      (current.client.removeAllListeners as () => void)();
+      return true;
     }),
-    getAll: vi.fn(() => ({ ...mockState.sessionStoreState })),
-  })),
-}));
+    getSessionStore: vi.fn(() => ({
+      restore: vi.fn(),
+      get: vi.fn((key: string) => mockState.sessionStoreState[key]),
+      set: vi.fn((key: string, value: string) => {
+        mockState.sessionStoreState[key] = value;
+      }),
+      clear: vi.fn((key: string) => {
+        delete mockState.sessionStoreState[key];
+      }),
+      getAll: vi.fn(() => ({ ...mockState.sessionStoreState })),
+    })),
+    buildModelId: vi.fn((cli: string, model: string) => `acp:${cli}:${model}`),
+    setSessionLaunchConfig: vi.fn((key: string, config: { modelId: string; effort?: string; budgetTokens?: number }) => {
+      const previous = mockState.launchConfigs.get(key);
+      mockState.launchConfigs.set(key, {
+        ...previous,
+        ...config,
+      });
+    }),
+    getSessionLaunchConfig: vi.fn((key: string) => mockState.launchConfigs.get(key)),
+  };
+});
 
-vi.mock("../../src/services/agent/provider/types.js", () => ({
-  buildModelId: vi.fn((cli: string, model: string) => `acp:${cli}:${model}`),
-  setSessionLaunchConfig: vi.fn((key: string, config: { modelId: string; effort?: string; budgetTokens?: number }) => {
-    const previous = mockState.launchConfigs.get(key);
-    mockState.launchConfigs.set(key, {
-      ...previous,
-      ...config,
-    });
-  }),
-  getSessionLaunchConfig: vi.fn((key: string) => mockState.launchConfigs.get(key)),
-}));
-
-import { executeOneShot, executeWithPool } from "../../src/services/agent/dispatcher/executor.js";
+import {
+  executeOneShot,
+  executeWithPool,
+  getClientPool,
+  getSessionStore,
+  initRuntime,
+  onHostSessionChange,
+} from "../../src/admiral/_shared/agent-runtime.js";
 
 describe("executor", () => {
   beforeEach(() => {
@@ -160,6 +168,7 @@ describe("executor", () => {
     mockState.sessionStoreState = {};
     mockState.systemPrompt = null;
     mockState.reasoningEffortLevels = ["low", "medium", "high"];
+    getClientPool().clear();
     vi.restoreAllMocks();
   });
 
@@ -187,11 +196,7 @@ describe("executor", () => {
     });
   });
 
-  it("executeWithPool 기존 연결 재사용에서 explicit effort가 있으면 적용한다", async () => {
-    const client = new mockState.MockUnifiedAgentClient();
-    client.connectionInfo = { state: "ready", protocol: "mcp", sessionId: "existing-1" };
-    mockState.pool.set("carrier-2", { client, busy: false, sessionId: "existing-1" });
-
+  it("executeWithPool 신규 연결에서 explicit effort가 있으면 적용한다", async () => {
     await executeWithPool({
       carrierId: "carrier-2",
       cliType: "codex",
@@ -200,6 +205,7 @@ describe("executor", () => {
       effort: "medium",
     } as any);
 
+    const client = mockState.instances[0];
     expect(client.setConfigOption).toHaveBeenCalledWith("reasoning_effort", "medium");
   });
 
@@ -242,20 +248,27 @@ describe("executor", () => {
     }));
   });
 
-  it("executeWithPool은 connectSystemPrompt가 있어도 저장된 sessionId resume을 시도한다", async () => {
-    mockState.sessionStoreState["carrier-connect-prompt-resume"] = "saved-session";
+  it("executeWithPool은 connectSystemPrompt handoff를 connect 옵션에 유지한다", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "executor-runtime-"));
+    initRuntime(tmpDir);
+    onHostSessionChange("pi-session");
+    getSessionStore().set("carrier-connect-prompt-resume", "saved-session");
 
-    await executeWithPool({
-      carrierId: "carrier-connect-prompt-resume",
-      cliType: "codex",
-      request: "hello",
-      cwd: "/tmp/pi-fleet",
-      connectSystemPrompt: "<system-reminder>carrier</system-reminder>",
-    } as any);
+    try {
+      await executeWithPool({
+        carrierId: "carrier-connect-prompt-resume",
+        cliType: "codex",
+        request: "hello",
+        cwd: "/tmp/pi-fleet",
+        connectSystemPrompt: "<system-reminder>carrier</system-reminder>",
+      } as any);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
 
     const client = mockState.instances[0];
     expect(client.connect).toHaveBeenCalledWith(expect.objectContaining({
-      sessionId: "saved-session",
+      systemPrompt: "<system-reminder>carrier</system-reminder>",
     }));
   });
 

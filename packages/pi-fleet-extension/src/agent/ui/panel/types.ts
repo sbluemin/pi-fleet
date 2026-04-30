@@ -7,13 +7,16 @@
  */
 
 import type {
-  ColBlock,
-  ColStatus,
-} from "@sbluemin/fleet-core/agent/shared/types";
-import type {
   PanelJobKind,
   PanelJobStatus,
 } from "@sbluemin/fleet-core/admiral/bridge/run-stream";
+
+export type ColStatus = "wait" | "conn" | "stream" | "done" | "err";
+
+export type ColBlock =
+  | { type: "thought"; text: string }
+  | { type: "text"; text: string }
+  | { type: "tool"; title: string; status: string; rawOutput?: string; toolCallId?: string };
 
 /** 에이전트 패널 칼럼 데이터 */
 export interface AgentCol {

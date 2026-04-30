@@ -35,12 +35,18 @@ vi.mock("@mariozechner/pi-ai", () => ({
   }),
 }));
 
-vi.mock("@sbluemin/fleet-core/agent/provider/client", () => ({
+vi.mock("@sbluemin/unified-agent", () => ({
+  UnifiedAgent: {
+    build: vi.fn(async (opts: unknown) => {
+      mockState.buildArgs.push(opts);
+      return mockState.client;
+    }),
+  },
   buildProviderClient: vi.fn(async (opts: unknown) => {
     mockState.buildArgs.push(opts);
     return mockState.client;
   }),
-  getProviderModelsRegistry: () => ({
+  getModelsRegistry: () => ({
     providers: {
       claude: {
         models: [{ modelId: "opus", name: "Claude Opus" }],
@@ -62,36 +68,36 @@ vi.mock("@sbluemin/fleet-core/agent/provider/client", () => ({
   }),
 }));
 
-vi.mock("@sbluemin/fleet-core/agent/dispatcher/executor", () => ({
-  applyPostConnectConfig: vi.fn(async () => {}),
-}));
-
-vi.mock("@sbluemin/fleet-core/agent/dispatcher/runtime", () => ({
-  onHostSessionChange: vi.fn((piSessionId: string) => {
-    mockState.boundPiSessionId = piSessionId;
-    mockState.sessionStoreState = { ...(mockState.persistedSessionMaps[piSessionId] ?? {}) };
-  }),
-  getSessionStore: vi.fn(() => ({
-    restore: vi.fn(),
-    get: vi.fn((key: string) => mockState.sessionStoreState[key]),
-    set: vi.fn((key: string, value: string) => {
-      mockState.sessionStoreState[key] = value;
-      if (mockState.boundPiSessionId) {
-        mockState.persistedSessionMaps[mockState.boundPiSessionId] = {
-          ...(mockState.persistedSessionMaps[mockState.boundPiSessionId] ?? {}),
-          [key]: value,
-        };
-      }
+vi.mock("../../src/agent/provider-internal/session-runtime.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../src/agent/provider-internal/session-runtime.js")>();
+  return {
+    ...actual,
+    onHostSessionChange: vi.fn((piSessionId: string) => {
+      mockState.boundPiSessionId = piSessionId;
+      mockState.sessionStoreState = { ...(mockState.persistedSessionMaps[piSessionId] ?? {}) };
     }),
-    clear: vi.fn((key: string) => {
-      delete mockState.sessionStoreState[key];
-      if (mockState.boundPiSessionId && mockState.persistedSessionMaps[mockState.boundPiSessionId]) {
-        delete mockState.persistedSessionMaps[mockState.boundPiSessionId]![key];
-      }
-    }),
-    getAll: vi.fn(() => ({ ...mockState.sessionStoreState })),
-  })),
-}));
+    getSessionStore: vi.fn(() => ({
+      restore: vi.fn(),
+      get: vi.fn((key: string) => mockState.sessionStoreState[key]),
+      set: vi.fn((key: string, value: string) => {
+        mockState.sessionStoreState[key] = value;
+        if (mockState.boundPiSessionId) {
+          mockState.persistedSessionMaps[mockState.boundPiSessionId] = {
+            ...(mockState.persistedSessionMaps[mockState.boundPiSessionId] ?? {}),
+            [key]: value,
+          };
+        }
+      }),
+      clear: vi.fn((key: string) => {
+        delete mockState.sessionStoreState[key];
+        if (mockState.boundPiSessionId && mockState.persistedSessionMaps[mockState.boundPiSessionId]) {
+          delete mockState.persistedSessionMaps[mockState.boundPiSessionId]![key];
+        }
+      }),
+      getAll: vi.fn(() => ({ ...mockState.sessionStoreState })),
+    })),
+  };
+});
 
 vi.mock("../../src/agent/provider-internal/provider-events.js", () => ({
   createEventMapper: vi.fn(() => {
@@ -143,29 +149,47 @@ vi.mock("@sbluemin/fleet-core/services/log", () => ({
   }),
 }));
 
-vi.mock("@sbluemin/fleet-core/agent/provider/mcp", () => ({
-  startMcpServer: vi.fn(async () => "http://127.0.0.1/test"),
-  stopMcpServer: vi.fn(async () => {}),
-  resolveNextToolCall: vi.fn(),
-  clearPendingForSession: vi.fn((token: string) => {
-    mockState.clearPendingCalls.push(token);
-  }),
-  setOnToolCallArrived: vi.fn((token: string, cb: unknown) => {
-    mockState.routerCalls.push([token, cb]);
+vi.mock("../../src/fleet.js", () => ({
+  getFleetRuntime: () => ({
+    fleet: {
+      tools: [],
+      mcp: {
+        url: vi.fn(async () => "http://127.0.0.1/test"),
+        startServer: vi.fn(),
+        stopServer: vi.fn(),
+        registerTools: vi.fn(),
+        getTools: vi.fn(() => []),
+        getToolNames: vi.fn(() => new Set(["custom-tool"])),
+        removeTools: vi.fn(),
+        clearAllTools: vi.fn(),
+        computeToolHash: vi.fn(() => "tool-hash"),
+        resolveNextToolCall: vi.fn(),
+        clearPendingForSession: vi.fn((token: string) => {
+          mockState.clearPendingCalls.push(token);
+        }),
+        setOnToolCallArrived: vi.fn((token: string, cb: unknown) => {
+          mockState.routerCalls.push([token, cb]);
+        }),
+      },
+    },
   }),
 }));
 
-vi.mock("@sbluemin/fleet-core/agent/provider/tool-snapshot", () => ({
-  registerToolsForSession: vi.fn(),
-  removeToolsForSession: vi.fn(),
-  clearAllTools: vi.fn(),
-  computeToolHash: vi.fn(() => "tool-hash"),
-  getToolNamesForSession: vi.fn(() => new Set(["custom-tool"])),
+vi.mock("@sbluemin/fleet-core/admiral/agent-runtime", () => ({
+  cleanIdleClients: vi.fn(),
+  onHostSessionChange: vi.fn(),
+  getSessionStore: vi.fn(() => ({
+    get: vi.fn(),
+    set: vi.fn(),
+    clear: vi.fn(),
+    getAll: vi.fn(() => ({})),
+    restore: vi.fn(),
+  })),
 }));
 
 import { handleSessionStart, streamAcp } from "../../src/agent/provider-internal/provider-stream.js";
-import { GLOBAL_STATE_KEY, type AcpProviderState, type AcpSessionState } from "@sbluemin/fleet-core/agent/provider/types";
-import { onHostSessionChange } from "@sbluemin/fleet-core/agent/dispatcher/runtime";
+import { onHostSessionChange } from "../../src/agent/provider-internal/session-runtime.js";
+import { GLOBAL_STATE_KEY, type AcpProviderState, type AcpSessionState } from "../../src/agent/provider-internal/state.js";
 
 describe("provider-stream", () => {
   afterEach(() => {

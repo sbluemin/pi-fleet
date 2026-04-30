@@ -19,30 +19,17 @@ export {
 export {
   createSettingsServices,
 } from "./public/settings-services.js";
-export {
-  createFleetToolRegistry,
-  createToolRegistryServices,
-} from "./public/tool-registry-services.js";
 
-export type {
-  FleetAgentServices,
-  UnifiedAgentBackgroundRequestOptions,
-  UnifiedAgentRequestOptions,
-  UnifiedAgentRequestStatus,
-  UnifiedAgentResult,
-  AgentStreamingSink,
-  AgentStreamEvent,
-  AgentStreamKey,
-  ColBlock,
-  ColStatus,
-  FleetHostPorts,
-  ServiceStatusCallbacks,
-} from "./public/agent-services.js";
 export type {
   FleetCoreRuntimeContext,
   FleetCoreRuntimeOptions,
 } from "./public/runtime.js";
-export type { FleetServices } from "./public/fleet-services.js";
+export type {
+  FleetServices,
+  FleetServicesPorts,
+  McpCallToolResult,
+  ToolCallArrivedCallback,
+} from "./public/fleet-services.js";
 export type { GrandFleetServices } from "./public/grand-fleet-services.js";
 export type { FleetMetaphorServices } from "./public/metaphor-services.js";
 export type { FleetJobServices } from "./public/job-services.js";
@@ -54,7 +41,6 @@ export type {
   AgentToolPiDescriptor,
   AgentToolRenderDescriptor,
   AgentToolSpec,
-  FleetToolRegistryPorts,
-  FleetToolRegistryServices,
+  FleetToolRegistryHostPorts,
   TypeBoxSchema,
-} from "./public/tool-registry-services.js";
+} from "./services/tool-registry/types.js";

@@ -21,6 +21,11 @@ src/
 ├── cli-oneshot.ts              # Oneshot execution logic (CLI argument handling)
 ├── cli-repl.ts                 # REPL mode logic (Interactive interface)
 ├── cli-renderer.ts             # CLI result rendering (Pretty/JSON output)
+├── service-status/
+│   ├── index.ts                # Service status management exports
+│   ├── types.ts                # ServiceSnapshot, HealthStatus, ProviderKey types
+│   ├── callbacks.ts            # ServiceStatusCallbacks implementation
+│   └── context.ts              # ServiceStatusContextPort implementation
 ├── types/
 │   ├── common.ts               # JSON-RPC 2.0 base types
 │   ├── acp.ts                  # ACP protocol types (Based on official schema)
@@ -147,7 +152,8 @@ ait (gemini) ❯ {input}           # Omitted if effort is not supported
 3. **Config-driven + provider seam**: Maintain common contracts while encapsulating CLI differences in `CliConfigs.ts` and internal connection seams.
 4. **Event-driven Streaming**: Real-time response processing based on `EventEmitter` (`messageChunk`, `toolCall`, etc.).
 5. **Graceful Process Management**: 2-stage termination (SIGTERM → SIGKILL), and environment sanitization to prevent child process interference.
-6. **System Prompt Injection (Provider-aware)**:
+6. **Service Status Management**: Provides a unified way to track and report the health and status of various services (Gemini, Claude, Codex) through `ServiceSnapshot` and `HealthStatus`. Managed via `ServiceStatusCallbacks` and `ServiceStatusContextPort`.
+7. **System Prompt Injection (Provider-aware)**:
    - **Claude**: `AcpConnection` appends to the native system prompt via `_meta.systemPrompt.append` when calling `session/new`. The `claude-agent-acp` bridge handles this.
    - **Codex**: Passes `systemPrompt` as `developerInstructions` when creating/resuming a thread. Does not use first user turn prefixing.
    - **Gemini**: `UnifiedGeminiAgentClient` manages `firstPromptPending` state and prefixes the first `sendMessage()` after a new session with the system text `ContentBlock`. This is not a true system-role guarantee.

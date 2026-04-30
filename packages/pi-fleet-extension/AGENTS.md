@@ -14,16 +14,16 @@
 
 | pi-fleet-extension (Adapter) | fleet-core (Public Service) | Description |
 | :--- | :--- | :--- |
-| `src/agent/` | `AgentServices` | Pi AI provider, streaming, and Agent Panel UI |
+| `src/agent/` | `FleetServices` (Partial) | Pi AI provider, streaming, Agent Panel UI, and session management (`state.ts`, `session-runtime.ts`, `service-status-store.ts`, `thinking-level-patch.ts`). MCP and tool snapshots are now consumed via `fleet.mcp`. |
 | `src/grand-fleet/` | `GrandFleetServices` / `Admiralty` | Admiralty/Fleet roles, IPC, and GF session state |
 | `src/fleet-wiki/` | `@sbluemin/fleet-wiki` | Fleet Wiki tool/command registration and overlays |
 | `src/shell/` | (Host Surfaces) | HUD, Welcome UI, shared TUI overlays, and shortcuts |
-| `src/fleet.ts` | `FleetServices` | Core Fleet state and event adapters |
+| `src/fleet.ts` | `FleetServices` (Core) | Core Fleet state and event adapters |
 | `src/metaphor.ts` | `MetaphorServices` | Worldview and directive refinement wiring |
 | `src/job.ts` | `JobServices` | Fleet carrier job lifecycle and status tracking |
 | `src/settings.ts` | `SettingsServices` | Fleet-to-Pi settings sync and persistence |
 | `src/log.ts` | `LogServices` | Fleet log store and terminal output streaming |
-| `src/tool-registry.ts` | `ToolRegistryServices` | Fleet tool spec to Pi tool registration loop |
+| `src/tool-registry.ts` | `FleetServices` (Tools) | Pi-side tool registration consuming `fleet.tools` from core |
 
 ## Must Own
 
@@ -54,7 +54,7 @@
 ## Migration Guardrails
 
 - Do not reintroduce Pi dependencies into `fleet-core`.
-- Do not create new code under removed capability bucket homes like `src/commands/`, `src/tools/`, or `src/provider/`.
+- Do not create new code under removed capability bucket homes like `src/commands/`, `src/tools/`, or legacy `src/agent/provider-internal/`.
 - All Pi registration code must reside within the specific domain adapter folder or file it serves.
 - The `src/shell/` domain owns the aggregate host UI but delegates domain-specific rendering to its respective adapter.
 

@@ -1,4 +1,4 @@
-import { executeOneShot } from "../../services/agent/dispatcher/executor.js";
+import { executeOneShot } from "./agent-runtime.js";
 import {
   appendTextBlock,
   appendThoughtBlock,

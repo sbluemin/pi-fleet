@@ -13,7 +13,7 @@ import { Key, matchesKey, visibleWidth } from "@mariozechner/pi-tui";
 import type { Theme } from "@mariozechner/pi-coding-agent";
 
 import { CARRIER_BG_COLORS, CARRIER_COLORS, CLI_DISPLAY_NAMES } from "@sbluemin/fleet-core/constants";
-import type { HealthStatus } from "@sbluemin/fleet-core/agent/shared/types";
+import type { HealthStatus } from "@sbluemin/unified-agent";
 
 import { createOverlayFrame } from "./overlay-frame.js";
 import { buildModelEffortTransition } from "./overlay-model-flow.js";

@@ -3,11 +3,9 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import { refreshStatusNow, type ServiceStatusContextPort } from "../../src/services/agent/shared/service-status/store.js";
-import { getDataDir } from "../../src/services/agent/dispatcher/runtime.js";
+import { getDataDir } from "../../src/admiral/_shared/agent-runtime.js";
 import { getSettingsService } from "../../src/services/settings/runtime.js";
 import { createFleetCoreRuntime } from "../../src/public/runtime.js";
-import type { FleetHostPorts } from "../../src/public/agent-services.js";
 
 let tmpDir: string;
 
@@ -23,17 +21,16 @@ afterEach(() => {
 describe("createFleetCoreRuntime", () => {
   it("initializes the domain service runtime context", async () => {
     const dataDir = path.join(tmpDir, "core", ".data");
-    const runtime = createFleetCoreRuntime({ dataDir, ports: createMinimalPorts() });
+    const runtime = createFleetCoreRuntime({ dataDir } as any);
 
-    expect(runtime.agent).toBeTruthy();
+    expect("agent" in runtime).toBe(false);
+    expect("toolRegistry" in runtime).toBe(false);
     expect(runtime.settings.settings).toBeTruthy();
-    expect(runtime.toolRegistry.list()).toEqual([]);
+    expect(Array.isArray(runtime.fleet.tools)).toBe(true);
     expect(runtime.fleet.carrier).toBeTruthy();
     expect(runtime.fleet.protocols).toBeTruthy();
     expect(runtime.jobs.archive).toBeTruthy();
     expect(runtime.jobs.carrierJobs).toBeTruthy();
-    expect(runtime.agent.run).toEqual(expect.any(Function));
-    expect(runtime.agent.runBackground).toEqual(expect.any(Function));
     expect(runtime.metaphor.core).toBeTruthy();
     expect(runtime.grandFleet.admiralty).toBeTruthy();
     expect("keybind" in runtime.settings).toBe(false);
@@ -45,7 +42,7 @@ describe("createFleetCoreRuntime", () => {
   });
 
   it("keeps settings section registration mutable after runtime creation", async () => {
-    const runtime = createFleetCoreRuntime({ dataDir: tmpDir, ports: createMinimalPorts() });
+    const runtime = createFleetCoreRuntime({ dataDir: tmpDir } as any);
 
     runtime.settings.settings.registerSection({
       key: "runtime-section",
@@ -66,85 +63,13 @@ describe("createFleetCoreRuntime", () => {
     await runtime.shutdown();
   });
 
-  it("wires optional service-status callbacks through the public runtime", async () => {
-    const setLoading = vi.fn();
-    const setStatus = vi.fn();
-    const runtime = createFleetCoreRuntime({
-      dataDir: tmpDir,
-      ports: {
-        ...createMinimalPorts(),
-        serviceStatus: { setLoading, setStatus },
-      },
-    });
-
-    await refreshStatusNow(createStatusContext());
-
-    expect(setLoading).toHaveBeenCalledOnce();
-
-    await runtime.shutdown();
-  });
-
-  it("allows hosts to omit service-status callbacks", async () => {
-    const runtime = createFleetCoreRuntime({ dataDir: tmpDir, ports: createMinimalPorts() });
-
-    await expect(refreshStatusNow(createStatusContext())).resolves.toBeUndefined();
-    await runtime.shutdown();
-  });
-
-  it("clears previous service-status callbacks when callbacks are omitted", async () => {
-    const staleSetLoading = vi.fn();
-    const runtimeWithStatus = createFleetCoreRuntime({
-      dataDir: path.join(tmpDir, "with-status"),
-      ports: {
-        ...createMinimalPorts(),
-        serviceStatus: {
-          setLoading: staleSetLoading,
-          setStatus() {},
-        },
-      },
-    });
-    await runtimeWithStatus.shutdown();
-
-    const runtimeWithoutStatus = createFleetCoreRuntime({
-      dataDir: path.join(tmpDir, "without-status"),
-      ports: createMinimalPorts(),
-    });
-
-    await refreshStatusNow(createStatusContext());
-
-    expect(staleSetLoading).not.toHaveBeenCalled();
-
-    await runtimeWithoutStatus.shutdown();
-  });
-
-  it("clears runtime-owned service-status callbacks during shutdown", async () => {
-    const setLoading = vi.fn();
-    const runtime = createFleetCoreRuntime({
-      dataDir: tmpDir,
-      ports: {
-        ...createMinimalPorts(),
-        serviceStatus: {
-          setLoading,
-          setStatus() {},
-        },
-      },
-    });
-
-    await runtime.shutdown();
-    await refreshStatusNow(createStatusContext());
-
-    expect(setLoading).not.toHaveBeenCalled();
-  });
-
   it("does not clear a newer settings singleton during stale runtime shutdown", async () => {
     const olderRuntime = createFleetCoreRuntime({
       dataDir: path.join(tmpDir, "older"),
-      ports: createMinimalPorts(),
-    });
+    } as any);
     const newerRuntime = createFleetCoreRuntime({
       dataDir: path.join(tmpDir, "newer"),
-      ports: createMinimalPorts(),
-    });
+    } as any);
 
     expect(getSettingsService()).toBe(newerRuntime.settings.settings);
 
@@ -157,23 +82,3 @@ describe("createFleetCoreRuntime", () => {
   });
 
 });
-
-function createMinimalPorts(): FleetHostPorts {
-  return {
-    sendCarrierResultPush() {},
-    notify() {},
-    loadSetting() { return undefined; },
-    saveSetting() {},
-    registerKeybind() { return () => {}; },
-    now: () => Date.now(),
-    getDeliverAs() { return undefined; },
-  };
-}
-
-function createStatusContext(): ServiceStatusContextPort {
-  return {
-    hasUI: false,
-    getSessionId() { return "runtime-composition-test"; },
-    notify() {},
-  };
-}

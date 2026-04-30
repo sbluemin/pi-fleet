@@ -16,10 +16,10 @@ import {
   SYM_INDICATOR,
   TOOLS_COLOR,
 } from "@sbluemin/fleet-core/constants";
-import type { ColBlock } from "@sbluemin/fleet-core/agent/shared/types";
 
 import { renderBlockLines, blockLineToAnsi, renderBlocksToContainer, renderLegacyToContainer } from "./block-renderer.js";
 import type { BlockLine } from "./block-renderer.js";
+import type { ColBlock } from "../../agent/ui/panel/types.js";
 
 /** 렌더러에 필요한 최소 설정 (framework.CarrierConfig에서 추출) */
 interface AgentRenderConfig {

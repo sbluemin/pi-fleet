@@ -6,13 +6,14 @@
  */
 
 import { DEFAULT_BODY_H, formatPanelMultiColHint } from "@sbluemin/fleet-core/constants";
-import { getSessionStore } from "@sbluemin/fleet-core/agent/dispatcher/runtime";
 import { ensureVisibleRun, setRunSessionId } from "@sbluemin/fleet-core/admiral/bridge/run-stream";
+import { getSessionStore } from "@sbluemin/fleet-core/admiral/agent-runtime";
+import type { ServiceSnapshot } from "@sbluemin/unified-agent";
 import { getRegisteredOrder, isSquadronCarrierEnabled } from "../../../tool-registry.js";
 import type { AgentCol, PanelJob } from "./types.js";
-import type { ServiceSnapshot } from "@sbluemin/fleet-core/agent/shared/types";
 
 export type { AgentCol } from "./types.js";
+export type { ServiceSnapshot } from "@sbluemin/unified-agent";
 
 export interface FooterModelInfo {
   model: string;
@@ -98,7 +99,7 @@ export function getState(): AgentPanelState {
 }
 
 export function makeCols(clis?: readonly string[]): AgentCol[] {
-  const sessionMap = getSessionStore().getAll() as Readonly<Record<string, string | undefined>>;
+  const sessionMap = getAgentSessionStore().getAll() as Readonly<Record<string, string | undefined>>;
   const targets = clis ?? getDefaultClis();
 
   for (const cli of targets) {
@@ -132,7 +133,7 @@ export function findColIndex(carrierId: string): number {
 
 export function syncColsWithRegisteredOrder(): void {
   const s = getState();
-  const sessionMap = getSessionStore().getAll() as Readonly<Record<string, string | undefined>>;
+  const sessionMap = getAgentSessionStore().getAll() as Readonly<Record<string, string | undefined>>;
   const existing = new Map(s.cols.map((col) => [col.cli, col] as const));
   const orderedIds = getDefaultClis();
   const selectedCarrierId = s.cursorColumn >= 0 && s.cursorColumn < s.cols.length
@@ -186,7 +187,7 @@ export function getFocusedCarrierId(): string | null {
 export function makeFooterCols(): AgentCol[] {
   const s = getState();
   const activeCols = new Map(s.cols.map((col) => [col.cli, col] as const));
-  const sessionMap = getSessionStore().getAll() as Readonly<Record<string, string | undefined>>;
+  const sessionMap = getAgentSessionStore().getAll() as Readonly<Record<string, string | undefined>>;
 
   return getRegisteredOrder().map((cli) => {
     const activeCol = activeCols.get(cli);
@@ -205,4 +206,12 @@ export function makeFooterCols(): AgentCol[] {
       scroll: 0,
     };
   });
+}
+
+function getAgentSessionStore(): { getAll(): Record<string, string | undefined> } {
+  try {
+    return getSessionStore() as { getAll(): Record<string, string | undefined> };
+  } catch {
+    return { getAll: () => ({}) };
+  }
 }

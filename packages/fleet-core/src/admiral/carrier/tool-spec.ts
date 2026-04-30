@@ -12,8 +12,7 @@
  */
 
 import type { AgentToolSpec } from "../../public/tool-registry-services.js";
-import type { AgentStreamingSink } from "../../public/agent-services.js";
-import type { AgentStreamKey } from "../../services/agent/shared/types.js";
+import type { AgentStreamEvent, AgentStreamKey, ExecuteOptions, ExecuteResult } from "../_shared/agent-runtime.js";
 import {
   buildSortieJobSummary,
   computeSortieFinalStatus,
@@ -74,9 +73,25 @@ interface CarrierSortieResult extends CarrierSortieOutcome {
 
 interface SortieToolPorts {
   readonly logDebug: (category: string, message: string, options?: unknown) => void;
-  readonly runAgentRequestBackground: (options: any) => Promise<any>;
+  readonly runAgentRequestBackground: (
+    options: SortieAgentRequestBackgroundOptions,
+  ) => Promise<SortieAgentRequestBackgroundResult>;
   readonly enqueueCarrierCompletionPush: (payload: { jobId: string; summary: string }) => void;
-  readonly streamingSink?: AgentStreamingSink;
+  readonly streamingSink?: SortieAgentStreamingSink;
+}
+
+interface SortieAgentStreamingSink {
+  readonly onAgentStreamEvent: (event: AgentStreamEvent) => void | Promise<void>;
+}
+
+interface SortieAgentRequestBackgroundOptions extends Omit<ExecuteOptions, "cliType"> {
+  readonly cli: ExecuteOptions["cliType"] | (string & {});
+}
+
+interface SortieAgentRequestBackgroundResult extends Pick<ExecuteResult, "status" | "responseText" | "error"> {
+  readonly sessionId?: ExecuteResult["connectionInfo"]["sessionId"];
+  readonly thinking?: ExecuteResult["thoughtText"];
+  readonly toolCalls?: ExecuteResult["toolCalls"];
 }
 
 interface SortieBackgroundOptions {
@@ -389,7 +404,7 @@ async function runSortieAssignment(
     return {
       carrierId: assignment.carrier,
       displayName: resolveCarrierDisplayName(assignment.carrier),
-      status: result.status,
+      status: finalStatus,
       responseText: result.responseText || "(no output)",
       sessionId: result.sessionId,
       error: result.error,

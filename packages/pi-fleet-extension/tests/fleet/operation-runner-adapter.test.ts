@@ -1,13 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const run = vi.fn();
+const mocks = vi.hoisted(() => ({
+  executeWithPool: vi.fn(),
+}));
+
+vi.mock("@sbluemin/fleet-core/admiral/agent-runtime", () => ({
+  executeWithPool: mocks.executeWithPool,
+  getSessionStore: vi.fn(() => ({
+    get: vi.fn(),
+    set: vi.fn(),
+    clear: vi.fn(),
+    getAll: vi.fn(() => ({})),
+    restore: vi.fn(),
+  })),
+}));
 
 vi.mock("../../src/fleet.js", () => ({
-  getFleetRuntime: () => ({
-    agent: {
-      run,
-    },
-  }),
+  getFleetRuntime: () => ({}),
   withAgentRequestContext: async (_ctx: any, callback: () => Promise<unknown>) => callback(),
 }));
 
@@ -21,14 +30,14 @@ import { getRunById, listRuns, resetRuns } from "@sbluemin/fleet-core/admiral/br
 import { CARRIER_FRAMEWORK_KEY } from "@sbluemin/fleet-core/admiral/carrier";
 
 beforeEach(() => {
-  run.mockReset();
-  run.mockResolvedValue(createResult("run"));
+  mocks.executeWithPool.mockReset();
+  mocks.executeWithPool.mockResolvedValue(createRuntimeResult("run"));
   resetPanelGlobals();
 });
 
 describe("operation runner adapter", () => {
-  it("strips ctx and delegates foreground requests to runtime.agent", async () => {
-    const ctx = { cwd: "/workspace" };
+  it("strips ctx and delegates foreground requests to admiral agent-runtime", async () => {
+    const ctx = makeCtx();
 
     const result = await runAgentRequest({
       cli: "codex",
@@ -38,13 +47,13 @@ describe("operation runner adapter", () => {
     });
 
     expect(result.responseText).toBe("run");
-    expect(run).toHaveBeenCalledWith(expect.objectContaining({
-      cli: "codex",
+    expect(mocks.executeWithPool).toHaveBeenCalledWith(expect.objectContaining({
+      cliType: "codex",
       carrierId: "genesis",
       request: "work",
       cwd: "/workspace",
     }));
-    expect(run).toHaveBeenCalledWith(expect.not.objectContaining({ ctx: expect.anything() }));
+    expect(mocks.executeWithPool).toHaveBeenCalledWith(expect.not.objectContaining({ ctx: expect.anything() }));
   });
 
   it("exposes the unified-agent bridge", async () => {
@@ -55,8 +64,8 @@ describe("operation runner adapter", () => {
       cli: "codex",
       carrierId: "genesis",
       request: "work",
-      ctx: { cwd: "/workspace" } as any,
-    })).resolves.toEqual(createResult("run"));
+      ctx: makeCtx() as any,
+    })).resolves.toEqual(createRunnerResult("run"));
   });
 
   it("maps panel streaming sink events to panel column lifecycle", () => {
@@ -134,7 +143,25 @@ describe("operation runner adapter", () => {
 
 });
 
-function createResult(responseText: string) {
+function createRuntimeResult(responseText: string) {
+  return {
+    status: "done",
+    responseText,
+    thoughtText: "think",
+    connectionInfo: { sessionId: "session-1" },
+    error: undefined,
+    toolCalls: [{ title: "Read", status: "done", timestamp: 1 }],
+    streamData: {
+      text: responseText,
+      thinking: "think",
+      toolCalls: [{ title: "Read", status: "done" }],
+      blocks: [{ type: "text", text: responseText }],
+      lastStatus: "done",
+    },
+  };
+}
+
+function createRunnerResult(responseText: string) {
   return {
     status: "done",
     responseText,
@@ -142,7 +169,13 @@ function createResult(responseText: string) {
     error: undefined,
     thinking: "think",
     toolCalls: [{ title: "Read", status: "done" }],
-    blocks: [{ type: "text", text: responseText }],
+    streamData: {
+      text: responseText,
+      thinking: "think",
+      toolCalls: [{ title: "Read", status: "done" }],
+      blocks: [{ type: "text", text: responseText }],
+      lastStatus: "done",
+    },
   };
 }
 

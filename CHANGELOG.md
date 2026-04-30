@@ -5,6 +5,41 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Removed
+- **Agent Service Cleanup**: Entire `packages/fleet-core/src/services/agent/` directory (23 files) removed as part of the destructive cleansing.
+- **Legacy Agent Services**: Removed `packages/fleet-core/src/public/agent-services.ts` and its exports (`FleetAgentServices`, `FleetAgentRuntimeHost`, `BackendAdapter`, `BackendConnectOptions`, `BackendSession`, `AgentStreamingSink`, `FleetHostPorts`, `UnifiedAgentRequestOptions`, `UnifiedAgentBackgroundRequestOptions`, `UnifiedAgentRequestStatus`, `UnifiedAgentResult`, `executeAgentCore`, `createAgentServices`).
+- **Legacy Tool Registry Services**: Removed `packages/fleet-core/src/public/tool-registry-services.ts` and its exports (`FleetToolRegistryServices`, `FleetToolRegistryPorts`, `FleetToolRegistryHostPorts`, `AgentToolRegistry`, `McpRegistryAPI`, `McpServerHandle`, `McpServerOptions`, `PendingToolCall`, `PendingToolResult`, `createAgentToolRegistry`, `createFleetToolRegistry`, `createMcpServerForRegistry`, `createToolRegistryServices`).
+- **Deprecated Subpaths (Breaking)**: Removed 16 deprecated public subpaths under `@sbluemin/fleet-core/agent/*` (shared/types, shared/client, shared/service-status, provider/types, provider/provider-types, provider/client, provider/provider-client, provider/mcp, provider/provider-mcp, provider/thinking-level-patch, provider/tool-snapshot, dispatcher/runtime, dispatcher/session-store, dispatcher/session-resume-utils, dispatcher/pool, dispatcher/executor).
+- **Double Definition Resolution**: Removed duplicate definitions in `packages/pi-fleet-extension/src/agent/provider-internal/{mcp.ts, tool-snapshot.ts}`.
+- **Runtime Field Reductions**: Removed `agent`, `toolRegistry`, and `mcp` fields from `FleetCoreRuntimeContext`.
+- **Wrapper Type Purge**: Removed all `Fleet*` prefix wrapper types (`FleetAgentClient`, `FleetAcpToolCall`, `FleetAcpToolCallUpdate`, `FleetAcpContentBlock`, `FleetMcpConfig`, `FleetProviderConnect*`, `FleetAgentClientEvents`, `FleetProviderLogEntry`, `FleetAcpSessionInfo`, `FleetConnectionState`) in favor of direct unified-agent types.
+- **Adapter Removal**: Removed `UnifiedFleetAgentClientAdapter` class and `createAgentRequestService` media layer.
+
+### Added
+- **New Agent Runtime Subpath**: Introduced `@sbluemin/fleet-core/admiral/agent-runtime` subpath for core execution logic (`executeOneShot`, `executeWithPool`, `applyPostConnectConfig`, `getClientPool`, `isClientAlive`, `disconnectClient`, `disconnectAll`, `cleanIdleClients`, `initRuntime`, `onHostSessionChange`, `getSessionStore`, `getSessionId`, `getDataDir`, `classifyResumeFailure`, `isDeadSessionError`, `createSessionMapStore`).
+- **Lazy Tool Registration**: Added `FleetServices.tools` lazy getter for automatic registration of `sortie`, `squadron`, `taskforce`, and `carrier_jobs` tools.
+- **Unified MCP API**: Added `FleetServices.mcp` with automatic lifecycle management, tool registration, resolution of next tool calls, and pending call management.
+- **Service Status Module**: Added `packages/unified-agent/src/service-status/` for provider health tracking (`ServiceSnapshot`, `HealthStatus`, `ProviderKey`, `ServiceStatusCallbacks`, `ServiceStatusContextPort`).
+- **Shared Admiral Components**: Added `packages/fleet-core/src/admiral/_shared/{mcp.ts, agent-runtime.ts}`.
+- **Tool Snapshot & Specs**: Added `packages/fleet-core/src/services/tool-registry/tool-snapshot.ts` and `packages/fleet-core/src/admiral/carrier-jobs/tool-spec.ts`.
+- **Extension Internals**: Added state and session runtime management in `packages/pi-fleet-extension/src/agent/provider-internal/` (`state.ts`, `session-runtime.ts`, `service-status-store.ts`).
+- **Port Types**: Added `FleetServicesPorts` type for host-provided capabilities (`logDebug`, `runAgentRequestBackground`, `enqueueCarrierCompletionPush`).
+
+### Changed
+- **Runtime Initialization**: `createFleetCoreRuntime` signature changed to `{ dataDir: string; ports: FleetServicesPorts }`.
+- **Runtime Context Refactor**: `FleetCoreRuntimeContext` now strictly contains `fleet`, `grandFleet`, `metaphor`, `jobs`, `log`, `settings`, and `shutdown`.
+- **MCP Server Lifecycle**: McpServer lifecycle management internalised; it now auto-starts on the first `fleet.mcp.url()` call and auto-terminates via `FleetCoreRuntimeContext.shutdown()`.
+- **Tool Source Unification**: Single source of truth for tools established in `pi-fleet-extension` by injecting fleet tools into the MCP registry via `fleet.mcp.registerTools`.
+- **Import Migration**: All internal and extension imports previously using `@sbluemin/fleet-core/agent/*` subpaths have been migrated to `@sbluemin/unified-agent`, `@sbluemin/fleet-core/admiral/agent-runtime`, or direct runtime service access.
+- **Thinking Level Patch**: Rewritten `packages/pi-fleet-extension/src/agent/provider-internal/thinking-level-patch.ts` for the new internal structure.
+
+### Breaking Changes
+- **Public API Reduction**: Massive reduction of the public API surface; all downstream consumers must be updated to use the new simplified service patterns.
+- **Subpath Removal**: All 16 `@sbluemin/fleet-core/agent/*` subpaths are completely removed and no longer export symbols.
+- **Service & Wrapper Removal**: `FleetAgentServices`, `FleetHostPorts`, `FleetToolRegistryServices`, and all `Fleet*` prefix wrapper classes are removed.
+- **Runtime Signature Change**: `createFleetCoreRuntime` now strictly requires the new `ports: FleetServicesPorts` argument, making the host-extension contract more explicit.
+- **Context Field Removal**: `FleetCoreRuntimeContext.agent`, `.toolRegistry`, and `.mcp` fields are removed; access these capabilities via the unified `fleet` service.
+
 ## [0.6.4] - 2026-04-30
 
 Release v0.6.4
