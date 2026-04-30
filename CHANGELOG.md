@@ -5,6 +5,8 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-04-30
+
 ### Changed
 - Renamed all `experimental-wiki` directories, import paths, and symbol names to `fleet-wiki` across `packages/pi-fleet-extension`; `bootExperimentalWiki` → `bootFleetWiki`, `registerExperimentalWiki` → `registerFleetWiki`.
 - Updated related documentation (`AGENTS.md` files, `docs/`) to reflect the `fleet-wiki` naming and remove legacy `experimental-wiki` references.
