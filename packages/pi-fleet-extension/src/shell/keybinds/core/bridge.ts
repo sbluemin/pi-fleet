@@ -32,20 +32,21 @@ const keybindService: CoreKeybindAPI & typeof keybindState = {
   },
 };
 
-if (!(globalThis as any)[CORE_KEYBIND_KEY]) {
-  (globalThis as any)[CORE_KEYBIND_KEY] = keybindService;
-} else if (!(globalThis as any)[CORE_KEYBIND_KEY]._bindings) {
-  (globalThis as any)[CORE_KEYBIND_KEY] = keybindService;
-}
+installKeybindService();
 
 export function getKeybindAPI(): CoreKeybindAPI {
-  return (globalThis as any)[CORE_KEYBIND_KEY];
+  return installKeybindService();
 }
 
 export function prepareKeybindBridgeForExtensionLoad(): void {
   activeApi = null;
   bootstrapQueue.length = 0;
   keybindService._bindings.length = 0;
+  installKeybindService();
+  if (warnTimer) {
+    clearTimeout(warnTimer);
+    warnTimer = null;
+  }
   warnTimer = setTimeout(() => {
     if (!activeApi && bootstrapQueue.length > 0) {
       console.warn(
@@ -68,4 +69,9 @@ export function _bootstrapKeybind(impl: CoreKeybindAPI): void {
     impl.register(binding);
   }
   bootstrapQueue.length = 0;
+}
+
+function installKeybindService(): CoreKeybindAPI & typeof keybindState {
+  (globalThis as Record<string, unknown>)[CORE_KEYBIND_KEY] = keybindService;
+  return keybindService;
 }

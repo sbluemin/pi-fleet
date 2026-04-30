@@ -32,6 +32,29 @@ describe("keybind bridge reload lifecycle", () => {
     expect(nextRegister).toHaveBeenCalledWith(binding);
   });
 
+  it("replaces a process-global stale bridge object before extension reload registrations", () => {
+    const staleRegister = vi.fn(() => {
+      throw new Error("This extension ctx is stale after session replacement or reload.");
+    });
+    (globalThis as Record<string, unknown>)[CORE_KEYBIND_KEY] = {
+      _bindings: [],
+      register: staleRegister,
+      getBindings: () => [],
+      getKey: () => undefined,
+    };
+
+    prepareKeybindBridgeForExtensionLoad();
+    const binding = makeBinding();
+
+    expect(() => getKeybindAPI().register(binding)).not.toThrow();
+    expect(staleRegister).not.toHaveBeenCalled();
+
+    const nextRegister = vi.fn();
+    _bootstrapKeybind(makeApi(nextRegister));
+
+    expect(nextRegister).toHaveBeenCalledWith(binding);
+  });
+
   it("queues registrations without fleet-core services and flushes them on bootstrap", () => {
     const firstBinding = makeBinding({ extension: "fleet", action: "panel-toggle" });
     const secondBinding = makeBinding({ extension: "fleet", action: "panel-grow" });
