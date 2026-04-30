@@ -6,7 +6,7 @@ const mockState = vi.hoisted(() => ({
   handlers: new Map<string, Function>(),
 }));
 
-vi.mock("@sbluemin/fleet-core/agent/provider-client", () => ({
+vi.mock("@sbluemin/fleet-core/agent/provider/provider-client", () => ({
   getProviderModelsRegistry: () => ({
     providers: {
       codex: {
@@ -21,7 +21,7 @@ vi.mock("@sbluemin/fleet-core/agent/provider-client", () => ({
   }),
 }));
 
-vi.mock("@sbluemin/fleet-core/agent/runtime", () => ({
+vi.mock("@sbluemin/fleet-core/agent/dispatcher/runtime", () => ({
   initRuntime: vi.fn(),
   onHostSessionChange: vi.fn(),
 }));
@@ -33,20 +33,20 @@ vi.mock("@sbluemin/fleet-core/services/log", () => ({
   }),
 }));
 
-vi.mock("../../src/provider/provider-stream.js", () => ({
+vi.mock("../../src/agent/provider-internal/provider-stream.js", () => ({
   streamAcp: vi.fn(),
   cleanupAll: vi.fn(async () => {}),
   handleSessionStart: vi.fn(async () => {}),
 }));
 
-vi.mock("../../src/provider/thinking-level-patch.js", () => ({
+vi.mock("../../src/agent/provider-internal/thinking-level-patch.js", () => ({
   installAcpThinkingLevelPatch: vi.fn(),
   reconcileAcpThinkingLevel: vi.fn(),
 }));
 
-import registerProviderRuntime from "../../src/provider/provider-register.js";
-import { handleSessionStart } from "../../src/provider/provider-stream.js";
-import { initRuntime, onHostSessionChange } from "@sbluemin/fleet-core/agent/runtime";
+import registerProviderRuntime from "../../src/agent/provider-internal/provider-register.js";
+import { handleSessionStart } from "../../src/agent/provider-internal/provider-stream.js";
+import { initRuntime, onHostSessionChange } from "@sbluemin/fleet-core/agent/dispatcher/runtime";
 
 describe("provider register", () => {
   it("provider 자체가 Fleet session-map runtime을 초기화하고 session_start에서 PI session에 바인딩한다", async () => {

@@ -17,15 +17,35 @@
 | `packages/fleet-core/src/services/` | Shared pure service modules, renamed from `core-services`. Includes `agent/`, `job/`, settings, log, and **tool-registry** (renamed from `tool-prompt-manifest`). Keybind ownership belongs to `packages/pi-fleet-extension/` because shortcuts require a UI host. |
 | `packages/fleet-core/src/admiralty/` | Grand Fleet domain home inside `fleet-core` (renamed from `gfleet`). Exposed via `@sbluemin/fleet-core/admiralty` and `@sbluemin/fleet-core/admiralty/ipc`. Formation/tmux helpers are removed. |
 | `packages/fleet-core/src/public/` | Public composition surface. Keep `runtime.ts` plus domain service modules only (`fleet-services`, `grand-fleet-services`, `metaphor-services`, `agent-services`, `job-services`, `log-services`, `settings-services`, `tool-registry-services`). Do not reintroduce legacy public leaves such as `agent-request`, `agent-runtime`, `host-ports`, `mcp`, `streaming-sink`, or raw `tool-registry`. |
-| `packages/pi-fleet-extension/` | Pi capability package — host runtime listeners, commands, keybinds, tools, TUI, provider registration, provider-owned Pi AI gateway, and session features |
-| `packages/pi-fleet-extension/src/` | Current physical home of Pi capability buckets |
-| `packages/pi-fleet-extension/src/{commands,keybinds,tools,tui,provider,session}/` | Current doctrinal homes for Pi-specific ownership |
-| `packages/pi-fleet-extension/src/{fleet,grand-fleet,metaphor,core,boot}/` | Removed legacy domain directories. Do not reintroduce these homes inside `pi-fleet-extension`; use the current capability buckets under `src/` instead. |
-| `packages/pi-fleet-extension/src/{tui,commands,tools,session}/fleet-wiki/` | Active Fleet Wiki capability buckets. Keep Pi-side Wiki UI, command, tool, and session integrations in these bucket homes. |
+| `packages/pi-fleet-extension/` | Pi capability package — Flat Domain Architecture mirroring fleet-core public services |
+| `packages/pi-fleet-extension/src/` | Root of pi-facing domains |
+| `packages/pi-fleet-extension/src/boot.ts` | Entry point — assembles the Fleet runtime by composing domain modules |
+| `packages/pi-fleet-extension/src/ports.ts` | Host port implementation — implements FleetHostPorts for pi environment |
+| `packages/pi-fleet-extension/src/{agent,grand-fleet,fleet-wiki,shell}/` | Domain-internal homes. Each owns its commands, keybinds, tools, and UI. |
+| `packages/pi-fleet-extension/src/{fleet,metaphor,job,settings,log,tool-registry}.ts` | Domain entrypoints mapping 1:1 to fleet-core services |
+| `packages/pi-fleet-extension/src/{commands,keybinds,tools,tui,provider,session}/` | Removed legacy capability buckets. Do not reintroduce; all features are now organized by domain. |
 
 > Currently, there is no `pi/` directory — symlink setup is not required.
 >
-> Migration note: the **logical split is already final** (`fleet-core` owns Fleet domain logic including the internalized `admiralty` domain, and `pi-fleet-extension` owns Pi capability buckets), and `packages/pi-fleet-extension/src/` remains the active physical home for Pi capability buckets.
+> Migration note: the **logical split is already final** (`fleet-core` owns Fleet domain logic including the internalized `admiralty` domain, and `pi-fleet-extension` owns Pi host domains), and `packages/pi-fleet-extension/src/` remains the active physical home for the Flat Domain Architecture.
+
+### Domain Mirror Layout
+
+The `pi-fleet-extension` architecture mirrors the public services of `fleet-core` 1:1. Each core service is mapped to a corresponding domain in the extension.
+
+| fleet-core Public Service | pi-fleet-extension Domain | Description |
+|---------------------------|---------------------------|-------------|
+| `agent-services`          | `src/agent/`              | Agent orchestration, providers, and carrier gateway |
+| `grand-fleet-services`    | `src/grand-fleet/`        | Multi-instance Grand Fleet orchestration |
+| `fleet-services`          | `src/fleet.ts`            | Fleet-wide bridge and orchestration features |
+| `metaphor-services`       | `src/metaphor.ts`         | Persona, worldview, and naval metaphors |
+| `job-services`            | `src/job.ts`              | Detached carrier job management |
+| `settings-services`       | `src/settings.ts`         | Fleet-wide settings and configuration |
+| `log-services`            | `src/log.ts`              | Fleet activity logging and categories |
+| `tool-registry-services`  | `src/tool-registry.ts`    | Tool registration and discovery |
+| `@sbluemin/fleet-wiki`    | `src/fleet-wiki/`         | Fleet knowledge base and ingest |
+| (Host specific)           | `src/shell/`              | Host shell integration and terminal features |
+
 
 ## Fleet Architecture (Metaphor)
 

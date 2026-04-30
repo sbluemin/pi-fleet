@@ -9,7 +9,7 @@
  */
 
 import type { AgentToolSpec } from "../../public/tool-registry-services.js";
-import { executeOneShot } from "../../services/agent/executor.js";
+import { executeOneShot } from "../../services/agent/dispatcher/executor.js";
 import { registerToolPromptManifest } from "../../services/tool-registry/index.js";
 import { finalizeJob, registerTaskforceJob } from "../bridge/carrier-panel/index.js";
 import {

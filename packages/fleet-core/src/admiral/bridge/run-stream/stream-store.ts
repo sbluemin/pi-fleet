@@ -14,11 +14,11 @@
  * 로드해도 compatibility key를 공유해야 하므로 키 이름은 안정적으로 유지합니다.
  */
 
-import type { AgentStatus } from "../../../services/agent/types.js";
-import type { ColBlock, ColStatus, CollectedStreamData } from "../../../services/agent/types.js";
+import type { AgentStatus } from "../../../services/agent/shared/types.js";
+import type { ColBlock, ColStatus, CollectedStreamData } from "../../../services/agent/shared/types.js";
 import { readBridgeState, writeBridgeState } from "./state-store.js";
 
-export type { ColStatus, CollectedStreamData } from "../../../services/agent/types.js";
+export type { ColStatus, CollectedStreamData } from "../../../services/agent/shared/types.js";
 
 interface StreamStoreState {
   runs: Map<string, StreamRun>;

@@ -1,9 +1,9 @@
 import { initStore } from "../admiral/store/fleet-store.js";
-import { initRuntime } from "../services/agent/runtime.js";
+import { initRuntime } from "../services/agent/dispatcher/runtime.js";
 import {
   initServiceStatus,
   resetServiceStatus,
-} from "../services/agent/service-status/store.js";
+} from "../services/agent/shared/service-status/store.js";
 import {
   initSettingsService,
   resetSettingsService,

@@ -14,8 +14,8 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { getProviderModels, getReasoningEffortLevels } from "@sbluemin/unified-agent";
 import type { CliType } from "@sbluemin/unified-agent";
-import { disconnectClient } from "../../services/agent/pool.js";
-import { getSessionStore } from "../../services/agent/runtime.js";
+import { disconnectClient } from "../../services/agent/dispatcher/pool.js";
+import { getSessionStore } from "../../services/agent/dispatcher/runtime.js";
 
 // ─── 타입 정의 ──────────────────────────────────────────
 

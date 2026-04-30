@@ -16,7 +16,7 @@ import {
   startMcpServer,
   stopMcpServer,
   type McpCallToolResult,
-} from "../services/agent/provider-mcp.js";
+} from "../services/agent/provider/provider-mcp.js";
 import {
   clearAllTools,
   computeToolHash,
@@ -26,10 +26,10 @@ import {
   registerToolsForSession,
   removeToolsForSession,
   type Tool,
-} from "../services/agent/tool-snapshot.js";
+} from "../services/agent/provider/tool-snapshot.js";
 import * as ToolRegistryServiceFacade from "../services/tool-registry/index.js";
 import { registerToolPromptManifest } from "../services/tool-registry/index.js";
-import type { FleetHostPorts, FleetLogPort } from "./agent-services.js";
+import type { FleetHostPorts } from "./agent-services.js";
 
 export type { McpCallToolResult };
 
@@ -41,7 +41,6 @@ export interface AgentToolCtx {
   readonly cwd: string;
   readonly toolCallId?: string;
   readonly signal?: AbortSignal;
-  readonly log: FleetLogPort;
   readonly now: () => number;
   readonly ports: FleetHostPorts;
 }

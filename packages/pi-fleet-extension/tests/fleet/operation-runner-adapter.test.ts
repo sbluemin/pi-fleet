@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const run = vi.fn();
 const runBackground = vi.fn();
 
-vi.mock("../../src/session/runtime/fleet-boot.js", () => ({
+vi.mock("../../src/fleet.js", () => ({
   getFleetRuntime: () => ({
     agent: {
       run,
@@ -17,9 +17,9 @@ import {
   exposeAgentApi,
   runAgentRequest,
   runAgentRequestBackground,
-} from "../../src/session/fleet/operation-runner.js";
-import { createPanelStreamingSink } from "../../src/tui/agent-panel/streaming-sink.js";
-import { getState } from "../../src/tui/panel/state.js";
+} from "../../src/agent/runner.js";
+import { createPanelStreamingSink } from "../../src/agent/ui/agent-panel/streaming-sink.js";
+import { getState } from "../../src/agent/ui/panel/state.js";
 import { getRunById, listRuns, resetRuns } from "@sbluemin/fleet-core/admiral/bridge/run-stream";
 import { CARRIER_FRAMEWORK_KEY } from "@sbluemin/fleet-core/admiral/carrier";
 

@@ -4,7 +4,7 @@ import {
   renderBlockLines,
   blockLineAnsiColor,
   blockLineToAnsi,
-} from "../../src/tui/render/block-renderer.js";
+} from "../../src/shell/render/block-renderer.js";
 import type { ColBlock } from "@sbluemin/fleet-core/admiral/bridge/run-stream";
 import {
   ANSI_RESET,

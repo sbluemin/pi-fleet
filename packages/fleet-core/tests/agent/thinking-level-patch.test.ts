@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { PROVIDER_ID, buildModelId, parseModelId } from "../../src/services/agent/provider-types.js";
+import { PROVIDER_ID, buildModelId, parseModelId } from "../../src/services/agent/provider/provider-types.js";
 import {
   clampThinkingLevel,
   getAcpAvailableThinkingLevels,
-} from "../../src/services/agent/thinking-level-patch.js";
+} from "../../src/services/agent/provider/thinking-level-patch.js";
 
 describe("provider-types model id registration", () => {
   it("등록 ID는 display name에 ACP postfix를 붙여 사용한다", () => {

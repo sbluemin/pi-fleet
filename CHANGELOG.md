@@ -5,12 +5,32 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Breaking Changes
+- **Agent Service Reorganization**: Refactored `packages/fleet-core/src/services/agent/` into a 3-bucket structure (`shared/`, `provider/`, `dispatcher/`) for better isolation between internal runtime and provider contracts.
+  - Consumers of internal agent subpaths must migrate to the new structure:
+    - `@sbluemin/fleet-core/agent` (legacy barrel) -> `@sbluemin/fleet-core/agent/dispatcher/runtime` or root exports.
+    - `@sbluemin/fleet-core/agent/types` -> `@sbluemin/fleet-core/agent/shared/types`.
+    - `@sbluemin/fleet-core/agent/provider-mcp` -> `@sbluemin/fleet-core/agent/provider/provider-mcp`.
+    - `@sbluemin/fleet-core/agent/executor` -> `@sbluemin/fleet-core/agent/dispatcher/executor`.
+  - Representative consumer `pi-fleet-extension` has been updated in the same release; external consumers must update their import paths accordingly.
+- **Log Port Removal**: Removed the `FleetLogPort` interface and the `@sbluemin/fleet-core/agent/shared/log-port` subpath.
+  - `FleetHostPorts.log` field has been removed.
+  - `AgentToolCtx.log` field has been removed.
+  - Consumers must migrate to `services/log` directly (via `initLogAPI`/`getLogAPI`) for log interactions.
+
 ### Changed
-- AGENTS doctrine "compat isolation pattern" replaced with "provider gateway pattern" — only `packages/pi-fleet-extension/src/provider/pi-ai-bridge.ts` is allowed to import `@mariozechner/pi-ai`.
+- **pi-fleet-extension Restructure**: Restructured `pi-fleet-extension` to Flat Domain Architecture mirroring `fleet-core` public services. Each `fleet-core` service maps 1:1 to a `pi-fleet-extension` domain (`agent/`, `fleet.ts`, `grand-fleet/`, `metaphor.ts`, `job.ts`, `settings.ts`, `log.ts`, `tool-registry.ts`, `fleet-wiki/`).
+- **Doctrine Update**: Doctrine "capability bucket organization" replaced with "service-mirror domain organization". Each domain now owns its commands, keybinds, tools, and TUI internally as files within the domain folder.
+- **Entry Point Refactor**: Host entry split into `boot.ts` (runtime composition) and `ports.ts` (`FleetHostPorts` implementation). Host shell consolidated into its own `shell/` domain.
+- **Gateway Location**: `@mariozechner/pi-ai` gateway moved from `src/provider/pi-ai-bridge.ts` to within `src/agent/` domain (single domain-internal gateway).
+- AGENTS doctrine "compat isolation pattern" replaced with "provider gateway pattern" — only `packages/pi-fleet-extension/src/agent/` domain internal gateway is allowed to import `@mariozechner/pi-ai`.
+- **Internal Agent Logging**: The agent domain now directly consumes `services/log` for logging instead of using a dedicated log-port bridge.
 
 ### Removed
-- Removed `pi-fleet-extension/src/bindings/` capability bucket (admiral, carrier, compat, config, grand-fleet, hud, jobs, metaphor, runtime). Service consumption now uses `fleet-core` public surface directly; `@mariozechner/pi-ai` gateway moved to `src/provider/pi-ai-bridge.ts`; runtime glue moved to `src/session/runtime/`; grand-fleet glue moved to `src/session/grand-fleet/`; HUD lifecycle moved to `src/tui/hud-lifecycle.ts`; carrier panel sink moved to `src/tui/agent-panel/`; carrier completion glue moved to `src/session/`.
+- **Legacy Capability Buckets**: Removed `pi-fleet-extension` legacy capability buckets `src/commands/`, `src/keybinds/`, `src/session/`, `src/tools/`, `src/tui/`, and `src/provider/`. All content has been absorbed into their respective domain homes.
+- Removed `pi-fleet-extension/src/bindings/` capability bucket (admiral, carrier, compat, config, grand-fleet, hud, jobs, metaphor, runtime). Service consumption now uses `fleet-core` public surface directly; `@mariozechner/pi-ai` gateway moved to `src/agent/` domain; runtime glue moved to `src/boot.ts` and `src/ports.ts`; grand-fleet glue moved to `src/grand-fleet/`; HUD lifecycle moved to `src/fleet.ts`; carrier panel sink moved to `src/fleet.ts`; carrier completion glue moved to `src/job.ts`.
 - Removed `fleet-core` public types `LlmClient`, `LlmCompleteMessage`, `LlmCompleteRequest`, `LlmCompleteResult` (dead code; `FleetAgentClient` is the active replacement).
+- Removed `@sbluemin/fleet-core/agent/shared/log-port` subpath and `FleetLogPort` interface.
 - Demoted `BackendAdapter`, `BackendConnectOptions`, `BackendRequest`, `BackendResponse`, and `BackendSession` from `fleet-core` public exports.
 
 ## [0.6.2] - 2026-04-30

@@ -8,15 +8,15 @@ The migration target is already fixed:
 
 - `packages/fleet-core` owns Fleet **domain logic**
 - `packages/fleet-core/src/admiralty` owns the internalized **Grand Fleet domain**
-- `packages/pi-fleet-extension` owns Pi **capability buckets**
+- `packages/pi-fleet-extension` owns Pi **host domains** (Flat Domain Architecture)
 
 The repository uses this **current physical state**:
 
 - `packages/fleet-core` remains under `packages/fleet-core/src/`
 - `packages/fleet-core/src/admiralty` is an internalized domain within `fleet-core` with public subpaths `./admiralty` and `./admiralty/ipc`
-- `packages/pi-fleet-extension` capability buckets still remain under `packages/pi-fleet-extension/src/<bucket>/`
+- `packages/pi-fleet-extension/src/` is the active physical home for the Flat Domain Architecture mirroring fleet-core public services.
 
-Agents must not confuse logical ownership with bucket relocation. `packages/pi-fleet-extension/src/` remains the active physical home, and the old legacy domain folders under it have been removed and must not be recreated.
+Agents must not confuse logical ownership with physical domain layout. `packages/pi-fleet-extension/src/` remains the active physical home, and the old legacy capability buckets have been removed and absorbed into domain homes.
 
 ## 2. Ownership Model
 
@@ -28,7 +28,7 @@ Agents must not confuse logical ownership with bucket relocation. `packages/pi-f
 - prompt composition and doctrine assets
 - persona, tone, worldview, operation-name, and directive-refinement domain logic
 - Admiral-owned carrier, carrier-jobs, squadron, taskforce, store, and bridge state/data layers under `src/admiral/`
-- agent and job domain logic under `src/services/`
+- agent domain logic (structured into `shared/`, `provider/`, and `dispatcher/`) and job domain logic under `src/services/`
 - pure runtime stores, ports, and adapter-facing contracts
 - shared doctrine/runtime surfaces consumed by extracted leaf packages
 
@@ -76,39 +76,37 @@ Runtime composition is exposed through the package root and `@sbluemin/fleet-cor
 
 `pi-fleet-extension` must not become a new home for Fleet domain business logic.
 
-## 3. Capability Buckets
+## 3. Domain Layout
 
-In the current layout, Pi ownership is expressed through these buckets:
+In the Flat Domain Architecture, Pi ownership is expressed through these domain-internal homes and entrypoints:
 
-- `src/session/runtime/` — PI lifecycle listeners and host event sequencing
-- `src/session/grand-fleet/` — Grand Fleet session and runtime glue
-- `src/provider/pi-ai-bridge.ts` — provider-owned Pi AI gateway
-- `src/commands/` — slash command registration
-- `src/keybinds/` — shortcut registration
-- `src/tools/` — tool registration and Pi-side renderer/message wiring
-- `src/tui/hud-lifecycle.ts` — HUD / editor lifecycle management
-- `src/tui/agent-panel/` — carrier streaming UI (streaming sink)
-- `src/tui/` — all Pi TUI rendering
-- `src/provider/` — provider registration, provider stream wiring, and provider lifecycle glue
-- `src/session/` — non-provider Pi session features and active-run-safe wrappers
+- `src/boot.ts` — Entry point — assembles the Fleet runtime by composing domain modules
+- `src/ports.ts` — Host port implementation — implements FleetHostPorts for pi environment
+- `src/agent/` — Agent orchestration, providers, and carrier gateway
+- `src/grand-fleet/` — Multi-instance Grand Fleet orchestration
+- `src/fleet-wiki/` — Fleet knowledge base and ingest
+- `src/shell/` — Host shell integration and terminal features
+- `src/fleet.ts` — Fleet-wide bridge and orchestration features
+- `src/metaphor.ts` — Persona, worldview, and naval metaphors
+- `src/job.ts` — Detached carrier job management
+- `src/settings.ts` — Fleet-wide settings and configuration
+- `src/log.ts` — Fleet activity logging and categories
+- `src/tool-registry.ts` — Tool registration and discovery
 
 These are the **current doctrinal homes** even though the package still physically retains `src/`.
 
 ## 4. Legacy Folder Interpretation
 
-The former legacy directories below are already removed:
+The former legacy capability buckets below are already removed:
 
-- `packages/pi-fleet-extension/src/fleet/`
-- `packages/pi-fleet-extension/src/grand-fleet/`
-- `packages/pi-fleet-extension/src/metaphor/`
-- `packages/pi-fleet-extension/src/core/`
-- `packages/pi-fleet-extension/src/boot/`
-- `packages/pi-fleet-extension/src/tui/fleet-wiki/`
-- `packages/pi-fleet-extension/src/commands/fleet-wiki/`
-- `packages/pi-fleet-extension/src/tools/fleet-wiki/`
-- `packages/pi-fleet-extension/src/session/fleet-wiki/`
+- `packages/pi-fleet-extension/src/commands/`
+- `packages/pi-fleet-extension/src/keybinds/`
+- `packages/pi-fleet-extension/src/tools/`
+- `packages/pi-fleet-extension/src/tui/`
+- `packages/pi-fleet-extension/src/provider/`
+- `packages/pi-fleet-extension/src/session/`
 
-Agents must not use those historical paths as permission to reintroduce domain-first architecture inside `pi-fleet-extension`.
+Agents must not use those historical paths as permission to reintroduce capability-first architecture inside `pi-fleet-extension`.
 
 ## 5. Allowed Dependency Direction
 
@@ -121,7 +119,7 @@ fleet-wiki
 fleet-core
   -> admiralty public subpaths
 
-pi-fleet-extension capability buckets
+pi-fleet-extension domains
   -> fleet-core public APIs
   -> fleet-core admiralty public APIs
   -> fleet-wiki
@@ -143,9 +141,9 @@ When editing or reviewing this repo:
 
 1. Ask first whether the behavior is pure Fleet domain logic or Pi host integration.
 2. Put pure logic in `fleet-core`.
-3. Put Pi lifecycle/registration/rendering in the appropriate capability bucket.
+3. Put Pi lifecycle/registration/rendering in the appropriate domain home or entrypoint.
 4. If a legacy module mixes both, split by ownership instead of preserving the old directory boundary.
-5. Keep documentation and code organization aligned with the active `packages/pi-fleet-extension/src/<bucket>/` layout.
+5. Keep documentation and code organization aligned with the active `packages/pi-fleet-extension/src/` layout.
 
 ## 7. Compatibility Invariants
 

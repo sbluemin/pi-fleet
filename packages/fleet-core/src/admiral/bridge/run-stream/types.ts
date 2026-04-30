@@ -11,7 +11,7 @@ export type {
   ColBlock,
   ColStatus,
   CollectedStreamData,
-} from "../../../services/agent/types.js";
+} from "../../../services/agent/shared/types.js";
 
 export type PanelJobKind = "sortie" | "squadron" | "taskforce";
 

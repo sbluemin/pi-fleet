@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../src/tui/welcome/welcome.js", () => ({
+vi.mock("../../src/shell/welcome/welcome.js", () => ({
   WelcomeComponent: class {
     invalidate() {}
     render() {
@@ -22,8 +22,8 @@ vi.mock("../../src/tui/welcome/welcome.js", () => ({
   getRecentSessions: () => [],
 }));
 
-import registerWelcome from "../../src/tui/welcome/register.js";
-import { WELCOME_GLOBAL_KEY } from "../../src/tui/welcome/types.js";
+import registerWelcome from "../../src/shell/welcome/register.js";
+import { WELCOME_GLOBAL_KEY } from "../../src/shell/welcome/types.js";
 
 type Handler = (event: any, ctx: any) => unknown;
 

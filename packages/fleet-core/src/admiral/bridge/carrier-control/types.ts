@@ -1,4 +1,4 @@
-import type { HealthStatus, ProviderKey } from "../../../services/agent/types.js";
+import type { HealthStatus, ProviderKey } from "../../../services/agent/shared/types.js";
 
 export type CarrierCliType = ProviderKey;
 

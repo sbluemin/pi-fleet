@@ -17,10 +17,10 @@ import {
   detachAgentPanelUi,
   endColStreaming,
   ensureAnimTimer,
-} from "../../src/tui/panel-lifecycle.js";
-import { getState, STATE_KEY } from "../../src/tui/panel/state.js";
-import { syncWidget } from "../../src/tui/panel/widget-sync.js";
-import type { AgentCol } from "../../src/tui/panel/types.js";
+} from "../../src/agent/ui/panel-lifecycle.js";
+import { getState, STATE_KEY } from "../../src/agent/ui/panel/state.js";
+import { syncWidget } from "../../src/agent/ui/panel/widget-sync.js";
+import type { AgentCol } from "../../src/agent/ui/panel/types.js";
 
 const ANSI_PATTERN = /\x1b\[[0-9;]*m/g;
 

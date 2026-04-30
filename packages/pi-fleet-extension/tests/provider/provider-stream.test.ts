@@ -35,7 +35,7 @@ vi.mock("@mariozechner/pi-ai", () => ({
   }),
 }));
 
-vi.mock("@sbluemin/fleet-core/agent/provider-client", () => ({
+vi.mock("@sbluemin/fleet-core/agent/provider/provider-client", () => ({
   buildProviderClient: vi.fn(async (opts: unknown) => {
     mockState.buildArgs.push(opts);
     return mockState.client;
@@ -62,11 +62,11 @@ vi.mock("@sbluemin/fleet-core/agent/provider-client", () => ({
   }),
 }));
 
-vi.mock("@sbluemin/fleet-core/agent/executor", () => ({
+vi.mock("@sbluemin/fleet-core/agent/dispatcher/executor", () => ({
   applyPostConnectConfig: vi.fn(async () => {}),
 }));
 
-vi.mock("@sbluemin/fleet-core/agent/runtime", () => ({
+vi.mock("@sbluemin/fleet-core/agent/dispatcher/runtime", () => ({
   onHostSessionChange: vi.fn((piSessionId: string) => {
     mockState.boundPiSessionId = piSessionId;
     mockState.sessionStoreState = { ...(mockState.persistedSessionMaps[piSessionId] ?? {}) };
@@ -93,7 +93,7 @@ vi.mock("@sbluemin/fleet-core/agent/runtime", () => ({
   })),
 }));
 
-vi.mock("../../src/provider/provider-events.js", () => ({
+vi.mock("../../src/agent/provider-internal/provider-events.js", () => ({
   createEventMapper: vi.fn(() => {
     const output: any = {
       role: "assistant",
@@ -143,7 +143,7 @@ vi.mock("@sbluemin/fleet-core/services/log", () => ({
   }),
 }));
 
-vi.mock("@sbluemin/fleet-core/agent/provider-mcp", () => ({
+vi.mock("@sbluemin/fleet-core/agent/provider/provider-mcp", () => ({
   startMcpServer: vi.fn(async () => "http://127.0.0.1/test"),
   stopMcpServer: vi.fn(async () => {}),
   resolveNextToolCall: vi.fn(),
@@ -155,7 +155,7 @@ vi.mock("@sbluemin/fleet-core/agent/provider-mcp", () => ({
   }),
 }));
 
-vi.mock("@sbluemin/fleet-core/agent/tool-snapshot", () => ({
+vi.mock("@sbluemin/fleet-core/agent/provider/tool-snapshot", () => ({
   registerToolsForSession: vi.fn(),
   removeToolsForSession: vi.fn(),
   clearAllTools: vi.fn(),
@@ -163,9 +163,9 @@ vi.mock("@sbluemin/fleet-core/agent/tool-snapshot", () => ({
   getToolNamesForSession: vi.fn(() => new Set(["custom-tool"])),
 }));
 
-import { handleSessionStart, streamAcp } from "../../src/provider/provider-stream.js";
-import { GLOBAL_STATE_KEY, type AcpProviderState, type AcpSessionState } from "@sbluemin/fleet-core/agent/provider-types";
-import { onHostSessionChange } from "@sbluemin/fleet-core/agent/runtime";
+import { handleSessionStart, streamAcp } from "../../src/agent/provider-internal/provider-stream.js";
+import { GLOBAL_STATE_KEY, type AcpProviderState, type AcpSessionState } from "@sbluemin/fleet-core/agent/provider/provider-types";
+import { onHostSessionChange } from "@sbluemin/fleet-core/agent/dispatcher/runtime";
 
 describe("provider-stream", () => {
   afterEach(() => {

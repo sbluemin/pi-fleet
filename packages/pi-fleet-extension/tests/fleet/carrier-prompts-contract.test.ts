@@ -8,7 +8,7 @@ import { SORTIE_MANIFEST, buildSortieToolSchema } from "@sbluemin/fleet-core/adm
 import { CARRIER_JOBS_MANIFEST, buildCarrierJobsSchema } from "@sbluemin/fleet-core/carrier-jobs";
 import { SQUADRON_MANIFEST, buildSquadronSchema } from "@sbluemin/fleet-core/admiral/squadron";
 import { TASKFORCE_MANIFEST, buildTaskForceSchema } from "@sbluemin/fleet-core/admiral/taskforce";
-import { CARRIER_RESULT_CUSTOM_TYPE } from "../../src/tools/carrier-result-renderer.js";
+import { CARRIER_RESULT_CUSTOM_TYPE } from "../../src/job.js";
 
 const testDir = dirname(fileURLToPath(import.meta.url));
 
@@ -52,9 +52,9 @@ describe("carrier prompt doctrine", () => {
 
   it("registers the hidden carrier result custom renderer contract", async () => {
     const fs = await import("node:fs");
-    const indexSource = fs.readFileSync(join(testDir, "..", "..", "src", "tools", "fleet-pi-tools.ts"), "utf8");
+    const indexSource = fs.readFileSync(join(testDir, "..", "..", "src", "boot.ts"), "utf8");
     expect(CARRIER_RESULT_CUSTOM_TYPE).toBe("carrier-result");
-    expect(indexSource).toContain("pi.registerMessageRenderer(CARRIER_RESULT_CUSTOM_TYPE, carrierResultRenderer)");
+    expect(indexSource).toContain("registerJob(ctx)");
   });
 
   it("does not expose wait/mode/fallback queue schema knobs", () => {

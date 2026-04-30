@@ -60,37 +60,37 @@ Put code here when it requires:
 - `pi.sendMessage(...)`
 - `@mariozechner/pi-tui`
 
-## 4. Capability Bucket Map
+## 4. Domain Layout Map
 
-Current capability buckets:
+Current Flat Domain Architecture in `pi-fleet-extension`:
 
-| Bucket | Responsibility |
-|--------|----------------|
-| `src/session/runtime/` | PI lifecycle listeners and host event sequencing |
-| `src/session/grand-fleet/` | Grand Fleet session and runtime glue |
-| `src/provider/pi-ai-bridge.ts` | Provider-owned Pi AI gateway (gateway policy) |
-| `src/commands/` | Slash command registration |
-| `src/keybinds/` | Shortcut registration |
-| `src/tools/` | Tool registration and custom message/render wiring |
-| `src/tui/hud-lifecycle.ts` | HUD / editor lifecycle management |
-| `src/tui/agent-panel/` | Carrier streaming UI (streaming sink) |
-| `src/tui/` | Editor, footer, widgets, overlays, panel, shell, welcome |
-| `src/provider/` | Provider registration, provider stream wiring, and provider lifecycle glue |
-| `src/session/` | Non-provider Pi session features and active-run-safe wrappers |
+| Home / Entrypoint | Responsibility |
+|-------------------|----------------|
+| `src/boot.ts` | Entry point — assembles the Fleet runtime by composing domain modules |
+| `src/ports.ts` | Host port implementation — implements FleetHostPorts for pi environment |
+| `src/agent/` | Domain-internal home for agent orchestration, providers, and carrier gateway |
+| `src/grand-fleet/` | Domain-internal home for multi-instance Grand Fleet orchestration |
+| `src/fleet-wiki/` | Domain-internal home for knowledge base, ingest, and patching |
+| `src/shell/` | Domain-internal home for host shell integration and terminal features |
+| `src/fleet.ts` | Domain entrypoint for fleet-wide bridge and orchestration features |
+| `src/metaphor.ts` | Domain entrypoint for persona, worldview, and naval metaphors |
+| `src/job.ts` | Domain entrypoint for detached carrier job management |
+| `src/settings.ts` | Domain entrypoint for fleet-wide settings and configuration |
+| `src/log.ts` | Domain entrypoint for fleet activity logging and categories |
+| `src/tool-registry.ts` | Domain entrypoint for tool registration and discovery |
 
 ## 5. Removed Legacy Directory Guidance
 
-The following legacy domain directories under `packages/pi-fleet-extension/src/` are already removed and must not be reintroduced:
+The following legacy directories under `packages/pi-fleet-extension/src/` are already removed and must not be reintroduced:
 
-- `src/fleet/`
-- `src/grand-fleet/`
-- `src/metaphor/`
-- `src/core/`
-- `src/boot/`
-- `src/tui/fleet-wiki/`
-- `src/commands/fleet-wiki/`
-- `src/tools/fleet-wiki/`
-- `src/session/fleet-wiki/`
+- `src/commands/`
+- `src/keybinds/`
+- `src/tools/`
+- `src/tui/`
+- `src/provider/`
+- `src/session/`
+
+Do not treat historical paths as present-day ownership signals. Their features have been absorbed into the respective domain homes (e.g., `src/agent/` owns its tools and UI).
 
 Do not treat historical paths such as `src/metaphor/`, `src/fleet/admiral/`, or `src/fleet/shipyard/carrier_jobs/` as present-day ownership signals. Their former existence does not change current ownership: Fleet domain logic belongs in `fleet-core`, and Pi host wiring belongs in the active capability buckets under `src/`.
 

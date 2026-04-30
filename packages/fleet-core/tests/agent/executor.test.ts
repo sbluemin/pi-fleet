@@ -106,7 +106,7 @@ vi.mock("@sbluemin/unified-agent", () => ({
   }),
 }));
 
-vi.mock("../../src/services/agent/pool.js", () => ({
+vi.mock("../../src/services/agent/dispatcher/pool.js", () => ({
   getClientPool: vi.fn(() => mockState.pool),
   isClientAlive: vi.fn((client: { getConnectionInfo: () => { state?: string } }) => {
     const info = client.getConnectionInfo();
@@ -123,7 +123,7 @@ vi.mock("../../src/services/agent/pool.js", () => ({
   }),
 }));
 
-vi.mock("../../src/services/agent/runtime.js", () => ({
+vi.mock("../../src/services/agent/dispatcher/runtime.js", () => ({
   getSessionStore: vi.fn(() => ({
     restore: vi.fn(),
     get: vi.fn((key: string) => mockState.sessionStoreState[key]),
@@ -137,7 +137,7 @@ vi.mock("../../src/services/agent/runtime.js", () => ({
   })),
 }));
 
-vi.mock("../../src/services/agent/provider-types.js", () => ({
+vi.mock("../../src/services/agent/provider/provider-types.js", () => ({
   buildModelId: vi.fn((cli: string, model: string) => `acp:${cli}:${model}`),
   setSessionLaunchConfig: vi.fn((key: string, config: { modelId: string; effort?: string; budgetTokens?: number }) => {
     const previous = mockState.launchConfigs.get(key);
@@ -149,7 +149,7 @@ vi.mock("../../src/services/agent/provider-types.js", () => ({
   getSessionLaunchConfig: vi.fn((key: string) => mockState.launchConfigs.get(key)),
 }));
 
-import { executeOneShot, executeWithPool } from "../../src/services/agent/executor.js";
+import { executeOneShot, executeWithPool } from "../../src/services/agent/dispatcher/executor.js";
 
 describe("executor", () => {
   beforeEach(() => {

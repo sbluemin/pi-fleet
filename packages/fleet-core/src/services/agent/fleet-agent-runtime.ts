@@ -1,4 +1,4 @@
-import { createAgentRequestService } from "./request/service.js";
+import { createAgentRequestService } from "./dispatcher/request/service.js";
 import type {
   FleetHostPorts,
   UnifiedAgentBackgroundRequestOptions,

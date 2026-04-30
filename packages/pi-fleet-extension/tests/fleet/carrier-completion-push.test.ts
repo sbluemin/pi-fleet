@@ -4,7 +4,7 @@ import {
   enqueueCarrierCompletionPush,
   flushCarrierCompletionPush,
   resetCarrierCompletionPushForTest,
-} from "../../src/session/carrier-completion.js";
+} from "../../src/agent/carrier-completion.js";
 
 beforeEach(() => {
   resetCarrierCompletionPushForTest();

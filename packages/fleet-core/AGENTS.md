@@ -11,8 +11,8 @@
 
 ## Owns
 
-- Fleet domain modules such as `admiral/` (including `bridge/`, `carrier/`, `carrier-jobs/`, `squadron/`, `store/`, `taskforce/`, and `protocols/` with integrated `standing-orders/`), `admiralty/` (internalized Grand Fleet domain, no tmux helpers), `services/agent/` (internal physical implementation for normalized agent stream contract), `services/job/`, settings/log/tool-registry services, and `metaphor/`
-- Public API contracts and frozen consumer surfaces, including the canonical `@sbluemin/fleet-core/agent/types` stream contract
+- Fleet domain modules such as `admiral/` (including `bridge/`, `carrier/`, `carrier-jobs/`, `squadron/`, `store/`, `taskforce/`, and `protocols/` with integrated `standing-orders/`), `admiralty/` (internalized Grand Fleet domain, no tmux helpers), `services/agent/` (internal physical implementation for normalized agent stream contract, structured into `shared/`, `provider/`, and `dispatcher/`), `services/job/`, settings/log/tool-registry services, and `metaphor/`
+- Public API contracts and frozen consumer surfaces, including the canonical `@sbluemin/fleet-core/agent/shared/types` stream contract
 - `createFleetCoreRuntime` as the canonical composition entry point, exported from the package root and `@sbluemin/fleet-core/runtime`, that initializes the runtime-owned state (data directory, storage, settings) and optional service status tracking; it also owns the `shutdown` lifecycle that cleans up the agent, resets the settings service, and cleans up service status state
 - `FleetAgentServices` is the public agent domain API. Unified-agent request orchestration remains an internal implementation detail and must not be reintroduced as a public `AgentRequestService`/`agentRequest` runtime field.
 - Fleet tool specs and registry factories that are host-agnostic and registered by adapters through public APIs

@@ -61,7 +61,7 @@ The old compatibility names are intentionally absent from the runtime context:
 
 The root export also provides support types needed to host the runtime:
 
-- `FleetHostPorts`, `FleetLogPort`
+- `FleetHostPorts`
 - `AgentStreamingSink`, `AgentStreamEvent`, `AgentStreamKey`, `ColBlock`, `ColStatus`
 - `UnifiedAgentRequestOptions`, `UnifiedAgentBackgroundRequestOptions`, `UnifiedAgentRequestStatus`, `UnifiedAgentResult`
 - `ServiceStatusCallbacks`
@@ -95,3 +95,22 @@ Some package subpaths still exist for active `pi-fleet-extension` migration
 compatibility. They are not the target public architecture and should not be
 used for new consumer code. New public functionality must enter through the
 domain service modules above and be reachable from `FleetCoreRuntimeContext`.
+
+Current agent compatibility subpaths:
+
+- `@sbluemin/fleet-core/agent`
+- `@sbluemin/fleet-core/agent/shared`
+- `@sbluemin/fleet-core/agent/shared/types`
+- `@sbluemin/fleet-core/agent/shared/service-status`
+- `@sbluemin/fleet-core/agent/provider`
+- `@sbluemin/fleet-core/agent/provider/provider-client`
+- `@sbluemin/fleet-core/agent/provider/provider-types`
+- `@sbluemin/fleet-core/agent/provider/provider-mcp`
+- `@sbluemin/fleet-core/agent/provider/thinking-level-patch`
+- `@sbluemin/fleet-core/agent/provider/tool-snapshot`
+- `@sbluemin/fleet-core/agent/dispatcher`
+- `@sbluemin/fleet-core/agent/dispatcher/executor`
+- `@sbluemin/fleet-core/agent/dispatcher/pool`
+- `@sbluemin/fleet-core/agent/dispatcher/runtime`
+- `@sbluemin/fleet-core/agent/dispatcher/session-store`
+- `@sbluemin/fleet-core/agent/dispatcher/session-resume-utils`

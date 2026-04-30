@@ -5,8 +5,8 @@ import {
   appendTextBlock,
   createRun,
 } from "@sbluemin/fleet-core/admiral/bridge/run-stream";
-import type { PanelJob } from "../../src/tui/panel/types.js";
-import { renderPanelFull } from "../../src/tui/render/panel-renderer.js";
+import type { PanelJob } from "../../src/agent/ui/panel/types.js";
+import { renderPanelFull } from "../../src/shell/render/panel-renderer.js";
 
 beforeEach(() => {
   configureBridgeStateStorage(null);

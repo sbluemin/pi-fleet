@@ -1,18 +1,18 @@
-import type { CliType } from "../services/agent/provider-client.js";
-import type { ServiceStatusCallbacks } from "../services/agent/service-status/store.js";
+import type { CliType } from "../services/agent/provider/provider-client.js";
+import type { ServiceStatusCallbacks } from "../services/agent/shared/service-status/store.js";
 import type {
   AgentStatus,
   AgentStreamEvent,
   CollectedStreamData,
-} from "../services/agent/types.js";
+} from "../services/agent/shared/types.js";
 
 export type {
   AgentStreamEvent,
   AgentStreamKey,
   ColBlock,
   ColStatus,
-} from "../services/agent/types.js";
-export type { ServiceStatusCallbacks } from "../services/agent/service-status/store.js";
+} from "../services/agent/shared/types.js";
+export type { ServiceStatusCallbacks } from "../services/agent/shared/service-status/store.js";
 
 interface UnifiedAgentToolCall {
   readonly title: string;
@@ -75,17 +75,12 @@ interface CompletionPushPayload {
 
 type FleetLogLevel = "debug" | "info" | "warn" | "error";
 
-export interface FleetLogPort {
-  (level: FleetLogLevel, message: string, details?: unknown): void;
-}
-
 export interface FleetHostPorts {
   sendCarrierResultPush(payload: CompletionPushPayload): void | Promise<void>;
   notify(level: FleetLogLevel, message: string): void | Promise<void>;
   loadSetting<T = unknown>(key: string): T | undefined | Promise<T | undefined>;
   saveSetting<T = unknown>(key: string, value: T): void | Promise<void>;
   registerKeybind(binding: unknown): (() => void) | Promise<() => void>;
-  log: FleetLogPort;
   now(): number;
   getDeliverAs(): string | undefined;
   serviceStatus?: ServiceStatusCallbacks;

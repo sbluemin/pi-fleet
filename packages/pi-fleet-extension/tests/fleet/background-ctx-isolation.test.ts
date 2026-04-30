@@ -12,7 +12,7 @@ const runBackground = vi.fn(async (opts: any) => {
   };
 });
 
-vi.mock("../../src/session/runtime/fleet-boot.js", () => ({
+vi.mock("../../src/fleet.js", () => ({
   getFleetRuntime: () => ({
     agent: {
       runBackground,
@@ -20,14 +20,14 @@ vi.mock("../../src/session/runtime/fleet-boot.js", () => ({
   }),
 }));
 
-import { createPanelStreamingSink } from "../../src/tui/agent-panel/streaming-sink.js";
-import { runAgentRequestBackground } from "../../src/session/fleet/operation-runner.js";
-import { getState, syncColsWithRegisteredOrder } from "../../src/tui/panel/state.js";
-import * as panelState from "../../src/tui/panel/state.js";
+import { createPanelStreamingSink } from "../../src/agent/ui/agent-panel/streaming-sink.js";
+import { runAgentRequestBackground } from "../../src/agent/runner.js";
+import { getState, syncColsWithRegisteredOrder } from "../../src/agent/ui/panel/state.js";
+import * as panelState from "../../src/agent/ui/panel/state.js";
 import { resetRuns } from "@sbluemin/fleet-core/admiral/bridge/run-stream";
 import { CARRIER_FRAMEWORK_KEY } from "@sbluemin/fleet-core/admiral/carrier";
-import { isStaleExtensionContextError } from "../../src/tui/context-errors.js";
-import { syncCurrentWidget, syncWidget } from "../../src/tui/panel/widget-sync.js";
+import { isStaleExtensionContextError } from "../../src/shell/context-errors.js";
+import { syncCurrentWidget, syncWidget } from "../../src/agent/ui/panel/widget-sync.js";
 
 describe("background ctx isolation", () => {
   it("runs background carrier requests with explicit cwd and no ExtensionContext", async () => {

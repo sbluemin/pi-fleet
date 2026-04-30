@@ -4,7 +4,7 @@ const mocks = vi.hoisted(() => ({
   executeWithPool: vi.fn(),
 }));
 
-vi.mock("../../src/services/agent/executor.js", () => ({
+vi.mock("../../src/services/agent/dispatcher/executor.js", () => ({
   executeWithPool: mocks.executeWithPool,
 }));
 
@@ -14,7 +14,7 @@ vi.mock("../../src/admiral/store/index.js", () => ({
   }),
 }));
 
-import { createAgentRequestService } from "../../src/services/agent/request/service.js";
+import { createAgentRequestService } from "../../src/services/agent/dispatcher/request/service.js";
 import type { AgentStreamingSink } from "../../src/public/agent-services.js";
 
 beforeEach(() => {

@@ -36,7 +36,6 @@ export type {
   ColBlock,
   ColStatus,
   FleetHostPorts,
-  FleetLogPort,
   ServiceStatusCallbacks,
 } from "./public/agent-services.js";
 export type {

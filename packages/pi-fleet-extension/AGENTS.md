@@ -1,50 +1,50 @@
 # pi-fleet-extension Doctrine
 
-`packages/pi-fleet-extension` is the Pi capability package for Fleet. It owns Pi runtime wiring, capability-bucket entry points, TUI mounting, lifecycle listeners, provider registration, and the provider-owned Pi AI gateway while consuming `@sbluemin/fleet-core` public exports, `@sbluemin/fleet-core/admiralty*` (internalized Grand Fleet domain, formerly `gfleet`), and `@sbluemin/fleet-wiki`.
+`packages/pi-fleet-extension` is the Pi capability package for Fleet. It owns Pi runtime wiring, host shell surfaces, and domain-specific adapters while consuming `@sbluemin/fleet-core` public exports, `@sbluemin/fleet-core/admiralty*` (Grand Fleet domain), and `@sbluemin/fleet-wiki`.
 
-## Current Architecture Status
+## Current Architecture Status: Flat Domain Architecture
 
-- The **logical architecture is already the target architecture**:
-  - `fleet-core` owns Fleet domain logic.
-  - `pi-fleet-extension` owns Pi capability buckets.
-- The **physical layout keeps active Pi buckets under `src/`**:
-  - capability buckets currently live under `packages/pi-fleet-extension/src/<bucket>/`
-  - legacy domain folders under `src/` have been removed; do not reintroduce `src/fleet/**`, `src/grand-fleet/**`, `src/metaphor/**`, `src/core/**`, or `src/boot/**`
-  - Fleet Wiki Pi capability code belongs under active bucket-local homes such as `src/tui/fleet-wiki/**`, `src/commands/fleet-wiki/**`, `src/tools/fleet-wiki/**`, and `src/session/fleet-wiki/**`
-- Do not claim or imply that Pi capability buckets are scheduled to move out of `src/`.
+- The **physical layout mirrors fleet-core services**:
+  - `src/` houses thin adapters that bridge `fleet-core` services to Pi capabilities.
+  - Large domains with UI or complex registration live in subdirectories (`agent/`, `grand-fleet/`, `fleet-wiki/`, `shell/`).
+  - Lean services live as single files in `src/` (e.g., `fleet.ts`, `job.ts`).
+- **Do not reintroduce "Capability Buckets"** (commands/, keybinds/, tools/, etc.) at the root level of `src/`.
 
-## Capability Buckets
+## Domain Mirror Layout (1:1 Service Mapping)
 
-- `src/commands/` — owns `pi.registerCommand(...)` wiring
-- `src/keybinds/` — owns `pi.registerShortcut(...)` wiring
-- `src/tools/` — owns `pi.registerTool(...)` and Pi-side renderer registration
-- `src/tui/` — owns all `@mariozechner/pi-tui` rendering, overlays, and host shell UI
-- `src/provider/` — owns Pi provider registration, stream wiring, provider lifecycle glue, and the sole `@mariozechner/pi-ai` gateway at `src/provider/pi-ai-bridge.ts`
-- `src/session/` — owns non-provider Pi session features, active-run-safe wrappers, Fleet boot/session runtime, and Grand Fleet session runtime
+| pi-fleet-extension (Adapter) | fleet-core (Public Service) | Description |
+| :--- | :--- | :--- |
+| `src/agent/` | `AgentServices` | Pi AI provider, streaming, and Agent Panel UI |
+| `src/grand-fleet/` | `GrandFleetServices` / `Admiralty` | Admiralty/Fleet roles, IPC, and GF session state |
+| `src/fleet-wiki/` | `@sbluemin/fleet-wiki` | Fleet Wiki tool/command registration and overlays |
+| `src/shell/` | (Host Surfaces) | HUD, Welcome UI, shared TUI overlays, and shortcuts |
+| `src/fleet.ts` | `FleetServices` | Core Fleet state and event adapters |
+| `src/metaphor.ts` | `MetaphorServices` | Worldview and directive refinement wiring |
+| `src/job.ts` | `JobServices` | Fleet carrier job lifecycle and status tracking |
+| `src/settings.ts` | `SettingsServices` | Fleet-to-Pi settings sync and persistence |
+| `src/log.ts` | `LogServices` | Fleet log store and terminal output streaming |
+| `src/tool-registry.ts` | `ToolRegistryServices` | Fleet tool spec to Pi tool registration loop |
 
 ## Must Own
 
 - `ExtensionAPI`, `ExtensionContext`, `pi.on(...)`, `pi.registerTool(...)`, `pi.registerCommand(...)`, `pi.registerShortcut(...)`, `pi.registerProvider(...)`, and `pi.sendMessage(...)`
-- Pi widget/editor/footer/overlay rendering
-- Pi-specific lifecycle coordination and active-run-safe wrappers
-- Pi tool registration loops that consume `fleet-core` tool specs and call `pi.registerTool(...)`
+- Pi widget/editor/footer/overlay rendering and TUI component mounting
+- Pi-specific lifecycle coordination (`src/boot.ts`, `src/ports.ts`)
+- The sole `@mariozechner/pi-ai` gateway at `src/agent/provider.ts`
 
 ## Must Not Own
 
-- New Fleet domain business logic that can live in `fleet-core`
-- New deep domain trees under legacy homes like `src/fleet/**`, `src/grand-fleet/**`, or `src/metaphor/**`
-- Deep imports from `@sbluemin/fleet-core/src/**` or `@sbluemin/fleet-core/internal/**`
-- Additional `@mariozechner/pi-ai` imports outside `src/provider/pi-ai-bridge.ts` (Gateway isolation policy)
-- Any code in `src/bindings/` (This legacy bucket is removed; consumption of fleet-core APIs must happen directly in the relevant capability bucket)
+- Fleet domain business logic that belongs in `fleet-core` or `fleet-wiki`
+- Monolithic "Capability Buckets" that group unrelated domains by Pi API type
+- Additional `@mariozechner/pi-ai` imports outside `src/agent/provider.ts`
+- Direct file imports from `@sbluemin/fleet-core/src/**` (use public exports only)
 
 ## Import Boundaries
 
 - Consume `@sbluemin/fleet-core` only through documented public root or subpath exports.
 - Consume Grand Fleet domain APIs through `@sbluemin/fleet-core/admiralty` and `@sbluemin/fleet-core/admiralty/ipc`.
-- Pi capability buckets may depend on each other when their responsibilities require it, but keep ownership clear: registration belongs to the owning bucket.
-- Historical legacy homes under `src/` are already removed. Do not use their old paths as ownership signals or recreate them as transitional homes.
-- Tool definitions should come from `fleet-core` registries where possible; Pi files add only host adapters, renderers, push delivery, and lifecycle gates.
-- Fleet Wiki Pi adapters consume extracted wiki logic from `@sbluemin/fleet-wiki` and must not route that domain back through `fleet-core`.
+- Large domain adapters (`agent/`, `grand-fleet/`) may export specialized hooks or components for `shell/` to consume.
+- Tool definitions must come from `fleet-core` registries; Pi adapters only handle host registration and rendering.
 
 ## Dependency Direction
 
@@ -54,14 +54,12 @@
 ## Migration Guardrails
 
 - Do not reintroduce Pi dependencies into `fleet-core`.
-- Do not reintroduce domain-first architecture inside `pi-fleet-extension`.
-- Do not create new code under removed legacy homes such as `src/fleet/**`, `src/grand-fleet/**`, `src/metaphor/**`, `src/core/**`, or `src/boot/**`.
-- Do not recreate a monolithic Wiki domain home under `src/fleet-wiki/**`; keep Wiki-related Pi code in the active bucket-local `src/*/fleet-wiki/**` homes instead.
-- New Pi registration code should land in the appropriate capability bucket first.
+- Do not create new code under removed capability bucket homes like `src/commands/`, `src/tools/`, or `src/provider/`.
+- All Pi registration code must reside within the specific domain adapter folder or file it serves.
+- The `src/shell/` domain owns the aggregate host UI but delegates domain-specific rendering to its respective adapter.
 
 ## Compatibility Rules
 
 - Preserve slash command names and existing `globalThis` compatibility keys.
 - Preserve custom message delivery semantics for carrier completion pushes.
-- When a module mixes Pi wiring with pure logic, keep the Pi half here and move the pure half to `fleet-core`.
-- Compatibility bridges are now integrated into their respective capability buckets; no separate `bindings/` isolation is permitted.
+- Compatibility bridges are integrated into their respective domain adapters; no separate `bindings/` directory is permitted.
