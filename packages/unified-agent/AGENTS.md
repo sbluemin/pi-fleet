@@ -58,18 +58,18 @@ tests/
 
 ```bash
 # Type check
-npm run lint
+pnpm lint
 
 # E2E tests per CLI (Requires actual CLI, local only)
-npx vitest run tests/e2e/claude.test.ts
-npx vitest run tests/e2e/codex.test.ts
-npx vitest run tests/e2e/gemini.test.ts
+pnpm exec vitest run tests/e2e/claude.test.ts
+pnpm exec vitest run tests/e2e/codex.test.ts
+pnpm exec vitest run tests/e2e/gemini.test.ts
 
 # Run all tests
-npm test
+pnpm test
 
 # Build
-npm run build
+pnpm build
 ```
 
 ## CLI (`ait`)

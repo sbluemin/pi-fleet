@@ -230,6 +230,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@sbluemin/unified-agent": "workspace:*",
     "@sinclair/typebox": "^0.34.41"
   },
   "devDependencies": {

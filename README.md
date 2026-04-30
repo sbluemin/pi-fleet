@@ -93,7 +93,7 @@ Eight built-in Carriers, each with a distinct operational role:
 
 ## Commands
 
-After `npm link` (see [SETUP.md](SETUP.md)), five global commands are available:
+After `pnpm link --global` (see [SETUP.md](SETUP.md)), five global commands are available:
 
 | Command | Description |
 |---------|-------------|

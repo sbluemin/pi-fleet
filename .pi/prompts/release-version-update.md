@@ -30,8 +30,8 @@ Update the root `pi-fleet` version and document the changes since `main` in `CHA
    - If the target version is ambiguous, ask before editing.
 6. Update version metadata:
    - Update root `package.json`.
-   - Update matching root entries in `package-lock.json`.
-   - Prefer `npm version <version> --no-git-tag-version` so the package metadata stays consistent without creating a tag.
+   - Update matching root entries in `pnpm-lock.yaml` (the `importers."."` block).
+   - Prefer `pnpm version <version> --no-git-tag-version` so the package metadata stays consistent without creating a tag.
 7. Update `CHANGELOG.md`:
    - Keep `[Unreleased]` present and empty.
    - Add `## [<version>] - YYYY-MM-DD` below `[Unreleased]`.
@@ -40,9 +40,9 @@ Update the root `pi-fleet` version and document the changes since `main` in `CHA
    - Base entries on the actual `main..HEAD` commits and diff, not speculation.
    - Keep entries concise and user-facing, while naming important modules or files when useful.
 8. Validate:
-   - Confirm `package.json` and `package-lock.json` report the same version.
+   - Confirm `package.json` and `pnpm-lock.yaml` report the same version.
    - Run `git diff --check`.
-   - Review the final diff for `package.json`, `package-lock.json`, and `CHANGELOG.md`.
+   - Review the final diff for `package.json`, `pnpm-lock.yaml`, and `CHANGELOG.md`.
    - Run tests only if code changed as part of the release work, or if the user explicitly requests test execution.
 9. Report the result in Korean:
    - Current branch.
