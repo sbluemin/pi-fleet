@@ -5,7 +5,7 @@ Owns `pi.registerCommand(...)` wiring for `pi-fleet-extension`.
 ## Scope
 
 - Slash command registration and command-to-runtime adapter glue
-- Command routing for admiral, carrier, metaphor, core, and experimental wiki features
+- Command routing for admiral, carrier, metaphor, core, and Fleet Wiki features
 
 ## Rules
 

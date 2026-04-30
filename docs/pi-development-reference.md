@@ -84,7 +84,10 @@ The following legacy domain directories under `packages/pi-fleet-extension/src/`
 - `src/metaphor/`
 - `src/core/`
 - `src/boot/`
-- `src/experimental-wiki/`
+- `src/tui/fleet-wiki/`
+- `src/commands/fleet-wiki/`
+- `src/tools/fleet-wiki/`
+- `src/session/fleet-wiki/`
 
 Do not treat historical paths such as `src/metaphor/`, `src/fleet/admiral/`, or `src/fleet/shipyard/carrier_jobs/` as present-day ownership signals. Their former existence does not change current ownership: Fleet domain logic belongs in `fleet-core`, and Pi host wiring belongs in the active capability buckets under `src/`.
 
@@ -98,7 +101,7 @@ When migrating or restoring behavior that once lived under those paths:
 
 - `pi-fleet-extension` must consume `fleet-core` through public exports only.
 - `pi-fleet-extension` must consume Grand Fleet surfaces through `@sbluemin/fleet-core/gfleet`, `@sbluemin/fleet-core/gfleet/ipc`, or `@sbluemin/fleet-core/gfleet/formation`.
-- `pi-fleet-extension` may consume `@sbluemin/fleet-wiki` for experimental wiki adapters.
+- `pi-fleet-extension` may consume `@sbluemin/fleet-wiki` for Fleet Wiki adapters that live in the active bucket-local `src/*/fleet-wiki/` homes.
 - Do not deep-import `@sbluemin/fleet-core/src/**` or `@sbluemin/fleet-core/internal/**`.
 - Do not import Grand Fleet surfaces from the deprecated Fleet Core location.
 - `fleet-core` must not import Pi packages.

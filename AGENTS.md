@@ -18,7 +18,8 @@
 | `packages/pi-fleet-extension/` | Pi capability package — host runtime bindings, commands, keybinds, tools, TUI, provider registration, session features, and compat seams |
 | `packages/pi-fleet-extension/src/` | Current physical home of Pi capability buckets |
 | `packages/pi-fleet-extension/src/{bindings,commands,keybinds,tools,tui,provider,session}/` | Current doctrinal homes for Pi-specific ownership |
-| `packages/pi-fleet-extension/src/{fleet,grand-fleet,metaphor,core,boot,experimental-wiki}/` | Removed legacy domain directories. Do not reintroduce these homes inside `pi-fleet-extension`; use the current capability buckets under `src/` instead. |
+| `packages/pi-fleet-extension/src/{fleet,grand-fleet,metaphor,core,boot}/` | Removed legacy domain directories. Do not reintroduce these homes inside `pi-fleet-extension`; use the current capability buckets under `src/` instead. |
+| `packages/pi-fleet-extension/src/{tui,commands,tools,session}/fleet-wiki/` | Active Fleet Wiki capability buckets. Keep Pi-side Wiki UI, command, tool, and session integrations in these bucket homes. |
 
 > Currently, there is no `pi/` directory — symlink setup is not required.
 >

@@ -9,7 +9,8 @@
   - `pi-fleet-extension` owns Pi capability buckets.
 - The **physical layout keeps active Pi buckets under `src/`**:
   - capability buckets currently live under `packages/pi-fleet-extension/src/<bucket>/`
-  - legacy domain folders under `src/` have been removed; do not reintroduce `src/fleet/**`, `src/grand-fleet/**`, `src/metaphor/**`, `src/core/**`, `src/boot/**`, or `src/experimental-wiki/**`
+  - legacy domain folders under `src/` have been removed; do not reintroduce `src/fleet/**`, `src/grand-fleet/**`, `src/metaphor/**`, `src/core/**`, or `src/boot/**`
+  - Fleet Wiki Pi capability code belongs under active bucket-local homes such as `src/tui/fleet-wiki/**`, `src/commands/fleet-wiki/**`, `src/tools/fleet-wiki/**`, and `src/session/fleet-wiki/**`
 - Do not claim or imply that Pi capability buckets are scheduled to move out of `src/`.
 
 ## Capability Buckets
@@ -47,7 +48,7 @@
 - Pi capability buckets may depend on each other when their responsibilities require it, but keep ownership clear: registration belongs to the owning bucket.
 - Historical legacy homes under `src/` are already removed. Do not use their old paths as ownership signals or recreate them as transitional homes.
 - Tool definitions should come from `fleet-core` registries where possible; Pi files add only host adapters, renderers, push delivery, and lifecycle gates.
-- Experimental wiki Pi adapters consume extracted wiki logic from `@sbluemin/fleet-wiki` and must not route that domain back through `fleet-core`.
+- Fleet Wiki Pi adapters consume extracted wiki logic from `@sbluemin/fleet-wiki` and must not route that domain back through `fleet-core`.
 
 ## Dependency Direction
 
@@ -58,7 +59,8 @@
 
 - Do not reintroduce Pi dependencies into `fleet-core`.
 - Do not reintroduce domain-first architecture inside `pi-fleet-extension`.
-- Do not create new code under removed legacy homes such as `src/fleet/**`, `src/grand-fleet/**`, `src/metaphor/**`, `src/core/**`, `src/boot/**`, or `src/experimental-wiki/**`.
+- Do not create new code under removed legacy homes such as `src/fleet/**`, `src/grand-fleet/**`, `src/metaphor/**`, `src/core/**`, or `src/boot/**`.
+- Do not recreate a monolithic Wiki domain home under `src/fleet-wiki/**`; keep Wiki-related Pi code in the active bucket-local `src/*/fleet-wiki/**` homes instead.
 - New Pi registration code should land in the appropriate capability bucket first.
 
 ## Compatibility Rules

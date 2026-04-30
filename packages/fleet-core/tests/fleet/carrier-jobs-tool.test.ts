@@ -67,43 +67,27 @@ describe("carrier_jobs tool", () => {
 
     const statusResponse = dispatchCarrierJobsAction({ action: "status", job_id: "sortie:active" }, 1001);
     const resultResponse = dispatchCarrierJobsAction({ action: "result", job_id: "sortie:active" }, 1001);
-    const fullResultResponse = dispatchCarrierJobsAction({ action: "result", job_id: "sortie:active", format: "full" }, 1001);
     const cancelResponse = dispatchCarrierJobsAction({ action: "cancel", job_id: "sortie:active" }, 1001);
 
     expect(statusResponse.notice).toContain("[carrier:result]");
     expect(resultResponse.notice).toContain("[carrier:result]");
-    expect(fullResultResponse.notice).toContain("[carrier:result]");
     expect(cancelResponse.notice).toContain("[carrier:result]");
     expect(statusResponse.notice).not.toContain("<system-reminder>");
     expect(resultResponse.notice).not.toContain("<system-reminder>");
-    expect(fullResultResponse.notice).not.toContain("<system-reminder>");
     expect(cancelResponse.notice).not.toContain("<system-reminder>");
   });
 
-  it("rejects full reads for active jobs without invalidating the archive", () => {
+  it("rejects result reads for active jobs", () => {
     acquireJobPermit(buildRecord("sortie:active", ["genesis"]));
     createJobArchive("sortie:active", 1000);
     appendBlock("sortie:active", toMessageArchiveBlock("genesis", "running output", undefined, 1001), 1001);
 
-    const active = dispatchCarrierJobsAction({ action: "result", job_id: "sortie:active", format: "full" }, 1002);
+    const active = dispatchCarrierJobsAction({ action: "result", job_id: "sortie:active" }, 1002);
     expect(active.ok).toBe(false);
     expect(active.error).toBe("job not finalized");
     expect(active.status).toBe("active");
-
-    finalizeJobArchive("sortie:active", "done", 1003);
-    const done = dispatchCarrierJobsAction({ action: "result", job_id: "sortie:active", format: "full" }, 1004);
-    expect(done.ok).toBe(false);
-    expect(done.status).toBe("active");
-  });
-
-  it("returns summary repeatedly by default", () => {
-    putJobSummary(buildSummary("sortie:done", 1000), 1000);
-
-    const first = dispatchCarrierJobsAction({ action: "result", job_id: "sortie:done" }, 1001);
-    const second = dispatchCarrierJobsAction({ action: "result", job_id: "sortie:done" }, 1002);
-
-    expect(first.summary?.summary).toBe("completed");
-    expect(second.summary?.summary).toBe("completed");
+    expect(active.retry_after).toBeDefined();
+    expect(active.notice).toContain("[carrier:result]");
   });
 
   it("returns full archive repeatedly while TTL keeps it readable", () => {
@@ -112,8 +96,8 @@ describe("carrier_jobs tool", () => {
     appendBlock("sortie:done", toMessageArchiveBlock("genesis", "chronological output", undefined, 1001), 1001);
     finalizeJobArchive("sortie:done", "done", 1002);
 
-    const first = dispatchCarrierJobsAction({ action: "result", job_id: "sortie:done", format: "full" }, 1003);
-    const second = dispatchCarrierJobsAction({ action: "result", job_id: "sortie:done", format: "full" }, 1004);
+    const first = dispatchCarrierJobsAction({ action: "result", job_id: "sortie:done" }, 1003);
+    const second = dispatchCarrierJobsAction({ action: "result", job_id: "sortie:done" }, 1004);
 
     expect(first.ok).toBe(true);
     expect(first.full_result).toContain("chronological output");

@@ -9,7 +9,7 @@ import {
   runDrydock,
   runStatus,
   showPatchDetail,
-} from "../../commands/experimental-wiki/handlers.js";
+} from "../../commands/fleet-wiki/handlers.js";
 import type { PatchMeta, PatchOp } from "@sbluemin/fleet-wiki";
 
 type HubAction = "queue" | "capture" | "status" | "drydock";

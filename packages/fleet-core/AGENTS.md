@@ -18,7 +18,7 @@
 - Fleet tool specs and registry factories that are host-agnostic and registered by adapters through public APIs
 - Global runtime stores, **`BridgeStateStorage` (owned by `bridge/run-stream`)**, and compatibility keys used by Pi adapters
 - Pure prompt composition, domain-level orchestration logic, and **render-agnostic view-model builders**
-- The experimental wiki domain after extraction to the leaf `packages/fleet-wiki`
+- The Fleet Wiki domain extracted to the leaf `packages/fleet-wiki`
 
 ## Must Not Own
 

@@ -98,7 +98,10 @@ The former legacy directories below are already removed:
 - `packages/pi-fleet-extension/src/metaphor/`
 - `packages/pi-fleet-extension/src/core/`
 - `packages/pi-fleet-extension/src/boot/`
-- `packages/pi-fleet-extension/src/experimental-wiki/`
+- `packages/pi-fleet-extension/src/tui/fleet-wiki/`
+- `packages/pi-fleet-extension/src/commands/fleet-wiki/`
+- `packages/pi-fleet-extension/src/tools/fleet-wiki/`
+- `packages/pi-fleet-extension/src/session/fleet-wiki/`
 
 Agents must not use those historical paths as permission to reintroduce domain-first architecture inside `pi-fleet-extension`.
 

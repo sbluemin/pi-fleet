@@ -15,7 +15,7 @@ The lightweight follow-up exists to reduce the amount of product behavior that s
 ## Current State
 - **Logical ownership:** Final. `fleet-core` owns Fleet domain logic; `pi-fleet-extension` owns Pi capabilities.
 - **Physical layout:** Intermediate. `packages/pi-fleet-extension/src/` still exists, and active capability buckets live under `packages/pi-fleet-extension/src/<bucket>/`.
-- **Legacy Pi-side domain folders:** Removed. Do not recreate `src/fleet/`, `src/grand-fleet/`, `src/metaphor/`, `src/core/`, `src/boot/`, or `src/experimental-wiki/`.
+- **Legacy Pi-side domain folders:** Removed. Do not recreate `src/fleet/`, `src/grand-fleet/`, `src/metaphor/`, `src/core/`, or `src/boot/`. Fleet Wiki Pi code now lives in active bucket-local homes such as `src/tui/fleet-wiki/`, `src/commands/fleet-wiki/`, `src/tools/fleet-wiki/`, and `src/session/fleet-wiki/`.
 - **Dependency direction:** `pi-fleet-extension` consumes `fleet-core` through public APIs. `fleet-core` must not import Pi packages.
 
 ## Goals

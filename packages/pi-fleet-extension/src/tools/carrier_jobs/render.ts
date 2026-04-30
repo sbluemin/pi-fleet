@@ -80,7 +80,7 @@ export function shortenJobId(jobId: string | undefined): string {
 }
 
 function formatQuietCall(args: CarrierJobsParams): string {
-  const action = args.format === "full" && args.action === "result" ? "result:full" : args.action;
+  const action = args.action;
   const job = args.action === "list" ? "" : ` · ${shortenJobId(args.job_id)}`;
   return `${DIM}${ICON} Carrier Jobs · ${action}${job}${RESET}`;
 }
@@ -96,15 +96,12 @@ function formatQuietResponse(response: CarrierJobsRenderResponse | null): string
   if (response.action === "cancel") {
     return `${DIM}${ICON} Carrier Jobs · cancel · ${shortenJobId(response.job_id)} · ${response.cancelled ? "cancelled" : "failed"}${RESET}`;
   }
-  if (response.action === "result" && response.full_result) {
-    return `${DIM}${ICON} Carrier Jobs · result:full · ${shortenJobId(response.job_id)} · ${formatKb(response.full_result)}${RESET}`;
-  }
   if (response.action === "result") {
-    const elapsed = response.summary?.finishedAt && response.summary.startedAt
-      ? formatElapsed(response.summary.finishedAt - response.summary.startedAt)
-      : "pending";
-    const status = response.summary?.status ?? response.status ?? (response.error ? "error" : "unknown");
-    return `${DIM}${ICON} Carrier Jobs · result · ${shortenJobId(response.job_id)} · ${status} · ${elapsed}${RESET}`;
+    if (response.full_result) {
+      return `${DIM}${ICON} Carrier Jobs · result · ${shortenJobId(response.job_id)} · ${formatKb(response.full_result)}${RESET}`;
+    }
+    const status = response.status ?? (response.error ? "error" : "unknown");
+    return `${DIM}${ICON} Carrier Jobs · result · ${shortenJobId(response.job_id)} · ${status}${RESET}`;
   }
   return `${DIM}${ICON} Carrier Jobs · ${response.action ?? "unknown"}${RESET}`;
 }

@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import { openWikiHub } from "../tui/experimental-wiki/overlay.js";
+import { openWikiHub } from "../tui/fleet-wiki/overlay.js";
 
 export function registerWikiCommands(pi: ExtensionAPI): void {
   pi.registerCommand("fleet:wiki:menu", {

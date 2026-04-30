@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { registerWikiCommands } from "../../src/commands/wiki-menu.js";
-import { approveAndNotify, listQueueItems, rejectAndNotify, runDrydock, runStatus, showPatchDetail } from "../../src/commands/experimental-wiki/handlers.js";
+import { approveAndNotify, listQueueItems, rejectAndNotify, runDrydock, runStatus, showPatchDetail } from "../../src/commands/fleet-wiki/handlers.js";
 import { enqueuePatch, parsePatch } from "@sbluemin/fleet-wiki";
 import { resolveMemoryPaths } from "@sbluemin/fleet-wiki";
 

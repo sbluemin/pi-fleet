@@ -32,7 +32,7 @@ export {
   runDryDock,
 };
 
-export function bootExperimentalWiki(pi: ExtensionAPI): void {
+export function bootFleetWiki(pi: ExtensionAPI): void {
   const bootCfg = (globalThis as any)["__fleet_boot_config__"];
   if (bootCfg?.experimental !== true) {
     return;
@@ -46,6 +46,6 @@ export function bootExperimentalWiki(pi: ExtensionAPI): void {
   registerWikiCommands(pi);
 }
 
-export default function registerExperimentalWiki(pi: ExtensionAPI): void {
-  bootExperimentalWiki(pi);
+export default function registerFleetWiki(pi: ExtensionAPI): void {
+  bootFleetWiki(pi);
 }

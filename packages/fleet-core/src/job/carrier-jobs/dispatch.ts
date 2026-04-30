@@ -52,7 +52,7 @@ export function dispatchCarrierJobsAction(params: CarrierJobsParams, now = Date.
 
   const jobId = params.job_id!;
   if (params.action === "status") return statusResponse(jobId, now);
-  if (params.action === "result") return resultResponse(jobId, params.format ?? "summary", now);
+  if (params.action === "result") return resultResponse(jobId, now);
   if (params.action === "cancel") return cancelResponse(jobId, now);
 
   return {
@@ -78,47 +78,28 @@ function statusResponse(jobId: string, now: number): CarrierJobsResponse {
   };
 }
 
-function resultResponse(jobId: string, format: string, now: number): CarrierJobsResponse {
-  if (format === "full") {
-    const active = getActiveJob(jobId);
-    if (active) {
-      return {
-        action: "result",
-        job_id: jobId,
-        ok: false,
-        status: active.status,
-        full_available: false,
-        full_invalidated: false,
-        error: "job not finalized",
-        retry_after:
-          "do not retry; wait for the [carrier:result] push that will arrive automatically when the job reaches done, error, or aborted.",
-        notice: ACTIVE_STATUS_NOTICE,
-      };
-    }
-    const archive = getFinalized(jobId, now);
-    const summary = getJobSummary(jobId, now);
+function resultResponse(jobId: string, now: number): CarrierJobsResponse {
+  const active = getActiveJob(jobId);
+  if (active) {
     return {
       action: "result",
       job_id: jobId,
-      ok: Boolean(archive),
-      summary: summary ?? undefined,
-      full_result: archive ? serializeJobArchive(archive) : undefined,
-      summary_available: Boolean(summary),
-      full_available: false,
-      full_invalidated: !archive,
-      error: archive ? undefined : "full result unavailable or expired",
+      ok: false,
+      status: active.status,
+      error: "job not finalized",
+      retry_after:
+        "do not retry; wait for the [carrier:result] push that will arrive automatically when the job reaches done, error, or aborted.",
+      notice: ACTIVE_STATUS_NOTICE,
     };
   }
 
-  const summary = getJobSummary(jobId, now);
+  const archive = getFinalized(jobId, now);
   return {
     action: "result",
     job_id: jobId,
-    ok: Boolean(summary),
-    summary: summary ?? undefined,
-    notice: summary?.status === "active" ? ACTIVE_STATUS_NOTICE : undefined,
-    ...getAvailability(jobId, summary, now),
-    error: summary ? undefined : "summary unavailable",
+    ok: Boolean(archive),
+    full_result: archive ? serializeJobArchive(archive) : undefined,
+    error: archive ? undefined : "full result unavailable or expired",
   };
 }
 
