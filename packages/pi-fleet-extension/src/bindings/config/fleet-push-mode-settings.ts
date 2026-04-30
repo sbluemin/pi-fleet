@@ -49,6 +49,6 @@ export function registerPushModeSettingsSection(): void {
 
 function getAPI(): CoreSettingsAPI {
   const api = getSettingsAPI();
-  if (!api) throw new Error("core-settings API not available");
+  if (!api) throw new Error("Fleet-Core Settings API not available");
   return api;
 }

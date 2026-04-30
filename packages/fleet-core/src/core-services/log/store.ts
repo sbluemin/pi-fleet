@@ -193,6 +193,6 @@ function sanitizeCategory(raw: string): string {
 }
 
 function getSettingsPort(): CoreLogSettingsPort {
-  if (!settingsPort) throw new Error("core-settings API not available");
+  if (!settingsPort) throw new Error("Settings API not available");
   return settingsPort;
 }

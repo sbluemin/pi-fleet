@@ -16,6 +16,6 @@ export function loadSettings(): ProviderGuardSettings {
 
 export function saveSettings(settings: ProviderGuardSettings): void {
   const api = getSettingsAPI();
-  if (!api) throw new Error("core-settings API not available");
+  if (!api) throw new Error("Fleet-Core Settings API not available");
   saveProviderGuardSettings(api, settings);
 }

@@ -34,6 +34,6 @@ export function saveSettings(settings: OperationNameSettings): void {
 
 function getAPI(): FleetSettingsPort {
   const api = getFleetSettingsPort();
-  if (!api) throw new Error("core-settings API not available");
+  if (!api) throw new Error("Settings API not available");
   return api;
 }
