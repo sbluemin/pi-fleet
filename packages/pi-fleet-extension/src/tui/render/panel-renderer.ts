@@ -262,8 +262,9 @@ function buildJobColumnContent(job: PanelJobViewModel, width: number, bodyH: num
     const icon = trackIcon(liveStatus, frame, job.ownerCarrierId);
     const nameColor = track.displayCli ? (resolveCarrierColor(track.displayCli) || PANEL_COLOR) : "";
     const nameReset = nameColor ? ANSI_RESET : "";
+    const doneSuffix = liveStatus === "done" ? ` ${PANEL_DIM_COLOR}✓ Done${ANSI_RESET}` : "";
     lines.push(truncateToWidth(
-      `${PANEL_DIM_COLOR}${treePrefix}${ANSI_RESET} ${icon} ${nameColor}${track.displayName}${nameReset}${stats ? ` ${PANEL_DIM_COLOR}[${stats}]${ANSI_RESET}` : ""}`,
+      `${PANEL_DIM_COLOR}${treePrefix}${ANSI_RESET} ${icon} ${nameColor}${track.displayName}${nameReset}${stats ? ` ${PANEL_DIM_COLOR}[${stats}]${ANSI_RESET}` : ""}${doneSuffix}`,
       contentWidth,
     ));
     lines.push(...getTrackStreamTail(track, connector, contentWidth, liveStatus));
@@ -275,26 +276,19 @@ function buildTrackContent(track: PanelTrackViewModel, bodyH: number, frame: num
   const liveStatus = track.status;
   const stats = buildTrackStats(track);
   return [
-    `${trackIcon(liveStatus, frame, track.displayCli)} ${track.displayName}${stats ? ` ${PANEL_DIM_COLOR}[${stats}]${ANSI_RESET}` : ""}`,
+    `${trackIcon(liveStatus, frame, track.displayCli)} ${track.displayName}${stats ? ` ${PANEL_DIM_COLOR}[${stats}]${ANSI_RESET}` : ""}${liveStatus === "done" ? ` ${PANEL_DIM_COLOR}✓ Done${ANSI_RESET}` : ""}`,
     ...getTrackStreamTail(track, "   ", Number.MAX_SAFE_INTEGER, liveStatus),
   ].slice(-bodyH);
 }
 
 function getTrackStreamTail(track: PanelTrackViewModel, connector: string, width: number, liveStatus?: ColStatus): string[] {
   const effectiveStatus = liveStatus ?? track.status;
-  if (track.blocks.length === 0) {
-    return effectiveStatus === "done"
-      ? [truncateToWidth(`${PANEL_DIM_COLOR}${connector}${ANSI_RESET}   ✓ Completed`, width)]
-      : [];
-  }
+  const prefix = `${PANEL_DIM_COLOR}${connector}${ANSI_RESET}   `;
+  if (effectiveStatus === "done") return [];
+  if (track.blocks.length === 0) return [];
   const blockLines = renderBlockLines(track.blocks).filter((line) => line.text.trim());
   const tail = blockLines.slice(-MAX_TRACK_STREAM_LINES);
-  const prefix = `${PANEL_DIM_COLOR}${connector}${ANSI_RESET}   `;
-  const rendered = tail.map((line) => truncateToWidth(`${prefix}${blockLineToAnsi(line)}`, width));
-  if (effectiveStatus === "done") {
-    rendered.push(truncateToWidth(`${prefix}✓ Completed`, width));
-  }
-  return rendered;
+  return tail.map((line) => truncateToWidth(`${prefix}${blockLineToAnsi(line)}`, width));
 }
 
 function buildTrackStats(track: PanelTrackViewModel): string {
