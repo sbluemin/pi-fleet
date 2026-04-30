@@ -73,8 +73,3 @@ export function adjustPanelHeight(ctx: ExtensionContext, delta: number): number 
   }
   return s.bodyH;
 }
-
-/** 현재 패널 본문 높이를 반환합니다. */
-export function getPanelBodyHeight(): number {
-  return getState().bodyH;
-}

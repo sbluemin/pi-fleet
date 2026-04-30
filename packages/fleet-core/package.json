@@ -18,21 +18,6 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
-    "./runtime": {
-      "types": "./dist/runtime.d.ts",
-      "import": "./dist/runtime.js",
-      "require": "./dist/runtime.cjs"
-    },
-    "./agent": {
-      "types": "./dist/agent.d.ts",
-      "import": "./dist/agent.js",
-      "require": "./dist/agent.cjs"
-    },
-    "./agent/shared": {
-      "types": "./dist/agent/shared.d.ts",
-      "import": "./dist/agent/shared.js",
-      "require": "./dist/agent/shared.cjs"
-    },
     "./agent/shared/types": {
       "types": "./dist/agent/shared/types.d.ts",
       "import": "./dist/agent/shared/types.js",
@@ -42,11 +27,6 @@
       "types": "./dist/agent/shared/service-status.d.ts",
       "import": "./dist/agent/shared/service-status.js",
       "require": "./dist/agent/shared/service-status.cjs"
-    },
-    "./agent/provider": {
-      "types": "./dist/agent/provider.d.ts",
-      "import": "./dist/agent/provider.js",
-      "require": "./dist/agent/provider.cjs"
     },
     "./agent/provider/provider-types": {
       "types": "./dist/agent/provider/provider-types.d.ts",
@@ -72,11 +52,6 @@
       "types": "./dist/agent/provider/tool-snapshot.d.ts",
       "import": "./dist/agent/provider/tool-snapshot.js",
       "require": "./dist/agent/provider/tool-snapshot.cjs"
-    },
-    "./agent/dispatcher": {
-      "types": "./dist/agent/dispatcher.d.ts",
-      "import": "./dist/agent/dispatcher.js",
-      "require": "./dist/agent/dispatcher.cjs"
     },
     "./agent/dispatcher/runtime": {
       "types": "./dist/agent/dispatcher/runtime.d.ts",
@@ -163,11 +138,6 @@
       "import": "./dist/admiral.js",
       "require": "./dist/admiral.cjs"
     },
-    "./admiral/protocols": {
-      "types": "./dist/admiral/protocols.d.ts",
-      "import": "./dist/admiral/protocols.js",
-      "require": "./dist/admiral/protocols.cjs"
-    },
     "./admiral/protocols/standing-orders": {
       "types": "./dist/admiral/protocols/standing-orders.d.ts",
       "import": "./dist/admiral/protocols/standing-orders.js",
@@ -193,11 +163,6 @@
       "import": "./dist/metaphor/directive-refinement.js",
       "require": "./dist/metaphor/directive-refinement.cjs"
     },
-    "./services": {
-      "types": "./dist/services.d.ts",
-      "import": "./dist/services.js",
-      "require": "./dist/services.cjs"
-    },
     "./services/settings": {
       "types": "./dist/services/settings.d.ts",
       "import": "./dist/services/settings.js",
@@ -212,11 +177,6 @@
       "types": "./dist/admiralty.d.ts",
       "import": "./dist/admiralty.js",
       "require": "./dist/admiralty.cjs"
-    },
-    "./admiralty/ipc": {
-      "types": "./dist/admiralty/ipc.d.ts",
-      "import": "./dist/admiralty/ipc.js",
-      "require": "./dist/admiralty/ipc.cjs"
     }
   },
   "scripts": {

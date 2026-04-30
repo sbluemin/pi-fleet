@@ -6,9 +6,7 @@
 import { getLogAPI } from "@sbluemin/fleet-core/services/log";
 import {
   buildCompleteReport,
-  buildFailedReport,
   buildMissionReportPayload,
-  buildProgressReport,
   type MissionReportData,
 } from "@sbluemin/fleet-core/admiralty";
 import type { FleetClient } from "./client.js";
@@ -36,16 +34,6 @@ export function sendMissionReport(
   );
 }
 
-/** 진행 보고 (중간 마일스톤) */
-export function sendProgressReport(
-  client: FleetClient,
-  fleetId: FleetId,
-  missionId: MissionId,
-  summary: string,
-): void {
-  sendMissionReport(client, buildProgressReport(fleetId, missionId, summary));
-}
-
 /** 완료 보고 */
 export function sendCompleteReport(
   client: FleetClient,
@@ -56,15 +44,4 @@ export function sendCompleteReport(
   fileStats?: FileStats,
 ): void {
   sendMissionReport(client, buildCompleteReport(fleetId, missionId, summary, phases, fileStats));
-}
-
-/** 실패 보고 */
-export function sendFailedReport(
-  client: FleetClient,
-  fleetId: FleetId,
-  missionId: MissionId,
-  summary: string,
-  openIssues?: string[],
-): void {
-  sendMissionReport(client, buildFailedReport(fleetId, missionId, summary, openIssues));
 }

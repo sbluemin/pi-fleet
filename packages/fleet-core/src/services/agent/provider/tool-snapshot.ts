@@ -7,7 +7,7 @@
  * imports → types/interfaces → constants → functions 순서 준수.
  */
 
-import { getLogAPI } from "../../log/runtime.js";
+import { getLogAPI } from "../../log/store.js";
 
 export type Tool = { name: string; description?: string; parameters?: unknown; [key: string]: unknown };
 

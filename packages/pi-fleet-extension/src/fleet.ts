@@ -1,11 +1,12 @@
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import type { CliType } from "@sbluemin/fleet-core/agent/provider/provider-client";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
 import { DynamicBorder } from "@mariozechner/pi-coding-agent";
 import { Container, type SelectItem, SelectList, Text } from "@mariozechner/pi-tui";
-import { createFleetCoreRuntime, type FleetCoreRuntimeContext } from "@sbluemin/fleet-core";
+import { createFleetCoreRuntime, type AgentStreamingSink, type FleetCoreRuntimeContext, type FleetHostPorts } from "@sbluemin/fleet-core";
 import {
   buildRuntimeContextPrompt,
   buildSystemPrompt,
@@ -26,15 +27,16 @@ import { cleanIdleClients } from "@sbluemin/fleet-core/agent/dispatcher/pool";
 import { onHostSessionChange } from "@sbluemin/fleet-core/agent/dispatcher/runtime";
 import { setCliRuntimeContext } from "@sbluemin/fleet-core/agent/provider/provider-types";
 import { isWorldviewEnabled } from "@sbluemin/fleet-core/metaphor";
+import { getLogAPI } from "@sbluemin/fleet-core/services/log";
 import { bootBridge, ensureBridgeKeybinds } from "./agent/ui/acp-shell/register.js";
 import { syncModelConfig } from "./agent/carrier/model-ui.js";
 import { registerGrandFleet } from "./grand-fleet/index.js";
 import { getKeybindAPI } from "./shell/keybinds/core/bridge.js";
-import { persistDirectChatIfEmpty } from "./agent/direct-chat-session.js";
 import { attachStatusContext, detachStatusContext, refreshStatusNow } from "./agent/provider-internal/service-status-store.js";
 import { exposeAgentApi } from "./agent/runner.js";
 import { createPanelStreamingSink } from "./agent/ui/agent-panel/streaming-sink.js";
 import { detachAgentPanelUi, refreshAgentPanel } from "./agent/ui/panel-lifecycle.js";
+import { setAgentPanelServiceLoading, setAgentPanelServiceStatus } from "./agent/ui/panel/config.js";
 import { setDeliverAs, getDeliverAs } from "./settings.js";
 import {
   getRegisteredCarrierConfig,
@@ -48,10 +50,7 @@ import {
   setSquadronEnabledCarriers,
   setTaskForceConfiguredCarriers,
 } from "./tool-registry.js";
-import { registerProtocolWidget, updateProtocolWidget } from "./shell/admiral/widget.js";
-import { ensureBridgeKeybinds as ensureTuiBridgeKeybinds } from "./shell/fleet-bridge.js";
 import { setEditorBorderColor, setEditorRightLabel } from "./shell/hud/border-bridge.js";
-import { createFleetHostPorts } from "./ports.js";
 import { setCarrierJobsVerbose, toggleCarrierJobsVerbose } from "./job.js";
 
 export interface FleetLifecycleRuntime {
@@ -86,10 +85,6 @@ let fleetRuntime: FleetCoreRuntimeContext | undefined;
 let currentAgentRequestCtx: ExtensionContext | undefined;
 
 export { bootBridge, ensureBridgeKeybinds };
-
-export function registerFleet(ctx: ExtensionAPI): FleetLifecycleRuntime {
-  return registerFleetLifecycle(ctx);
-}
 
 export function registerFleetLifecycle(pi: ExtensionAPI): FleetLifecycleRuntime {
   registerBoot(pi);
@@ -228,8 +223,7 @@ export function wireFleetPiEvents(pi: ExtensionAPI): void {
     syncModelConfig();
     syncProtocolToHud(getActiveProtocol());
     registerAdmiralSettingsSection();
-    registerProtocolWidget(ctx);
-    ensureTuiBridgeKeybinds();
+    ensureBridgeKeybinds();
   });
 
   pi.on("session_tree", (_event, ctx) => {
@@ -354,10 +348,35 @@ function registerProtocolKeybinds(): void {
         syncProtocolToHud(protocol);
         setCliRuntimeContext(buildRuntimeContextPrompt);
         ctx.ui.notify(`Protocol → ${protocol.name}`, "info");
-        updateProtocolWidget(ctx);
       },
     });
   }
+}
+
+function persistDirectChatIfEmpty(ctx: ExtensionContext): void {
+  const sessionFile = ctx.sessionManager.getSessionFile();
+  if (!sessionFile) return;
+
+  const entries = ctx.sessionManager.getEntries();
+  const hasDirectChat = entries.some((entry) => entry.type === "custom_message");
+  if (!hasDirectChat) return;
+
+  const hasAssistant = entries.some(
+    (entry) => entry.type === "message" && (entry as any).message?.role === "assistant",
+  );
+  if (hasAssistant) return;
+
+  const header = ctx.sessionManager.getHeader();
+  if (!header) return;
+
+  const dir = path.dirname(sessionFile);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+
+  let content = JSON.stringify(header) + "\n";
+  for (const entry of entries) {
+    content += JSON.stringify(entry) + "\n";
+  }
+  writeFileSync(sessionFile, content);
 }
 
 function bindFleetHostSession(ctx: ExtensionContext): void {
@@ -394,6 +413,31 @@ function registerAdmiralSettingsSection(): void {
       ];
     },
   });
+}
+
+function createFleetHostPorts(streamingSink?: AgentStreamingSink): FleetHostPorts {
+  return {
+    sendCarrierResultPush() {},
+    notify(level, message) {
+      getLogAPI().log(level, "fleet-boot", message);
+    },
+    loadSetting() {
+      return undefined;
+    },
+    saveSetting() {},
+    registerKeybind() {
+      return () => {};
+    },
+    now: () => Date.now(),
+    getDeliverAs() {
+      return undefined;
+    },
+    serviceStatus: {
+      setLoading: setAgentPanelServiceLoading,
+      setStatus: setAgentPanelServiceStatus,
+    },
+    streamingSink,
+  };
 }
 
 function reconcileRegisteredCarrierModels(): void {

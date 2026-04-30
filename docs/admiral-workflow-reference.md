@@ -81,7 +81,7 @@ Runtime composition is exposed through the package root and `@sbluemin/fleet-cor
 In the Flat Domain Architecture, Pi ownership is expressed through these domain-internal homes and entrypoints:
 
 - `src/boot.ts` — Entry point — assembles the Fleet runtime by composing domain modules
-- `src/ports.ts` — Host port implementation — implements FleetHostPorts for pi environment
+- `src/fleet.ts` — Fleet lifecycle, runtime initialization, and Pi host port implementation
 - `src/agent/` — Agent orchestration, providers, and carrier gateway
 - `src/grand-fleet/` — Multi-instance Grand Fleet orchestration
 - `src/fleet-wiki/` — Fleet knowledge base and ingest

@@ -6,8 +6,6 @@ import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { loadConfig } from "./config.js";
 import { PopupOverlay } from "./overlay-component.js";
 import type {
-  ShellPopupBridge,
-  ShellPopupController,
   ShellPopupOptions,
   ShellPopupResult,
 } from "./types.js";
@@ -15,67 +13,54 @@ import type {
 let latestContext: ExtensionContext | null = null;
 let activePopup: Promise<ShellPopupResult> | null = null;
 
-export function createPopupController(): ShellPopupController {
-  return {
-    setContext(ctx) {
-      latestContext = ctx;
-    },
-    async open(opts) {
-      const ctx = latestContext;
-      if (!ctx) {
-        throw new Error("No active session context found.");
-      }
-      if (!ctx.hasUI) {
-        throw new Error("Shell popup is only available in interactive TUI mode.");
-      }
-      if (activePopup) {
-        return;
-      }
-
-      const config = loadConfig(ctx.cwd);
-      const launch = normalizeLaunchOptions(ctx, opts);
-
-      activePopup = ctx.ui.custom<ShellPopupResult>(
-        (tui, theme, _keyboard, done) =>
-          new PopupOverlay(
-            tui,
-            theme,
-            launch,
-            config,
-            done,
-          ),
-        {
-          overlay: true,
-          overlayOptions: {
-            width: `${config.overlayWidthPercent}%`,
-            maxHeight: `${Math.max(config.overlayHeightPercent, 90)}%`,
-            anchor: "center",
-            margin: 1,
-          },
-        },
-      );
-
-      try {
-        return await activePopup;
-      } finally {
-        activePopup = null;
-      }
-    },
-    isOpen() {
-      return activePopup !== null;
-    },
-  };
+export function setShellPopupContext(ctx: ExtensionContext): void {
+  latestContext = ctx;
 }
 
-export function createPopupBridge(controller: ShellPopupController): ShellPopupBridge {
-  return {
-    open(opts) {
-      return controller.open(opts);
+export async function openShellPopup(opts: ShellPopupOptions): Promise<ShellPopupResult | void> {
+  const ctx = latestContext;
+  if (!ctx) {
+    throw new Error("No active session context found.");
+  }
+  if (!ctx.hasUI) {
+    throw new Error("Shell popup is only available in interactive TUI mode.");
+  }
+  if (activePopup) {
+    return;
+  }
+
+  const config = loadConfig(ctx.cwd);
+  const launch = normalizeLaunchOptions(ctx, opts);
+
+  activePopup = ctx.ui.custom<ShellPopupResult>(
+    (tui, theme, _keyboard, done) =>
+      new PopupOverlay(
+        tui,
+        theme,
+        launch,
+        config,
+        done,
+      ),
+    {
+      overlay: true,
+      overlayOptions: {
+        width: `${config.overlayWidthPercent}%`,
+        maxHeight: `${Math.max(config.overlayHeightPercent, 90)}%`,
+        anchor: "center",
+        margin: 1,
+      },
     },
-    isOpen() {
-      return controller.isOpen();
-    },
-  };
+  );
+
+  try {
+    return await activePopup;
+  } finally {
+    activePopup = null;
+  }
+}
+
+export function isShellPopupOpen(): boolean {
+  return activePopup !== null;
 }
 
 function normalizeLaunchOptions(

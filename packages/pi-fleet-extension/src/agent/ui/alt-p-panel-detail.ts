@@ -8,8 +8,6 @@
  * fleet/index.ts에서 호출됩니다.
  */
 
-import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
-
 import { getKeybindAPI } from "../../shell/keybinds/core/bridge.js";
 import { BODY_H_STEP } from "@sbluemin/fleet-core/constants";
 import { toggleAgentPanel, showAgentPanel, setDetailView } from "./panel-lifecycle.js";

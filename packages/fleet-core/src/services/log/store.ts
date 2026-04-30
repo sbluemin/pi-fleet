@@ -3,8 +3,8 @@ import * as os from "node:os";
 import * as path from "node:path";
 
 import { getSettingsService } from "../settings/runtime.js";
-import type { LogCategoryMeta, LogEntry, LogLevel, LogSettings } from "./types.js";
-import { DEFAULT_LOG_CATEGORY, LOG_LEVEL_PRIORITY } from "./types.js";
+import type { CoreLogAPI, LogCategoryMeta, LogEntry, LogLevel, LogSettings } from "./types.js";
+import { CORE_LOG_KEY, DEFAULT_LOG_CATEGORY, LOG_LEVEL_PRIORITY } from "./types.js";
 
 export interface CoreLogSettingsPort {
   load<T = Record<string, unknown>>(sectionKey: string): T;
@@ -25,6 +25,18 @@ const DEFAULT_SETTINGS: Required<LogSettings> = {
   minLevel: "debug",
   disabledCategories: [],
 };
+const NOOP_LOG_API: CoreLogAPI = {
+  debug() {},
+  info() {},
+  warn() {},
+  error() {},
+  log() {},
+  isEnabled: () => false,
+  setEnabled() {},
+  getRecentLogs: () => [],
+  registerCategory() {},
+  getRegisteredCategories: () => [],
+};
 const ringBuffer: LogEntry[] = [];
 const categoryRegistry = new Map<string, LogCategoryMeta>();
 
@@ -40,6 +52,14 @@ registerCategory({
 export function setCoreLogSettingsPort(port: CoreLogSettingsPort | null): void {
   settingsPort = port;
   migrated = false;
+}
+
+export function getLogAPI(): CoreLogAPI {
+  return (globalThis as Record<string, unknown>)[CORE_LOG_KEY] as CoreLogAPI ?? NOOP_LOG_API;
+}
+
+export function initLogAPI(api: CoreLogAPI): void {
+  (globalThis as Record<string, unknown>)[CORE_LOG_KEY] = api;
 }
 
 export function loadSettings(): Required<LogSettings> {

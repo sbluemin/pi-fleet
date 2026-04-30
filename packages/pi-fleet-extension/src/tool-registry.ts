@@ -19,7 +19,6 @@ import type { CarrierConfig, CarrierMetadata } from "@sbluemin/fleet-core/admira
 import * as carrierCore from "@sbluemin/fleet-core/admiral/carrier";
 import { loadModels as getModelConfig } from "@sbluemin/fleet-core/admiral/store";
 import type { BackendProgress, TaskForceResult, TaskForceState } from "@sbluemin/fleet-core/admiral/taskforce";
-import { TASKFORCE_STATE_KEY } from "@sbluemin/fleet-core/admiral/taskforce";
 import type { SubtaskProgress, SquadronResult, SquadronState } from "@sbluemin/fleet-core/admiral/squadron";
 import { SQUADRON_MAX_INSTANCES, SQUADRON_STATE_KEY } from "@sbluemin/fleet-core/admiral/squadron";
 import { getLogAPI } from "@sbluemin/fleet-core/services/log";
@@ -46,7 +45,7 @@ import {
 } from "@sbluemin/fleet-core";
 
 import { enqueueCarrierCompletionPush } from "./agent/carrier-completion.js";
-import { runAgentRequestBackground } from "./agent/runner.js";
+import { getFleetRuntime } from "./fleet.js";
 import { setAgentPanelModelConfig } from "./agent/ui/panel/config.js";
 import { renderCarrierJobsCall, renderCarrierJobsResult, type CarrierJobsToolResult } from "./job.js";
 import {
@@ -55,7 +54,7 @@ import {
 } from "./shell/render/message-renderers.js";
 
 export type { BackendProgress, CarrierConfig, SquadronResult, SquadronState, SubtaskProgress, TaskForceResult, TaskForceState };
-export { SQUADRON_MAX_INSTANCES, SQUADRON_STATE_KEY, TASKFORCE_STATE_KEY };
+export { SQUADRON_MAX_INSTANCES, SQUADRON_STATE_KEY };
 export * from "@sbluemin/fleet-core/admiral/carrier";
 
 interface PiRenderContext {
@@ -63,7 +62,7 @@ interface PiRenderContext {
   readonly lastComponent?: unknown;
 }
 
-interface PreviewEntry {
+interface RenderEntry {
   label: string;
   text: string;
 }
@@ -79,11 +78,6 @@ export interface SingleCarrierOptions {
   color?: string;
   /** 배경색 오버라이드 (미지정 시 cliType 시그니처 색상 사용) */
   bgColor?: string;
-}
-
-interface RequestEntry {
-  label: string;
-  text: string;
 }
 
 const SHIPYARD_PROMPT_CATEGORY_BOOTSTRAP_KEY = "__fleet_shipyard_prompt_category_registered__";
@@ -256,7 +250,9 @@ function createFleetRegistryPorts(pi: ExtensionAPI): FleetToolRegistryPorts {
     logDebug(category, message, options) {
       getLogAPI().debug(category, message, options as Parameters<ReturnType<typeof getLogAPI>["debug"]>[2]);
     },
-    runAgentRequestBackground,
+    runAgentRequestBackground(options) {
+      return getFleetRuntime().agent.runBackground(options);
+    },
     enqueueCarrierCompletionPush(payload) {
       enqueueCarrierCompletionPush(pi, payload);
     },
@@ -343,7 +339,7 @@ function oneLine(line: string): { render(): string[]; invalidate(): void } {
   };
 }
 
-function buildPreviewEntries(toolName: string, args: unknown): PreviewEntry[] {
+function buildPreviewEntries(toolName: string, args: unknown): RenderEntry[] {
   if (!isRecord(args)) return [];
 
   if (toolName === "carriers_sortie" && Array.isArray(args.carriers)) {
@@ -365,7 +361,7 @@ function buildPreviewEntries(toolName: string, args: unknown): PreviewEntry[] {
   return [];
 }
 
-function renderRequestPreview(entries: RequestEntry[], expanded: boolean, labelColor: string, width: number): string[] {
+function renderRequestPreview(entries: RenderEntry[], expanded: boolean, labelColor: string, width: number): string[] {
   if (entries.length < 1) return [];
 
   const contentLines = buildContentLines(entries, labelColor, width);
@@ -381,7 +377,7 @@ function renderRequestPreview(entries: RequestEntry[], expanded: boolean, labelC
   return [...collapsed, hintLine];
 }
 
-function buildContentLines(entries: RequestEntry[], labelColor: string, width: number): string[] {
+function buildContentLines(entries: RenderEntry[], labelColor: string, width: number): string[] {
   const lines: string[] = [];
 
   for (const entry of entries) {

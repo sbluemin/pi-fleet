@@ -13,7 +13,8 @@ import { registerFleetPiEvents } from "./events.js";
 import { registerFleetPiTools } from "./tools.js";
 import { getFleetRuntime } from "./runtime.js";
 import { buildFleetPingPayload } from "./status-source.js";
-import { registerFleetStatusOverlayKeybind } from "./status-overlay-keybind.js";
+import { getKeybindAPI } from "../../shell/keybinds/core/bridge.js";
+import { openFleetStatusOverlay } from "./status-overlay.js";
 
 interface FleetOverlayRuntimeState {
   activeMissionId: string | null;
@@ -27,6 +28,8 @@ interface FleetOverlayRuntimeState {
 }
 
 const LOG_SOURCE = "grand-fleet";
+
+let activeStatusPopup: Promise<void> | null = null;
 
 export default function registerFleet(pi: ExtensionAPI): void {
   const state = getState();
@@ -55,4 +58,27 @@ export function getFleetOverlayRuntimeState(): FleetOverlayRuntimeState {
     heartbeatAgeMs: runtime.lastHeartbeatAt === null ? null : Date.now() - runtime.lastHeartbeatAt,
     socketPath: state.socketPath,
   };
+}
+
+function registerFleetStatusOverlayKeybind(): void {
+  const keybind = getKeybindAPI();
+  keybind.register({
+    extension: "grand-fleet",
+    action: "status-overlay",
+    defaultKey: "alt+g",
+    description: "Grand Fleet Status 오버레이",
+    category: "Grand Fleet",
+    handler: async (ctx) => {
+      if (!ctx.hasUI) return;
+      if (activeStatusPopup) return;
+
+      activeStatusPopup = openFleetStatusOverlay(ctx);
+
+      try {
+        await activeStatusPopup;
+      } finally {
+        activeStatusPopup = null;
+      }
+    },
+  });
 }

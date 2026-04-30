@@ -29,7 +29,7 @@
 
 - `ExtensionAPI`, `ExtensionContext`, `pi.on(...)`, `pi.registerTool(...)`, `pi.registerCommand(...)`, `pi.registerShortcut(...)`, `pi.registerProvider(...)`, and `pi.sendMessage(...)`
 - Pi widget/editor/footer/overlay rendering and TUI component mounting
-- Pi-specific lifecycle coordination (`src/boot.ts`, `src/ports.ts`)
+- Pi-specific lifecycle coordination (`src/boot.ts`, `src/fleet.ts`)
 - The sole `@mariozechner/pi-ai` gateway at `src/agent/provider.ts`
 
 ## Must Not Own

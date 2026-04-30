@@ -23,7 +23,6 @@ export function buildBridgeCommand(context: BridgeLaunchContext): BridgeCommandS
       };
   }
 
-  throw new Error(`Unsupported bridge CLI: ${String(context.cli)}`);
 }
 
 function buildClaudeCommand(context: BridgeLaunchContext): string {

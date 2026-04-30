@@ -16,7 +16,6 @@ import { fileURLToPath } from "node:url";
 
 import { WELCOME_GLOBAL_KEY, type WelcomeBridge } from "./types.js";
 import {
-  WelcomeComponent,
   WelcomeHeader,
   checkGitUpdateStatus,
   discoverLoadedCounts,
@@ -81,17 +80,6 @@ export default function welcome(pi: ExtensionAPI) {
   });
 }
 
-function createFleetUpdatePrompt(fleetRoot: string): string {
-  return [
-    "Please update the pi-fleet repository.",
-    "",
-    `1. Move to the local repository at the absolute path \`${fleetRoot}\`.`,
-    "2. Identify the current active branch and synchronize it with the remote latest state. Run fetch followed by pull as needed.",
-    "3. Follow the update procedure described in the repository root `SETUP.md`. Do not skip any step it specifies (dependency installation, link refresh, build, verification, etc.).",
-    "4. Report the actions taken and verification results concisely.",
-  ].join("\n");
-}
-
 function dismissWelcome(ctx: any, state: WelcomeState): void {
   if (state.dismissFn) {
     try {
@@ -138,93 +126,6 @@ function setupWelcomeHeader(ctx: any, state: WelcomeState): void {
       },
     };
   });
-}
-
-function setupWelcomeOverlay(ctx: any, state: WelcomeState): void {
-  const modelName = ctx.model?.name || ctx.model?.id || "No model";
-  const providerName = ctx.model?.provider || "Unknown";
-  const loadedCounts = discoverLoadedCounts();
-  const recentSessions = getRecentSessions(3);
-  const gitUpdate = checkGitUpdateStatus();
-
-  setTimeout(() => {
-    try {
-      if (state.shouldDismiss) {
-        state.shouldDismiss = false;
-        return;
-      }
-
-      const sessionEvents = ctx.sessionManager?.getBranch?.() ?? [];
-      const hasActivity = sessionEvents.some((e: any) =>
-        (e.type === "message" && e.message?.role === "assistant") ||
-        e.type === "tool_call" ||
-        e.type === "tool_result"
-      );
-      if (hasActivity) {
-        return;
-      }
-
-      ctx.ui.custom(
-        (tui: any, _theme: any, _keybindings: any, done: (result: void) => void) => {
-          const welcome = new WelcomeComponent(
-            modelName,
-            providerName,
-            recentSessions,
-            loadedCounts,
-            gitUpdate,
-          );
-
-          let countdown = 30;
-          let dismissed = false;
-          let interval: ReturnType<typeof setInterval> | null = null;
-
-          const dismiss = () => {
-            if (dismissed) return;
-            dismissed = true;
-            if (interval) clearInterval(interval);
-            state.dismissFn = null;
-            done(undefined);
-          };
-
-          state.dismissFn = dismiss;
-
-          interval = setInterval(() => {
-            countdown -= 1;
-            if (countdown <= 0) {
-              dismiss();
-              return;
-            }
-            welcome.setCountdown(countdown);
-            tui.requestRender();
-          }, 1000);
-
-          return {
-            render(width: number, height: number) {
-              void height;
-              return welcome.render(width);
-            },
-            input(key: any) {
-              if (key?.name === "escape" || key === "q") {
-                dismiss();
-                return true;
-              }
-              if (key === "u") {
-                dismiss();
-                ctx.input(createFleetUpdatePrompt(FLEET_ROOT));
-                return true;
-              }
-              return false;
-            },
-            destroy() {
-              if (interval) clearInterval(interval);
-            },
-          };
-        },
-      );
-    } catch (error) {
-      if (!isStaleExtensionContextError(error)) throw error;
-    }
-  }, 50);
 }
 
 function ensureQuietStartup(): void {

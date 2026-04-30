@@ -21,6 +21,7 @@ export function createJobArchive(jobId: string, now = Date.now()): JobArchive {
     truncated: false,
     totalBytes: 0,
     blocks: [],
+    mergeIndex: new Map<string, number>(),
   };
   getArchiveState().archives.set(jobId, archive);
   return archive;
@@ -106,28 +107,26 @@ function applyAppendPolicy(archive: JobArchive, block: ArchiveBlock): void {
 }
 
 function mergeOrAppendTextBlock(archive: JobArchive, block: ArchiveBlock): void {
-  const lastIndex = archive.blocks.length - 1;
-  const last = archive.blocks[lastIndex];
-  if (!last || !matchesTextMergeBlock(last, block)) {
-    appendNewBlock(archive, redactBlock(block));
-    return;
+  const channelKey = `${block.source}\0${block.label ?? ""}`;
+  const existingIndex = archive.mergeIndex?.get(channelKey);
+  if (existingIndex !== undefined) {
+    const existing = archive.blocks[existingIndex];
+    if (existing && existing.kind === "text") {
+      const joinedText = [existing.text, block.text].filter((text): text is string => Boolean(text)).join("");
+      replaceBlock(
+        archive,
+        existingIndex,
+        redactBlock({
+          ...existing,
+          timestamp: block.timestamp,
+          text: joinedText,
+        }),
+      );
+      return;
+    }
   }
-  const joinedText = [last.text, block.text].filter((text): text is string => Boolean(text)).join("");
-  const merged = redactBlock({
-    ...last,
-    timestamp: block.timestamp,
-    text: joinedText,
-  });
-  replaceBlock(archive, lastIndex, merged);
-}
-
-function matchesTextMergeBlock(existing: ArchiveBlock, incoming: ArchiveBlock): boolean {
-  return (
-    incoming.kind === "text" &&
-    existing.kind === incoming.kind &&
-    existing.source === incoming.source &&
-    existing.label === incoming.label
-  );
+  appendNewBlock(archive, redactBlock(block));
+  archive.mergeIndex?.set(channelKey, archive.blocks.length - 1);
 }
 
 function appendNewBlock(archive: JobArchive, block: ArchiveBlock): void {
@@ -142,7 +141,9 @@ function replaceBlock(archive: JobArchive, index: number, block: ArchiveBlock): 
 }
 
 function pruneArchiveIfNeeded(archive: JobArchive, now: number): void {
-  if (archive.blocks.length <= MAX_BLOCKS && archive.totalBytes <= MAX_TOTAL_BYTES) return;
+  if (archive.blocks.length <= MAX_BLOCKS && archive.totalBytes <= MAX_TOTAL_BYTES) {
+    return;
+  }
   const marker = buildTruncatedBlock(now);
   const markerBytes = blockBytes(marker);
   const head = archive.blocks.slice(0, PRESERVE_HEAD_BLOCKS);
@@ -169,6 +170,7 @@ function pruneArchiveIfNeeded(archive: JobArchive, now: number): void {
   archive.blocks = [...preserved, marker, ...tailBlocks];
   archive.truncated = true;
   archive.totalBytes = blockBytesTotal(archive.blocks);
+  archive.mergeIndex?.clear();
 }
 
 function redactBlock(block: ArchiveBlock): ArchiveBlock {

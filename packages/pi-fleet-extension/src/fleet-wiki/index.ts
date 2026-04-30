@@ -4,9 +4,6 @@ import { buildBriefingToolConfig } from "@sbluemin/fleet-wiki";
 import { buildDryDockToolConfig } from "@sbluemin/fleet-wiki";
 import { buildIngestToolConfig } from "@sbluemin/fleet-wiki";
 import { buildPatchQueueToolConfig } from "@sbluemin/fleet-wiki";
-import { briefingQuery } from "@sbluemin/fleet-wiki";
-import { resolveMemoryPaths } from "@sbluemin/fleet-wiki";
-import { runDryDock } from "@sbluemin/fleet-wiki";
 
 import { openWikiHub } from "./ui.js";
 
@@ -24,12 +21,6 @@ export type {
   RawSourceEntry,
   WikiEntry,
 } from "@sbluemin/fleet-wiki";
-
-export {
-  briefingQuery,
-  resolveMemoryPaths,
-  runDryDock,
-};
 
 type FleetWikiRegistrationContext = ExtensionContext & Pick<ExtensionAPI, "registerCommand" | "registerTool">;
 

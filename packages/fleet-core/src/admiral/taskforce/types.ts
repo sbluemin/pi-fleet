@@ -1,7 +1,7 @@
 /**
  * fleet/shipyard/taskforce/types.ts — Task Force 도구 타입 정의
  *
- * BackendProgress, TaskForceResult, TaskForceState 및 globalThis 키 상수를 정의합니다.
+ * BackendProgress, TaskForceResult, TaskForceState를 정의합니다.
  */
 
 import type { CliType } from "@sbluemin/unified-agent";
@@ -33,5 +33,3 @@ export interface TaskForceState {
 }
 
 export const TASKFORCE_CLI_TYPES = ["claude", "codex", "gemini"] as const satisfies readonly CliType[];
-
-export const TASKFORCE_STATE_KEY = "__pi_carrier_taskforce_state__";

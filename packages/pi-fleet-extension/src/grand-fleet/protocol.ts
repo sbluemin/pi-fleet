@@ -1,7 +1,3 @@
-/**
- * Grand Fleet IPC에서 사용하는 ndJSON 프레이밍과 JSON-RPC 메시지 유틸리티를 제공한다.
- */
-
 import type { Socket } from "node:net";
 
 import { MAX_MESSAGE_SIZE } from "@sbluemin/fleet-core/admiralty";
@@ -62,7 +58,6 @@ export function createFramer(
       }
     }
 
-    // 버퍼가 개행 없이 계속 누적되는 경우를 방지한다.
     if (buffer.length > MAX_MESSAGE_SIZE) {
       onError?.(new Error(`버퍼 오버플로우: ${buffer.length} > ${MAX_MESSAGE_SIZE}`));
       buffer = "";

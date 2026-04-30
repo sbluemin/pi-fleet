@@ -33,8 +33,7 @@ interface BackendEntry {
   isCustom: boolean;
 }
 
-/** 콜백 인터페이스 */
-export interface TaskForceOverlayCallbacks {
+interface TaskForceOverlayProps {
   getAvailableModels: (cliType: string) => ProviderInfo;
   getEffortLevels: (cliType: string) => string[] | null;
   getDefaultBudgetTokens: (effort: string) => number;
@@ -77,7 +76,7 @@ export class TaskForceConfigOverlay implements Component, Focusable {
   private readonly tui: TUI;
   private readonly theme: Theme;
   private readonly carrierDisplayName: string;
-  private readonly callbacks: TaskForceOverlayCallbacks;
+  private readonly callbacks: TaskForceOverlayProps;
   private readonly done: () => void;
 
   private selectedIndex = 0;
@@ -91,7 +90,7 @@ export class TaskForceConfigOverlay implements Component, Focusable {
     theme: Theme,
     _carrierId: string,
     carrierDisplayName: string,
-    callbacks: TaskForceOverlayCallbacks,
+    callbacks: TaskForceOverlayProps,
     done: () => void,
   ) {
     this.tui = tui;

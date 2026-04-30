@@ -42,7 +42,6 @@ import { TASKFORCE_CLI_TYPES, type TaskForceCliType } from "@sbluemin/fleet-core
 import { CarrierStatusOverlay } from "./carrier-ui/status-overlay.js";
 import { StatusOverlayController } from "@sbluemin/fleet-core/admiral/bridge/carrier-control";
 import { TaskForceConfigOverlay } from "./carrier-ui/taskforce-config-overlay.js";
-import type { TaskForceOverlayCallbacks } from "./carrier-ui/taskforce-config-overlay.js";
 import type {
   CarrierCliType,
   CarrierStatusEntry,
@@ -243,7 +242,7 @@ function openTaskForceOverlay(carrierId: string, ctx: Parameters<Parameters<Retu
   }
 
   const carrierDisplayName = carrierConfig?.displayName ?? carrierId;
-  const tfCallbacks: TaskForceOverlayCallbacks = {
+  const tfCallbacks = {
     getAvailableModels: (cliType: string) => getAvailableModels(requireTaskForceCliType(cliType)),
     getEffortLevels: (cliType: string) => getEffortLevels(requireTaskForceCliType(cliType)),
     getDefaultBudgetTokens,
@@ -259,7 +258,7 @@ function openTaskForceOverlay(carrierId: string, ctx: Parameters<Parameters<Retu
         isCustom,
       };
     },
-    updateBackendConfig: async (cliType: string, selection) => {
+    updateBackendConfig: async (cliType: string, selection: { model: string; effort?: string; budgetTokens?: number }) => {
       updateTaskForceModelSelection(
         carrierId,
         requireTaskForceCliType(cliType),

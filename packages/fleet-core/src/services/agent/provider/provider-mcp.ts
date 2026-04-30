@@ -14,7 +14,7 @@
 import http from "http";
 import crypto from "crypto";
 
-import { getLogAPI } from "../../log/runtime.js";
+import { getLogAPI } from "../../log/store.js";
 import {
   getToolsForSession,
 } from "./tool-snapshot.js";

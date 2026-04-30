@@ -3,7 +3,7 @@ import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-age
 import { getLogAPI } from "@sbluemin/fleet-core/services/log";
 import { getState } from "../state.js";
 import { FleetClient } from "./client.js";
-import { registerFleetHandlers } from "./methods.js";
+import { registerFleetHandlers } from "../admiralty/methods.js";
 import {
   GRAND_FLEET_FLEET_RUNTIME_KEY,
   HEARTBEAT_INTERVAL_MS,

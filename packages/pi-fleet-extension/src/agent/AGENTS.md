@@ -5,7 +5,7 @@ Owns Pi-side agent capability registration and runtime glue for `pi-fleet-extens
 ## Scope
 
 - `registerAgent(ctx)` — single agent capability entry point
-- `provider.ts` — `pi.registerProvider(...)` wiring, provider stream registration, and the sole `@mariozechner/pi-ai` gateway
+- `provider.ts` — the sole `@mariozechner/pi-ai` gateway; provider registration wiring lives under `provider-internal/`
 - `runner.ts` — operation runner and background carrier request adapter
 - `carrier-completion.ts` — carrier completion push delivery
 - `ui/` — Agent Panel, Streaming Widget, carrier status UI, and ACP shell UI

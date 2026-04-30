@@ -1,8 +1,3 @@
-import {
-  getSectionsFromMap,
-  registerSectionInMap,
-  unregisterSectionFromMap,
-} from "./registry.js";
 import { loadSection, saveSection } from "./store.js";
 import type { CoreSettingsAPI, SectionDisplayConfig } from "./types.js";
 
@@ -18,14 +13,14 @@ export class SettingsService implements CoreSettingsAPI {
   }
 
   registerSection(config: SectionDisplayConfig): void {
-    registerSectionInMap(this.sections, config);
+    this.sections.set(config.key, config);
   }
 
   unregisterSection(sectionKey: string): void {
-    unregisterSectionFromMap(this.sections, sectionKey);
+    this.sections.delete(sectionKey);
   }
 
   getSections(): SectionDisplayConfig[] {
-    return getSectionsFromMap(this.sections);
+    return [...this.sections.values()];
   }
 }

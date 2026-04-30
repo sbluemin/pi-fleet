@@ -10,7 +10,6 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { setupCustomEditor, setupStatusBar } from "./hud/editor.js";
 import { invalidateGitBranch, invalidateGitStatus } from "./hud/git-status.js";
 import type { HudEditorState } from "./hud/types.js";
-import { mightChangeGitBranch } from "./hud/utils.js";
 
 export default function registerHudLifecycle(pi: ExtensionAPI) {
   const state: HudEditorState = {
@@ -60,4 +59,12 @@ export default function registerHudLifecycle(pi: ExtensionAPI) {
       setTimeout(() => state.tuiRef?.requestRender(), 500);
     }
   });
+}
+
+function mightChangeGitBranch(cmd: string): boolean {
+  const gitBranchPatterns = [
+    /\bgit\s+(checkout|switch|branch\s+-[dDmM]|merge|rebase|pull|reset|worktree)/,
+    /\bgit\s+stash\s+(pop|apply)/,
+  ];
+  return gitBranchPatterns.some((pattern) => pattern.test(cmd));
 }

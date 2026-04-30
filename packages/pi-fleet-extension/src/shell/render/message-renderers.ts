@@ -20,7 +20,7 @@ import type { ColBlock } from "@sbluemin/fleet-core/agent/shared/types";
 
 import { renderBlockLines, blockLineToAnsi, renderBlocksToContainer, renderLegacyToContainer } from "./block-renderer.js";
 import type { BlockLine } from "./block-renderer.js";
-import { clampCompletedCompactLines } from "./compact.js";
+
 /** 렌더러에 필요한 최소 설정 (framework.CarrierConfig에서 추출) */
 interface AgentRenderConfig {
   /** 표시 이름 */
@@ -52,6 +52,13 @@ interface RenderComponent {
   render(width: number): string[];
   invalidate(): void;
 }
+
+interface CompactOverflowTheme {
+  fg(token: string, text: string): string;
+}
+
+const COMPACT_MAX_LINES = 8;
+const COMPACT_OVERFLOW_PREFIX = "··· ";
 
 /**
  * 기본 사용자 입력 렌더러를 생성합니다.
@@ -87,6 +94,20 @@ export function createDefaultResponseRenderer(config: AgentRenderConfig) {
 
 function formatCarrierLabel(displayName: string): string {
   return `Carrier ${displayName}`;
+}
+
+function clampCompletedCompactLines(
+  lines: readonly string[],
+  theme: CompactOverflowTheme,
+): string[] {
+  if (lines.length <= COMPACT_MAX_LINES) return [...lines];
+
+  const visibleCount = COMPACT_MAX_LINES - 1;
+  const hiddenCount = lines.length - visibleCount;
+  return [
+    ...lines.slice(0, visibleCount),
+    theme.fg("dim", `${COMPACT_OVERFLOW_PREFIX}${hiddenCount} more lines`),
+  ];
 }
 
 /** content 필드에서 텍스트를 추출하는 헬퍼 */

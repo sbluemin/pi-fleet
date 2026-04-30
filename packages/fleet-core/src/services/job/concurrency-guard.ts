@@ -1,4 +1,4 @@
-import type { CarrierJobRecord, CarrierJobSummary } from "./job-types.js";
+import type { CarrierJobRecord } from "./job-types.js";
 
 interface GuardState {
   activeJobs: Map<string, CarrierJobRecord>;
@@ -87,18 +87,6 @@ export function onActiveJobCountChange(callback: (count: number) => void): () =>
 
 export function configureDetachedJobCap(maxDetachedJobs: number): void {
   getGuardState().maxDetachedJobs = maxDetachedJobs;
-}
-
-export function createActiveRecordFromSummary(summary: CarrierJobSummary): CarrierJobRecord {
-  return {
-    jobId: summary.jobId,
-    tool: summary.tool,
-    status: summary.status,
-    startedAt: summary.startedAt,
-    finishedAt: summary.finishedAt,
-    carriers: summary.carriers,
-    error: summary.error,
-  };
 }
 
 export function resetJobConcurrencyForTest(): void {

@@ -67,7 +67,7 @@ Current Flat Domain Architecture in `pi-fleet-extension`:
 | Home / Entrypoint | Responsibility |
 |-------------------|----------------|
 | `src/boot.ts` | Entry point — assembles the Fleet runtime by composing domain modules |
-| `src/ports.ts` | Host port implementation — implements FleetHostPorts for pi environment |
+| `src/fleet.ts` | Fleet lifecycle, runtime initialization, and Pi host port implementation |
 | `src/agent/` | Domain-internal home for agent orchestration, providers, and carrier gateway |
 | `src/grand-fleet/` | Domain-internal home for multi-instance Grand Fleet orchestration |
 | `src/fleet-wiki/` | Domain-internal home for knowledge base, ingest, and patching |
@@ -110,7 +110,7 @@ When migrating or restoring behavior that once lived under those paths:
 - Do not import Grand Fleet surfaces from the deprecated Fleet Core location.
 - `fleet-core` must not import Pi packages.
 - `fleet-core` must not split internal admiralty ownership back out into a separate package.
-- `@mariozechner/pi-ai` imports stay confined to `packages/pi-fleet-extension/src/provider/pi-ai-bridge.ts`.
+- `@mariozechner/pi-ai` imports stay confined to `packages/pi-fleet-extension/src/agent/provider.ts`.
 
 ## 7. PI Runtime Rules
 

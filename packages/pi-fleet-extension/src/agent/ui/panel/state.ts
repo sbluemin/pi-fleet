@@ -75,9 +75,7 @@ export function getState(): AgentPanelState {
     };
     (globalThis as any)[STATE_KEY] = s;
   }
-  const legacyDetailCarrierId = (s as AgentPanelState & { detailCarrierId?: string | null }).detailCarrierId;
-  if (s.detailTrackId === undefined) s.detailTrackId = legacyDetailCarrierId ?? null;
-  if ("detailCarrierId" in s) delete (s as AgentPanelState & { detailCarrierId?: string | null }).detailCarrierId;
+  if (s.detailTrackId === undefined) s.detailTrackId = null;
   if (!(s.panelJobs instanceof Map)) s.panelJobs = new Map();
   if ("activeJobId" in s) delete (s as AgentPanelState & { activeJobId?: string | null }).activeJobId;
   if (s.bottomHint === undefined) s.bottomHint = formatPanelMultiColHint();

@@ -41,13 +41,11 @@ describe("keybind bridge reload lifecycle", () => {
     getKeybindAPI().register(secondBinding);
 
     expect(getKeybindAPI().getBindings()).toEqual([]);
-    expect((globalThis as any)[CORE_KEYBIND_KEY]._queue).toHaveLength(2);
 
     _bootstrapKeybind(makeApi(register));
 
     expect(register).toHaveBeenNthCalledWith(1, firstBinding);
     expect(register).toHaveBeenNthCalledWith(2, secondBinding);
-    expect((globalThis as any)[CORE_KEYBIND_KEY]._queue).toHaveLength(0);
   });
 
   it("keeps the Pi-side registry independent across reload cleanup", () => {

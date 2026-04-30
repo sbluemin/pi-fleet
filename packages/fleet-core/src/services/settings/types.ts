@@ -36,8 +36,3 @@ export interface CoreSettingsAPI {
   /** 팝업 표시용 섹션 목록 조회 */
   getSections(): SectionDisplayConfig[];
 }
-
-// ── 상수 ──
-
-/** globalThis 브릿지 키 (AGENTS.md: globalThis key는 types.ts에 정의) */
-export const CORE_SETTINGS_KEY = "__core_settings__";

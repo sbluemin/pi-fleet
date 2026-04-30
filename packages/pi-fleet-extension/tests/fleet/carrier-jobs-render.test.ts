@@ -7,14 +7,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   CarrierJobsCallComponent,
   CarrierJobsVerboseCallComponent,
-  formatQuietResult,
   getCarrierJobsVerbose,
-  onCarrierJobsVerboseChange,
   renderQuietResult,
   renderCarrierJobsCall,
   renderCarrierJobsResult,
   renderVerboseResult,
-  resetCarrierJobsVerboseForTest,
   setCarrierJobsVerbose,
   shortenJobId,
   toggleCarrierJobsVerbose,
@@ -23,23 +20,15 @@ import {
 const testDir = dirname(fileURLToPath(import.meta.url));
 
 beforeEach(() => {
-  resetCarrierJobsVerboseForTest();
+  setCarrierJobsVerbose(false);
 });
 
 describe("carrier_jobs rendering", () => {
   it("defaults to quiet mode and toggles process-local verbose state", () => {
-    const seen: boolean[] = [];
-    const unsubscribe = onCarrierJobsVerboseChange((value) => { seen.push(value); });
-
     expect(getCarrierJobsVerbose()).toBe(false);
     setCarrierJobsVerbose(true);
     expect(getCarrierJobsVerbose()).toBe(true);
     expect(toggleCarrierJobsVerbose()).toBe(false);
-
-    unsubscribe();
-    setCarrierJobsVerbose(true);
-
-    expect(seen).toEqual([true, false]);
   });
 
   it("shortens long job IDs with the carrier prefix and tail", () => {
@@ -97,16 +86,6 @@ describe("carrier_jobs rendering", () => {
 
     expect(renderQuietResult(result).render()).toEqual([]);
     expect(renderVerboseResult(result).render().join("\n")).toContain('"cancelled": true');
-  });
-
-  it("formats quiet result summaries for action-specific status text", () => {
-    const list = formatQuietResult(buildResult({ action: "list", ok: true, active: [{ jobId: "sortie:a" }], recent: [{ jobId: "sortie:b" }] }));
-    const full = formatQuietResult(buildResult({ action: "result", ok: true, job_id: "sortie:call_C3yYXMpTDNPAhMBc2J0kfMZk", full_result: "x".repeat(1500) }));
-    const summary = formatQuietResult(buildResult({ action: "result", format: "summary", ok: true, job_id: "sortie:abc123", status: "done" }));
-
-    expect(list).toContain("list · 1 active, 1 recent");
-    expect(full).toContain("result:full · sortie:…0kfMZk · 2KB");
-    expect(summary).toContain("result:summary · sortie:abc123 · done");
   });
 
   it("registers the verbose slash command in fleet boot", () => {

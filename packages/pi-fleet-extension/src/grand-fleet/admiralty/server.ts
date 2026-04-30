@@ -16,7 +16,7 @@ import {
   createJsonRpcResponse,
   createJsonRpcErrorResponse,
   createJsonRpcRequest,
-} from "./protocol.js";
+} from "../protocol.js";
 import type {
   JsonRpcMessage,
   JsonRpcNotification,

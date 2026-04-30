@@ -54,17 +54,6 @@ export const THINKING_TEXT_NERD: Record<string, string> = {
   xhigh: "\u{F06D} xhi",     // fire
 };
 
-// Geek 스타일 thinking sparkline 막대 (독립 thinking 세그먼트용)
-// 연산 부하 시각화: 낮을수록 가늘고, 높을수록 굵고 많음
-export const THINKING_SPARKLINES: Record<string, string> = {
-  off: "",
-  minimal: "▁",
-  low: "▂▂",
-  medium: "▄▄▄",
-  high: "▆▆▆▆",
-  xhigh: "▇▇▇▇▇",
-};
-
 // Nerd Font icons (matching oh-my-pi exactly)
 export const NERD_ICONS: IconSet = {
   pi: "\uE22C",         // nf-oct-pi (stylized pi icon)
@@ -141,10 +130,6 @@ export function getThinkingText(level: string): string | undefined {
     return THINKING_TEXT_NERD[level];
   }
   return THINKING_TEXT_UNICODE[level];
-}
-
-export function getThinkingSparkline(level: string): string {
-  return THINKING_SPARKLINES[level] ?? level;
 }
 
 // Detect Nerd Font support (check TERM or specific env var)

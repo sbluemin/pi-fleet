@@ -4,6 +4,7 @@ import {
   initServiceStatus,
   resetServiceStatus,
 } from "../services/agent/shared/service-status/store.js";
+import { createAgentRequestService } from "../services/agent/dispatcher/request/service.js";
 import {
   initSettingsService,
   resetSettingsService,
@@ -13,8 +14,10 @@ import {
   createAgentServices,
   type FleetAgentServices,
   type FleetHostPorts,
+  type UnifiedAgentBackgroundRequestOptions,
+  type UnifiedAgentRequestOptions,
+  type UnifiedAgentResult,
 } from "./agent-services.js";
-import { createAgentRuntime } from "../services/agent/fleet-agent-runtime.js";
 import {
   createFleetServices,
   type FleetServices,
@@ -41,7 +44,12 @@ import {
 } from "./settings-services.js";
 import {
   createToolRegistryServices,
+  createAgentToolRegistry,
+  createMcpServerForRegistry,
+  type AgentToolRegistry,
   type FleetToolRegistryServices,
+  type McpRegistryAPI,
+  type McpServerHandle,
 } from "./tool-registry-services.js";
 
 export type { FleetAgentServices } from "./agent-services.js";
@@ -53,6 +61,18 @@ export type { FleetLogServices } from "./log-services.js";
 export type { FleetMetaphorServices } from "./metaphor-services.js";
 export type { FleetSettingsServices } from "./settings-services.js";
 export type { FleetToolRegistryServices } from "./tool-registry-services.js";
+
+interface AgentRequestService {
+  run(options: UnifiedAgentRequestOptions): Promise<UnifiedAgentResult>;
+  runBackground(options: UnifiedAgentBackgroundRequestOptions): Promise<UnifiedAgentResult>;
+}
+
+interface FleetAgentRuntime {
+  readonly toolRegistry: AgentToolRegistry;
+  readonly mcp: McpRegistryAPI;
+  readonly requestRunner: AgentRequestService;
+  shutdown(): Promise<void>;
+}
 
 export interface FleetCoreRuntimeOptions {
   readonly dataDir: string;
@@ -106,6 +126,41 @@ export function createFleetCoreRuntime(
       await agentRuntime.shutdown();
       resetSettingsService(settings);
       resetServiceStatus();
+    },
+  };
+}
+
+function createAgentRuntime(options: FleetCoreRuntimeOptions): FleetAgentRuntime {
+  const toolRegistry = createAgentToolRegistry();
+  const serverHandles = new Set<McpServerHandle>();
+  const mcp: McpRegistryAPI = {
+    registry: toolRegistry,
+    createServer(serverOptions) {
+      const handle = createMcpServerForRegistry(toolRegistry, serverOptions);
+      serverHandles.add(handle);
+      return {
+        listTools() {
+          return handle.listTools();
+        },
+        async close() {
+          serverHandles.delete(handle);
+          await handle.close();
+        },
+      };
+    },
+  };
+  const requestRunner = createAgentRequestService({
+    streamingSink: options.ports.streamingSink,
+  });
+
+  return {
+    toolRegistry,
+    mcp,
+    requestRunner,
+    async shutdown() {
+      const handles = [...serverHandles];
+      serverHandles.clear();
+      await Promise.all(handles.map((handle) => handle.close()));
     },
   };
 }

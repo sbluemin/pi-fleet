@@ -6,7 +6,6 @@ import * as path from "node:path";
 import { refreshStatusNow, type ServiceStatusContextPort } from "../../src/services/agent/shared/service-status/store.js";
 import { getDataDir } from "../../src/services/agent/dispatcher/runtime.js";
 import { getSettingsService } from "../../src/services/settings/runtime.js";
-import * as agentRuntimeModule from "../../src/services/agent/fleet-agent-runtime.js";
 import { createFleetCoreRuntime } from "../../src/public/runtime.js";
 import type { FleetHostPorts } from "../../src/public/agent-services.js";
 
@@ -157,23 +156,6 @@ describe("createFleetCoreRuntime", () => {
     expect(getSettingsService()).toBeNull();
   });
 
-  it("cleans up the just-created settings singleton when runtime construction fails", () => {
-    const expectedError = new Error("agent runtime init failed");
-    const createAgentRuntimeSpy = vi
-      .spyOn(agentRuntimeModule, "createAgentRuntime")
-      .mockImplementation(() => {
-        throw expectedError;
-      });
-
-    expect(() =>
-      createFleetCoreRuntime({
-        dataDir: path.join(tmpDir, "failed"),
-        ports: createMinimalPorts(),
-      }),
-    ).toThrow(expectedError);
-    expect(createAgentRuntimeSpy).toHaveBeenCalledOnce();
-    expect(getSettingsService()).toBeNull();
-  });
 });
 
 function createMinimalPorts(): FleetHostPorts {

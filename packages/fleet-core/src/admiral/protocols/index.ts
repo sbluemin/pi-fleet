@@ -43,11 +43,6 @@ export function getAllProtocols(): readonly AdmiralProtocol[] {
   return PROTOCOLS;
 }
 
-/** ID로 Protocol을 조회한다. */
-export function getProtocolById(id: string): AdmiralProtocol | undefined {
-  return PROTOCOLS.find((p) => p.id === id);
-}
-
 /** 현재 활성 프로토콜을 반환한다. 항상 유효한 프로토콜을 반환한다. */
 export function getActiveProtocol(): AdmiralProtocol {
   const api = getSettingsService();
@@ -64,4 +59,9 @@ export function setActiveProtocol(protocolId: string): void {
   if (!api) return;
   const cfg = api.load<ProtocolSettings>("admiral");
   api.save("admiral", { ...cfg, activeProtocol: protocolId });
+}
+
+/** ID로 Protocol을 조회한다. */
+function getProtocolById(id: string): AdmiralProtocol | undefined {
+  return PROTOCOLS.find((p) => p.id === id);
 }

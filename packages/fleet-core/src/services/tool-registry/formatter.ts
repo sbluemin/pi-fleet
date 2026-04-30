@@ -11,7 +11,7 @@ function renderList(items: string[]): string {
     .join("\n");
 }
 
-export function renderToolPromptManifestMarkdown(manifest: ToolPromptManifest): string {
+function renderToolPromptManifestMarkdown(manifest: ToolPromptManifest): string {
   const sections = [
     `# ${manifest.title}`,
     manifest.description,

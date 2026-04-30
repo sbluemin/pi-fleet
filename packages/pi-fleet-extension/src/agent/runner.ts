@@ -1,9 +1,7 @@
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import type {
-  UnifiedAgentBackgroundRequestOptions,
   UnifiedAgentRequestOptions as CoreUnifiedAgentRequestOptions,
   UnifiedAgentResult,
-  UnifiedAgentRequestStatus,
 } from "@sbluemin/fleet-core";
 
 import { getFleetRuntime, withAgentRequestContext } from "../fleet.js";
@@ -24,17 +22,11 @@ export interface UnifiedAgentRequestBridge {
 
 type RunAgentRequestOptions = UnifiedAgentRequestOptions;
 
-type RunAgentRequestBackgroundOptions = UnifiedAgentBackgroundRequestOptions;
-
 const UNIFIED_AGENT_REQUEST_KEY = "__pi_ua_request__";
 
 export async function runAgentRequest(options: RunAgentRequestOptions): Promise<UnifiedAgentResult> {
   return withAgentRequestContext(options.ctx, () =>
     getFleetRuntime().agent.run(toCoreOptions(options)));
-}
-
-export async function runAgentRequestBackground(options: RunAgentRequestBackgroundOptions): Promise<UnifiedAgentResult> {
-  return getFleetRuntime().agent.runBackground(options);
 }
 
 export function exposeAgentApi(): UnifiedAgentRequestBridge {

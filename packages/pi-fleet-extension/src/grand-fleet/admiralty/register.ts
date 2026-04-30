@@ -9,12 +9,13 @@ import { getState } from "../state.js";
 import { FleetRegistry } from "./fleet-registry.js";
 import { registerAdmiraltyPiEvents } from "./events.js";
 import { registerAdmiraltyTools } from "./tools.js";
+import { getKeybindAPI } from "../../shell/keybinds/core/bridge.js";
+import { openAdmiraltyStatusOverlay } from "./status-overlay.js";
 import {
   ensureAdmiraltyRuntime,
   readAdmiraltyRuntime,
   setAdmiraltyPresenter,
 } from "./runtime.js";
-import { registerAdmiraltyStatusOverlayKeybind } from "./status-overlay-keybind.js";
 
 export default function registerAdmiralty(pi: ExtensionAPI): void {
   const runtime = ensureAdmiraltyRuntime();
@@ -27,4 +28,29 @@ export default function registerAdmiralty(pi: ExtensionAPI): void {
 
 export function getFleetRegistry(): FleetRegistry | null {
   return readAdmiraltyRuntime()?.registry as FleetRegistry | null;
+}
+
+let activeStatusPopup: Promise<void> | null = null;
+
+function registerAdmiraltyStatusOverlayKeybind(): void {
+  const keybind = getKeybindAPI();
+  keybind.register({
+    extension: "grand-fleet",
+    action: "status-overlay",
+    defaultKey: "alt+g",
+    description: "Grand Fleet Status 오버레이",
+    category: "Grand Fleet",
+    handler: async (ctx) => {
+      if (!ctx.hasUI) return;
+      if (activeStatusPopup) return;
+
+      activeStatusPopup = openAdmiraltyStatusOverlay(ctx);
+
+      try {
+        await activeStatusPopup;
+      } finally {
+        activeStatusPopup = null;
+      }
+    },
+  });
 }

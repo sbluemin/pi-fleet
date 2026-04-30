@@ -12,10 +12,10 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { getProviderModels, getReasoningEffortLevels } from "@sbluemin/unified-agent";
 import type { CliType } from "@sbluemin/unified-agent";
 import { disconnectClient } from "../../services/agent/dispatcher/pool.js";
 import { getSessionStore } from "../../services/agent/dispatcher/runtime.js";
+import { getAvailableModels, getDefaultBudgetTokens, getEffortLevels } from "./provider-catalog.js";
 
 // ─── 타입 정의 ──────────────────────────────────────────
 
@@ -45,14 +45,6 @@ export interface ModelSelection {
 
 /** states.json의 models 키 전체 구조 */
 export type SelectedModelsConfig = Record<string, ModelSelection>;
-
-/** 프로바이더 모델 정보 */
-export interface ProviderInfo {
-  name: string;
-  defaultModel: string;
-  models: Array<{ modelId: string; name: string }>;
-  reasoningEffort: { supported: boolean; levels?: string[]; default?: string };
-}
 
 type TaskForceCliType = "claude" | "codex" | "gemini";
 type TaskForceSelection = Omit<ModelSelection, "taskforce">;
@@ -94,13 +86,6 @@ const LOCK_RETRY_MS = 25;
 const LOCK_TIMEOUT_MS = 5000;
 
 const STALE_LOCK_MS = 30000;
-
-/** effort 레벨별 기본 budget_tokens (Claude 전용) */
-const CLAUDE_THINKING_BUDGETS: Record<string, number> = {
-  low: 2048,
-  medium: 8192,
-  high: 16384,
-};
 
 /** 유효한 cliType 값 집합 */
 const VALID_CLI_TYPES = new Set(["claude", "codex", "gemini"]);
@@ -329,13 +314,6 @@ export function resetTaskForceModelSelection(
 }
 
 /**
- * 지정 캐리어가 Task Force를 편성할 수 있는지 확인합니다.
- */
-export function isTaskForceFormable(carrierId: string): boolean {
-  return isTaskForceFormableInConfig(loadModels(), carrierId);
-}
-
-/**
  * 지정 캐리어에 대해 Task Force 실행 가능한 백엔드 목록을 반환합니다.
  */
 export function getConfiguredTaskForceBackends(carrierId: string): TaskForceCliType[] {
@@ -434,30 +412,6 @@ export function updateCliTypeOverride(
     }
     states.cliTypeOverrides = overrides;
   });
-}
-
-// ─── 프로바이더 카탈로그 (순수 함수) ────────────────────
-
-/**
- * CLI에 대한 프로바이더 모델 정보를 반환합니다.
- */
-export function getAvailableModels(cli: CliType): ProviderInfo {
-  return getProviderModels(cli) as ProviderInfo;
-}
-
-/**
- * CLI에 대한 reasoning effort 레벨 목록을 반환합니다.
- * 지원하지 않으면 null을 반환합니다.
- */
-export function getEffortLevels(cli: CliType): string[] | null {
-  return getReasoningEffortLevels(cli);
-}
-
-/**
- * effort 레벨에 대한 기본 budget_tokens를 반환합니다.
- */
-export function getDefaultBudgetTokens(effort: string): number {
-  return CLAUDE_THINKING_BUDGETS[effort] ?? 10000;
 }
 
 // ─── 내부 헬퍼 ──────────────────────────────────────────

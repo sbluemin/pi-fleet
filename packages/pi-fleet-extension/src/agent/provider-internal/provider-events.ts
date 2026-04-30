@@ -50,16 +50,6 @@ export interface EventMapperHandle {
   emitMcpToolCall: (toolName: string, args: Record<string, unknown>, toolCallId: string) => boolean;
 }
 
-/** retry gate 상태 갱신용 callback 묶음 */
-export interface EventMapperCallbacks {
-  /** assistant output 시작 알림 */
-  onAssistantOutputStarted?: () => void;
-  /** CLI built-in tool 시작 알림 */
-  onBuiltinToolStarted?: () => void;
-  /** MCP toolUse 시작 알림 */
-  onMcpToolUseStarted?: () => void;
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
 // Internal helpers
 // ═══════════════════════════════════════════════════════════════════════════
@@ -86,7 +76,11 @@ function debug(...args: unknown[]): void {
 export function createEventMapper(
   modelId: string,
   initialTargetSessionId: string = "",
-  callbacks?: EventMapperCallbacks,
+  callbacks?: {
+    onAssistantOutputStarted?: () => void;
+    onBuiltinToolStarted?: () => void;
+    onMcpToolUseStarted?: () => void;
+  },
 ): EventMapperHandle {
   const stream = createAssistantMessageEventStream();
 

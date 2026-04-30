@@ -21,7 +21,7 @@ vi.mock("../../src/fleet.js", () => ({
 }));
 
 import { createPanelStreamingSink } from "../../src/agent/ui/agent-panel/streaming-sink.js";
-import { runAgentRequestBackground } from "../../src/agent/runner.js";
+import { getFleetRuntime } from "../../src/fleet.js";
 import { getState, syncColsWithRegisteredOrder } from "../../src/agent/ui/panel/state.js";
 import * as panelState from "../../src/agent/ui/panel/state.js";
 import { resetRuns } from "@sbluemin/fleet-core/admiral/bridge/run-stream";
@@ -33,7 +33,7 @@ describe("background ctx isolation", () => {
   it("runs background carrier requests with explicit cwd and no ExtensionContext", async () => {
     resetPanelGlobals();
 
-    const result = await runAgentRequestBackground({
+    const result = await getFleetRuntime().agent.runBackground({
       cli: "codex",
       carrierId: "genesis",
       request: "work",

@@ -30,7 +30,7 @@ import {
 } from "../provider/provider-types.js";
 import { getSessionStore } from "./runtime.js";
 import { classifyResumeFailure } from "./session-resume-utils.js";
-import { getLogAPI } from "../../log/runtime.js";
+import { getLogAPI } from "../../log/store.js";
 
 type ToolCallLike = (FleetAcpToolCall | FleetAcpToolCallUpdate) & {
   content?: unknown;

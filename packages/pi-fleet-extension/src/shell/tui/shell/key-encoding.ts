@@ -68,8 +68,6 @@ const MODIFIABLE_KEYS = new Set([
   "insert", "ic", "delete", "del", "dc",
 ]);
 
-const BRACKETED_PASTE_START = "\x1b[200~";
-const BRACKETED_PASTE_END = "\x1b[201~";
 for (let i = 0; i < 26; i++) {
   const char = String.fromCharCode(97 + i);
   CTRL_KEYS[`ctrl+${char}`] = String.fromCharCode(i + 1);
@@ -144,42 +142,6 @@ export function encodeKeyToken(token: string): string {
   throw new Error(`Unsupported key token: ${token}`);
 }
 
-export function translateInput(
-  input:
-    | string
-    | {
-        text?: string;
-        keys?: string[];
-        hex?: string[];
-        paste?: string;
-      },
-): string {
-  if (typeof input === "string") return input;
-
-  let result = "";
-  if (input.text) result += input.text;
-
-  if (input.keys) {
-    for (const key of input.keys) {
-      result += encodeKeyToken(key);
-    }
-  }
-
-  if (input.hex) {
-    for (const hex of input.hex) {
-      const normalized = hex.trim().toLowerCase().replace(/^0x/, "");
-      result += String.fromCharCode(parseInt(normalized, 16));
-    }
-  }
-
-  if (input.paste) {
-    result += encodePaste(input.paste);
-  }
-
-  return result;
-}
-
-
 function altKey(char: string): string {
   return `\x1b${char}`;
 }
@@ -203,9 +165,4 @@ function applyXtermModifier(sequence: string, modifier: number): string | null {
   if (hfMatch) return `\x1b[1;${modifier}${hfMatch[1]}`;
 
   return null;
-}
-
-function encodePaste(text: string, bracketed = true): string {
-  if (!bracketed) return text;
-  return `${BRACKETED_PASTE_START}${text}${BRACKETED_PASTE_END}`;
 }

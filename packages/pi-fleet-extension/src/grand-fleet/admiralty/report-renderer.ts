@@ -9,10 +9,6 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { getLogAPI } from "@sbluemin/fleet-core/services/log";
 import type { FleetId, MissionReportParams } from "@sbluemin/fleet-core/admiralty";
 
-interface FleetEventOptions {
-  designation?: string;
-}
-
 interface ReportRenderOptions {
   designation?: string;
 }
@@ -63,7 +59,7 @@ export function renderFleetEvent(
   pi: ExtensionAPI,
   fleetId: FleetId,
   event: "connected" | "disconnected",
-  options: FleetEventOptions = {},
+  options: ReportRenderOptions = {},
 ): void {
   const fleetLabel = formatFleetLabel(fleetId, options.designation);
   getLogAPI().debug(LOG_SOURCE, `이벤트 렌더링: ${fleetLabel}, ${event}`);

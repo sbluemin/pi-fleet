@@ -34,7 +34,6 @@ export interface CarrierJobsToolResult {
 
 interface CarrierJobsVerboseState {
   value: boolean;
-  callbacks: Array<(value: boolean) => void>;
 }
 
 const CARRIER_JOBS_VERBOSE_KEY = "__pi_fleet_carrier_jobs_verbose__";
@@ -112,10 +111,6 @@ export function renderVerboseResult(result: CarrierJobsToolResult): { render(): 
   };
 }
 
-export function formatQuietResult(result: CarrierJobsToolResult): string {
-  return formatQuietResponse(parseResultPayload(result));
-}
-
 export function shortenJobId(jobId: string | undefined): string {
   if (!jobId) return "(none)";
   const separator = jobId.indexOf(":");
@@ -134,7 +129,6 @@ export function setCarrierJobsVerbose(value: boolean): void {
   const state = getState();
   if (state.value === value) return;
   state.value = value;
-  notifyCarrierJobsVerboseChange(state);
 }
 
 export function toggleCarrierJobsVerbose(): boolean {
@@ -143,51 +137,10 @@ export function toggleCarrierJobsVerbose(): boolean {
   return next;
 }
 
-export function onCarrierJobsVerboseChange(callback: (value: boolean) => void): () => void {
-  const state = getState();
-  state.callbacks.push(callback);
-  return () => {
-    const index = state.callbacks.indexOf(callback);
-    if (index >= 0) state.callbacks.splice(index, 1);
-  };
-}
-
-export function resetCarrierJobsVerboseForTest(): void {
-  const state = getState();
-  state.value = false;
-  state.callbacks = [];
-}
-
 function formatQuietCall(args: CarrierJobsParams): string {
   const action = args.format ? `${args.action}:${args.format}` : args.action;
   const job = args.action === "list" ? "" : ` · ${shortenJobId(args.job_id)}`;
   return `${DIM}${ICON} Carrier Jobs · ${action}${job}${RESET}`;
-}
-
-function formatQuietResponse(response: CarrierJobsRenderResponse | null): string {
-  if (!response) return `${DIM}${ICON} Carrier Jobs · result · unavailable${RESET}`;
-  if (response.action === "list") {
-    return `${DIM}${ICON} Carrier Jobs · list · ${response.active?.length ?? 0} active, ${response.recent?.length ?? 0} recent${RESET}`;
-  }
-  if (response.action === "status") {
-    return `${DIM}${ICON} Carrier Jobs · status · ${shortenJobId(response.job_id)} · ${response.status ?? "unknown"}${RESET}`;
-  }
-  if (response.action === "cancel") {
-    return `${DIM}${ICON} Carrier Jobs · cancel · ${shortenJobId(response.job_id)} · ${response.cancelled ? "cancelled" : "failed"}${RESET}`;
-  }
-  if (response.action === "result") {
-    if (response.full_result) {
-      return `${DIM}${ICON} Carrier Jobs · ${formatResultAction(response)} · ${shortenJobId(response.job_id)} · ${formatKb(response.full_result)}${RESET}`;
-    }
-    const status = response.status ?? (response.error ? "error" : "unknown");
-    return `${DIM}${ICON} Carrier Jobs · ${formatResultAction(response)} · ${shortenJobId(response.job_id)} · ${status}${RESET}`;
-  }
-  return `${DIM}${ICON} Carrier Jobs · ${response.action ?? "unknown"}${RESET}`;
-}
-
-function formatResultAction(response: CarrierJobsRenderResponse): string {
-  if (response.format) return `result:${response.format}`;
-  return response.full_result ? "result:full" : "result";
 }
 
 function parseResultPayload(result: CarrierJobsToolResult): CarrierJobsRenderResponse | null {
@@ -228,21 +181,11 @@ function wrapLine(line: string, width: number): string[] {
   return lines;
 }
 
-function formatKb(value: string): string {
-  return `${Math.max(1, Math.ceil(Buffer.byteLength(value, "utf8") / 1024))}KB`;
-}
-
-function notifyCarrierJobsVerboseChange(state: CarrierJobsVerboseState): void {
-  for (const callback of state.callbacks) {
-    try { callback(state.value); } catch { /* 리스너 실패는 렌더 상태 전파를 막지 않습니다. */ }
-  }
-}
-
 function getState(): CarrierJobsVerboseState {
   const root = globalThis as Record<string, unknown>;
   const existing = root[CARRIER_JOBS_VERBOSE_KEY] as CarrierJobsVerboseState | undefined;
   if (existing) return existing;
-  const state: CarrierJobsVerboseState = { value: false, callbacks: [] };
+  const state: CarrierJobsVerboseState = { value: false };
   root[CARRIER_JOBS_VERBOSE_KEY] = state;
   return state;
 }

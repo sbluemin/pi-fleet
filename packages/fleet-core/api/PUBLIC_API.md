@@ -7,7 +7,7 @@ legacy public leaf APIs such as `CoreServices`, `AgentRequestService`,
 
 ## Canonical Runtime
 
-- Subpaths: `@sbluemin/fleet-core`, `@sbluemin/fleet-core/runtime`
+- Subpath: `@sbluemin/fleet-core`
 - `createFleetCoreRuntime(options: FleetCoreRuntimeOptions): FleetCoreRuntimeContext`
 - `FleetCoreRuntimeOptions = { dataDir: string; ports: FleetHostPorts; }`
 
@@ -72,8 +72,8 @@ public service objects.
 
 ## Public Source Layout
 
-`packages/fleet-core/src/public/` must contain only the runtime composition leaf
-and domain service modules:
+`packages/fleet-core/src/public/` is the source home for root-exported runtime
+composition and domain service modules:
 
 - `runtime.ts`
 - `fleet-services.ts`
@@ -85,6 +85,9 @@ and domain service modules:
 - `settings-services.ts`
 - `tool-registry-services.ts`
 
+`runtime.ts` remains as an internal source leaf for directory structure and root
+composition. It is not exposed as `@sbluemin/fleet-core/runtime`.
+
 Do not add legacy public leaves such as `agent-request.ts`, `agent-runtime.ts`,
 `backend-adapter.ts`, `host-ports.ts`, `mcp.ts`, `streaming-sink.ts`,
 `tool-registry.ts`, or `types.ts`.
@@ -92,25 +95,50 @@ Do not add legacy public leaves such as `agent-request.ts`, `agent-runtime.ts`,
 ## Compatibility Subpaths
 
 Some package subpaths still exist for active `pi-fleet-extension` migration
-compatibility. They are not the target public architecture and should not be
-used for new consumer code. New public functionality must enter through the
+compatibility. They expose narrow implementation contracts only where current
+consumers still import them. New public functionality must enter through the
 domain service modules above and be reachable from `FleetCoreRuntimeContext`.
 
 Current agent compatibility subpaths:
 
-- `@sbluemin/fleet-core/agent`
-- `@sbluemin/fleet-core/agent/shared`
 - `@sbluemin/fleet-core/agent/shared/types`
 - `@sbluemin/fleet-core/agent/shared/service-status`
-- `@sbluemin/fleet-core/agent/provider`
 - `@sbluemin/fleet-core/agent/provider/provider-client`
 - `@sbluemin/fleet-core/agent/provider/provider-types`
 - `@sbluemin/fleet-core/agent/provider/provider-mcp`
 - `@sbluemin/fleet-core/agent/provider/thinking-level-patch`
 - `@sbluemin/fleet-core/agent/provider/tool-snapshot`
-- `@sbluemin/fleet-core/agent/dispatcher`
 - `@sbluemin/fleet-core/agent/dispatcher/executor`
 - `@sbluemin/fleet-core/agent/dispatcher/pool`
 - `@sbluemin/fleet-core/agent/dispatcher/runtime`
 - `@sbluemin/fleet-core/agent/dispatcher/session-store`
 - `@sbluemin/fleet-core/agent/dispatcher/session-resume-utils`
+
+Current Fleet domain compatibility subpaths:
+
+- `@sbluemin/fleet-core/constants`
+- `@sbluemin/fleet-core/job`
+- `@sbluemin/fleet-core/admiral`
+- `@sbluemin/fleet-core/admiral/carrier`
+- `@sbluemin/fleet-core/admiral/carrier/personas`
+- `@sbluemin/fleet-core/admiral/squadron`
+- `@sbluemin/fleet-core/admiral/taskforce`
+- `@sbluemin/fleet-core/admiral/store` (includes `provider-catalog` re-exports for backward compatibility)
+- `@sbluemin/fleet-core/carrier-jobs`
+- `@sbluemin/fleet-core/admiral/protocols/standing-orders`
+- `@sbluemin/fleet-core/admiralty`
+
+Current bridge compatibility subpaths (Allowlist-only named exports):
+
+- `@sbluemin/fleet-core/admiral/bridge/run-stream`
+- `@sbluemin/fleet-core/admiral/bridge/carrier-panel`
+- `@sbluemin/fleet-core/admiral/bridge/carrier-control`
+
+Current service/metaphor compatibility subpaths:
+
+- `@sbluemin/fleet-core/services/tool-registry`
+- `@sbluemin/fleet-core/services/settings`
+- `@sbluemin/fleet-core/services/log`
+- `@sbluemin/fleet-core/metaphor`
+- `@sbluemin/fleet-core/metaphor/operation-name`
+- `@sbluemin/fleet-core/metaphor/directive-refinement`

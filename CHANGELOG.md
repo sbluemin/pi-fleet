@@ -5,6 +5,52 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Added
+- **Detached Fanout Helper**: Extracted `packages/fleet-core/src/admiral/_shared/detached-fanout.ts` to unify detached parallel-job runner logic for Squadron and TaskForce domains, reducing code duplication.
+- **Provider Catalog Extraction**: Split `packages/fleet-core/src/admiral/store/provider-catalog.ts` from `fleet-store.ts` to isolate model and budget definitions.
+
+### Changed
+- **pi-fleet-extension Restructure**: Restructured `pi-fleet-extension` to Flat Domain Architecture mirroring `fleet-core` public services. Each `fleet-core` service maps 1:1 to a `pi-fleet-extension` domain (`agent/`, `fleet.ts`, `grand-fleet/`, `metaphor.ts`, `job.ts`, `settings.ts`, `log.ts`, `tool-registry.ts`, `fleet-wiki/`).
+- **Doctrine Update**: Doctrine "capability bucket organization" replaced with "service-mirror domain organization". Each domain now owns its commands, keybinds, tools, and TUI internally as files within the domain folder.
+- **Entry Point Refactor**: Host entry split into `boot.ts` (runtime composition) and `ports.ts` (`FleetHostPorts` implementation). Host shell consolidated into its own `shell/` domain.
+- **Gateway Location**: `@mariozechner/pi-ai` gateway moved from `src/provider/pi-ai-bridge.ts` to within `src/agent/` domain (single domain-internal gateway).
+- AGENTS doctrine "compat isolation pattern" replaced with "provider gateway pattern" — only `packages/pi-fleet-extension/src/agent/` domain internal gateway is allowed to import `@mariozechner/pi-ai`.
+- **Internal Agent Logging**: The agent domain now directly consumes `services/log` for logging instead of using a dedicated log-port bridge.
+- **TaskForce State Pattern**: Updated TaskForce state to use a `Map<requestKey, TaskForceState>` instead of a single global slot, preventing state collisions during concurrent executions on the same carrier.
+- **Service Unification**: Consolidated `services/log` and `services/settings` implementations. `log/store.ts` now absorbs API initialization, and `settings/service.ts` inlines Map wrapper logic.
+- **Bridge Barrel Contraction**: Converted `admiral/bridge/` barrels (`run-stream`, `carrier-panel`, `carrier-control`) to allowlist-only named exports, hiding internal state and types from public surface.
+- **Carrier Prompt Refactor**: Replaced certain dynamic `derive` helper calls in `admiral/carrier/prompts.ts` with direct manifest field references for performance.
+- **Agent Runtime Assembly**: Inlined agent runtime assembly helpers into `public/runtime.ts`.
+
+### Removed
+- **Legacy Capability Buckets**: Removed `pi-fleet-extension` legacy capability buckets `src/commands/`, `src/keybinds/`, `src/session/`, `src/tools/`, `src/tui/`, and `src/provider/`. All content has been absorbed into their respective domain homes.
+- Removed `pi-fleet-extension/src/bindings/` capability bucket (admiral, carrier, compat, config, grand-fleet, hud, jobs, metaphor, runtime). Service consumption now uses `fleet-core` public surface directly; `@mariozechner/pi-ai` gateway moved to `src/agent/` domain; runtime glue moved to `src/boot.ts` and `src/ports.ts`; grand-fleet glue moved to `src/grand-fleet/`; HUD lifecycle moved to `src/fleet.ts`; carrier panel sink moved to `src/fleet.ts`; carrier completion glue moved to `src/job.ts`.
+- Removed `fleet-core` public types `LlmClient`, `LlmCompleteMessage`, `LlmCompleteRequest`, `LlmCompleteResult` (dead code; `FleetAgentClient` is the active replacement).
+- Removed `@sbluemin/fleet-core/agent/shared/log-port` subpath and `FleetLogPort` interface.
+- Demoted `BackendAdapter`, `BackendConnectOptions`, `BackendRequest`, `BackendResponse`, and `BackendSession` from `fleet-core` public exports.
+- **Public Subpaths (Breaking)**: Removed 8 public subpaths from `fleet-core` that had zero external consumers:
+  - `./runtime`
+  - `./agent`
+  - `./agent/shared`
+  - `./agent/provider`
+  - `./agent/dispatcher`
+  - `./admiral/protocols`
+  - `./services`
+  - `./admiralty/ipc`
+- **Dead Files**:
+  - `packages/fleet-core/src/admiral/carrier/register.ts` (overridden by Pi tool-registry).
+  - `packages/fleet-core/src/services/log/runtime.ts` (absorbed into `store.ts`).
+  - `packages/fleet-core/src/services/settings/registry.ts` (inlined).
+  - `packages/fleet-core/src/services/agent/fleet-agent-runtime.ts` (absorbed into `public/runtime.ts`).
+  - `packages/pi-fleet-extension/src/agent/carrier/register.ts` (legacy shim).
+- **Removed Exports/Symbols**:
+  - `registerSingleCarrier`, `ensureShipyardLogCategories`, `SingleCarrierOptions`.
+  - `getSquadronState`, `sanitizeTitle` (private/dead).
+  - `isTaskForceFormable` (unused public).
+  - `getProtocolById` (changed to private internal).
+  - `TASKFORCE_STATE_KEY`, `CORE_SETTINGS_KEY` (dead).
+  - `createActiveRecordFromSummary`, `renderToolPromptManifestMarkdown` (dead).
+
 ### Breaking Changes
 - **Agent Service Reorganization**: Refactored `packages/fleet-core/src/services/agent/` into a 3-bucket structure (`shared/`, `provider/`, `dispatcher/`) for better isolation between internal runtime and provider contracts.
   - Consumers of internal agent subpaths must migrate to the new structure:
@@ -17,21 +63,9 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
   - `FleetHostPorts.log` field has been removed.
   - `AgentToolCtx.log` field has been removed.
   - Consumers must migrate to `services/log` directly (via `initLogAPI`/`getLogAPI`) for log interactions.
-
-### Changed
-- **pi-fleet-extension Restructure**: Restructured `pi-fleet-extension` to Flat Domain Architecture mirroring `fleet-core` public services. Each `fleet-core` service maps 1:1 to a `pi-fleet-extension` domain (`agent/`, `fleet.ts`, `grand-fleet/`, `metaphor.ts`, `job.ts`, `settings.ts`, `log.ts`, `tool-registry.ts`, `fleet-wiki/`).
-- **Doctrine Update**: Doctrine "capability bucket organization" replaced with "service-mirror domain organization". Each domain now owns its commands, keybinds, tools, and TUI internally as files within the domain folder.
-- **Entry Point Refactor**: Host entry split into `boot.ts` (runtime composition) and `ports.ts` (`FleetHostPorts` implementation). Host shell consolidated into its own `shell/` domain.
-- **Gateway Location**: `@mariozechner/pi-ai` gateway moved from `src/provider/pi-ai-bridge.ts` to within `src/agent/` domain (single domain-internal gateway).
-- AGENTS doctrine "compat isolation pattern" replaced with "provider gateway pattern" — only `packages/pi-fleet-extension/src/agent/` domain internal gateway is allowed to import `@mariozechner/pi-ai`.
-- **Internal Agent Logging**: The agent domain now directly consumes `services/log` for logging instead of using a dedicated log-port bridge.
-
-### Removed
-- **Legacy Capability Buckets**: Removed `pi-fleet-extension` legacy capability buckets `src/commands/`, `src/keybinds/`, `src/session/`, `src/tools/`, `src/tui/`, and `src/provider/`. All content has been absorbed into their respective domain homes.
-- Removed `pi-fleet-extension/src/bindings/` capability bucket (admiral, carrier, compat, config, grand-fleet, hud, jobs, metaphor, runtime). Service consumption now uses `fleet-core` public surface directly; `@mariozechner/pi-ai` gateway moved to `src/agent/` domain; runtime glue moved to `src/boot.ts` and `src/ports.ts`; grand-fleet glue moved to `src/grand-fleet/`; HUD lifecycle moved to `src/fleet.ts`; carrier panel sink moved to `src/fleet.ts`; carrier completion glue moved to `src/job.ts`.
-- Removed `fleet-core` public types `LlmClient`, `LlmCompleteMessage`, `LlmCompleteRequest`, `LlmCompleteResult` (dead code; `FleetAgentClient` is the active replacement).
-- Removed `@sbluemin/fleet-core/agent/shared/log-port` subpath and `FleetLogPort` interface.
-- Demoted `BackendAdapter`, `BackendConnectOptions`, `BackendRequest`, `BackendResponse`, and `BackendSession` from `fleet-core` public exports.
+- **Bridge Export Policy**: Accessing internal bridge state or raw track/job types via `admiral/bridge/*` is no longer supported. Consumers must use the provided allowlist exports.
+- **Subpath Removal**: Direct imports from the 8 removed subpaths will fail. Consumers should use the root barrel or the remaining compatibility subpaths documented in `PUBLIC_API.md`.
+- **TaskForce State**: `TASKFORCE_STATE_KEY` is removed; taskforce state is now managed internally via request keys.
 
 ## [0.6.2] - 2026-04-30
 

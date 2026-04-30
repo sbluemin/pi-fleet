@@ -24,28 +24,24 @@ export interface JobArchive {
   truncated: boolean;
   totalBytes: number;
   blocks: ArchiveBlock[];
+  mergeIndex?: Map<string, number>;
 }
 
-export interface CarrierJobSummary {
+export interface CarrierJobBase {
   jobId: string;
   tool: "carriers_sortie" | "carrier_squadron" | "carrier_taskforce";
   status: CarrierJobStatus;
-  summary: string;
   startedAt: number;
   finishedAt?: number;
   carriers: string[];
   error?: string;
 }
 
-export interface CarrierJobRecord {
-  jobId: string;
-  tool: CarrierJobSummary["tool"];
-  status: CarrierJobStatus;
-  startedAt: number;
-  finishedAt?: number;
-  carriers: string[];
-  error?: string;
+export interface CarrierJobSummary extends CarrierJobBase {
+  summary: string;
 }
+
+export type CarrierJobRecord = CarrierJobBase;
 
 export interface CarrierJobLaunchResponse {
   job_id: string;

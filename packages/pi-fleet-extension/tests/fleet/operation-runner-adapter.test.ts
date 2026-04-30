@@ -1,13 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const run = vi.fn();
-const runBackground = vi.fn();
 
 vi.mock("../../src/fleet.js", () => ({
   getFleetRuntime: () => ({
     agent: {
       run,
-      runBackground,
     },
   }),
   withAgentRequestContext: async (_ctx: any, callback: () => Promise<unknown>) => callback(),
@@ -16,7 +14,6 @@ vi.mock("../../src/fleet.js", () => ({
 import {
   exposeAgentApi,
   runAgentRequest,
-  runAgentRequestBackground,
 } from "../../src/agent/runner.js";
 import { createPanelStreamingSink } from "../../src/agent/ui/agent-panel/streaming-sink.js";
 import { getState } from "../../src/agent/ui/panel/state.js";
@@ -25,9 +22,7 @@ import { CARRIER_FRAMEWORK_KEY } from "@sbluemin/fleet-core/admiral/carrier";
 
 beforeEach(() => {
   run.mockReset();
-  runBackground.mockReset();
   run.mockResolvedValue(createResult("run"));
-  runBackground.mockResolvedValue(createResult("background"));
   resetPanelGlobals();
 });
 
@@ -50,21 +45,6 @@ describe("operation runner adapter", () => {
       cwd: "/workspace",
     }));
     expect(run).toHaveBeenCalledWith(expect.not.objectContaining({ ctx: expect.anything() }));
-  });
-
-  it("delegates background requests to runtime.agent.runBackground", async () => {
-    const result = await runAgentRequestBackground({
-      cli: "codex",
-      carrierId: "genesis",
-      request: "background",
-      cwd: "/workspace",
-    });
-
-    expect(result.responseText).toBe("background");
-    expect(runBackground).toHaveBeenCalledWith(expect.objectContaining({
-      carrierId: "genesis",
-      cwd: "/workspace",
-    }));
   });
 
   it("exposes the legacy global unified-agent bridge", async () => {

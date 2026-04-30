@@ -9,7 +9,7 @@ import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { ANIM_INTERVAL_MS, formatPanelMultiColHint, PANEL_DETAIL_HINT } from "@sbluemin/fleet-core/constants";
 import { getActiveBackgroundJobCount, onActiveJobCountChange } from "@sbluemin/fleet-core/job";
 import { getActiveJobs } from "@sbluemin/fleet-core/admiral/bridge/carrier-panel";
-import { getRegisteredCarrierCols, getState, makeCols, syncColsWithRegisteredOrder } from "./panel/state.js";
+import { getState, syncColsWithRegisteredOrder } from "./panel/state.js";
 import type { AgentCol } from "./panel/types.js";
 import { detachWidgetSync, syncCurrentWidget, syncWidget } from "./panel/widget-sync.js";
 
@@ -41,30 +41,6 @@ export function setDetailView(
   syncWidget(ctx);
 }
 
-/** 현재 상세 뷰 대상 ColumnTrack ID를 반환합니다. (null = N칼럼) */
-export function getDetailTrackId(): string | null {
-  return getState().detailTrackId;
-}
-
-// ─── 스트리밍 라이프사이클 ───────────────────────────────
-
-/**
- * 스트리밍을 종료합니다.
- * 애니메이션 타이머를 정지하고 위젯을 최종 상태로 갱신합니다.
- * expanded가 true이면 패널은 최종 결과를 정적으로 표시합니다.
- */
-export function stopAgentStreaming(ctx: ExtensionContext): void {
-  const s = getState();
-  s.streaming = false;
-
-  if (s.animTimer) {
-    clearInterval(s.animTimer);
-    s.animTimer = null;
-  }
-
-  syncWidget(ctx);
-}
-
 // ─── UI 토글 ─────────────────────────────────────────────
 
 /** 패널을 펼칩니다. */
@@ -75,14 +51,6 @@ export function showAgentPanel(ctx: ExtensionContext): void {
   notifyToggle(true);
 }
 
-/** 패널을 접습니다. 스트리밍 중이면 컴팩트 뷰로 전환됩니다. */
-export function hideAgentPanel(ctx: ExtensionContext): void {
-  const s = getState();
-  s.expanded = false;
-  syncWidget(ctx);
-  notifyToggle(false);
-}
-
 /** 패널 표시를 토글합니다. 반환값은 토글 후의 expanded 상태. */
 export function toggleAgentPanel(ctx: ExtensionContext): boolean {
   const s = getState();
@@ -90,24 +58,6 @@ export function toggleAgentPanel(ctx: ExtensionContext): boolean {
   syncWidget(ctx);
   notifyToggle(s.expanded);
   return s.expanded;
-}
-
-/**
- * 패널 토글 리스너를 등록합니다.
- * 반환값을 호출하면 구독이 해제됩니다.
- */
-export function onPanelToggle(callback: (expanded: boolean) => void): () => void {
-  const s = getState();
-  s.toggleCallbacks.push(callback);
-  return () => {
-    const idx = s.toggleCallbacks.indexOf(callback);
-    if (idx >= 0) s.toggleCallbacks.splice(idx, 1);
-  };
-}
-
-/** 패널이 펼쳐져 있는지 반환합니다. */
-export function isAgentPanelExpanded(): boolean {
-  return getState().expanded;
 }
 
 // ─── 칼럼 업데이트 ───────────────────────────────────────
@@ -122,25 +72,6 @@ export function updateAgentCol(index: number, update: Partial<AgentCol>): void {
     Object.assign(s.cols[index], update);
     syncCurrentWidget();
   }
-}
-
-/** 현재 칼럼 배열을 반환합니다 (참조 — 직접 수정 주의). */
-export function getAgentPanelCols(): AgentCol[] {
-  return getRegisteredCarrierCols();
-}
-
-/** 칼럼을 초기화하고 스트리밍을 중단합니다. */
-export function resetAgentPanel(ctx: ExtensionContext): void {
-  const s = getState();
-  s.cols = makeCols();
-  s.streaming = false;
-
-  if (s.animTimer) {
-    clearInterval(s.animTimer);
-    s.animTimer = null;
-  }
-
-  syncWidget(ctx);
 }
 
 // ─── 패널 갱신 ──────────────────────────────────────────

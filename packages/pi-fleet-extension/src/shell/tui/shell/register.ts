@@ -4,25 +4,27 @@
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import { createPopupBridge, createPopupController } from "./launcher.js";
+import { isShellPopupOpen, openShellPopup, setShellPopupContext } from "./launcher.js";
 import { SHELL_POPUP_BRIDGE_KEY } from "./types.js";
 
 export default function interactiveShellExtension(pi: ExtensionAPI) {
-  const controller = createPopupController();
-  const bridge = createPopupBridge(controller);
+  const service = {
+    open: openShellPopup,
+    isOpen: isShellPopupOpen,
+  };
 
   const registerBridge = () => {
-    (globalThis as Record<string, unknown>)[SHELL_POPUP_BRIDGE_KEY] = bridge;
+    (globalThis as Record<string, unknown>)[SHELL_POPUP_BRIDGE_KEY] = service;
   };
 
   pi.on("session_start", (_event, ctx) => {
-    controller.setContext(ctx);
+    setShellPopupContext(ctx);
     registerBridge();
   });
 
   pi.on("session_shutdown", () => {
     const current = (globalThis as Record<string, unknown>)[SHELL_POPUP_BRIDGE_KEY];
-    if (current === bridge) {
+    if (current === service) {
       delete (globalThis as Record<string, unknown>)[SHELL_POPUP_BRIDGE_KEY];
     }
   });

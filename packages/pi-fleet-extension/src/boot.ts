@@ -5,6 +5,10 @@ import registerBoot from "./fleet.js";
 import registerFleetWiki from "./fleet-wiki/index.js";
 import registerGrandFleet from "./grand-fleet/index.js";
 import { registerJob } from "./job.js";
+import registerProviderGuardCommand from "./agent/provider-guard-command.js";
+import { registerModelCommands, syncModelConfig } from "./agent/carrier/model-ui.js";
+import { bootBridge } from "./agent/ui/acp-shell/register.js";
+import { registerFleetPiCommands } from "./fleet.js";
 import {
   initializeFleetRuntime,
   registerFleetCarriers,
@@ -14,8 +18,6 @@ import {
   shouldBootFleet,
   wireFleetPiEvents,
 } from "./fleet.js";
-import { mountTuiSurfaces } from "./shell/tui-surfaces.js";
-import { registerCommands } from "./shell/commands/index.js";
 import { registerLog as registerLogDomain } from "./log.js";
 import { registerMetaphor } from "./metaphor.js";
 import { registerSettings } from "./settings.js";
@@ -40,17 +42,20 @@ export function bootFleet(ctx: ExtensionAPI): void {
   registerSettings(ctx);
   registerLog(ctx, fleetEnabled);
   registerToolRegistry(ctx, fleetEnabled);
+  registerProviderGuardCommand(ctx);
 }
 
 function registerFleet(pi: ExtensionAPI, fleetEnabled: boolean): void {
   if (!fleetEnabled) return;
 
   restoreFleetPreRegistrationState();
+  syncModelConfig();
   registerFleetCarriers(pi);
   scheduleFleetBootReconciliation();
   wireFleetPiEvents(pi);
-  mountTuiSurfaces(pi, fleetEnabled);
-  registerCommands(pi, fleetEnabled);
+  bootBridge(pi);
+  registerModelCommands(pi);
+  registerFleetPiCommands(pi);
 }
 
 function registerMetaphorDomain(pi: ExtensionAPI, fleetEnabled: boolean): void {

@@ -18,7 +18,7 @@ import {
   createJsonRpcNotification,
   createJsonRpcResponse,
   createJsonRpcErrorResponse,
-} from "./protocol.js";
+} from "../protocol.js";
 import { getLogAPI } from "@sbluemin/fleet-core/services/log";
 
 type ConnectionState = "disconnected" | "connecting" | "connected";

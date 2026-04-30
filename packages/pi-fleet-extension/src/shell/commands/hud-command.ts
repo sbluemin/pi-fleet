@@ -10,8 +10,6 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 import type { HudEditorState, StatusLinePreset } from "../hud/types.js";
 import { PRESETS } from "../hud/presets.js";
-import { invalidateGitStatus, invalidateGitBranch } from "../hud/git-status.js";
-import { mightChangeGitBranch } from "../hud/utils.js";
 import { setupCustomEditor, setupStatusBar } from "../hud/editor.js";
 
 // ═══════════════════════════════════════════════════════════════════════════

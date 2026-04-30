@@ -7,7 +7,7 @@ import {
   getSessionLaunchConfig,
   parseModelId,
 } from "@sbluemin/fleet-core/agent/provider/provider-types";
-import { SHELL_POPUP_BRIDGE_KEY, type ShellPopupBridge } from "../../../shell/tui/shell/types.js";
+import { SHELL_POPUP_BRIDGE_KEY } from "../../../shell/tui/shell/types.js";
 import { buildBridgeCommand } from "./command.js";
 import type { ActiveBridgeSession, InteractiveShellBridge } from "./types.js";
 
@@ -65,5 +65,5 @@ function getActiveBridgeSession(): ActiveBridgeSession {
 }
 
 function getShellBridge(): InteractiveShellBridge {
-  return (globalThis as Record<string, unknown>)[SHELL_POPUP_BRIDGE_KEY] as ShellPopupBridge | undefined;
+  return (globalThis as Record<string, unknown>)[SHELL_POPUP_BRIDGE_KEY] as InteractiveShellBridge;
 }

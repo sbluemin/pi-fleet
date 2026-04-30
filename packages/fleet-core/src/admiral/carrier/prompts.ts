@@ -13,11 +13,6 @@
 import { Type, type TObject } from "@sinclair/typebox";
 import { SYSTEM_REMINDER_HINT } from "../prompts.js";
 import type { ToolPromptManifest } from "../../services/tool-registry/index.js";
-import {
-  deriveToolDescription,
-  deriveToolPromptGuidelines,
-  deriveToolPromptSnippet,
-} from "../../services/tool-registry/index.js";
 import { getRegisteredCarrierConfig } from "./framework.js";
 import type { CarrierMetadata } from "./types.js";
 
@@ -91,7 +86,7 @@ export const SORTIE_MANIFEST: ToolPromptManifest = {
   ],
 };
 
-export const FLEET_SORTIE_DESCRIPTION = deriveToolDescription(SORTIE_MANIFEST);
+export const FLEET_SORTIE_DESCRIPTION = SORTIE_MANIFEST.description;
 
 // ─────────────────────────────────────────────────────────
 // 2. Build 함수
@@ -102,7 +97,7 @@ export const FLEET_SORTIE_DESCRIPTION = deriveToolDescription(SORTIE_MANIFEST);
  * 시스템 프롬프트 "Available tools" 섹션에 한 줄로 표시됩니다.
  */
 export function buildSortieToolPromptSnippet(): string {
-  return deriveToolPromptSnippet(SORTIE_MANIFEST);
+  return SORTIE_MANIFEST.promptSnippet;
 }
 
 /**
@@ -114,7 +109,13 @@ export function buildSortieToolPromptSnippet(): string {
  * @param carrierIds sortie 가능한 carrier ID 목록
  */
 export function buildSortieToolPromptGuidelines(carrierIds: string[]): string[] {
-  return deriveToolPromptGuidelines(SORTIE_MANIFEST, buildCarrierGuidelines(carrierIds));
+  return [
+    ...SORTIE_MANIFEST.whenToUse,
+    ...SORTIE_MANIFEST.whenNotToUse,
+    ...SORTIE_MANIFEST.usageGuidelines,
+    ...(SORTIE_MANIFEST.guardrails ?? []),
+    ...buildCarrierGuidelines(carrierIds),
+  ];
 }
 
 /**

@@ -2,8 +2,8 @@ import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-age
 import type { GrandFleetRole } from "@sbluemin/fleet-core/admiralty";
 
 import { getLogAPI } from "@sbluemin/fleet-core/services/log";
-import { registerAdmiraltyGrandFleet } from "./admiralty.js";
-import { registerFleetGrandFleet } from "./fleet.js";
+import registerAdmiralty from "./admiralty/register.js";
+import registerFleet from "./fleet/register.js";
 import { initGrandFleetState } from "./state.js";
 
 export function registerGrandFleet(ctx: ExtensionContext): void;
@@ -25,12 +25,12 @@ export function registerGrandFleet(ctx: ExtensionAPI | ExtensionContext): void {
 
   if (role === "admiralty") {
     log.info("grand-fleet", "Admiralty 모드 초기화");
-    registerAdmiraltyGrandFleet(pi);
+    registerAdmiralty(pi);
     return;
   }
 
   log.info("grand-fleet", `Fleet 모드 초기화 — fleetId=${process.env.PI_FLEET_ID}`);
-  registerFleetGrandFleet(pi);
+  registerFleet(pi);
 }
 
 export default registerGrandFleet;

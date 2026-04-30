@@ -13,14 +13,14 @@
 | `docs/admiral-workflow-reference.md` | **Operational Doctrine** — High-level architecture, naval hierarchy, and delegation workflows |
 | `packages/` | First-party workspace packages: `unified-agent`, `fleet-core`, `fleet-wiki`, `pi-fleet-extension` |
 | `packages/fleet-core/` | Pi-agnostic Fleet product core — Fleet domain logic, prompts, runtime contracts, MCP/tool/job internals, **Admiral orchestration runtime**, and public APIs |
-| `packages/fleet-core/src/admiral/` | Admiral-owned Fleet orchestration/runtime modules: `bridge/`, `carrier/`, `carrier-jobs/`, `squadron/`, `taskforce/`, `store/`, and `protocols/`. **Standing orders** are integrated under `protocols/standing-orders/`. |
-| `packages/fleet-core/src/services/` | Shared pure service modules, renamed from `core-services`. Includes `agent/`, `job/`, settings, log, and **tool-registry** (renamed from `tool-prompt-manifest`). Keybind ownership belongs to `packages/pi-fleet-extension/` because shortcuts require a UI host. |
-| `packages/fleet-core/src/admiralty/` | Grand Fleet domain home inside `fleet-core` (renamed from `gfleet`). Exposed via `@sbluemin/fleet-core/admiralty` and `@sbluemin/fleet-core/admiralty/ipc`. Formation/tmux helpers are removed. |
+| `packages/fleet-core/src/admiral/` | Admiral-owned Fleet orchestration/runtime modules: `_shared/` (detached-fanout), `bridge/`, `carrier/`, `carrier-jobs/`, `squadron/`, `taskforce/`, `store/` (provider-catalog), and `protocols/`. **Standing orders** are integrated under `protocols/standing-orders/`. |
+| `packages/fleet-core/src/services/` | Shared pure service modules. Includes `agent/` (shared/provider/dispatcher), `job/`, unified settings, unified log, and **tool-registry**. |
+| `packages/fleet-core/src/admiralty/` | Grand Fleet domain home inside `fleet-core` (renamed from `gfleet`). Exposed via `@sbluemin/fleet-core/admiralty`. |
 | `packages/fleet-core/src/public/` | Public composition surface. Keep `runtime.ts` plus domain service modules only (`fleet-services`, `grand-fleet-services`, `metaphor-services`, `agent-services`, `job-services`, `log-services`, `settings-services`, `tool-registry-services`). Do not reintroduce legacy public leaves such as `agent-request`, `agent-runtime`, `host-ports`, `mcp`, `streaming-sink`, or raw `tool-registry`. |
 | `packages/pi-fleet-extension/` | Pi capability package — Flat Domain Architecture mirroring fleet-core public services |
 | `packages/pi-fleet-extension/src/` | Root of pi-facing domains |
 | `packages/pi-fleet-extension/src/boot.ts` | Entry point — assembles the Fleet runtime by composing domain modules |
-| `packages/pi-fleet-extension/src/ports.ts` | Host port implementation — implements FleetHostPorts for pi environment |
+| `packages/pi-fleet-extension/src/fleet.ts` | Fleet lifecycle, runtime initialization, and Pi host port implementation |
 | `packages/pi-fleet-extension/src/{agent,grand-fleet,fleet-wiki,shell}/` | Domain-internal homes. Each owns its commands, keybinds, tools, and UI. |
 | `packages/pi-fleet-extension/src/{fleet,metaphor,job,settings,log,tool-registry}.ts` | Domain entrypoints mapping 1:1 to fleet-core services |
 | `packages/pi-fleet-extension/src/{commands,keybinds,tools,tui,provider,session}/` | Removed legacy capability buckets. Do not reintroduce; all features are now organized by domain. |

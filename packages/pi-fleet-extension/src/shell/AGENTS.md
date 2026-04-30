@@ -8,7 +8,6 @@ Owns host shell surfaces and aggregate UI management for `pi-fleet-extension`.
 - `hud/` — HUD lifecycle and mounting (Status Bar, Editor overlays)
 - `overlays/` — shared TUI overlays consumed by various domains
 - `render/` — shared Pi-facing render utilities and component factory
-- `thinking-timer.ts` — owns thinking timer state and TUI overlay rendering
 - `keybinds/` — central Pi shortcut bridge (mirrors `shell/` shortcut intent)
 
 ## Rules
