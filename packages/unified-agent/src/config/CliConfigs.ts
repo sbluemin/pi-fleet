@@ -49,9 +49,8 @@ export const CLI_BACKENDS: Record<CliType, CliBackendConfig> = {
     id: 'codex',
     name: 'OpenAI Codex CLI',
     cliCommand: 'codex',
-    protocol: 'acp',
+    protocol: 'codex-app-server',
     authRequired: true,
-    npxPackage: '@zed-industries/codex-acp@0.12.0',
     appServerArgs: ['app-server', '--listen', 'stdio://'],
     modes: [
       { id: 'default', label: 'Plan' },
@@ -74,18 +73,15 @@ export function createSpawnConfig(
 ): CliSpawnConfig {
   const backend = CLI_BACKENDS[cli];
 
-  // npx 브릿지 패키지를 사용하는 경우 (Claude ACP, Codex ACP bridge)
+  // npx 브릿지 패키지를 사용하는 경우 (Claude ACP)
   if (backend.npxPackage) {
     const cleanEnv = cleanEnvironment(process.env, options.env);
     const npxPath = resolveNpxPath(cleanEnv);
     const npxArgs = buildNpxArgs(backend.npxPackage);
-    const args = cli === 'codex' && backend.protocol === 'acp'
-      ? [...npxArgs, ...buildConfigArgs(options.configOverrides)]
-      : npxArgs;
 
     return {
       command: npxPath,
-      args,
+      args: npxArgs,
       useNpx: true,
     };
   }
@@ -154,16 +150,6 @@ export function getAllBackendConfigs(): CliBackendConfig[] {
   return Object.values(CLI_BACKENDS);
 }
 
-/**
- * Codex 계열 `-c key=value` 설정을 CLI 인자 배열로 변환합니다.
- *
- * @param overrides - Codex 설정 오버라이드 배열
- * @returns `-c key=value` 형태의 인자 배열
- */
-function buildConfigArgs(overrides?: string[]): string[] {
-  return (overrides ?? []).flatMap((value) => ['-c', value]);
-}
-
 // ─── MCP 서버 설정 변환 ──────────────────────────────
 
 /**
@@ -177,89 +163,20 @@ function buildConfigArgs(overrides?: string[]): string[] {
 export function mcpServerConfigsToCodexArgs(servers: McpServerConfig[]): string[] {
   const args: string[] = [];
   for (const server of servers) {
-    const serverName = toTomlBareKeySegment(server.name, 'MCP 서버 이름');
-    args.push(`mcp_servers.${serverName}.url="${toTomlBasicString(server.url)}"`);
+    const prefix = `mcp_servers.${server.name}`;
+    args.push(`${prefix}.url="${server.url}"`);
     if (server.headers && server.headers.length > 0) {
       // Codex streamable_http은 http_headers (HashMap<String, String>) 필드 사용
       const headerEntries = server.headers
-        .map((h) => `"${toTomlBasicString(h.name)}" = "${toTomlBasicString(h.value)}"`)
+        .map((h) => `"${h.name}" = "${h.value}"`)
         .join(', ');
-      args.push(`mcp_servers.${serverName}.http_headers={${headerEntries}}`);
+      args.push(`${prefix}.http_headers={${headerEntries}}`);
     }
     if (server.toolTimeout != null) {
-      args.push(`mcp_servers.${serverName}.tool_timeout_sec=${toPositiveFiniteNumber(
-        server.toolTimeout,
-        `${server.name}.toolTimeout`,
-      )}`);
+      args.push(`${prefix}.tool_timeout_sec=${server.toolTimeout}`);
     }
   }
   return args;
-}
-
-/**
- * Codex ACP bridge가 실제로 읽는 developer_instructions 설정을 생성합니다.
- *
- * @param systemPrompt - Codex developer role로 주입할 지침
- * @returns Codex `-c`에 전달할 `developer_instructions=...` 오버라이드
- */
-export function codexDeveloperInstructionsToConfigArg(systemPrompt: string): string {
-  return `developer_instructions="${toTomlBasicString(systemPrompt)}"`;
-}
-
-/**
- * TOML dotted key의 bare key segment로 안전한 값인지 확인합니다.
- *
- * @param value - 검사할 key segment
- * @param label - 오류 메시지에 표시할 라벨
- * @returns 검증된 key segment
- */
-function toTomlBareKeySegment(value: string, label: string): string {
-  if (!/^[A-Za-z0-9_-]+$/.test(value)) {
-    throw new Error(`${label}은 TOML bare key로 안전한 영문자/숫자/하이픈/언더스코어만 허용합니다: ${value}`);
-  }
-  return value;
-}
-
-/**
- * TOML basic string 내부에서 안전하도록 문자열을 escape합니다.
- *
- * @param value - escape할 문자열
- * @returns TOML basic string 내부 값
- */
-function toTomlBasicString(value: string): string {
-  return value
-    .replace(/\\/g, '\\\\')
-    .replace(/"/g, '\\"')
-    .replace(/[\u0000-\u001F\u007F]/g, (char) => {
-      switch (char) {
-        case '\b':
-          return '\\b';
-        case '\t':
-          return '\\t';
-        case '\n':
-          return '\\n';
-        case '\f':
-          return '\\f';
-        case '\r':
-          return '\\r';
-        default:
-          return `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`;
-      }
-    });
-}
-
-/**
- * Codex TOML 숫자 설정에 넣을 양의 유한 숫자를 검증합니다.
- *
- * @param value - 검사할 숫자
- * @param label - 오류 메시지에 표시할 라벨
- * @returns 문자열화된 숫자
- */
-function toPositiveFiniteNumber(value: number, label: string): string {
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new Error(`${label}은 0보다 큰 유한 숫자여야 합니다.`);
-  }
-  return String(value);
 }
 
 /**

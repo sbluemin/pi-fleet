@@ -11,12 +11,11 @@ import { isWindows } from '../utils/env.js';
 const CLI_DETECT_LIST: Array<{
   id: CliType;
   command: string;
-  requiredCommands?: string[];
   protocols: ProtocolType[];
 }> = [
   { id: 'gemini', command: 'gemini', protocols: ['acp'] },
   { id: 'claude', command: 'claude', protocols: ['acp'] },
-  { id: 'codex', command: 'npx', requiredCommands: ['codex'], protocols: ['acp', 'codex-app-server'] },
+  { id: 'codex', command: 'codex', protocols: ['codex-app-server'] },
 ];
 
 /**
@@ -38,8 +37,8 @@ export class CliDetector {
     }
 
     const results = await Promise.all(
-      CLI_DETECT_LIST.map(async ({ id, command, requiredCommands, protocols }) => {
-        const available = await this.areCliCommandsAvailable(command, requiredCommands);
+      CLI_DETECT_LIST.map(async ({ id, command, protocols }) => {
+        const available = await this.isCliAvailable(command);
         const result: CliDetectionResult = {
           cli: id,
           path: available ? await this.getCliPath(command) : command,
@@ -87,10 +86,7 @@ export class CliDetector {
       };
     }
 
-    const available = await this.areCliCommandsAvailable(
-      config.command,
-      config.requiredCommands,
-    );
+    const available = await this.isCliAvailable(config.command);
     const result: CliDetectionResult = {
       cli,
       path: available ? await this.getCliPath(config.command) : config.command,
@@ -162,26 +158,6 @@ export class CliDetector {
       }
       return false;
     }
-  }
-
-  /**
-   * 주 실행 커맨드와 추가 필수 커맨드의 사용 가능 여부를 함께 확인합니다.
-   */
-  private async areCliCommandsAvailable(
-    command: string,
-    requiredCommands?: string[],
-  ): Promise<boolean> {
-    if (!await this.isCliAvailable(command)) {
-      return false;
-    }
-
-    for (const required of requiredCommands ?? []) {
-      if (!await this.isCliAvailable(required)) {
-        return false;
-      }
-    }
-
-    return true;
   }
 
   /**

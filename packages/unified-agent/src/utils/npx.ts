@@ -83,7 +83,7 @@ export function buildNpxArgs(
  *
  * 예:
  * - @agentclientprotocol/claude-agent-acp@0.29.2 -> claude-agent-acp
- * - @zed-industries/codex-acp@0.12.0 -> codex-acp
+ * - @scope/example-tool@1.2.3 -> example-tool
  */
 function inferBinName(packageName: string): string {
   const lastSegment = packageName.split('/').pop() ?? packageName;

@@ -1,23 +1,16 @@
 import { EventEmitter } from 'events';
-import type { McpServer, PromptResponse } from '@agentclientprotocol/sdk';
+import type { PromptResponse } from '@agentclientprotocol/sdk';
 
 import type {
   AgentMode,
   CliDetectionResult,
   McpServerConfig,
-  ProtocolType,
   UnifiedClientOptions,
 } from '../types/config.js';
 import type {
-  AcpAvailableCommand,
   AcpContentBlock,
-  AcpFileReadParams,
-  AcpFileReadResponse,
-  AcpFileWriteParams,
-  AcpFileWriteResponse,
   AcpPermissionRequestParams,
   AcpPermissionResponse,
-  AcpSessionNewResult,
   AcpSessionUpdateParams,
   AcpToolCall,
   AcpToolCallUpdate,
@@ -31,14 +24,10 @@ import type {
   UnifiedClientEvents,
 } from './IUnifiedAgentClient.js';
 import { CodexAppServerConnection } from '../connection/CodexAppServerConnection.js';
-import { AcpConnection } from '../connection/AcpConnection.js';
 import { CliDetector } from '../detector/CliDetector.js';
 import {
-  codexDeveloperInstructionsToConfigArg,
-  createSpawnConfig,
   getBackendConfig,
   getYoloModeId,
-  mcpServerConfigsToAcp,
   mcpServerConfigsToCodexArgs,
 } from '../config/CliConfigs.js';
 import { cleanEnvironment } from '../utils/env.js';
@@ -74,27 +63,15 @@ interface CodexThreadDefaultsForResume {
   config?: Record<string, CodexJsonValue>;
 }
 
-interface CodexAcpSpawnPlan {
-  acpMcpServers: McpServer[];
-  configOverrides: string[];
-}
-
-type CodexInternalProtocol = 'acp-bridge' | 'app-server';
-
-const ACTIVE_CODEX_PROTOCOL: CodexInternalProtocol = 'acp-bridge';
-const PUBLIC_ACP_PROTOCOL: ProtocolType = 'acp';
-const INTERNAL_CODEX_ACP_BRIDGE_ID = 'codex-acp-bridge';
 const CODEX_TURN_LEVEL_CONFIG_KEYS = new Set(['reasoning_effort', 'model']);
 const CODEX_THREAD_POLICY_CONFIG_KEYS = new Set(['approvalPolicy', 'sandbox']);
-const CODEX_ACP_REASONING_EFFORT_NONE_FALLBACK = 'low';
 
 /**
- * Codex 내부 클라이언트.
- * app-server 경로와 ACP bridge 경로를 한 클래스 안에서 명시적으로 분리 구현합니다.
+ * Codex app-server 전용 내부 클라이언트.
+ * Codex 특수화는 이 클래스가 담당합니다.
  */
 export class UnifiedCodexAgentClient extends EventEmitter implements IUnifiedAgentClient {
-  private acpConnection: AcpConnection | null = null;
-  private appServerConnection: CodexAppServerConnection | null = null;
+  private connection: CodexAppServerConnection | null = null;
   private sessionId: string | null = null;
   private sessionCwd: string | null = null;
   private currentSystemPrompt: string | null = null;
@@ -135,202 +112,6 @@ export class UnifiedCodexAgentClient extends EventEmitter implements IUnifiedAge
       throw new Error('UnifiedCodexAgentClient는 codex CLI만 지원합니다.');
     }
 
-    if (ACTIVE_CODEX_PROTOCOL === 'acp-bridge') {
-      return this.connectViaAcp(options);
-    }
-    return this.connectViaAppServer(options);
-  }
-
-  async disconnect(): Promise<void> {
-    if (ACTIVE_CODEX_PROTOCOL === 'acp-bridge') {
-      await this.disconnectAcp();
-      return;
-    }
-    await this.disconnectAppServer();
-  }
-
-  async endSession(): Promise<void> {
-    if (ACTIVE_CODEX_PROTOCOL === 'acp-bridge') {
-      await this.endSessionAcp();
-      return;
-    }
-    await this.endSessionAppServer();
-  }
-
-  getConnectionInfo(): ConnectionInfo {
-    if (ACTIVE_CODEX_PROTOCOL === 'acp-bridge') {
-      return {
-        cli: this.acpConnection ? 'codex' : null,
-        protocol: this.acpConnection ? PUBLIC_ACP_PROTOCOL : null,
-        sessionId: this.sessionId,
-        state: this.acpConnection ? this.acpConnection.connectionState : 'disconnected',
-      };
-    }
-
-    if (!this.appServerConnection) {
-      return {
-        cli: null,
-        protocol: null,
-        sessionId: null,
-        state: 'disconnected',
-      };
-    }
-
-    return {
-      cli: 'codex',
-      protocol: 'codex-app-server',
-      sessionId: this.sessionId,
-      state: this.appServerConnection.connectionState,
-    };
-  }
-
-  async detectClis(): Promise<CliDetectionResult[]> {
-    return this.detector.detectAll(true);
-  }
-
-  async sendMessage(content: string | AcpContentBlock[]): Promise<PromptResponse> {
-    if (ACTIVE_CODEX_PROTOCOL === 'acp-bridge') {
-      return this.sendMessageAcp(content);
-    }
-    return this.sendMessageAppServer(content);
-  }
-
-  async cancelPrompt(): Promise<void> {
-    if (ACTIVE_CODEX_PROTOCOL === 'acp-bridge') {
-      await this.cancelPromptAcp();
-      return;
-    }
-    await this.cancelPromptAppServer();
-  }
-
-  async setModel(model: string): Promise<void> {
-    if (ACTIVE_CODEX_PROTOCOL === 'acp-bridge') {
-      await this.setModelAcp(model);
-      return;
-    }
-    this.ensurePendingOverrides().model = model;
-  }
-
-  async setConfigOption(configId: string, value: string): Promise<void> {
-    if (ACTIVE_CODEX_PROTOCOL === 'acp-bridge') {
-      await this.setConfigOptionAcp(configId, value);
-      return;
-    }
-
-    const pending = this.ensurePendingOverrides();
-    if (CODEX_TURN_LEVEL_CONFIG_KEYS.has(configId)) {
-      pending.turnConfig[configId] = value;
-      return;
-    }
-
-    pending.threadConfig[configId] = value;
-    this.emitTyped('log', `[codex] config '${configId}' will apply on next thread/start or thread/resume`);
-  }
-
-  async setMode(mode: string): Promise<void> {
-    if (ACTIVE_CODEX_PROTOCOL === 'acp-bridge') {
-      await this.setModeAcp(mode);
-      return;
-    }
-
-    const resolved = this.resolveMode(mode);
-    const pending = this.ensurePendingOverrides();
-    pending.threadConfig.approvalPolicy = resolved.approvalPolicy;
-    pending.threadConfig.sandbox = resolved.sandbox;
-    pending.mode = undefined;
-  }
-
-  async setYoloMode(enabled: boolean): Promise<void> {
-    return this.setMode(enabled ? getYoloModeId('codex') : 'default');
-  }
-
-  getAvailableModes(): AgentMode[] {
-    return getBackendConfig('codex').modes ?? [];
-  }
-
-  getAvailableModels(): ProviderModelInfo | null {
-    return getProviderModels('codex');
-  }
-
-  getCurrentSystemPrompt(): string | null {
-    return this.currentSystemPrompt;
-  }
-
-  async loadSession(sessionId: string, mcpServers?: McpServerConfig[]): Promise<void> {
-    if (ACTIVE_CODEX_PROTOCOL === 'acp-bridge') {
-      await this.loadSessionAcp(sessionId, mcpServers);
-      return;
-    }
-    await this.loadSessionAppServer(sessionId, mcpServers);
-  }
-
-  async resetSession(cwd?: string): Promise<ConnectResult> {
-    if (ACTIVE_CODEX_PROTOCOL === 'acp-bridge') {
-      return this.resetSessionAcp(cwd);
-    }
-    return this.resetSessionAppServer(cwd);
-  }
-
-  private async connectViaAcp(options: UnifiedClientOptions): Promise<ConnectResult> {
-    const spawnPlan = this.buildCodexAcpSpawnPlan(options);
-    const spawnConfig = createSpawnConfig('codex', {
-      ...options,
-      configOverrides: spawnPlan.configOverrides,
-    });
-    const cleanEnv = cleanEnvironment(process.env, options.env);
-    const connection = new AcpConnection({
-      command: spawnConfig.command,
-      args: spawnConfig.args,
-      cliType: INTERNAL_CODEX_ACP_BRIDGE_ID,
-      cwd: options.cwd,
-      env: { ...cleanEnv },
-      requestTimeout: options.timeout,
-      initTimeout: options.timeout,
-      promptIdleTimeout: options.promptIdleTimeout,
-      clientInfo: options.clientInfo,
-      autoApprove: options.autoApprove,
-    });
-    this.acpConnection = connection;
-    this.setupAcpEventForwarding();
-
-    const recentLogs: string[] = [];
-    const collectLog = (message: string): void => {
-      recentLogs.push(message);
-      if (recentLogs.length > 30) {
-        recentLogs.shift();
-      }
-    };
-    connection.on('log', collectLog);
-
-    let session: AcpSessionNewResult;
-    try {
-      session = await connection.connect(
-        options.cwd,
-        options.sessionId,
-        spawnPlan.acpMcpServers,
-        options.systemPrompt,
-      );
-    } catch (error) {
-      const connectionError = this.buildAcpConnectionError(error, recentLogs);
-      await this.cleanupFailedAcpConnection();
-      throw connectionError;
-    } finally {
-      connection.off('log', collectLog);
-    }
-
-    this.sessionId = session.sessionId;
-    this.sessionCwd = options.cwd;
-    this.currentSystemPrompt = options.systemPrompt ?? null;
-    this.pendingOverrides = null;
-
-    return {
-      cli: 'codex',
-      protocol: PUBLIC_ACP_PROTOCOL,
-      session,
-    };
-  }
-
-  private async connectViaAppServer(options: UnifiedClientOptions): Promise<ConnectResult> {
     const backend = getBackendConfig('codex');
     const cleanEnv = cleanEnvironment(process.env, options.env);
     const command = options.cliPath ?? backend.cliCommand;
@@ -355,8 +136,8 @@ export class UnifiedCodexAgentClient extends EventEmitter implements IUnifiedAge
       mcpServerNames,
       mcpStartupTimeout: options.timeout ?? 60_000,
     });
-    this.appServerConnection = connection;
-    this.setupAppServerEventForwarding();
+    this.connection = connection;
+    this.setupEventForwarding();
 
     if (options.sessionId) {
       await connection.connect({
@@ -398,69 +179,53 @@ export class UnifiedCodexAgentClient extends EventEmitter implements IUnifiedAge
     };
   }
 
-  private async disconnectAcp(): Promise<void> {
-    if (!this.acpConnection) {
+  async disconnect(): Promise<void> {
+    if (!this.connection) {
       this.clearSessionState();
       return;
     }
 
-    const conn = this.acpConnection;
-    if (this.sessionId && conn.canResetSession) {
-      try {
-        await conn.endSession(this.sessionId);
-      } catch {
-        // 세션 종료 실패는 프로세스 정리를 막지 않습니다.
-      }
-    }
-
+    const conn = this.connection;
     await conn.disconnect();
     conn.removeAllListeners();
-    this.acpConnection = null;
+    this.connection = null;
     this.clearSessionState();
   }
 
-  private async disconnectAppServer(): Promise<void> {
-    if (!this.appServerConnection) {
-      this.clearSessionState();
-      return;
-    }
-
-    const conn = this.appServerConnection;
-    await conn.disconnect();
-    conn.removeAllListeners();
-    this.appServerConnection = null;
-    this.clearSessionState();
-  }
-
-  private async endSessionAcp(): Promise<void> {
-    if (!this.acpConnection || !this.sessionId) {
+  async endSession(): Promise<void> {
+    if (!this.connection) {
       throw new Error('연결되어 있지 않습니다');
     }
 
-    await this.acpConnection.endSession(this.sessionId);
-    this.sessionId = null;
-  }
-
-  private async endSessionAppServer(): Promise<void> {
-    if (!this.appServerConnection) {
-      throw new Error('연결되어 있지 않습니다');
-    }
-
-    await this.appServerConnection.endSession();
+    await this.connection.endSession();
     this.sessionId = null;
     this.sessionCwd = null;
   }
 
-  private async sendMessageAcp(content: string | AcpContentBlock[]): Promise<PromptResponse> {
-    if (!this.acpConnection || !this.sessionId) {
-      throw new Error('연결되어 있지 않습니다');
+  getConnectionInfo(): ConnectionInfo {
+    if (!this.connection) {
+      return {
+        cli: null,
+        protocol: null,
+        sessionId: null,
+        state: 'disconnected',
+      };
     }
 
-    return this.acpConnection.sendPrompt(this.sessionId, content);
+    return {
+      cli: 'codex',
+      protocol: 'codex-app-server',
+      sessionId: this.sessionId,
+      state: this.connection.connectionState,
+    };
   }
 
-  private async sendMessageAppServer(content: string | AcpContentBlock[]): Promise<PromptResponse> {
-    if (!this.appServerConnection) {
+  async detectClis(): Promise<CliDetectionResult[]> {
+    return this.detector.detectAll(true);
+  }
+
+  async sendMessage(content: string | AcpContentBlock[]): Promise<PromptResponse> {
+    if (!this.connection) {
       throw new Error('연결되어 있지 않습니다');
     }
 
@@ -470,69 +235,59 @@ export class UnifiedCodexAgentClient extends EventEmitter implements IUnifiedAge
       : content.map((block) => ('text' in block
         ? { type: 'text' as const, text: block.text, text_elements: [] }
         : { type: 'text' as const, text: JSON.stringify(block), text_elements: [] }));
-    await this.appServerConnection.sendMessage(input);
+    await this.connection.sendMessage(input);
     return { stopReason: 'end_turn' } as PromptResponse;
   }
 
-  private async cancelPromptAcp(): Promise<void> {
-    if (!this.acpConnection || !this.sessionId) {
+  async cancelPrompt(): Promise<void> {
+    if (!this.connection) {
       throw new Error('연결되어 있지 않습니다');
     }
 
-    await this.acpConnection.cancelSession(this.sessionId);
+    await this.connection.cancelPrompt();
   }
 
-  private async cancelPromptAppServer(): Promise<void> {
-    if (!this.appServerConnection) {
-      throw new Error('연결되어 있지 않습니다');
+  async setModel(model: string): Promise<void> {
+    this.ensurePendingOverrides().model = model;
+  }
+
+  async setConfigOption(configId: string, value: string): Promise<void> {
+    const pending = this.ensurePendingOverrides();
+    if (CODEX_TURN_LEVEL_CONFIG_KEYS.has(configId)) {
+      pending.turnConfig[configId] = value;
+      return;
     }
 
-    await this.appServerConnection.cancelPrompt();
+    pending.threadConfig[configId] = value;
+    this.emitTyped('log', `[codex] config '${configId}' will apply on next thread/start or thread/resume`);
   }
 
-  private async setModelAcp(model: string): Promise<void> {
-    if (!this.acpConnection || !this.sessionId) {
-      throw new Error('연결되어 있지 않습니다');
-    }
-
-    await this.acpConnection.setModel(this.sessionId, model);
+  async setMode(mode: string): Promise<void> {
+    const resolved = this.resolveMode(mode);
+    const pending = this.ensurePendingOverrides();
+    pending.threadConfig.approvalPolicy = resolved.approvalPolicy;
+    pending.threadConfig.sandbox = resolved.sandbox;
+    pending.mode = undefined;
   }
 
-  private async setConfigOptionAcp(configId: string, value: string): Promise<void> {
-    if (!this.acpConnection || !this.sessionId) {
-      throw new Error('연결되어 있지 않습니다');
-    }
-
-    const acpValue = configId === 'reasoning_effort' && value === 'none'
-      ? CODEX_ACP_REASONING_EFFORT_NONE_FALLBACK
-      : value;
-    await this.acpConnection.setConfigOption(this.sessionId, configId, acpValue);
+  async setYoloMode(enabled: boolean): Promise<void> {
+    return this.setMode(enabled ? getYoloModeId('codex') : 'default');
   }
 
-  private async setModeAcp(mode: string): Promise<void> {
-    if (!this.acpConnection || !this.sessionId) {
-      throw new Error('연결되어 있지 않습니다');
-    }
-
-    await this.acpConnection.setMode(this.sessionId, mode);
+  getAvailableModes(): AgentMode[] {
+    return getBackendConfig('codex').modes ?? [];
   }
 
-  private async loadSessionAcp(sessionId: string, mcpServers?: McpServerConfig[]): Promise<void> {
-    if (!this.acpConnection) {
-      throw new Error('연결되어 있지 않습니다');
-    }
-
-    await this.acpConnection.loadSession({
-      sessionId,
-      cwd: this.sessionCwd ?? process.cwd(),
-      mcpServers: this.resolveAcpMcpServers(mcpServers),
-    });
-    this.sessionId = sessionId;
-    this.currentSystemPrompt = null;
+  getAvailableModels(): ProviderModelInfo | null {
+    return getProviderModels('codex');
   }
 
-  private async loadSessionAppServer(sessionId: string, mcpServers?: McpServerConfig[]): Promise<void> {
-    if (!this.appServerConnection) {
+  getCurrentSystemPrompt(): string | null {
+    return this.currentSystemPrompt;
+  }
+
+  async loadSession(sessionId: string, mcpServers?: McpServerConfig[]): Promise<void> {
+    if (!this.connection) {
       throw new Error('연결되어 있지 않습니다');
     }
 
@@ -543,7 +298,7 @@ export class UnifiedCodexAgentClient extends EventEmitter implements IUnifiedAge
       );
     }
     const targetCwd = this.sessionCwd ?? process.cwd();
-    await this.appServerConnection.loadSession(
+    await this.connection.loadSession(
       sessionId,
       this.buildCodexThreadDefaultsForResume(
         targetCwd,
@@ -555,43 +310,13 @@ export class UnifiedCodexAgentClient extends EventEmitter implements IUnifiedAge
     this.sessionId = sessionId;
   }
 
-  private async resetSessionAcp(cwd?: string): Promise<ConnectResult> {
-    if (!this.acpConnection || !this.sessionId) {
+  async resetSession(cwd?: string): Promise<ConnectResult> {
+    if (!this.connection) {
       throw new Error('연결되어 있지 않습니다');
     }
 
     const targetCwd = cwd ?? this.sessionCwd ?? process.cwd();
-    if (!this.acpConnection.canResetSession) {
-      throw new Error('[codex] 세션 리셋을 지원하지 않습니다. disconnect() 후 재연결하세요.');
-    }
-
-    await this.acpConnection.endSession(this.sessionId);
-    this.sessionId = null;
-
-    const session = await this.acpConnection.createSession(
-      targetCwd,
-      undefined,
-      [],
-      this.currentSystemPrompt ?? undefined,
-    );
-
-    this.sessionId = session.sessionId;
-    this.sessionCwd = targetCwd;
-
-    return {
-      cli: 'codex',
-      protocol: PUBLIC_ACP_PROTOCOL,
-      session,
-    };
-  }
-
-  private async resetSessionAppServer(cwd?: string): Promise<ConnectResult> {
-    if (!this.appServerConnection) {
-      throw new Error('연결되어 있지 않습니다');
-    }
-
-    const targetCwd = cwd ?? this.sessionCwd ?? process.cwd();
-    const result = await this.appServerConnection.resetSession(
+    const result = await this.connection.resetSession(
       this.buildCodexThreadDefaultsForReset(targetCwd),
     );
     this.sessionId = result.thread.id;
@@ -613,130 +338,53 @@ export class UnifiedCodexAgentClient extends EventEmitter implements IUnifiedAge
     this.pendingOverrides = null;
   }
 
-  private setupAcpEventForwarding(): void {
-    if (!this.acpConnection) return;
+  private setupEventForwarding(): void {
+    if (!this.connection) return;
 
-    this.acpConnection.on('stateChange', (state: ConnectionState) => {
+    this.connection.on('stateChange', (state: ConnectionState) => {
       this.emitTyped('stateChange', state);
     });
-    this.acpConnection.on('userMessageChunk', (text: string, sessionId: string) => {
+    this.connection.on('userMessageChunk', (text: string, sessionId: string) => {
       this.emitTyped('userMessageChunk', text, sessionId);
     });
-    this.acpConnection.on('messageChunk', (text: string, sessionId: string) => {
+    this.connection.on('messageChunk', (text: string, sessionId: string) => {
       this.emitTyped('messageChunk', text, sessionId);
     });
-    this.acpConnection.on('thoughtChunk', (text: string, sessionId: string) => {
+    this.connection.on('thoughtChunk', (text: string, sessionId: string) => {
       this.emitTyped('thoughtChunk', text, sessionId);
     });
-    this.acpConnection.on(
-      'toolCall',
-      (title: string, status: string, sessionId: string, data?: AcpToolCall) => {
-        this.emitTyped('toolCall', title, status, sessionId, data);
-      },
-    );
-    this.acpConnection.on(
-      'toolCallUpdate',
-      (title: string, status: string, sessionId: string, data?: AcpToolCallUpdate) => {
-        this.emitTyped('toolCallUpdate', title, status, sessionId, data);
-      },
-    );
-    this.acpConnection.on('plan', (plan: string, sessionId: string) => {
-      this.emitTyped('plan', plan, sessionId);
-    });
-    this.acpConnection.on(
-      'availableCommandsUpdate',
-      (commands: AcpAvailableCommand[], sessionId: string) => {
-        this.emitTyped('availableCommandsUpdate', commands, sessionId);
-      },
-    );
-    this.acpConnection.on('sessionUpdate', (update: unknown) => {
-      this.emitTyped('sessionUpdate', update as AcpSessionUpdateParams);
-    });
-    this.acpConnection.on('permissionRequest', (params, resolve) => {
-      this.emitTyped(
-        'permissionRequest',
-        params as AcpPermissionRequestParams,
-        resolve as (response: AcpPermissionResponse) => void,
-      );
-    });
-    this.acpConnection.on('fileRead', (params, resolve) => {
-      this.emitTyped(
-        'fileRead',
-        params as AcpFileReadParams,
-        resolve as (response: AcpFileReadResponse) => void,
-      );
-    });
-    this.acpConnection.on('fileWrite', (params, resolve) => {
-      this.emitTyped(
-        'fileWrite',
-        params as AcpFileWriteParams,
-        resolve as (response: AcpFileWriteResponse) => void,
-      );
-    });
-    this.acpConnection.on('promptComplete', (sessionId: string) => {
-      this.emitTyped('promptComplete', sessionId);
-    });
-    this.acpConnection.on('error', (err: Error) => {
-      this.emitTyped('error', err);
-    });
-    this.acpConnection.on('exit', (code: number | null, signal: string | null) => {
-      this.emitTyped('exit', code, signal);
-    });
-    this.acpConnection.on('log', (msg: string) => {
-      this.emitTyped('log', msg);
-    });
-    this.acpConnection.on('logEntry', (entry: StructuredLogEntry) => {
-      this.emitTyped('logEntry', entry);
-    });
-  }
-
-  private setupAppServerEventForwarding(): void {
-    if (!this.appServerConnection) return;
-
-    this.appServerConnection.on('stateChange', (state: ConnectionState) => {
-      this.emitTyped('stateChange', state);
-    });
-    this.appServerConnection.on('userMessageChunk', (text: string, sessionId: string) => {
-      this.emitTyped('userMessageChunk', text, sessionId);
-    });
-    this.appServerConnection.on('messageChunk', (text: string, sessionId: string) => {
-      this.emitTyped('messageChunk', text, sessionId);
-    });
-    this.appServerConnection.on('thoughtChunk', (text: string, sessionId: string) => {
-      this.emitTyped('thoughtChunk', text, sessionId);
-    });
-    this.appServerConnection.on('toolCall', (title: string, status: string, sessionId: string, data?: unknown) => {
+    this.connection.on('toolCall', (title: string, status: string, sessionId: string, data?: unknown) => {
       this.emitTyped('toolCall', title, status, sessionId, data as AcpToolCall | undefined);
     });
-    this.appServerConnection.on('toolCallUpdate', (title: string, status: string, sessionId: string, data?: unknown) => {
+    this.connection.on('toolCallUpdate', (title: string, status: string, sessionId: string, data?: unknown) => {
       this.emitTyped('toolCallUpdate', title, status, sessionId, data as AcpToolCallUpdate | undefined);
     });
-    this.appServerConnection.on('plan', (plan: string, sessionId: string) => {
+    this.connection.on('plan', (plan: string, sessionId: string) => {
       this.emitTyped('plan', plan, sessionId);
     });
-    this.appServerConnection.on('promptComplete', (sessionId: string) => {
+    this.connection.on('promptComplete', (sessionId: string) => {
       this.emitTyped('promptComplete', sessionId);
     });
-    this.appServerConnection.on('permissionRequest', (params, resolve) => {
+    this.connection.on('permissionRequest', (params, resolve) => {
       this.emitTyped(
         'permissionRequest',
         params as AcpPermissionRequestParams,
         resolve as (response: AcpPermissionResponse) => void,
       );
     });
-    this.appServerConnection.on('sessionUpdate', (update: unknown) => {
+    this.connection.on('sessionUpdate', (update: unknown) => {
       this.emitTyped('sessionUpdate', update as AcpSessionUpdateParams);
     });
-    this.appServerConnection.on('error', (err: Error) => {
+    this.connection.on('error', (err: Error) => {
       this.emitTyped('error', err);
     });
-    this.appServerConnection.on('exit', (code: number | null, signal: string | null) => {
+    this.connection.on('exit', (code: number | null, signal: string | null) => {
       this.emitTyped('exit', code, signal);
     });
-    this.appServerConnection.on('log', (msg: string) => {
+    this.connection.on('log', (msg: string) => {
       this.emitTyped('log', msg);
     });
-    this.appServerConnection.on('logEntry', (entry: StructuredLogEntry) => {
+    this.connection.on('logEntry', (entry: StructuredLogEntry) => {
       this.emitTyped('logEntry', entry);
     });
   }
@@ -752,24 +400,25 @@ export class UnifiedCodexAgentClient extends EventEmitter implements IUnifiedAge
   }
 
   private applyPendingOverrides(): void {
-    if (!this.pendingOverrides || !this.appServerConnection) {
+    if (!this.pendingOverrides || !this.connection) {
       return;
     }
 
     if (this.pendingOverrides.model) {
-      this.appServerConnection.setPendingModel(this.pendingOverrides.model);
+      this.connection.setPendingModel(this.pendingOverrides.model);
       this.pendingOverrides.model = undefined;
     }
 
     if (this.pendingOverrides.turnConfig.model) {
-      this.appServerConnection.setPendingModel(this.pendingOverrides.turnConfig.model);
+      this.connection.setPendingModel(this.pendingOverrides.turnConfig.model);
       delete this.pendingOverrides.turnConfig.model;
     }
 
     if (this.pendingOverrides.turnConfig.reasoning_effort) {
-      this.appServerConnection.setPendingEffort(this.pendingOverrides.turnConfig.reasoning_effort);
+      this.connection.setPendingEffort(this.pendingOverrides.turnConfig.reasoning_effort);
       delete this.pendingOverrides.turnConfig.reasoning_effort;
     }
+
   }
 
   private buildCodexThreadDefaultsForReset(cwd: string): CodexThreadDefaultsForReset {
@@ -856,47 +505,5 @@ export class UnifiedCodexAgentClient extends EventEmitter implements IUnifiedAge
       }
     }
     return [...names];
-  }
-
-  private buildCodexAcpSpawnPlan(options: UnifiedClientOptions): CodexAcpSpawnPlan {
-    const modeMapping = this.resolveMode(options.yoloMode === false ? 'default' : 'yolo');
-    return {
-      acpMcpServers: this.resolveAcpMcpServers(options.mcpServers),
-      configOverrides: [
-        `approval_policy="${modeMapping.approvalPolicy}"`,
-        `sandbox_mode="${modeMapping.sandbox}"`,
-        ...(options.configOverrides ?? []),
-        ...(options.systemPrompt ? [codexDeveloperInstructionsToConfigArg(options.systemPrompt)] : []),
-        ...(options.mcpServers?.length ? mcpServerConfigsToCodexArgs(options.mcpServers) : []),
-      ],
-    };
-  }
-
-  private resolveAcpMcpServers(mcpServers?: McpServerConfig[]): McpServer[] {
-    return mcpServers?.length ? mcpServerConfigsToAcp(mcpServers) : [];
-  }
-
-  private async cleanupFailedAcpConnection(): Promise<void> {
-    if (!this.acpConnection) {
-      this.clearSessionState();
-      return;
-    }
-
-    try {
-      await this.acpConnection.disconnect();
-    } catch {
-      // 실패 연결 정리는 best-effort입니다.
-    }
-    this.acpConnection.removeAllListeners();
-    this.acpConnection = null;
-    this.clearSessionState();
-  }
-
-  private buildAcpConnectionError(error: unknown, recentLogs: string[]): Error {
-    const base = error instanceof Error ? error.message : String(error);
-    const extra = recentLogs.length > 0
-      ? `\n최근 로그:\n${recentLogs.map((line) => `- ${line}`).join('\n')}`
-      : '';
-    return new Error(`[codex] ACP 연결 실패: ${base}${extra}`);
   }
 }

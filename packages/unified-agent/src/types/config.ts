@@ -116,8 +116,8 @@ export interface UnifiedClientOptions extends ConnectionOptions {
   /** 재개할 기존 세션 ID */
   sessionId?: string;
   /** 세션 초기 시스템 지침.
-   * Claude와 Codex ACP에서는 native system prompt에 append되며,
-   * Codex app-server에서는 developerInstructions로 전달되고,
+   * Claude에서는 native system prompt에 append되며,
+   * Codex에서는 app-server의 developerInstructions로 전달되고,
    * Gemini에서는 세션의 최초 user turn 앞에 선행 text block으로 주입됨
    * (best-effort initial session instructions). */
   systemPrompt?: string;

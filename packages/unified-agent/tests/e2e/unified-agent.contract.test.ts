@@ -34,7 +34,7 @@ const CONTRACT_CASES: ContractCase[] = [
   },
   {
     cli: 'codex',
-    expectedProtocol: 'acp',
+    expectedProtocol: 'codex-app-server',
     model: 'gpt-5.3-codex-spark',
     supportsResetSession: true,
   },
