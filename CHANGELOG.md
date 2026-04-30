@@ -5,6 +5,8 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.6.5] - 2026-04-30
+
 ### Removed
 - **Agent Service Cleanup**: Entire `packages/fleet-core/src/services/agent/` directory (23 files) removed as part of the destructive cleansing.
 - **Legacy Agent Services**: Removed `packages/fleet-core/src/public/agent-services.ts` and its exports (`FleetAgentServices`, `FleetAgentRuntimeHost`, `BackendAdapter`, `BackendConnectOptions`, `BackendSession`, `AgentStreamingSink`, `FleetHostPorts`, `UnifiedAgentRequestOptions`, `UnifiedAgentBackgroundRequestOptions`, `UnifiedAgentRequestStatus`, `UnifiedAgentResult`, `executeAgentCore`, `createAgentServices`).
