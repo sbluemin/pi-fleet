@@ -18,7 +18,7 @@ import {
   loadModels as getModelConfig,
   updateAllModelSelections,
 } from "@sbluemin/fleet-core/admiral/store";
-import type { CliType } from "@sbluemin/fleet-core/agent/provider/provider-client";
+import type { CliType } from "@sbluemin/fleet-core/agent/shared/client";
 
 import { setAgentPanelModelConfig } from "../ui/panel/config.js";
 import {

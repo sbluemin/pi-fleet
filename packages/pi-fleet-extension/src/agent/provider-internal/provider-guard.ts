@@ -21,11 +21,11 @@ export interface PatchableModelRegistry {
   getAvailable(): GuardedModel[];
 }
 
-export const GUARD_GLOBAL_KEY = "__pi_provider_guard__";
-
 const PROVIDER_GUARD_SECTION_KEY = "core-provider-guard";
 const DEFAULT_PROVIDER_GUARD_ENABLED = true;
 const GUARDED_ALLOWED_PROVIDERS = new Set(["Fleet ACP", "openai-codex"]);
+
+let guardState: ProviderGuardState | null = null;
 
 export function registerProviderGuard(pi: ExtensionAPI): void {
   pi.on("session_start", (_event, ctx) => {
@@ -34,11 +34,10 @@ export function registerProviderGuard(pi: ExtensionAPI): void {
 }
 
 export function getGuardState(): ProviderGuardState {
-  const g = globalThis as Record<string, unknown>;
-  if (!g[GUARD_GLOBAL_KEY]) {
-    g[GUARD_GLOBAL_KEY] = createProviderGuardState(loadProviderGuardSettings());
+  if (!guardState) {
+    guardState = createProviderGuardState(loadProviderGuardSettings());
   }
-  return g[GUARD_GLOBAL_KEY] as ProviderGuardState;
+  return guardState;
 }
 
 export function saveProviderGuardSettings(settings: ProviderGuardSettings): void {

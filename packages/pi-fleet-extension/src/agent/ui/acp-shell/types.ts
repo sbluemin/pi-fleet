@@ -1,4 +1,4 @@
-import type { CliType } from "@sbluemin/fleet-core/agent/provider/provider-client";
+import type { CliType } from "@sbluemin/fleet-core/agent/shared/client";
 
 export interface BridgeLaunchContext {
   cli: CliType;

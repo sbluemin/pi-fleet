@@ -1,11 +1,10 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import type { CoreLogAPI, LogCategoryMeta, LogEntry, LogFooterBridge, LogLevel, LogOptions } from "@sbluemin/fleet-core/services/log";
+import type { CoreLogAPI, LogCategoryMeta, LogEntry, LogLevel, LogOptions } from "@sbluemin/fleet-core/services/log";
 import {
   appendLog,
   clearFileLogs,
   clearLogs,
-  CORE_LOG_FOOTER_KEY,
   DEFAULT_LOG_CATEGORY,
   getLatestVisibleLogs,
   getRecentLogs,
@@ -17,6 +16,11 @@ import {
 } from "@sbluemin/fleet-core/services/log";
 import { getSettingsService } from "@sbluemin/fleet-core/services/settings";
 
+interface LogFooterBridge {
+  lines: string[] | null;
+  requestRender: (() => void) | null;
+}
+
 const FOOTER_MAX_LINES = 5;
 const LOG_LEVEL_COLORS: Record<LogLevel, string> = {
   debug: "dim",
@@ -24,9 +28,14 @@ const LOG_LEVEL_COLORS: Record<LogLevel, string> = {
   warn: "warning",
   error: "error",
 };
+const logFooterBridge: LogFooterBridge = { lines: null, requestRender: null };
 const logApi = createAPI();
 
 initLogAPI(logApi);
+
+export function getLogFooterBridge(): LogFooterBridge {
+  return logFooterBridge;
+}
 
 export function registerLog(ctx: ExtensionAPI): void {
   registerLogSettingsSection();
@@ -214,10 +223,7 @@ function registerLogCommands(ctx: ExtensionAPI): void {
 }
 
 function getBridge(): LogFooterBridge {
-  if (!(globalThis as any)[CORE_LOG_FOOTER_KEY]) {
-    (globalThis as any)[CORE_LOG_FOOTER_KEY] = { lines: null, requestRender: null };
-  }
-  return (globalThis as any)[CORE_LOG_FOOTER_KEY];
+  return getLogFooterBridge();
 }
 
 function updateFooterBridge(): void {

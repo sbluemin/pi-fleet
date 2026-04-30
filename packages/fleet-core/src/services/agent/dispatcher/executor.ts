@@ -19,15 +19,17 @@ import { disconnectClient, getClientPool, isClientAlive, type PooledClient } fro
 import {
   buildProviderClient,
   supportsProviderReasoningEffort,
-  type CliType,
-  type FleetAcpToolCall,
-  type FleetAcpToolCallUpdate,
-  type FleetAgentClient,
-  type FleetProviderConnectOptions,
-} from "../provider/provider-client.js";
+} from "../provider/client.js";
+import type {
+  CliType,
+  FleetAcpToolCall,
+  FleetAcpToolCallUpdate,
+  FleetAgentClient,
+  FleetProviderConnectOptions,
+} from "../shared/client.js";
 import {
   getSessionLaunchConfig,
-} from "../provider/provider-types.js";
+} from "../provider/types.js";
 import { getSessionStore } from "./runtime.js";
 import { classifyResumeFailure } from "./session-resume-utils.js";
 import { getLogAPI } from "../../log/store.js";

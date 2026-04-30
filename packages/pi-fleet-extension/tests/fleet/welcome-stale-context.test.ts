@@ -23,7 +23,7 @@ vi.mock("../../src/shell/welcome/welcome.js", () => ({
 }));
 
 import registerWelcome from "../../src/shell/welcome/register.js";
-import { WELCOME_GLOBAL_KEY } from "../../src/shell/welcome/types.js";
+import { getWelcomeBridge, setWelcomeBridge } from "../../src/shell/welcome/types.js";
 
 type Handler = (event: any, ctx: any) => unknown;
 
@@ -33,13 +33,13 @@ describe("welcome stale context handling", () => {
   beforeEach(() => {
     tempHome = mkdtempSync(join(tmpdir(), "pi-fleet-welcome-"));
     vi.stubEnv("HOME", tempHome);
-    (globalThis as any)[WELCOME_GLOBAL_KEY] = undefined;
+    setWelcomeBridge(null);
   });
 
   afterEach(() => {
     vi.unstubAllEnvs();
     rmSync(tempHome, { recursive: true, force: true });
-    (globalThis as any)[WELCOME_GLOBAL_KEY] = undefined;
+    setWelcomeBridge(null);
   });
 
   it("global dismiss swallows stale ExtensionContext errors during session replacement", async () => {
@@ -51,7 +51,7 @@ describe("welcome stale context handling", () => {
       throw new Error("This extension ctx is stale after session replacement or reload.");
     });
 
-    expect(() => (globalThis as any)[WELCOME_GLOBAL_KEY].dismiss()).not.toThrow();
+    expect(() => getWelcomeBridge()!.dismiss()).not.toThrow();
   });
 
   it("global dismiss still surfaces ordinary header errors", async () => {
@@ -63,7 +63,7 @@ describe("welcome stale context handling", () => {
       throw new Error("ordinary renderer failure");
     });
 
-    expect(() => (globalThis as any)[WELCOME_GLOBAL_KEY].dismiss()).toThrow("ordinary renderer failure");
+    expect(() => getWelcomeBridge()!.dismiss()).toThrow("ordinary renderer failure");
   });
 
   it("session shutdown clears the bridge ctx before delayed dismiss callbacks run", async () => {
@@ -77,7 +77,7 @@ describe("welcome stale context handling", () => {
     });
     await handlers.get("session_shutdown")?.({}, ctx);
 
-    expect(() => (globalThis as any)[WELCOME_GLOBAL_KEY].dismiss()).not.toThrow();
+    expect(() => getWelcomeBridge()!.dismiss()).not.toThrow();
     expect(setHeader).not.toHaveBeenCalled();
   });
 });

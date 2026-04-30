@@ -2,6 +2,7 @@ import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-age
 import type { GrandFleetRole } from "@sbluemin/fleet-core/admiralty";
 
 import { getLogAPI } from "@sbluemin/fleet-core/services/log";
+import { getBootConfig } from "../fleet.js";
 import registerAdmiralty from "./admiralty/register.js";
 import registerFleet from "./fleet/register.js";
 import { initGrandFleetState } from "./state.js";
@@ -10,7 +11,7 @@ export function registerGrandFleet(ctx: ExtensionContext): void;
 export function registerGrandFleet(ctx: ExtensionAPI): void;
 export function registerGrandFleet(ctx: ExtensionAPI | ExtensionContext): void {
   const pi = ctx as ExtensionAPI;
-  const bootCfg = (globalThis as any)["__fleet_boot_config__"];
+  const bootCfg = getBootConfig();
   if (bootCfg && !bootCfg.grandFleet) return;
 
   const log = getLogAPI();

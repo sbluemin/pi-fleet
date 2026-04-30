@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ExtensionContext, Theme } from "@mariozechner/pi-coding-agent";
 import { keyHint } from "@mariozechner/pi-coding-agent";
 import { Editor, type EditorTheme, Key, matchesKey, Text, truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
-import type { CliType } from "@sbluemin/fleet-core/agent/provider/provider-client";
+import type { CliType } from "@sbluemin/fleet-core/agent/shared/client";
 import {
   REQUEST_DIRECTIVE_MANIFEST,
   RequestDirectiveParams,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { PROVIDER_ID, buildModelId, parseModelId } from "../../src/services/agent/provider/provider-types.js";
+import { PROVIDER_ID, buildModelId, parseModelId } from "../../src/services/agent/provider/types.js";
 import {
   clampThinkingLevel,
   getAcpAvailableThinkingLevels,

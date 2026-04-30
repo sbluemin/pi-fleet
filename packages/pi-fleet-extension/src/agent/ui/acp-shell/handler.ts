@@ -6,17 +6,17 @@ import {
   getOrInitState,
   getSessionLaunchConfig,
   parseModelId,
-} from "@sbluemin/fleet-core/agent/provider/provider-types";
-import { SHELL_POPUP_BRIDGE_KEY } from "../../../shell/tui/shell/types.js";
+} from "@sbluemin/fleet-core/agent/provider/types";
+import { getShellPopupBridge } from "../../../shell/tui/shell/types.js";
 import { buildBridgeCommand } from "./command.js";
-import type { ActiveBridgeSession, InteractiveShellBridge } from "./types.js";
+import type { ActiveBridgeSession } from "./types.js";
 
 export async function launchBridgeShell(ctx: ExtensionContext): Promise<void> {
   if (!ctx.hasUI) {
     throw new Error("Bridge popup is only available in interactive TUI mode.");
   }
 
-  const shellBridge = getShellBridge();
+  const shellBridge = getShellPopupBridge();
   if (!shellBridge) {
     throw new Error("Interactive shell bridge is not available.");
   }
@@ -62,8 +62,4 @@ function getActiveBridgeSession(): ActiveBridgeSession {
     cwd: session.cwd,
     effort: launchConfig?.effort,
   };
-}
-
-function getShellBridge(): InteractiveShellBridge {
-  return (globalThis as Record<string, unknown>)[SHELL_POPUP_BRIDGE_KEY] as InteractiveShellBridge;
 }

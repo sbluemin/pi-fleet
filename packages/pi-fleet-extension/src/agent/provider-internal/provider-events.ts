@@ -13,9 +13,9 @@
 
 import type { AssistantMessage } from "../provider.js";
 import { createAssistantMessageEventStream } from "../provider.js";
-import type { FleetAcpToolCall, FleetAcpToolCallUpdate } from "@sbluemin/fleet-core/agent/provider/provider-client";
+import type { FleetAcpToolCall, FleetAcpToolCallUpdate } from "@sbluemin/fleet-core/agent/shared/client";
 
-import { PROVIDER_ID } from "@sbluemin/fleet-core/agent/provider/provider-types";
+import { PROVIDER_ID } from "@sbluemin/fleet-core/agent/provider/types";
 import { getLogAPI } from "@sbluemin/fleet-core/services/log";
 
 // ═══════════════════════════════════════════════════════════════════════════

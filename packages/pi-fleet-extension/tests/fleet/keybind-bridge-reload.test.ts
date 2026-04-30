@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
-  CORE_KEYBIND_KEY,
   _bootstrapKeybind,
   getKeybindAPI,
   prepareKeybindBridgeForExtensionLoad,
@@ -32,16 +31,11 @@ describe("keybind bridge reload lifecycle", () => {
     expect(nextRegister).toHaveBeenCalledWith(binding);
   });
 
-  it("replaces a process-global stale bridge object before extension reload registrations", () => {
+  it("drops stale module-level implementation before extension reload registrations", () => {
     const staleRegister = vi.fn(() => {
       throw new Error("This extension ctx is stale after session replacement or reload.");
     });
-    (globalThis as Record<string, unknown>)[CORE_KEYBIND_KEY] = {
-      _bindings: [],
-      register: staleRegister,
-      getBindings: () => [],
-      getKey: () => undefined,
-    };
+    _bootstrapKeybind(makeApi(staleRegister));
 
     prepareKeybindBridgeForExtensionLoad();
     const binding = makeBinding();

@@ -22,8 +22,6 @@ export interface UnifiedAgentRequestBridge {
 
 type RunAgentRequestOptions = UnifiedAgentRequestOptions;
 
-const UNIFIED_AGENT_REQUEST_KEY = "__pi_ua_request__";
-
 export async function runAgentRequest(options: RunAgentRequestOptions): Promise<UnifiedAgentResult> {
   return withAgentRequestContext(options.ctx, () =>
     getFleetRuntime().agent.run(toCoreOptions(options)));
@@ -37,7 +35,6 @@ export function exposeAgentApi(): UnifiedAgentRequestBridge {
       }),
   };
 
-  (globalThis as Record<string, unknown>)[UNIFIED_AGENT_REQUEST_KEY] = bridge;
   return bridge;
 }
 

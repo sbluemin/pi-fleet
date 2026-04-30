@@ -1,5 +1,5 @@
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
-import type { CliType } from "@sbluemin/fleet-core/agent/provider/provider-client";
+import type { CliType } from "@sbluemin/fleet-core/agent/shared/client";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -30,7 +30,7 @@ import {
 } from "@sbluemin/fleet-core/admiral/store";
 import { cleanIdleClients } from "@sbluemin/fleet-core/agent/dispatcher/pool";
 import { onHostSessionChange } from "@sbluemin/fleet-core/agent/dispatcher/runtime";
-import { setCliRuntimeContext } from "@sbluemin/fleet-core/agent/provider/provider-types";
+import { setCliRuntimeContext } from "@sbluemin/fleet-core/agent/provider/types";
 import { isWorldviewEnabled } from "@sbluemin/fleet-core/metaphor";
 import { getLogAPI } from "@sbluemin/fleet-core/services/log";
 import { bootBridge, ensureBridgeKeybinds } from "./agent/ui/acp-shell/register.js";
@@ -62,6 +62,14 @@ import { setCarrierJobsVerbose, toggleCarrierJobsVerbose } from "./job.js";
 
 export interface FleetLifecycleRuntime {
   fleetEnabled: boolean;
+}
+
+export interface BootConfig {
+  dev: boolean;
+  experimental: boolean;
+  fleet: boolean;
+  grandFleet: boolean;
+  role: string | null;
 }
 
 interface OperationNameGlobalState {
@@ -114,6 +122,7 @@ const OPERATION_NAME_ATTEMPTS = new Set<string>();
 
 let fleetRuntime: FleetCoreRuntimeContext | undefined;
 let currentAgentRequestCtx: ExtensionContext | undefined;
+let bootConfig: BootConfig | null = null;
 
 export { bootBridge, ensureBridgeKeybinds };
 
@@ -145,7 +154,7 @@ export default function registerBoot(pi: ExtensionAPI): void {
   const isAdmiralty = role === "admiralty";
   const isFleet = role === "fleet";
 
-  (globalThis as any)["__fleet_boot_config__"] = {
+  bootConfig = {
     dev,
     experimental,
     fleet: !isAdmiralty,
@@ -154,7 +163,7 @@ export default function registerBoot(pi: ExtensionAPI): void {
   };
 
   pi.on("before_agent_start", async () => {
-    const bootCfg = (globalThis as any)["__fleet_boot_config__"];
+    const bootCfg = getBootConfig();
     const preamble = FLEET_PREAMBLE.trim();
 
     if (bootCfg?.dev) {
@@ -165,8 +174,12 @@ export default function registerBoot(pi: ExtensionAPI): void {
   });
 }
 
+export function getBootConfig(): BootConfig | null {
+  return bootConfig;
+}
+
 export function shouldBootFleet(): boolean {
-  const bootCfg = (globalThis as any)["__fleet_boot_config__"];
+  const bootCfg = getBootConfig();
   return bootCfg?.fleet !== false;
 }
 
@@ -245,7 +258,7 @@ export function scheduleFleetBootReconciliation(): void {
 export function wireFleetPiEvents(pi: ExtensionAPI): void {
   pi.on("before_agent_start", (event, ctx) => {
     syncAcpRuntimeContext();
-    scheduleOperationNameGeneration(ctx);
+    scheduleOperationNameGeneration(ctx, event.prompt);
     if (process.env.PI_GRAND_FLEET_ROLE === "fleet") return;
     return { systemPrompt: `${event.systemPrompt}\n\n${buildSystemPrompt()}` };
   });
@@ -449,13 +462,13 @@ function registerAdmiralSettingsSection(): void {
   });
 }
 
-function scheduleOperationNameGeneration(ctx: ExtensionContext | undefined): void {
+function scheduleOperationNameGeneration(ctx: ExtensionContext | undefined, eventPrompt?: string): void {
   if (!ctx?.sessionManager) return;
 
   const sessionId = ctx.sessionManager.getSessionId();
   if (!sessionId || OPERATION_NAME_ATTEMPTS.has(sessionId)) return;
 
-  const prompt = extractFirstUserPrompt(ctx);
+  const prompt = eventPrompt?.trim() || extractFirstUserPrompt(ctx);
   if (!prompt) return;
 
   OPERATION_NAME_ATTEMPTS.add(sessionId);

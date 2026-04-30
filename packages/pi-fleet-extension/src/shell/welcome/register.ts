@@ -4,8 +4,7 @@
  * 세션 시작 시 웰컴 오버레이(또는 헤더)를 표시하고,
  * 에이전트 활동 시작 시 자동으로 해제한다.
  *
- * globalThis["__pi_core_welcome__"]에 dismiss 함수를 노출하여
- * 다른 확장(core-hud 등)에서도 디스미스를 트리거할 수 있다.
+ * welcome bridge에 dismiss 함수를 노출하여 다른 shell UI에서도 디스미스를 트리거할 수 있다.
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -14,7 +13,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { WELCOME_GLOBAL_KEY, type WelcomeBridge } from "./types.js";
+import { setWelcomeBridge, type WelcomeBridge } from "./types.js";
 import {
   WelcomeHeader,
   checkGitUpdateStatus,
@@ -42,9 +41,9 @@ export default function welcome(pi: ExtensionAPI) {
     currentCtx: null,
   };
 
-  (globalThis as any)[WELCOME_GLOBAL_KEY] = {
+  setWelcomeBridge({
     dismiss: () => dismissWelcome(state.currentCtx, state),
-  } satisfies WelcomeBridge;
+  } satisfies WelcomeBridge);
 
   pi.on("session_start", async (event, ctx) => {
     state.currentCtx = ctx;

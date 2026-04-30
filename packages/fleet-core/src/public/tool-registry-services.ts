@@ -16,7 +16,7 @@ import {
   startMcpServer,
   stopMcpServer,
   type McpCallToolResult,
-} from "../services/agent/provider/provider-mcp.js";
+} from "../services/agent/provider/mcp.js";
 import {
   clearAllTools,
   computeToolHash,

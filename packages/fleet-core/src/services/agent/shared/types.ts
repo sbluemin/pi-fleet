@@ -2,9 +2,9 @@
  * fleet/internal/agent/types.ts — PI 비의존 실행 엔진 타입
  */
 
-import type { CliType } from "../provider/provider-client.js";
-
 // ─── 도구 호출 추적 ──────────────────────────────────────
+
+export type CliType = "claude" | "codex" | "gemini";
 
 /** 도구 호출 추적 정보 */
 export interface ToolCallInfo {
@@ -133,7 +133,7 @@ export interface ExecuteOptions {
    * - 미지정 시: 기존 세션/풀 엔트리의 값이 유지됨 (호출이 발생하지 않음).
    * - fresh reconnect 시: 명시 값이 없으면 보존된 launch metadata effort로 자동 폴백되어 재적용.
    * - 리셋이 필요하면 호출자가 명시적 레벨을 전달해야 함.
-   * - CLI 지원 여부는 provider-client의 fleet-core helper로 사전 검사되며,
+   * - CLI 지원 여부는 provider client의 fleet-core helper로 사전 검사되며,
    *   미지원 CLI에서는 호출 자체가 스킵됨.
    */
   effort?: string;

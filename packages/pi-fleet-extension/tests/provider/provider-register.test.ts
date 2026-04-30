@@ -6,7 +6,7 @@ const mockState = vi.hoisted(() => ({
   handlers: new Map<string, Function>(),
 }));
 
-vi.mock("@sbluemin/fleet-core/agent/provider/provider-client", () => ({
+vi.mock("@sbluemin/fleet-core/agent/provider/client", () => ({
   getProviderModelsRegistry: () => ({
     providers: {
       codex: {

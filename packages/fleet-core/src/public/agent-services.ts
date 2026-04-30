@@ -1,4 +1,4 @@
-import type { CliType } from "../services/agent/provider/provider-client.js";
+import type { CliType } from "../services/agent/shared/client.js";
 import type { ServiceStatusCallbacks } from "../services/agent/shared/service-status/store.js";
 import type {
   AgentStatus,

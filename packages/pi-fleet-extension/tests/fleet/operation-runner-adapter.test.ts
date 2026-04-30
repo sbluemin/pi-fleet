@@ -47,16 +47,15 @@ describe("operation runner adapter", () => {
     expect(run).toHaveBeenCalledWith(expect.not.objectContaining({ ctx: expect.anything() }));
   });
 
-  it("exposes the legacy global unified-agent bridge", async () => {
+  it("exposes the unified-agent bridge", async () => {
     const bridge = exposeAgentApi();
-    const globalBridge = (globalThis as any)["__pi_ua_request__"];
 
-    expect(globalBridge).toBe(bridge);
-    await expect(globalBridge.requestUnifiedAgent({
+    expect(typeof runAgentRequest).toBe("function");
+    await expect(bridge.requestUnifiedAgent({
       cli: "codex",
       carrierId: "genesis",
       request: "work",
-      ctx: { cwd: "/workspace" },
+      ctx: { cwd: "/workspace" } as any,
     })).resolves.toEqual(createResult("run"));
   });
 

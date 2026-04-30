@@ -137,7 +137,7 @@ vi.mock("../../src/services/agent/dispatcher/runtime.js", () => ({
   })),
 }));
 
-vi.mock("../../src/services/agent/provider/provider-types.js", () => ({
+vi.mock("../../src/services/agent/provider/types.js", () => ({
   buildModelId: vi.fn((cli: string, model: string) => `acp:${cli}:${model}`),
   setSessionLaunchConfig: vi.fn((key: string, config: { modelId: string; effort?: string; budgetTokens?: number }) => {
     const previous = mockState.launchConfigs.get(key);

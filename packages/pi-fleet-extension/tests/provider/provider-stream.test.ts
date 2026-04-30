@@ -35,7 +35,7 @@ vi.mock("@mariozechner/pi-ai", () => ({
   }),
 }));
 
-vi.mock("@sbluemin/fleet-core/agent/provider/provider-client", () => ({
+vi.mock("@sbluemin/fleet-core/agent/provider/client", () => ({
   buildProviderClient: vi.fn(async (opts: unknown) => {
     mockState.buildArgs.push(opts);
     return mockState.client;
@@ -143,7 +143,7 @@ vi.mock("@sbluemin/fleet-core/services/log", () => ({
   }),
 }));
 
-vi.mock("@sbluemin/fleet-core/agent/provider/provider-mcp", () => ({
+vi.mock("@sbluemin/fleet-core/agent/provider/mcp", () => ({
   startMcpServer: vi.fn(async () => "http://127.0.0.1/test"),
   stopMcpServer: vi.fn(async () => {}),
   resolveNextToolCall: vi.fn(),
@@ -164,7 +164,7 @@ vi.mock("@sbluemin/fleet-core/agent/provider/tool-snapshot", () => ({
 }));
 
 import { handleSessionStart, streamAcp } from "../../src/agent/provider-internal/provider-stream.js";
-import { GLOBAL_STATE_KEY, type AcpProviderState, type AcpSessionState } from "@sbluemin/fleet-core/agent/provider/provider-types";
+import { GLOBAL_STATE_KEY, type AcpProviderState, type AcpSessionState } from "@sbluemin/fleet-core/agent/provider/types";
 import { onHostSessionChange } from "@sbluemin/fleet-core/agent/dispatcher/runtime";
 
 describe("provider-stream", () => {

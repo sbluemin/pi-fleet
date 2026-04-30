@@ -2,4 +2,12 @@ export interface WelcomeBridge {
   dismiss: () => void;
 }
 
-export const WELCOME_GLOBAL_KEY = "__pi_core_welcome__";
+let welcomeBridge: WelcomeBridge | null = null;
+
+export function getWelcomeBridge(): WelcomeBridge | null {
+  return welcomeBridge;
+}
+
+export function setWelcomeBridge(bridge: WelcomeBridge | null): void {
+  welcomeBridge = bridge;
+}

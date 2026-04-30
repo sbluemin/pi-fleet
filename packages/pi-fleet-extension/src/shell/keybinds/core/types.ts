@@ -22,7 +22,7 @@ export interface ResolvedBinding extends KeybindRegistration {
   conflicted?: boolean;
 }
 
-/** pi-fleet-extension이 globalThis를 통해 제공하는 keybind API */
+/** pi-fleet-extension이 제공하는 keybind API */
 export interface CoreKeybindAPI {
   /** 단축키 등록 */
   register(binding: KeybindRegistration): void;
@@ -31,6 +31,3 @@ export interface CoreKeybindAPI {
   /** 특정 확장/액션의 최종 키 반환 */
   getKey(extension: string, action: string): string | undefined;
 }
-
-/** 기존 globalThis 호환 키 */
-export const CORE_KEYBIND_KEY = "__core_keybind__";

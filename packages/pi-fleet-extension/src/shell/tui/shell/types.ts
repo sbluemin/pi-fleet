@@ -23,8 +23,21 @@ export interface ShellPopupOptions {
 
 export type PopupState = "interactive" | "exited";
 
-/** globalThis 브릿지 키 */
-export const SHELL_POPUP_BRIDGE_KEY = "__core_interactive_shell__";
+/** shell popup 브릿지 */
+export type InteractiveShellBridge = {
+  open(opts: ShellPopupOptions): Promise<ShellPopupResult | void>;
+  isOpen(): boolean;
+};
 
 export const HEADER_LINES = 4;
 export const FOOTER_LINES = 2;
+
+let shellPopupBridge: InteractiveShellBridge | null = null;
+
+export function getShellPopupBridge(): InteractiveShellBridge | null {
+  return shellPopupBridge;
+}
+
+export function setShellPopupBridge(bridge: InteractiveShellBridge | null): void {
+  shellPopupBridge = bridge;
+}

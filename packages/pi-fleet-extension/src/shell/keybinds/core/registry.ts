@@ -1,9 +1,9 @@
 import type { ResolvedBinding } from "./types.js";
 
-import { CORE_KEYBIND_KEY } from "./bridge.js";
+import { getKeybindBindings } from "./bridge.js";
 
 function bindings(): ResolvedBinding[] {
-  return (globalThis as any)[CORE_KEYBIND_KEY]._bindings;
+  return getKeybindBindings();
 }
 
 export function addBinding(binding: ResolvedBinding): void {

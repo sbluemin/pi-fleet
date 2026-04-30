@@ -20,11 +20,13 @@ import type {
 import crypto from "crypto";
 import {
   buildProviderClient,
-  type CliType,
-  type FleetAgentClient,
-  type FleetMcpConfig,
-  type FleetProviderConnectOptions,
-} from "@sbluemin/fleet-core/agent/provider/provider-client";
+} from "@sbluemin/fleet-core/agent/provider/client";
+import type {
+  CliType,
+  FleetAgentClient,
+  FleetMcpConfig,
+  FleetProviderConnectOptions,
+} from "@sbluemin/fleet-core/agent/shared/client";
 
 import {
   type ActivePromptState,
@@ -42,7 +44,7 @@ import {
   hashSystemPrompt,
   getOrInitState,
   getCliRuntimeContext,
-} from "@sbluemin/fleet-core/agent/provider/provider-types";
+} from "@sbluemin/fleet-core/agent/provider/types";
 import { applyPostConnectConfig } from "@sbluemin/fleet-core/agent/dispatcher/executor";
 import { createEventMapper } from "./provider-events.js";
 import { getLogAPI } from "@sbluemin/fleet-core/services/log";
@@ -53,7 +55,7 @@ import {
   clearPendingForSession,
   setOnToolCallArrived,
   type McpCallToolResult,
-} from "@sbluemin/fleet-core/agent/provider/provider-mcp";
+} from "@sbluemin/fleet-core/agent/provider/mcp";
 import {
   registerToolsForSession,
   removeToolsForSession,

@@ -1,11 +1,8 @@
-import { CORE_KEYBIND_KEY } from "./types.js";
 import type {
   CoreKeybindAPI,
   KeybindRegistration,
   ResolvedBinding,
 } from "./types.js";
-
-export { CORE_KEYBIND_KEY } from "./types.js";
 
 const bootstrapQueue: KeybindRegistration[] = [];
 const keybindState = {
@@ -36,6 +33,10 @@ installKeybindService();
 
 export function getKeybindAPI(): CoreKeybindAPI {
   return installKeybindService();
+}
+
+export function getKeybindBindings(): ResolvedBinding[] {
+  return keybindService._bindings;
 }
 
 export function prepareKeybindBridgeForExtensionLoad(): void {
@@ -72,6 +73,5 @@ export function _bootstrapKeybind(impl: CoreKeybindAPI): void {
 }
 
 function installKeybindService(): CoreKeybindAPI & typeof keybindState {
-  (globalThis as Record<string, unknown>)[CORE_KEYBIND_KEY] = keybindService;
   return keybindService;
 }

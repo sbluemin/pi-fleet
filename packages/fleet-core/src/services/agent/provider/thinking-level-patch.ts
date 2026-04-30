@@ -1,5 +1,5 @@
-import { getProviderModelsRegistry } from "./provider-client.js";
-import { parseModelId, PROVIDER_ID } from "./provider-types.js";
+import { getProviderModelsRegistry } from "./client.js";
+import { parseModelId, PROVIDER_ID } from "./types.js";
 
 export type UiThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
 

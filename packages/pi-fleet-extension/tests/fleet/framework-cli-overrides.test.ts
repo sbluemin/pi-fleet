@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import type { CliType } from "@sbluemin/fleet-core/agent/provider/provider-client";
+import type { CliType } from "@sbluemin/fleet-core/agent/shared/client";
 
 import {
   getRegisteredCarrierConfig,

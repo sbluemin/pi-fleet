@@ -3,7 +3,7 @@
  *
  * 커스텀 에디터 팩토리, 상태바 렌더링, footer 등록, 위젯 등록을 담당한다.
  * footer를 직접 등록하여 footerDataRef를 확보하고,
- * log footer bridge(globalThis 간접 통신)의 requestRender 콜백을 주입한다.
+ * log footer bridge의 requestRender 콜백을 주입한다.
  */
 
 import type { ReadonlyFooterDataProvider, Theme } from "@mariozechner/pi-coding-agent";
@@ -16,8 +16,9 @@ import { ansi, getFgAnsiCode } from "./colors.js";
 import { getEditorBorderColor, getEditorRightLabel } from "./border-bridge.js";  // [Feature] rightLabel을 상단 테두리 우측에 삽입
 import { getPreset } from "./presets.js";
 import { buildSegmentContext } from "../../agent/hud-context.js";
+import { getLogFooterBridge } from "../../log.js";
 import { computeResponsiveLayout } from "./layout.js";
-import { WELCOME_GLOBAL_KEY } from "../welcome/types.js";
+import { getWelcomeBridge } from "../welcome/types.js";
 import { isStaleExtensionContextError } from "../context-errors.js";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -27,11 +28,10 @@ import { isStaleExtensionContextError } from "../context-errors.js";
 /**
  * 상태바 등록 — footerData/tui 참조를 state에 저장.
  *
- * Footer render는 globalThis["__core_log_footer__"] bridge 객체의
- * .lines 값을 읽어 실제 Footer zone에 표시한다 (최대 5줄, 중앙 정렬).
+ * Footer render는 log footer bridge의 .lines 값을 읽어 실제 Footer zone에 표시한다
+ * (최대 5줄, 중앙 정렬).
  * HUD가 bridge 객체에 requestRender 콜백을 주입하여
  * log 확장이 값 변경 시 즉시 렌더를 트리거할 수 있다.
- * (border-bridge.ts와 동일한 간접 통신 패턴 + push 렌더)
  */
 export function setupStatusBar(ctx: any, state: HudEditorState): void {
   if (!ctx.hasUI) return;
@@ -41,13 +41,10 @@ export function setupStatusBar(ctx: any, state: HudEditorState): void {
     state.tuiRef = tui;
 
     // log footer bridge 초기화 — requestRender 콜백 주입
-    // 이미 bridge 객체가 있으면(log가 먼저 로드됨) requestRender만 주입
-    const bridgeKey = "__core_log_footer__";
-    if (!(globalThis as any)[bridgeKey]) {
-      (globalThis as any)[bridgeKey] = { lines: null, requestRender: null };
-    }
+    // 이미 bridge 객체가 있으면(log가 먼저 로드됨) requestRender만 주입한다.
+    const bridge = getLogFooterBridge();
     const ownRenderCb = () => tui.requestRender();
-    (globalThis as any)[bridgeKey].requestRender = ownRenderCb;
+    bridge.requestRender = ownRenderCb;
 
     const unsub = footerData.onBranchChange(() => tui.requestRender());
 
@@ -55,14 +52,12 @@ export function setupStatusBar(ctx: any, state: HudEditorState): void {
       dispose() {
         unsub();
         // 자신이 주입한 콜백일 때만 해제 — 다른 footer 인스턴스가 이미 교체했을 수 있음
-        const bridge = (globalThis as any)[bridgeKey];
         if (bridge && bridge.requestRender === ownRenderCb) {
           bridge.requestRender = null;
         }
       },
       invalidate() {},
       render(width: number): string[] {
-        const bridge = (globalThis as any)[bridgeKey];
         const debugLines: string[] | null = bridge?.lines;
         if (!debugLines || debugLines.length === 0) return [];
 
@@ -109,8 +104,8 @@ export function setupCustomEditor(ctx: any, state: HudEditorState): void {
             state.currentEditor?.handleInput(data);
             return;
           }
-          // 타이핑 시작 → welcome 디스미스 (core-welcome globalThis 경유)
-          setTimeout(() => dismissWelcomeViaGlobal(), 0);
+          // 타이핑 시작 → welcome 디스미스
+          setTimeout(() => dismissWelcomeViaBridge(), 0);
           originalHandleInput(data);
         };
 
@@ -262,12 +257,12 @@ export function setupCustomEditor(ctx: any, state: HudEditorState): void {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// globalThis 접근 헬퍼
+// welcome bridge 접근 헬퍼
 // ═══════════════════════════════════════════════════════════════════════════
 
-function dismissWelcomeViaGlobal(): void {
+function dismissWelcomeViaBridge(): void {
   try {
-    (globalThis as any)[WELCOME_GLOBAL_KEY]?.dismiss?.();
+    getWelcomeBridge()?.dismiss?.();
   } catch (error) {
     if (!isStaleExtensionContextError(error)) throw error;
   }

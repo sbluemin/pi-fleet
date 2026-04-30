@@ -5,7 +5,7 @@ import {
   setOnToolCallArrived,
   startMcpServer,
   stopMcpServer,
-} from "../../src/services/agent/provider/provider-mcp.js";
+} from "../../src/services/agent/provider/mcp.js";
 import {
   clearAllTools,
   registerToolsForSession,

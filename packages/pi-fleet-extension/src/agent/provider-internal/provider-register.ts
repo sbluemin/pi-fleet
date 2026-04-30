@@ -13,8 +13,8 @@ import * as os from "node:os";
 import * as path from "node:path";
 import {
   getProviderModelsRegistry,
-  type CliType,
-} from "@sbluemin/fleet-core/agent/provider/provider-client";
+} from "@sbluemin/fleet-core/agent/provider/client";
+import type { CliType } from "@sbluemin/fleet-core/agent/shared/client";
 
 import { getLogAPI } from "@sbluemin/fleet-core/services/log";
 import {
@@ -22,7 +22,7 @@ import {
   ACTIVE_STREAM_KEY,
   CLI_DEFAULTS,
   buildModelId,
-} from "@sbluemin/fleet-core/agent/provider/provider-types";
+} from "@sbluemin/fleet-core/agent/provider/types";
 import { initRuntime, onHostSessionChange } from "@sbluemin/fleet-core/agent/dispatcher/runtime";
 import { streamAcp, cleanupAll, handleSessionStart } from "./provider-stream.js";
 import {
@@ -38,7 +38,7 @@ import { registerProviderGuard } from "./provider-guard.js";
 /**
  * models.json을 순회하여 pi registerProvider 형식의 모델 목록을 동적 생성.
  * Model.id는 models.json의 display name(name)에 ` (ACP)` postfix를 붙여 등록한다.
- * provider 내부 cli/backendModel 복원은 provider-types의 parseModelId /
+ * provider 내부 cli/backendModel 복원은 provider/types의 parseModelId /
  * buildModelId가 담당하며, thinking level UI 보정은 thinking-level-patch.ts가 맡는다.
  */
 const MODELS = Object.entries(getProviderModelsRegistry().providers).flatMap(

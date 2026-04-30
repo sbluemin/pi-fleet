@@ -5,6 +5,7 @@ import { buildDryDockToolConfig } from "@sbluemin/fleet-wiki";
 import { buildIngestToolConfig } from "@sbluemin/fleet-wiki";
 import { buildPatchQueueToolConfig } from "@sbluemin/fleet-wiki";
 
+import { getBootConfig } from "../fleet.js";
 import { openWikiHub } from "./ui.js";
 
 export type {
@@ -26,7 +27,7 @@ type FleetWikiRegistrationContext = ExtensionContext & Pick<ExtensionAPI, "regis
 
 export function registerFleetWiki(ctx: ExtensionAPI | ExtensionContext): void {
   const pi = ctx as FleetWikiRegistrationContext;
-  const bootCfg = (globalThis as any)["__fleet_boot_config__"];
+  const bootCfg = getBootConfig();
   if (bootCfg?.experimental !== true) {
     return;
   }

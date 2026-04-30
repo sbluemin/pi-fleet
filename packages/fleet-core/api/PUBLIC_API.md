@@ -102,10 +102,14 @@ domain service modules above and be reachable from `FleetCoreRuntimeContext`.
 Current agent compatibility subpaths:
 
 - `@sbluemin/fleet-core/agent/shared/types`
+- `@sbluemin/fleet-core/agent/shared/client`
 - `@sbluemin/fleet-core/agent/shared/service-status`
-- `@sbluemin/fleet-core/agent/provider/provider-client`
-- `@sbluemin/fleet-core/agent/provider/provider-types`
-- `@sbluemin/fleet-core/agent/provider/provider-mcp`
+- `@sbluemin/fleet-core/agent/provider/client`
+- `@sbluemin/fleet-core/agent/provider/provider-client` (deprecated compatibility shim for `agent/provider/client`)
+- `@sbluemin/fleet-core/agent/provider/types`
+- `@sbluemin/fleet-core/agent/provider/provider-types` (deprecated compatibility shim for `agent/provider/types`)
+- `@sbluemin/fleet-core/agent/provider/mcp`
+- `@sbluemin/fleet-core/agent/provider/provider-mcp` (deprecated compatibility shim for `agent/provider/mcp`)
 - `@sbluemin/fleet-core/agent/provider/thinking-level-patch`
 - `@sbluemin/fleet-core/agent/provider/tool-snapshot`
 - `@sbluemin/fleet-core/agent/dispatcher/executor`

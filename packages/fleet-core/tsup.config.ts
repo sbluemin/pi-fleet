@@ -4,9 +4,13 @@ export default defineConfig({
   entry: {
     index: "src/index.ts",
     "agent/shared/types": "src/services/agent/shared/types.ts",
+    "agent/shared/client": "src/services/agent/shared/client.ts",
     "agent/shared/service-status": "src/services/agent/shared/service-status/index.ts",
+    "agent/provider/types": "src/services/agent/provider/types.ts",
     "agent/provider/provider-types": "src/services/agent/provider/provider-types.ts",
+    "agent/provider/client": "src/services/agent/provider/client.ts",
     "agent/provider/provider-client": "src/services/agent/provider/provider-client.ts",
+    "agent/provider/mcp": "src/services/agent/provider/mcp.ts",
     "agent/provider/provider-mcp": "src/services/agent/provider/provider-mcp.ts",
     "agent/provider/thinking-level-patch": "src/services/agent/provider/thinking-level-patch.ts",
     "agent/provider/tool-snapshot": "src/services/agent/provider/tool-snapshot.ts",
