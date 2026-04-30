@@ -8,7 +8,7 @@
  * - renderCall/renderResult: 고정 요약만 반환하고 실시간 스트리밍은 Agent Panel이 전담
  */
 
-import type { AgentToolSpec } from "../../public/tool-registry-services.js";
+import type { AgentToolSpec } from "../../services/tool-registry/index.js";
 import { registerToolPromptManifest } from "../../services/tool-registry/index.js";
 import { registerSquadronJob } from "../bridge/carrier-panel/index.js";
 import { getVisibleRun } from "../bridge/run-stream/index.js";

@@ -15,7 +15,7 @@ npm install -g @mariozechner/pi-coding-agent
 npm install -g pnpm
 ```
 
-> The repository is pinned to a specific pnpm version via the `packageManager` field in `package.json`. If you have [Corepack](https://nodejs.org/api/corepack.html) enabled, that version is used automatically; otherwise the globally installed pnpm is used as a fallback.
+> The repository is pinned to a specific pnpm version via the `packageManager` field in `package.json`. If you have [Corepack](https://nodejs.org/api/corepack.html) enabled, run `corepack enable` once and Corepack will select that version automatically. Otherwise the globally installed pnpm is used as a fallback.
 
 ## 1. Clone the repository
 
@@ -51,8 +51,11 @@ pnpm install
 # run these scripts automatically without a warning.
 pnpm approve-builds --all
 
-# Register the fleet wrapper commands globally.
+# Register the Fleet wrapper commands globally.
 pnpm link --global
+
+# Register the unified-agent CLI used by Fleet provider diagnostics.
+pnpm --filter @sbluemin/unified-agent link --global
 ```
 
 > The repository uses pnpm workspaces (see `pnpm-workspace.yaml`); the root install is the single setup entry point. `pnpm install` writes a single `pnpm-lock.yaml` at the repo root and links each workspace package's local dependencies via symlinks. Cross-package deps are declared with the `workspace:*` protocol so pnpm orders builds topologically.
@@ -65,7 +68,16 @@ pnpm link --global
 > - `fleet-dev` — launches standard Fleet mode, enables `PI_EXPERIMENTAL=1`, and loads `packages/pi-fleet-extension/src/index.ts` directly from this checkout.
 > - `gfleet-dev` — launches Grand Fleet mode, enables `PI_EXPERIMENTAL=1`, and loads `packages/pi-fleet-extension/src/index.ts` directly from this checkout.
 >
+> `pnpm --filter @sbluemin/unified-agent link --global` registers `ait`, the local unified-agent CLI. Fleet uses the same workspace package internally, so linking it from the checkout keeps diagnostics and provider behavior aligned with the source tree.
+>
 > Fleet infrastructure, metaphor, carriers, and Agent Panel modules now live under `packages/pi-fleet-extension/src/`; they do not require separate `pnpm install` commands.
+
+### Install troubleshooting
+
+- If `pnpm install` reports blocked native build scripts, run `pnpm approve-builds --all`, then run `pnpm install` again.
+- If a non-interactive shell reports `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`, rerun with `CI=true pnpm install`.
+- If CI reports `ERR_PNPM_OUTDATED_LOCKFILE`, the lockfile does not match a package manifest. Run `pnpm install --no-frozen-lockfile` locally, commit the updated `pnpm-lock.yaml`, then rerun CI.
+- If `pnpm build` cannot resolve a workspace package, confirm the consuming package lists it in `dependencies` with `workspace:*` and rerun `pnpm install`.
 
 ## 3. Register extensions in pi settings
 
@@ -101,11 +113,18 @@ Add or update the `extensions` field in your pi settings file so it points to th
 
 ## 4. Verify
 
-Launch `pi` and run `/reload`, then check:
+Run the build and CLI checks from the repository root:
+
+```bash
+pnpm build
+fleet --help
+ait --help
+ait --list-models
+```
+
+Then launch `pi` and run `/reload`, then check:
 
 - No extension load errors in the output
-- `ait --help` displays help output correctly
-- `ait --list-models` shows the available model list
 - `Alt+H` / `Alt+L` to move cursor between carrier slots
 - `Ctrl+Enter` to activate the carrier at cursor (exclusive mode)
 - `Alt+P` to toggle the Agent Panel

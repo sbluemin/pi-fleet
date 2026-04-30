@@ -77,6 +77,9 @@ importers:
       '@sbluemin/fleet-wiki':
         specifier: workspace:*
         version: link:../fleet-wiki
+      '@sbluemin/unified-agent':
+        specifier: workspace:*
+        version: link:../unified-agent
       '@sinclair/typebox':
         specifier: ^0.34.41
         version: 0.34.49

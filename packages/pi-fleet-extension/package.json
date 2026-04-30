@@ -16,6 +16,7 @@
     "@sinclair/typebox": "^0.34.41",
     "@sbluemin/fleet-core": "workspace:*",
     "@sbluemin/fleet-wiki": "workspace:*",
+    "@sbluemin/unified-agent": "workspace:*",
     "@mariozechner/pi-tui": "^0.69.0",
     "@xterm/addon-serialize": "^0.13.0",
     "@xterm/headless": "^5.5.0",
