@@ -6,11 +6,11 @@ This contract is the external surface for `@sbluemin/fleet-core`. It is frozen f
 
 - `createFleetCoreRuntime(options: FleetCoreRuntimeOptions): FleetCoreRuntime`
 - `FleetCoreRuntimeOptions = { dataDir: string; ports: FleetHostPorts; backend?: BackendAdapter; }`
-- `FleetCoreRuntime = { agent; agentRequest; jobs; carriers; admiral; metaphor; experimentalWiki?; grandFleet?; toolRegistry; mcp; shutdown(): Promise<void>; }`
+- `FleetCoreRuntime = { agent; agentRequest; jobs; carriers; admiral; metaphor; experimentalWiki?; grandFleet?; toolRegistry; mcp; coreServices: { settings; }; shutdown(): Promise<void>; }`
 
-`createFleetCoreRuntime` is the canonical host composition entry point. It runs `initRuntime(dataDir)`, `initStore(dataDir)`, and, when `ports.serviceStatus` is provided, `initServiceStatus(ports.serviceStatus)`. If `ports.serviceStatus` is absent, it calls `resetServiceStatus()` to ensure a clean state.
+`createFleetCoreRuntime` is the canonical host composition entry point. It initializes the runtime-owned state (data directory, storage, and settings service) and, when `ports.serviceStatus` is provided, configures the service status tracking. If `ports.serviceStatus` is absent, it ensures a clean service status state.
 
-The returned `shutdown()` method is responsible for cleaning up the agent and resetting service status callbacks/timers via `resetServiceStatus()`.
+The returned `shutdown()` method is responsible for cleaning up the agent, resetting the runtime-owned settings service, and cleaning up service status callbacks/timers.
 
 ## Agent Runtime
 
@@ -202,7 +202,7 @@ Deep imports through `./internal/*` or `./src/*` are not part of this API.
 - `@sbluemin/fleet-core/metaphor/operation-name`: operation-name prompt builders, schemas, and runtime helpers.
 - `@sbluemin/fleet-core/metaphor/directive-refinement`: directive-refinement prompt builders, schemas, and runtime helpers.
 - `@sbluemin/fleet-core/core-services`: shared pure service barrels for Pi adapter consumption.
-- `@sbluemin/fleet-core/core-services/settings`: settings registry/store contracts and helpers.
+- `@sbluemin/fleet-core/core-services/settings`: runtime-owned settings registry/store contracts and helpers. Setter-style provider APIs (settings-port) have been removed in favor of runtime-owned singletons.
 - `@sbluemin/fleet-core/core-services/keybind`: keybind registry/store contracts and helpers.
 - `@sbluemin/fleet-core/core-services/log`: log store contracts and file-backed helpers.
 - `@sbluemin/fleet-core/core-services/provider-guard`: provider-guard settings contracts and pure runtime helpers.

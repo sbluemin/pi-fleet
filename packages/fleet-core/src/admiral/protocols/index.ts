@@ -7,7 +7,7 @@
 
 import type { AdmiralProtocol } from "./types.js";
 
-import { getFleetSettingsPort } from "../../settings-port.js";
+import { getSettingsService } from "../../core-services/settings/runtime.js";
 import { FLEET_ACTION } from "./fleet-action.js";
 import { POSITIVE_CONTROL } from "./positive-control.js";
 
@@ -50,7 +50,7 @@ export function getProtocolById(id: string): AdmiralProtocol | undefined {
 
 /** 현재 활성 프로토콜을 반환한다. 항상 유효한 프로토콜을 반환한다. */
 export function getActiveProtocol(): AdmiralProtocol {
-  const api = getFleetSettingsPort();
+  const api = getSettingsService();
   if (!api) return getProtocolById(DEFAULT_ACTIVE_PROTOCOL_ID) ?? FLEET_ACTION;
 
   const cfg = api.load<ProtocolSettings>("admiral");
@@ -60,7 +60,7 @@ export function getActiveProtocol(): AdmiralProtocol {
 
 /** 활성 프로토콜을 변경한다. */
 export function setActiveProtocol(protocolId: string): void {
-  const api = getFleetSettingsPort();
+  const api = getSettingsService();
   if (!api) return;
   const cfg = api.load<ProtocolSettings>("admiral");
   api.save("admiral", { ...cfg, activeProtocol: protocolId });

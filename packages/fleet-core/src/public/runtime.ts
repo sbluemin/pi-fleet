@@ -1,5 +1,8 @@
 import { initRuntime } from "../agent/runtime.js";
 import { initServiceStatus, resetServiceStatus } from "../agent/service-status/store.js";
+import type { CoreSettingsAPI } from "../core-services/settings/index.js";
+import { initSettingsService, resetSettingsService } from "../core-services/settings/runtime.js";
+import { SettingsService } from "../core-services/settings/service.js";
 import { initStore } from "../store/fleet-store.js";
 import { createAgentRuntime, type AgentRuntime } from "./agent-runtime.js";
 import type { AgentRequestService } from "./agent-request.js";
@@ -28,6 +31,10 @@ export interface GrandFleetServices {
   readonly [key: string]: unknown;
 }
 
+export interface CoreServices {
+  readonly settings: CoreSettingsAPI;
+}
+
 export interface FleetCoreRuntimeOptions {
   readonly dataDir: string;
   readonly ports: FleetHostPorts;
@@ -36,6 +43,7 @@ export interface FleetCoreRuntimeOptions {
 
 export interface FleetCoreRuntime {
   readonly agent: AgentRuntime;
+  readonly coreServices: CoreServices;
   readonly agentRequest: AgentRequestService;
   readonly jobs: JobServices;
   readonly carriers: CarrierServices;
@@ -51,7 +59,15 @@ export interface FleetCoreRuntime {
 export function createFleetCoreRuntime(options: FleetCoreRuntimeOptions): FleetCoreRuntime {
   initRuntime(options.dataDir);
   initStore(options.dataDir);
-  const agent = createAgentRuntime(options);
+  const settings = new SettingsService();
+  initSettingsService(settings);
+  let agent: AgentRuntime;
+  try {
+    agent = createAgentRuntime(options);
+  } catch (error) {
+    resetSettingsService(settings);
+    throw error;
+  }
   if (options.ports.serviceStatus) {
     initServiceStatus(options.ports.serviceStatus);
   } else {
@@ -60,6 +76,7 @@ export function createFleetCoreRuntime(options: FleetCoreRuntimeOptions): FleetC
 
   return {
     agent,
+    coreServices: { settings },
     agentRequest: agent.agentRequest,
     jobs: {},
     carriers: {},
@@ -69,6 +86,7 @@ export function createFleetCoreRuntime(options: FleetCoreRuntimeOptions): FleetC
     mcp: agent.mcp,
     async shutdown() {
       await agent.shutdown();
+      resetSettingsService(settings);
       resetServiceStatus();
     },
   };

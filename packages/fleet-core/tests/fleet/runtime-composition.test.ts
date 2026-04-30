@@ -5,7 +5,9 @@ import * as path from "node:path";
 
 import { refreshStatusNow, type ServiceStatusContextPort } from "../../src/agent/service-status/store.js";
 import { getDataDir } from "../../src/agent/runtime.js";
+import { getSettingsService } from "../../src/core-services/settings/runtime.js";
 import { getToolsForSession } from "../../src/agent/tool-snapshot.js";
+import * as agentRuntimeModule from "../../src/public/agent-runtime.js";
 import { createFleetCoreRuntime } from "../../src/public/runtime.js";
 import type { FleetHostPorts } from "../../src/public/host-ports.js";
 
@@ -16,6 +18,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
@@ -25,6 +28,7 @@ describe("createFleetCoreRuntime", () => {
     const runtime = createFleetCoreRuntime({ dataDir, ports: createMinimalPorts() });
 
     expect(runtime.agent).toBeTruthy();
+    expect(runtime.coreServices.settings).toBeTruthy();
     expect(runtime.toolRegistry).toBe(runtime.agent.toolRegistry);
     expect(runtime.mcp).toBe(runtime.agent.mcp);
     expect(runtime.jobs).toEqual({});
@@ -34,6 +38,28 @@ describe("createFleetCoreRuntime", () => {
     expect(runtime.shutdown).toEqual(expect.any(Function));
     expect(getDataDir()).toBe(dataDir);
     expect(fs.existsSync(dataDir)).toBe(true);
+
+    await runtime.shutdown();
+  });
+
+  it("keeps settings section registration mutable after runtime creation", async () => {
+    const runtime = createFleetCoreRuntime({ dataDir: tmpDir, ports: createMinimalPorts() });
+
+    runtime.coreServices.settings.registerSection({
+      key: "runtime-section",
+      displayName: "Runtime Section",
+      getDisplayFields() {
+        return [{ label: "Enabled", value: "ON", color: "accent" }];
+      },
+    });
+
+    expect(runtime.coreServices.settings.getSections()).toEqual([
+      {
+        key: "runtime-section",
+        displayName: "Runtime Section",
+        getDisplayFields: expect.any(Function),
+      },
+    ]);
 
     await runtime.shutdown();
   });
@@ -106,6 +132,44 @@ describe("createFleetCoreRuntime", () => {
     await refreshStatusNow(createStatusContext());
 
     expect(setLoading).not.toHaveBeenCalled();
+  });
+
+  it("does not clear a newer settings singleton during stale runtime shutdown", async () => {
+    const olderRuntime = createFleetCoreRuntime({
+      dataDir: path.join(tmpDir, "older"),
+      ports: createMinimalPorts(),
+    });
+    const newerRuntime = createFleetCoreRuntime({
+      dataDir: path.join(tmpDir, "newer"),
+      ports: createMinimalPorts(),
+    });
+
+    expect(getSettingsService()).toBe(newerRuntime.coreServices.settings);
+
+    await olderRuntime.shutdown();
+
+    expect(getSettingsService()).toBe(newerRuntime.coreServices.settings);
+
+    await newerRuntime.shutdown();
+    expect(getSettingsService()).toBeNull();
+  });
+
+  it("cleans up the just-created settings singleton when runtime construction fails", () => {
+    const expectedError = new Error("agent runtime init failed");
+    const createAgentRuntimeSpy = vi
+      .spyOn(agentRuntimeModule, "createAgentRuntime")
+      .mockImplementation(() => {
+        throw expectedError;
+      });
+
+    expect(() =>
+      createFleetCoreRuntime({
+        dataDir: path.join(tmpDir, "failed"),
+        ports: createMinimalPorts(),
+      }),
+    ).toThrow(expectedError);
+    expect(createAgentRuntimeSpy).toHaveBeenCalledOnce();
+    expect(getSettingsService()).toBeNull();
   });
 
   it("closes MCP servers created after construction during shutdown", async () => {

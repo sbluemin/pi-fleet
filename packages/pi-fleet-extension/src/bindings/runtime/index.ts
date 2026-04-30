@@ -15,7 +15,6 @@ import registerKeybindLifecycle from "./core-keybind-lifecycle.js";
 import registerLogLifecycle from "./core-log-lifecycle.js";
 import registerHudLifecycle from "../hud/register.js";
 import { wireFleetPiEvents } from "./fleet-pi-events.js";
-import { registerOperationName } from "../metaphor/operation-name-register.js";
 import registerProviderGuardLifecycle from "../config/provider-guard/register.js";
 import registerShellLifecycle from "../../tui/shell/register.js";
 import registerThinkingTimerLifecycle from "../config/thinking-timer/register.js";
@@ -27,7 +26,6 @@ export interface FleetLifecycleRuntime {
 export function registerLifecycle(pi: ExtensionAPI): FleetLifecycleRuntime {
   registerBoot(pi);
   registerKeybindLifecycle(pi);
-  registerLogLifecycle(pi);
   registerHudLifecycle(pi);
   registerProviderGuardLifecycle(pi);
   registerShellLifecycle(pi);
@@ -35,20 +33,19 @@ export function registerLifecycle(pi: ExtensionAPI): FleetLifecycleRuntime {
 
   if (!shouldBootFleet()) {
     registerGrandFleet(pi);
-    registerOperationName(pi);
     return { fleetEnabled: false };
   }
 
   const dataDir = resolveFleetDataDir();
   initializeFleetRuntime(dataDir);
   restoreFleetPreRegistrationState();
+  registerLogLifecycle(pi);
 
   bootAdmiral(pi);
   registerFleetCarriers(pi);
   scheduleFleetBootReconciliation();
   wireFleetPiEvents(pi);
   registerGrandFleet(pi);
-  registerOperationName(pi);
 
   return { fleetEnabled: true };
 }

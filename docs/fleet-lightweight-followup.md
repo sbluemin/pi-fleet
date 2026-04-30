@@ -64,7 +64,7 @@ The Pi extension should increasingly read like host wiring. If a module requires
 - Fleet tool specs for carrier sortie, squadron, taskforce, and carrier job lookup now live behind the `fleet-core` public registry surface.
 - `pi-fleet-extension/src/tools/fleet-pi-tools.ts` acts as a Pi adapter loop: it builds the host ports, iterates the core registry, binds Pi renderers/push delivery, and calls `pi.registerTool(...)`.
 - Pi-only surfaces such as custom message rendering and modal/request UI remain in the Pi extension.
-- `createFleetCoreRuntime` (in `fleet-core`) centralizes the initialization of agent runtime, domain stores, and optional service status; the Pi extension (via `src/bindings/runtime/index.ts`) acts as the host that triggers this composition and manages its shutdown lifecycle.
+- `createFleetCoreRuntime` (in `fleet-core`) centralizes the initialization of agent runtime, domain stores, settings singletons, and optional service status; the Pi extension (via `src/bindings/runtime/index.ts`) acts as the host that triggers this composition and manages its shutdown lifecycle.
 - Foreground carrier requests now flow through `runtime.agentRequest.run(...)` in `fleet-core`. Pi supplies a host `AgentStreamingSink` that maps core column lifecycle events back to panel APIs.
 - The `AgentStreamingSink` supports an optional `AgentColumnStream` token returned by `onColumnBegin` and passed back to `onColumnEnd`. This allows the Pi adapter to capture the `ExtensionContext` and column index at the start of a run for deterministic routing when the run finishes.
 - Background requests use `runBackground(...)` which executes without triggering the host `streamingSink` panel lifecycle.

@@ -33,6 +33,8 @@ export interface CoreSettingsAPI {
   registerSection(config: SectionDisplayConfig): void;
   /** 팝업 표시용 섹션 해제 */
   unregisterSection(sectionKey: string): void;
+  /** 팝업 표시용 섹션 목록 조회 */
+  getSections(): SectionDisplayConfig[];
 }
 
 // ── 상수 ──

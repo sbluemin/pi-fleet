@@ -13,10 +13,10 @@
 
 - Fleet domain modules such as `admiral/`, `agent/`, `bridge/` (including `run-stream/`, `carrier-panel/`, and `carrier-control/`), `carrier/`, `gfleet/`, `job/` including `job/carrier-jobs/`, `core-services/`, `metaphor/`, `squadron/`, `store/`, and `taskforce/`
 - Public API contracts and frozen consumer surfaces
-- `createFleetCoreRuntime` as the canonical composition entry point that runs `initRuntime`, `initStore`, and optional `initServiceStatus`; it also owns the `shutdown` lifecycle that resets service status
+- `createFleetCoreRuntime` as the canonical composition entry point that initializes the runtime-owned state (data directory, storage, settings) and optional service status tracking; it also owns the `shutdown` lifecycle that cleans up the agent, resets the settings service, and cleans up service status state
 - `AgentRequestService` owns unified-agent request orchestration and emits host column lifecycle through `FleetHostPorts.streamingSink`; it supports an optional `AgentColumnStream` token for stateful host tracking from `onColumnBegin` to `onColumnEnd`
 - Fleet tool specs and registry factories that are host-agnostic and registered by adapters through public APIs
-- Global runtime stores, **`BridgeStateStorage` (owned by `bridge/run-stream`)**, and compatibility keys used by Pi adapters
+- Global runtime stores, **runtime-owned settings singletons (owned by `core-services/settings`)**, **`BridgeStateStorage` (owned by `bridge/run-stream`)**, and compatibility keys used by Pi adapters
 - Pure prompt composition, domain-level orchestration logic, and **render-agnostic view-model builders**
 - The Fleet Wiki domain extracted to the leaf `packages/fleet-wiki`
 

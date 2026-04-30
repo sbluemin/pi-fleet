@@ -2,34 +2,18 @@
  * core-settings — 중앙 설정 API + 오버레이 팝업 확장
  *
  * 배선(wiring)만 담당:
- *   - globalThis API 등록
  *   - Alt+/ 단축키로 설정 오버레이 팝업 열기
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 
 import { getKeybindAPI } from "../keybind/bridge.js";
-import { CORE_SETTINGS_KEY } from "./bridge.js";
-import type { CoreSettingsAPI } from "@sbluemin/fleet-core/core-services/settings";
-import { loadSection, saveSection } from "@sbluemin/fleet-core/core-services/settings";
-import { registerSection, unregisterSection, getSections } from "./registry.js";
+import { getSettingsAPI } from "./bridge.js";
 import { SettingsOverlay } from "../../../tui/overlays/settings-overlay.js";
-
-// ── globalThis API 객체 생성 ──
-
-const api: CoreSettingsAPI = {
-  load: loadSection,
-  save: saveSection,
-  registerSection,
-  unregisterSection,
-};
 
 // ── 팝업 상태 ──
 
 let activePopup: Promise<void> | null = null;
-
-// 즉시 등록 — 다른 확장의 모듈 초기화 시점에도 접근 가능하도록
-(globalThis as any)[CORE_SETTINGS_KEY] = api;
 
 export default function (_pi: ExtensionAPI) {
   const keybind = getKeybindAPI();
@@ -50,7 +34,7 @@ async function openSettingsPopup(ctx: ExtensionContext): Promise<void> {
   if (!ctx.hasUI) return;
   if (activePopup) return;
 
-  const sections = getSections();
+  const sections = getSettingsAPI()?.getSections() ?? [];
 
   activePopup = ctx.ui.custom<void>(
     (_tui, theme, _keybindings, done) =>

@@ -1,20 +1,17 @@
 import {
-  getSectionsFromMap,
-  registerSectionInMap,
-  unregisterSectionFromMap,
   type SectionDisplayConfig,
 } from "@sbluemin/fleet-core/core-services/settings";
 
-import { _getSectionsMap } from "./bridge.js";
+import { getSettingsAPI } from "./bridge.js";
 
 export function registerSection(config: SectionDisplayConfig): void {
-  registerSectionInMap(_getSectionsMap(), config);
+  getSettingsAPI()?.registerSection(config);
 }
 
 export function unregisterSection(key: string): void {
-  unregisterSectionFromMap(_getSectionsMap(), key);
+  getSettingsAPI()?.unregisterSection(key);
 }
 
 export function getSections(): SectionDisplayConfig[] {
-  return getSectionsFromMap(_getSectionsMap());
+  return getSettingsAPI()?.getSections() ?? [];
 }

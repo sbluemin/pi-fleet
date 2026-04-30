@@ -5,7 +5,8 @@
  */
 
 import type { ReasoningLevel } from "./constants.js";
-import { getFleetSettingsPort, type FleetSettingsPort } from "../../settings-port.js";
+import type { CoreSettingsAPI } from "../../core-services/settings/index.js";
+import { getSettingsService } from "../../core-services/settings/runtime.js";
 
 export interface OperationNameSettings {
   /** 모델 프로바이더 (미설정 시 세션 모델 사용) */
@@ -32,8 +33,8 @@ export function saveSettings(settings: OperationNameSettings): void {
   getAPI().save(SECTION_KEY, settings);
 }
 
-function getAPI(): FleetSettingsPort {
-  const api = getFleetSettingsPort();
+function getAPI(): CoreSettingsAPI {
+  const api = getSettingsService();
   if (!api) throw new Error("Settings API not available");
   return api;
 }
