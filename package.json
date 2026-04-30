@@ -2,13 +2,10 @@
   "name": "pi-fleet",
   "version": "0.5.0",
   "private": true,
-  "workspaces": [
-    "packages/unified-agent",
-    "extensions/core",
-    "extensions/fleet"
-  ],
+  "packageManager": "pnpm@10.33.2",
   "scripts": {
-    "postinstall": "npm run build -w packages/unified-agent"
+    "build": "pnpm -r build",
+    "postinstall": "pnpm -r build"
   },
   "bin": {
     "fleet": "bin/fleet.js",

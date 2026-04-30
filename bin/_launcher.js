@@ -1,14 +1,10 @@
 const { spawn } = require("node:child_process");
-const fs = require("node:fs");
 const path = require("node:path");
 
-function launch({ mode, dev, experimental }) {
-  const args = [];
+const repoRoot = path.resolve(__dirname, "..");
 
-  if (dev) {
-    const extensionArgs = getDevExtensionArgs();
-    args.push(...extensionArgs);
-  }
+function launch({ mode, dev, experimental }) {
+  const args = [...getExtensionArgs(dev)];
 
   args.push(...process.argv.slice(2));
 
@@ -53,21 +49,17 @@ function launch({ mode, dev, experimental }) {
 }
 
 function getDevExtensionArgs() {
-  const extensionsDir = path.join(process.cwd(), "extensions");
+  const extensionEntryPath = path.join(repoRoot, "packages", "pi-fleet-extension", "src", "index.ts");
 
-  if (!fs.existsSync(extensionsDir)) {
-    console.error("extensions/ directory not found.");
-    process.exit(1);
-  }
+  return ["-ne", "-e", extensionEntryPath];
+}
 
-  const extensionEntryPaths = fs
-    .readdirSync(extensionsDir, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => path.join("extensions", entry.name, "index.ts"))
-    .filter((entryPath) => fs.existsSync(path.join(process.cwd(), entryPath)))
-    .sort();
+function getExtensionArgs(dev) {
+  if (dev) return getDevExtensionArgs();
 
-  return ["-ne", ...extensionEntryPaths.flatMap((entryPath) => ["-e", entryPath])];
+  const extensionEntryPath = path.join(repoRoot, "packages", "pi-fleet-extension", "dist", "index.js");
+
+  return ["-ne", "-e", extensionEntryPath];
 }
 
 module.exports = {

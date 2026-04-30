@@ -11,18 +11,18 @@
 |------|-------------|
 | `docs/pi-development-reference.md` | **Main Developer Guide** — Comprehensive reference for PI SDK, extensions, TUI, themes, and RPC |
 | `docs/admiral-workflow-reference.md` | **Operational Doctrine** — High-level architecture, naval hierarchy, and delegation workflows |
-| `packages/` | Embedded first-party libraries (e.g., `unified-agent`) |
-| `extensions/` | All extensions consolidated here (refer to its own `AGENTS.md`) |
-| `extensions/fleet/` | Agent orchestration extension — carrier framework, admiral/bridge/carriers wiring, unified pipeline, Agent Panel (refer to its own `AGENTS.md`) |
-| `extensions/fleet/admiral/` | Admiral prompt-policy library — prompts, protocols, standing orders, request directive, widget |
-| `extensions/fleet/bridge/` | Bridge library — active ACP provider overlay shell launcher |
-| `extensions/fleet/carriers/` | Carrier registration library — default carrier definitions (refer to its own `AGENTS.md`) |
-| `extensions/core/` | Infrastructure + utility extensions — agent infra, hud, keybind, settings, welcome, shell, thinking-timer, provider-guard (refer to its own `AGENTS.md`) |
-| `extensions/metaphor/` | Metaphor framework extension — 4계층 해군 PERSONA/TONE worldview 관리, 세션 작전명 자동 명명(operation naming), 지령 재다듬기(directive refinement) 기능을 제공 |
-| `extensions/metaphor/operation-name/` | Operation naming module — 최초 사용자 요청을 `Operation › {codename}` 형식의 해군 작전명으로 자동 명명 |
-| `extensions/metaphor/directive-refinement/` | Directive refinement module — 사용자 입력 초안을 3섹션 형식의 작전 지령으로 재다듬기 |
+| `packages/` | First-party workspace packages: `unified-agent`, `fleet-core`, `fleet-wiki`, `pi-fleet-extension` |
+| `packages/fleet-core/` | Pi-agnostic Fleet product core — Fleet domain logic, prompts, runtime contracts, MCP/tool/job internals, **bridge (run-stream, carrier-panel, carrier-control)**, and public APIs |
+| `packages/fleet-core/src/` | Current physical home of Fleet domain modules during the migration (`admiral`, `agent`, **`bridge/{run-stream,carrier-panel,carrier-control}`**, `carrier`, `gfleet`, `metaphor`, `operation`, etc.) |
+| `packages/fleet-core/src/gfleet/` | Grand Fleet domain home inside `fleet-core`. Exposed via `@sbluemin/fleet-core/gfleet`, `@sbluemin/fleet-core/gfleet/ipc`, and `@sbluemin/fleet-core/gfleet/formation`. |
+| `packages/pi-fleet-extension/` | Pi capability package — host runtime bindings, commands, keybinds, tools, TUI, provider registration, session features, and compat seams |
+| `packages/pi-fleet-extension/src/` | Current physical home of Pi capability buckets |
+| `packages/pi-fleet-extension/src/{bindings,commands,keybinds,tools,tui,provider,session}/` | Current doctrinal homes for Pi-specific ownership |
+| `packages/pi-fleet-extension/src/{fleet,grand-fleet,metaphor,core,boot,experimental-wiki}/` | Removed legacy domain directories. Do not reintroduce these homes inside `pi-fleet-extension`; use the current capability buckets under `src/` instead. |
 
 > Currently, there is no `pi/` directory — symlink setup is not required.
+>
+> Migration note: the **logical split is already final** (`fleet-core` owns Fleet domain logic including the internalized `gfleet` domain, and `pi-fleet-extension` owns Pi capability buckets), and `packages/pi-fleet-extension/src/` remains the active physical home for Pi capability buckets.
 
 ## Fleet Architecture (Metaphor)
 
@@ -39,7 +39,7 @@ Beyond simple parallel API calls, the system adopts a **naval fleet metaphor** t
 | 3 | **Admiral** | 제독 (Host PI) | A single **workspace PI instance**. Plans operations and dispatches Carriers within its operational zone. |
 | 4 | **Captain** | 함장 (Carrier Persona) | The **persona of a Carrier agent**. While a Carrier is the system entity, the Captain is its personified commander. |
 
-> **Note on Persona & Tone**: The naming conventions, personified personas, and linguistic tone for all tiers are centrally managed by the `extensions/metaphor/` package.
+> **Note on Persona & Tone**: The naming conventions, personified personas, and linguistic tone for all tiers are centrally managed by `packages/fleet-core/src/metaphor/`. The former `packages/pi-fleet-extension/src/metaphor/` legacy directory has been removed and must not be recreated as a Pi-side domain home.
 
 #### Carrier vs Captain Separation
 - **Carrier**: The **system entity** (ID: `genesis`, `sentinel`, etc.). Represents the execution instance, process, and configuration.
@@ -169,7 +169,7 @@ PI renders a vertical stack of **zones**. Extensions customize these zones via o
 
 ## Domain Boundary Rules
 
-> Refer to `extensions/AGENTS.md` for the full cross-layer dependency rules, layer hierarchy, and verification table.
+> Refer to `package AGENTS.md files` for the full cross-layer dependency rules, layer hierarchy, and verification table.
 
 ## Slash Command Naming
 
@@ -187,19 +187,19 @@ fleet:<domain>:<feature>
 
 ### Domain Assignment
 
-Each extension maps to exactly one domain. Use the domain below for all commands registered by that extension.
+Each feature area maps to exactly one command domain. Use the domain below regardless of historical directory names or removed legacy homes.
 
-| Extension | Domain | Rationale |
+| Feature Area | Domain | Rationale |
 |-----------|--------|-----------|
-| `fleet/` | `agent` | Sub-agent orchestration features |
-| `experimental-wiki/` | `wiki` | Experimental Fleet Wiki store, patch queue, AAR ingest |
-| `fleet/admiral/` | `admiral` | Host-agent prompt policy, protocols, and operational doctrine |
-| `fleet/shipyard/carrier_jobs/` | `jobs` | Detached carrier job rendering and verbose toggle |
-| `metaphor/` | `metaphor` | Naval Fleet "Persona" prompts, worldview management, and operation naming |
-| `fleet/carriers/` | `carrier` | Individual carrier registration and configuration |
-| `core/hud/` | `hud` | HUD / editor display features |
-| `metaphor/operation-name/` | `metaphor:operation` | Session operation naming settings |
-| `metaphor/directive-refinement/` | `metaphor:directive` | Directive refinement (3-section) settings |
+| `fleet` agent orchestration surfaces | `agent` | Sub-agent orchestration features |
+| `fleet-wiki` surfaces | `wiki` | Fleet Wiki store, patch queue, AAR ingest |
+| Admiral protocol and doctrine surfaces | `admiral` | Host-agent prompt policy, protocols, and operational doctrine |
+| Detached carrier job surfaces | `jobs` | Detached carrier job rendering and verbose toggle |
+| Metaphor/persona/worldview surfaces | `metaphor` | Naval Fleet persona prompts, worldview management, and shared metaphor controls |
+| Carrier registration surfaces | `carrier` | Individual carrier registration and configuration |
+| HUD display surfaces | `hud` | HUD / editor display features |
+| Operation naming surfaces | `metaphor:operation` | Session operation naming settings |
+| Directive refinement surfaces | `metaphor:directive` | Directive refinement (3-section) settings |
 When adding a **new extension**, assign a domain that reflects the **feature category**, not the directory prefix (`core-`, etc.).
 
 ### Feature Naming

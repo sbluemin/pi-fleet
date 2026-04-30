@@ -33,9 +33,9 @@ Clone the repository and link globally:
 ```bash
 git clone https://github.com/sbluemin/unified-agent.git
 cd unified-agent
-npm install
-npm run build
-npm link
+pnpm install
+pnpm build
+pnpm link --global
 ```
 
 After linking, the `ait` command is available globally:

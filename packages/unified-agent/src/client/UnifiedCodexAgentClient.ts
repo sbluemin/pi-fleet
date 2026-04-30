@@ -54,6 +54,15 @@ interface CodexThreadDefaultsForReset {
   config?: Record<string, CodexJsonValue>;
 }
 
+interface CodexThreadDefaultsForResume {
+  cwd: string;
+  model?: string;
+  approvalPolicy?: string;
+  sandbox?: string;
+  developerInstructions?: string;
+  config?: Record<string, CodexJsonValue>;
+}
+
 const CODEX_TURN_LEVEL_CONFIG_KEYS = new Set(['reasoning_effort', 'model']);
 const CODEX_THREAD_POLICY_CONFIG_KEYS = new Set(['approvalPolicy', 'sandbox']);
 
@@ -107,9 +116,11 @@ export class UnifiedCodexAgentClient extends EventEmitter implements IUnifiedAge
     const cleanEnv = cleanEnvironment(process.env, options.env);
     const command = options.cliPath ?? backend.cliCommand;
     const baseArgs = backend.appServerArgs ?? ['app-server', '--listen', 'stdio://'];
+    const developerInstructions = options.systemPrompt ?? null;
+    const modeMapping = this.resolveMode(options.yoloMode === false ? 'default' : 'yolo');
     const args = [
       ...baseArgs,
-      ...this.buildStartupConfigArgs(options.configOverrides, options.mcpServers),
+      ...this.buildStartupConfigArgs(options.configOverrides, options.mcpServers, modeMapping),
     ];
     const mcpServerNames = this.resolveMcpServerNames(options.configOverrides, options.mcpServers);
     const connection = new CodexAppServerConnection({
@@ -128,17 +139,20 @@ export class UnifiedCodexAgentClient extends EventEmitter implements IUnifiedAge
     this.connection = connection;
     this.setupEventForwarding();
 
-    const developerInstructions = options.systemPrompt ?? null;
-    const modeMapping = this.resolveMode(options.yoloMode === false ? 'default' : 'yolo');
-
     if (options.sessionId) {
       await connection.connect({
         skipThreadStart: true,
         model: options.model,
       });
-      await connection.loadSession(options.sessionId, {
-        model: options.model,
-      });
+      await connection.loadSession(
+        options.sessionId,
+        this.buildCodexThreadDefaultsForResume(
+          options.cwd,
+          options.model,
+          developerInstructions,
+          modeMapping,
+        ),
+      );
     } else {
       await connection.connect({
         developerInstructions: developerInstructions ?? undefined,
@@ -245,7 +259,7 @@ export class UnifiedCodexAgentClient extends EventEmitter implements IUnifiedAge
     }
 
     pending.threadConfig[configId] = value;
-    this.emitTyped('log', `[codex] config '${configId}' will apply on next thread/start`);
+    this.emitTyped('log', `[codex] config '${configId}' will apply on next thread/start or thread/resume`);
   }
 
   async setMode(mode: string): Promise<void> {
@@ -283,9 +297,17 @@ export class UnifiedCodexAgentClient extends EventEmitter implements IUnifiedAge
         '[codex] mcpServers on loadSession are ignored; pass them to connect() so app-server starts with -c overrides',
       );
     }
-    await this.connection.loadSession(sessionId);
+    const targetCwd = this.sessionCwd ?? process.cwd();
+    await this.connection.loadSession(
+      sessionId,
+      this.buildCodexThreadDefaultsForResume(
+        targetCwd,
+        undefined,
+        this.currentSystemPrompt,
+        this.pendingOverrides?.threadConfig ?? {},
+      ),
+    );
     this.sessionId = sessionId;
-    this.currentSystemPrompt = null;
   }
 
   async resetSession(cwd?: string): Promise<ConnectResult> {
@@ -417,6 +439,29 @@ export class UnifiedCodexAgentClient extends EventEmitter implements IUnifiedAge
     };
   }
 
+  private buildCodexThreadDefaultsForResume(
+    cwd: string,
+    model: string | undefined,
+    systemPrompt: string | null,
+    threadConfig: Partial<CodexModeMapping> | Record<string, string>,
+  ): CodexThreadDefaultsForResume {
+    const { approvalPolicy, sandbox } = threadConfig;
+    const configEntries = Object.entries(threadConfig)
+      .filter(([key]) => !CODEX_THREAD_POLICY_CONFIG_KEYS.has(key));
+    const config = configEntries.length > 0
+      ? Object.fromEntries(configEntries) as Record<string, CodexJsonValue>
+      : undefined;
+
+    return {
+      cwd,
+      ...(model ? { model } : {}),
+      approvalPolicy,
+      sandbox,
+      developerInstructions: systemPrompt ?? undefined,
+      config,
+    };
+  }
+
   private resolveMode(modeId: string): CodexModeMapping {
     switch (modeId) {
       case 'autoEdit':
@@ -431,8 +476,13 @@ export class UnifiedCodexAgentClient extends EventEmitter implements IUnifiedAge
   private buildStartupConfigArgs(
     overrides?: string[],
     servers?: McpServerConfig[],
+    modeMapping?: CodexModeMapping,
   ): string[] {
     const configArgs = [
+      ...(modeMapping ? [
+        `approval_policy="${modeMapping.approvalPolicy}"`,
+        `sandbox_mode="${modeMapping.sandbox}"`,
+      ] : []),
       ...(overrides ?? []),
       ...(servers?.length ? mcpServerConfigsToCodexArgs(servers) : []),
     ];

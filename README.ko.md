@@ -93,7 +93,7 @@ pi-fleet는 LLM 에이전트를 해군 **함대(Fleet)** 내의 **항공모함(C
 
 ## 명령어
 
-`npm link` 실행 후 ([SETUP.md](SETUP.md) 참조), 4가지 전역 명령어를 사용할 수 있습니다:
+`pnpm link --global` 실행 후 ([SETUP.md](SETUP.md) 참조), 4가지 전역 명령어를 사용할 수 있습니다:
 
 | 명령어 | 설명 |
 |--------|------|

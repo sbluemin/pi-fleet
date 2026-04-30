@@ -1,0 +1,242 @@
+{
+  "name": "@sbluemin/fleet-core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "dist",
+    "api",
+    "README.md",
+    "AGENTS.md"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./agent": {
+      "types": "./dist/agent.d.ts",
+      "import": "./dist/agent.js",
+      "require": "./dist/agent.cjs"
+    },
+    "./agent/request": {
+      "types": "./dist/agent/request.d.ts",
+      "import": "./dist/agent/request.js",
+      "require": "./dist/agent/request.cjs"
+    },
+    "./agent/provider-types": {
+      "types": "./dist/agent/provider-types.d.ts",
+      "import": "./dist/agent/provider-types.js",
+      "require": "./dist/agent/provider-types.cjs"
+    },
+    "./agent/types": {
+      "types": "./dist/agent/types.d.ts",
+      "import": "./dist/agent/types.js",
+      "require": "./dist/agent/types.cjs"
+    },
+    "./agent/runtime": {
+      "types": "./dist/agent/runtime.d.ts",
+      "import": "./dist/agent/runtime.js",
+      "require": "./dist/agent/runtime.cjs"
+    },
+    "./agent/session-store": {
+      "types": "./dist/agent/session-store.d.ts",
+      "import": "./dist/agent/session-store.js",
+      "require": "./dist/agent/session-store.cjs"
+    },
+    "./agent/session-resume-utils": {
+      "types": "./dist/agent/session-resume-utils.d.ts",
+      "import": "./dist/agent/session-resume-utils.js",
+      "require": "./dist/agent/session-resume-utils.cjs"
+    },
+    "./agent/pool": {
+      "types": "./dist/agent/pool.d.ts",
+      "import": "./dist/agent/pool.js",
+      "require": "./dist/agent/pool.cjs"
+    },
+    "./agent/executor": {
+      "types": "./dist/agent/executor.d.ts",
+      "import": "./dist/agent/executor.js",
+      "require": "./dist/agent/executor.cjs"
+    },
+    "./agent/tool-snapshot": {
+      "types": "./dist/agent/tool-snapshot.d.ts",
+      "import": "./dist/agent/tool-snapshot.js",
+      "require": "./dist/agent/tool-snapshot.cjs"
+    },
+    "./agent/provider-mcp": {
+      "types": "./dist/agent/provider-mcp.d.ts",
+      "import": "./dist/agent/provider-mcp.js",
+      "require": "./dist/agent/provider-mcp.cjs"
+    },
+    "./agent/thinking-level-patch": {
+      "types": "./dist/agent/thinking-level-patch.d.ts",
+      "import": "./dist/agent/thinking-level-patch.js",
+      "require": "./dist/agent/thinking-level-patch.cjs"
+    },
+    "./agent/log-port": {
+      "types": "./dist/agent/log-port.d.ts",
+      "import": "./dist/agent/log-port.js",
+      "require": "./dist/agent/log-port.cjs"
+    },
+    "./agent/service-status": {
+      "types": "./dist/agent/service-status.d.ts",
+      "import": "./dist/agent/service-status.js",
+      "require": "./dist/agent/service-status.cjs"
+    },
+    "./constants": {
+      "types": "./dist/constants.d.ts",
+      "import": "./dist/constants.js",
+      "require": "./dist/constants.cjs"
+    },
+    "./streaming-sink": {
+      "types": "./dist/streaming-sink.d.ts",
+      "import": "./dist/streaming-sink.js",
+      "require": "./dist/streaming-sink.cjs"
+    },
+    "./job": {
+      "types": "./dist/job.d.ts",
+      "import": "./dist/job.js",
+      "require": "./dist/job.cjs"
+    },
+    "./carrier": {
+      "types": "./dist/carrier.d.ts",
+      "import": "./dist/carrier.js",
+      "require": "./dist/carrier.cjs"
+    },
+    "./carrier/personas": {
+      "types": "./dist/carrier/personas.d.ts",
+      "import": "./dist/carrier/personas.js",
+      "require": "./dist/carrier/personas.cjs"
+    },
+    "./squadron": {
+      "types": "./dist/squadron.d.ts",
+      "import": "./dist/squadron.js",
+      "require": "./dist/squadron.cjs"
+    },
+    "./taskforce": {
+      "types": "./dist/taskforce.d.ts",
+      "import": "./dist/taskforce.js",
+      "require": "./dist/taskforce.cjs"
+    },
+    "./carrier-jobs": {
+      "types": "./dist/carrier-jobs.d.ts",
+      "import": "./dist/carrier-jobs.js",
+      "require": "./dist/carrier-jobs.cjs"
+    },
+    "./store": {
+      "types": "./dist/store.d.ts",
+      "import": "./dist/store.js",
+      "require": "./dist/store.cjs"
+    },
+    "./gfleet": {
+      "types": "./dist/gfleet.d.ts",
+      "import": "./dist/gfleet.js",
+      "require": "./dist/gfleet.cjs"
+    },
+    "./gfleet/ipc": {
+      "types": "./dist/gfleet/ipc.d.ts",
+      "import": "./dist/gfleet/ipc.js",
+      "require": "./dist/gfleet/ipc.cjs"
+    },
+    "./gfleet/formation": {
+      "types": "./dist/gfleet/formation.d.ts",
+      "import": "./dist/gfleet/formation.js",
+      "require": "./dist/gfleet/formation.cjs"
+    },
+    "./bridge/run-stream": {
+      "types": "./dist/bridge/run-stream.d.ts",
+      "import": "./dist/bridge/run-stream.js",
+      "require": "./dist/bridge/run-stream.cjs"
+    },
+    "./bridge/carrier-panel": {
+      "types": "./dist/bridge/carrier-panel.d.ts",
+      "import": "./dist/bridge/carrier-panel.js",
+      "require": "./dist/bridge/carrier-panel.cjs"
+    },
+    "./bridge/carrier-control": {
+      "types": "./dist/bridge/carrier-control.d.ts",
+      "import": "./dist/bridge/carrier-control.js",
+      "require": "./dist/bridge/carrier-control.cjs"
+    },
+    "./admiral": {
+      "types": "./dist/admiral.d.ts",
+      "import": "./dist/admiral.js",
+      "require": "./dist/admiral.cjs"
+    },
+    "./admiral/protocols": {
+      "types": "./dist/admiral/protocols.d.ts",
+      "import": "./dist/admiral/protocols.js",
+      "require": "./dist/admiral/protocols.cjs"
+    },
+    "./admiral/standing-orders": {
+      "types": "./dist/admiral/standing-orders.d.ts",
+      "import": "./dist/admiral/standing-orders.js",
+      "require": "./dist/admiral/standing-orders.cjs"
+    },
+    "./admiral/tool-prompt-manifest": {
+      "types": "./dist/admiral/tool-prompt-manifest.d.ts",
+      "import": "./dist/admiral/tool-prompt-manifest.js",
+      "require": "./dist/admiral/tool-prompt-manifest.cjs"
+    },
+    "./metaphor": {
+      "types": "./dist/metaphor.d.ts",
+      "import": "./dist/metaphor.js",
+      "require": "./dist/metaphor.cjs"
+    },
+    "./metaphor/operation-name": {
+      "types": "./dist/metaphor/operation-name.d.ts",
+      "import": "./dist/metaphor/operation-name.js",
+      "require": "./dist/metaphor/operation-name.cjs"
+    },
+    "./metaphor/directive-refinement": {
+      "types": "./dist/metaphor/directive-refinement.d.ts",
+      "import": "./dist/metaphor/directive-refinement.js",
+      "require": "./dist/metaphor/directive-refinement.cjs"
+    },
+    "./core-services": {
+      "types": "./dist/core-services.d.ts",
+      "import": "./dist/core-services.js",
+      "require": "./dist/core-services.cjs"
+    },
+    "./core-services/settings": {
+      "types": "./dist/core-services/settings.d.ts",
+      "import": "./dist/core-services/settings.js",
+      "require": "./dist/core-services/settings.cjs"
+    },
+    "./core-services/keybind": {
+      "types": "./dist/core-services/keybind.d.ts",
+      "import": "./dist/core-services/keybind.js",
+      "require": "./dist/core-services/keybind.cjs"
+    },
+    "./core-services/log": {
+      "types": "./dist/core-services/log.d.ts",
+      "import": "./dist/core-services/log.js",
+      "require": "./dist/core-services/log.cjs"
+    },
+    "./core-services/provider-guard": {
+      "types": "./dist/core-services/provider-guard.d.ts",
+      "import": "./dist/core-services/provider-guard.js",
+      "require": "./dist/core-services/provider-guard.cjs"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@sbluemin/unified-agent": "workspace:*",
+    "@sinclair/typebox": "^0.34.41"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "tsup": "^8.5.0",
+    "typescript": "^6.0.2",
+    "vitest": "^4.0.13"
+  }
+}

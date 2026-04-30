@@ -49,6 +49,9 @@ export interface CodexThreadResumeParams {
   threadId: string;
   path?: string | null;
   model?: string | null;
+  cwd?: string | null;
+  approvalPolicy?: string | null;
+  sandbox?: string | null;
   config?: Record<string, CodexJsonValue> | null;
   developerInstructions?: string | null;
 }

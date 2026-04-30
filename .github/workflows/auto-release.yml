@@ -104,7 +104,15 @@ jobs:
         env:
           NEXT_VERSION: ${{ steps.version.outputs.next_version }}
         run: |
-          npm version "$NEXT_VERSION" --no-git-tag-version --allow-same-version
+          # Bump version in package.json without creating a git tag.
+          # Avoid running pnpm here so the workflow doesn't need a pnpm install step;
+          # update package.json directly with node.
+          node -e '
+            const fs = require("fs");
+            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+            pkg.version = process.env.NEXT_VERSION;
+            fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n");
+          '
 
           RELEASE_DATE=$(date -u +%F)
           export RELEASE_DATE
@@ -146,7 +154,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package.json package-lock.json CHANGELOG.md
+          git add package.json CHANGELOG.md
           git commit -m "chore(release): $NEXT_TAG [skip ci]"
           git push origin HEAD:main
 

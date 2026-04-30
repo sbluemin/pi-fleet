@@ -1,0 +1,11 @@
+packages:
+  - "packages/unified-agent"
+  - "packages/fleet-core"
+  - "packages/fleet-wiki"
+  - "packages/pi-fleet-extension"
+allowBuilds:
+  '@google/genai': true
+  esbuild: true
+  koffi: true
+  node-pty: true
+  protobufjs: true

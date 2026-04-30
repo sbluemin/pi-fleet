@@ -26,11 +26,15 @@ class MockChildProcess extends EventEmitter {
 }
 
 class TestCodexAppServerConnection extends CodexAppServerConnection {
-  constructor(private readonly mockChild: MockChildProcess) {
+  constructor(
+    private readonly mockChild: MockChildProcess,
+    options?: { autoApprove?: boolean },
+  ) {
     super({
       command: 'codex',
       args: ['app-server', '--listen', 'stdio://'],
       cwd: process.cwd(),
+      autoApprove: options?.autoApprove,
     });
   }
 
@@ -274,8 +278,10 @@ describe('CodexAppServerConnection events', () => {
   });
 
   it('approval server request를 permissionRequest로 브리지하고 JSON-RPC response로 응답한다', () => {
-    const permissionRequest = vi.fn((_params, resolve: (response: { optionId: string }) => void) => {
-      resolve({ optionId: 'decision_1' });
+    const permissionRequest = vi.fn((_params, resolve: (response: {
+      outcome: { outcome: 'selected'; optionId: string };
+    }) => void) => {
+      resolve({ outcome: { outcome: 'selected', optionId: 'decision_1' } });
     });
     connection.on('permissionRequest', permissionRequest);
 
@@ -293,12 +299,38 @@ describe('CodexAppServerConnection events', () => {
 
     expect(permissionRequest).toHaveBeenCalledWith(
       {
-        toolName: 'commandExecution',
-        toolInput: 'npm test',
-        permissions: [
-          { id: 'decision_0', label: 'accept', description: '테스트 실행' },
-          { id: 'decision_1', label: 'decline', description: '테스트 실행' },
+        sessionId: 'thread-1',
+        options: [
+          {
+            optionId: 'decision_0',
+            name: 'accept',
+            kind: 'allow_once',
+            _meta: { 'sbluemin/codexApprovalDecision': 'accept' },
+          },
+          {
+            optionId: 'decision_1',
+            name: 'decline',
+            kind: 'reject_once',
+            _meta: { 'sbluemin/codexApprovalDecision': 'decline' },
+          },
         ],
+        toolCall: {
+          toolCallId: 'commandExecution:77',
+          title: 'commandExecution',
+          kind: 'execute',
+          status: 'pending',
+          rawInput: {
+            input: 'npm test',
+            reason: '테스트 실행',
+            requestedPermissions: null,
+          },
+        },
+        _meta: {
+          'sbluemin/codexApproval': {
+            method: 'item/commandExecution/requestApproval',
+            requestedPermissions: null,
+          },
+        },
       },
       expect.any(Function),
     );
@@ -307,6 +339,174 @@ describe('CodexAppServerConnection events', () => {
       id: 77,
       result: {
         decision: 'decline',
+      },
+    });
+  });
+
+  it('autoApprove는 acceptForSession을 accept보다 우선 선택하고 decline은 피한다', async () => {
+    const autoChild = new MockChildProcess();
+    const autoConnection = new TestCodexAppServerConnection(autoChild, {
+      autoApprove: true,
+    });
+    const permissionRequest = vi.fn();
+    autoConnection.on('permissionRequest', permissionRequest);
+    const connectPromise = autoConnection.connect();
+    autoChild.stdout.emit(
+      'data',
+      `${jsonRpcResult(1, {
+        userAgent: 'codex/test',
+        codexHome: '/tmp/codex',
+        platformFamily: 'unix',
+        platformOs: 'macos',
+      })}\n`,
+    );
+    await flushMicrotask();
+    autoChild.stdout.emit('data', `${jsonRpcResult(2, { thread: { id: 'thread-1' } })}\n`);
+    await connectPromise;
+
+    autoChild.stdout.emit(
+      'data',
+      `${jsonRpcServerRequest(88, 'item/commandExecution/requestApproval', {
+        threadId: 'thread-1',
+        turnId: 'turn-1',
+        itemId: 'item-approve',
+        command: 'npm test',
+        reason: '테스트 실행',
+        availableDecisions: ['decline', 'accept', 'acceptForSession'],
+      })}\n`,
+    );
+
+    expect(permissionRequest).toHaveBeenCalledTimes(1);
+    expect(permissionRequest.mock.calls[0]?.[0]).toEqual({
+      sessionId: 'thread-1',
+      options: [
+        {
+          optionId: 'decision_0',
+          name: 'decline',
+          kind: 'reject_once',
+          _meta: { 'sbluemin/codexApprovalDecision': 'decline' },
+        },
+        {
+          optionId: 'decision_1',
+          name: 'accept',
+          kind: 'allow_once',
+          _meta: { 'sbluemin/codexApprovalDecision': 'accept' },
+        },
+        {
+          optionId: 'decision_2',
+          name: 'acceptForSession',
+          kind: 'allow_always',
+          _meta: { 'sbluemin/codexApprovalDecision': 'acceptForSession' },
+        },
+      ],
+      toolCall: {
+        toolCallId: 'commandExecution:88',
+        title: 'commandExecution',
+        kind: 'execute',
+        status: 'pending',
+        rawInput: {
+          input: 'npm test',
+          reason: '테스트 실행',
+          requestedPermissions: null,
+        },
+      },
+      _meta: {
+        'sbluemin/codexApproval': {
+          method: 'item/commandExecution/requestApproval',
+          requestedPermissions: null,
+        },
+      },
+    });
+    expect(lastOutgoingMessage(autoChild)).toEqual({
+      jsonrpc: '2.0',
+      id: 88,
+      result: {
+        decision: 'acceptForSession',
+      },
+    });
+  });
+
+  it('permissions autoApprove는 요청된 permissions payload를 승인 응답으로 돌려준다', async () => {
+    const autoChild = new MockChildProcess();
+    const autoConnection = new TestCodexAppServerConnection(autoChild, {
+      autoApprove: true,
+    });
+    const connectPromise = autoConnection.connect();
+    autoChild.stdout.emit(
+      'data',
+      `${jsonRpcResult(1, {
+        userAgent: 'codex/test',
+        codexHome: '/tmp/codex',
+        platformFamily: 'unix',
+        platformOs: 'macos',
+      })}\n`,
+    );
+    await flushMicrotask();
+    autoChild.stdout.emit('data', `${jsonRpcResult(2, { thread: { id: 'thread-1' } })}\n`);
+    await connectPromise;
+
+    const permissionPayload = { profile: 'full-auto' };
+    autoChild.stdout.emit(
+      'data',
+      `${jsonRpcServerRequest(89, 'item/permissions/requestApproval', {
+        threadId: 'thread-1',
+        turnId: 'turn-1',
+        itemId: 'item-permission',
+        cwd: '/workspace',
+        reason: 'MCP tool call',
+        permissions: permissionPayload,
+      })}\n`,
+    );
+
+    expect(lastOutgoingMessage(autoChild)).toEqual({
+      jsonrpc: '2.0',
+      id: 89,
+      result: {
+        permissions: permissionPayload,
+        scope: null,
+      },
+    });
+  });
+
+  it('permissions approval은 요청 payload를 노출하고 취소 시 빈 grant를 응답한다', () => {
+    const permissionPayload = { network: true, filesystem: { write: ['/workspace'] } };
+    const permissionRequest = vi.fn((params, resolve: (response: {
+      outcome: { outcome: 'cancelled' };
+    }) => void) => {
+      expect(params.toolCall.rawInput).toEqual({
+        input: 'MCP tool call',
+        reason: 'MCP tool call',
+        requestedPermissions: permissionPayload,
+      });
+      expect(params._meta).toEqual({
+        'sbluemin/codexApproval': {
+          method: 'item/permissions/requestApproval',
+          requestedPermissions: permissionPayload,
+        },
+      });
+      resolve({ outcome: { outcome: 'cancelled' } });
+    });
+    connection.on('permissionRequest', permissionRequest);
+
+    child.stdout.emit(
+      'data',
+      `${jsonRpcServerRequest(90, 'item/permissions/requestApproval', {
+        threadId: 'thread-1',
+        turnId: 'turn-1',
+        itemId: 'item-permission',
+        cwd: '/workspace',
+        reason: 'MCP tool call',
+        permissions: permissionPayload,
+      })}\n`,
+    );
+
+    expect(permissionRequest).toHaveBeenCalledTimes(1);
+    expect(lastOutgoingMessage(child)).toEqual({
+      jsonrpc: '2.0',
+      id: 90,
+      result: {
+        permissions: {},
+        scope: null,
       },
     });
   });

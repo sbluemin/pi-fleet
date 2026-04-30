@@ -76,6 +76,10 @@ describe('UnifiedCodexAgentClient config staging', () => {
         'app-server',
         '--listen',
         'stdio://',
+        '-c',
+        'approval_policy="never"',
+        '-c',
+        'sandbox_mode="danger-full-access"',
       ],
     }));
     expect(mockCodexConnect).toHaveBeenCalledWith({
@@ -108,6 +112,10 @@ describe('UnifiedCodexAgentClient config staging', () => {
         '--listen',
         'stdio://',
         '-c',
+        'approval_policy="never"',
+        '-c',
+        'sandbox_mode="danger-full-access"',
+        '-c',
         'mcp_servers.test-math.url="http://127.0.0.1:1234"',
         '-c',
         'mcp_servers.test-math.tool_timeout_sec=180',
@@ -136,6 +144,32 @@ describe('UnifiedCodexAgentClient config staging', () => {
     expect(CodexAppServerConnection).toHaveBeenCalledWith(expect.objectContaining({
       mcpServerNames: ['pi-tools'],
     }));
+  });
+
+  it('codex session resume은 thread/resume에 정책과 systemPrompt를 재전달한다', async () => {
+    const client = new UnifiedCodexAgentClient();
+
+    await client.connect({
+      cwd: '/workspace',
+      cli: 'codex',
+      sessionId: 'codex-thread-existing',
+      systemPrompt: '재개 지침',
+      model: 'gpt-5.4',
+    });
+
+    expect(mockCodexConnect).toHaveBeenCalledWith({
+      skipThreadStart: true,
+      model: 'gpt-5.4',
+    });
+    expect(mockCodexLoadSession).toHaveBeenCalledWith('codex-thread-existing', {
+      cwd: '/workspace',
+      model: 'gpt-5.4',
+      approvalPolicy: 'never',
+      sandbox: 'danger-full-access',
+      developerInstructions: '재개 지침',
+      config: undefined,
+    });
+    expect(client.getCurrentSystemPrompt()).toBe('재개 지침');
   });
 
   it('setModel/setConfigOption 후 다음 sendMessage에서 pending override를 consume한다', async () => {
@@ -224,5 +258,32 @@ describe('UnifiedCodexAgentClient config staging', () => {
         sandbox: expect.anything(),
       }),
     }));
+  });
+
+  it('sessionId resume 경로도 fresh thread/start와 동등한 정책과 developerInstructions를 전달한다', async () => {
+    const client = new UnifiedCodexAgentClient();
+
+    await client.connect({
+      cwd: '/workspace',
+      cli: 'codex',
+      sessionId: 'thread-existing',
+      systemPrompt: '재개 지침',
+      model: 'gpt-5.4',
+      yoloMode: false,
+    });
+
+    expect(mockCodexConnect).toHaveBeenCalledWith({
+      skipThreadStart: true,
+      model: 'gpt-5.4',
+    });
+    expect(mockCodexLoadSession).toHaveBeenCalledWith('thread-existing', {
+      cwd: '/workspace',
+      developerInstructions: '재개 지침',
+      model: 'gpt-5.4',
+      approvalPolicy: 'on-request',
+      sandbox: 'read-only',
+      config: undefined,
+    });
+    expect(client.getCurrentSystemPrompt()).toBe('재개 지침');
   });
 });

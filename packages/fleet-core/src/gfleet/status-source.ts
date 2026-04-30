@@ -1,0 +1,198 @@
+import type {
+  CarrierInfo,
+  CarrierMap,
+  CarrierStatus,
+  CliBackend,
+  FleetId,
+  FleetStatus,
+} from "./types.js";
+
+export interface FleetPingPayload {
+  activeMissionId: string | null;
+  activeMissionObjective: string | null;
+  carriers: CarrierMap;
+  cost: number;
+  fleetId: FleetId;
+  fleetStatus: FleetStatus;
+  uptime: number;
+}
+
+export interface FleetFrameworkLikeConfig {
+  cliType?: string;
+  displayName?: string;
+}
+
+export interface FleetFrameworkLikeMode {
+  config?: FleetFrameworkLikeConfig;
+}
+
+export interface FleetFrameworkLikeState {
+  modes?: Map<string, FleetFrameworkLikeMode>;
+  registeredOrder?: string[];
+  sortieDisabledCarriers?: Set<string>;
+  squadronEnabledCarriers?: Set<string>;
+  taskforceConfiguredCarriers?: Set<string>;
+}
+
+export interface GrandFleetMissionState {
+  activeMissionId: string | null;
+  activeMissionObjective: string | null;
+}
+
+export interface StreamRunLikeState {
+  error?: string;
+  requestPreview?: string;
+  status?: string;
+}
+
+export interface StreamStoreLikeState {
+  runs?: Map<string, StreamRunLikeState>;
+  visibleRunIdByCli?: Map<string, string>;
+}
+
+export function buildFleetPingPayloadFromState(input: {
+  fleetId: FleetId;
+  framework: FleetFrameworkLikeState;
+  mission: GrandFleetMissionState;
+  streams: StreamStoreLikeState;
+  uptime: number;
+}): FleetPingPayload {
+  const carriers = collectCarrierMap(input.framework, input.streams);
+  return {
+    fleetId: input.fleetId,
+    fleetStatus: deriveFleetStatus(carriers, input.mission),
+    activeMissionId: input.mission.activeMissionId,
+    activeMissionObjective: input.mission.activeMissionObjective,
+    uptime: input.uptime,
+    cost: 0,
+    carriers,
+  };
+}
+
+export function collectCarrierMap(
+  framework: FleetFrameworkLikeState,
+  streams: StreamStoreLikeState,
+): CarrierMap {
+  const runs = getVisibleRunMap(streams);
+  const carriers: CarrierMap = {};
+  const order = framework.registeredOrder ?? [];
+
+  for (const carrierId of order) {
+    const mode = framework.modes?.get(carrierId);
+    const cli = normalizeCliBackend(mode?.config?.cliType);
+    const run = runs.get(carrierId);
+    const isUnavailable = framework.sortieDisabledCarriers?.has(carrierId) ?? false;
+    const isStandby = framework.squadronEnabledCarriers?.has(carrierId) ?? false;
+    const status = deriveCarrierStatus(run?.status, isUnavailable, isStandby);
+    const info: CarrierInfo = {
+      status,
+    };
+
+    if (cli) {
+      info.cli = cli;
+    }
+
+    const task = deriveCarrierTask(run);
+    if (task) {
+      info.task = task;
+    }
+
+    if (framework.taskforceConfiguredCarriers?.has(carrierId)) {
+      info.tfConfigured = true;
+    }
+
+    carriers[carrierId] = info;
+  }
+
+  return carriers;
+}
+
+export function deriveFleetStatus(
+  carriers: CarrierMap,
+  mission: GrandFleetMissionState,
+): FleetStatus {
+  if (mission.activeMissionId) {
+    return "active";
+  }
+
+  const carrierStatuses = Object.values(carriers).map((carrier) => carrier.status);
+  if (carrierStatuses.some((status) => status === "error")) {
+    return "error";
+  }
+  if (carrierStatuses.some((status) => status === "active")) {
+    return "active";
+  }
+  return "idle";
+}
+
+function deriveCarrierStatus(
+  runStatus: string | undefined,
+  isUnavailable: boolean,
+  isStandby: boolean,
+): CarrierStatus {
+  if (runStatus === "conn" || runStatus === "stream") {
+    return "active";
+  }
+  if (runStatus === "err") {
+    return "error";
+  }
+  if (runStatus === "done") {
+    return "done";
+  }
+  if (isUnavailable) {
+    return "unavailable";
+  }
+  if (isStandby) {
+    return "standby";
+  }
+  return "idle";
+}
+
+function deriveCarrierTask(run: StreamRunLikeState | undefined): string | undefined {
+  const requestPreview = run?.requestPreview?.trim();
+  if (requestPreview) {
+    return sanitizeTaskText(requestPreview);
+  }
+  const error = run?.error?.trim();
+  return error ? sanitizeTaskText(error) : undefined;
+}
+
+function normalizeCliBackend(value: string | undefined): CliBackend | undefined {
+  if (value === "claude" || value === "codex" || value === "gemini") {
+    return value;
+  }
+  return undefined;
+}
+
+function getVisibleRunMap(streams: StreamStoreLikeState): Map<string, StreamRunLikeState> {
+  const visibleRunMap = new Map<string, StreamRunLikeState>();
+  const visibleRunIdByCli = streams.visibleRunIdByCli;
+  const runs = streams.runs;
+
+  if (!visibleRunIdByCli || !runs) {
+    return visibleRunMap;
+  }
+
+  for (const [carrierId, runId] of visibleRunIdByCli.entries()) {
+    const run = runs.get(runId);
+    if (run) {
+      visibleRunMap.set(carrierId, run);
+    }
+  }
+
+  return visibleRunMap;
+}
+
+function sanitizeTaskText(value: string): string {
+  const masked = value
+    .replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, "")
+    .replace(/\x1b[@-_][0-?]*[ -/]*[@-~]/g, "")
+    .replace(/[\x00-\x08\x0B-\x1F\x7F]/g, "")
+    .replace(/Bearer\s+\S+/gi, "Bearer [REDACTED]")
+    .replace(/sk-[a-zA-Z0-9]{20,}/g, "[REDACTED]")
+    .replace(/ghp_[a-zA-Z0-9]{36,}/g, "[REDACTED]")
+    .replace(/xox[bpras]-[a-zA-Z0-9-]+/g, "[REDACTED]")
+    .replace(/\b[a-zA-Z0-9_-]{40,}\b/g, "[REDACTED]");
+
+  return masked.slice(0, 80);
+}

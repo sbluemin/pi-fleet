@@ -5,11 +5,17 @@
 - [Node.js](https://nodejs.org/) (v18+)
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Codex CLI](https://github.com/openai/codex), [Gemini CLI](https://github.com/google-gemini/gemini-cli) installed and authenticated
 
-## 0. Install pi-coding-agent
+## 0. Install pi-coding-agent and pnpm
 
 ```bash
+# pi-coding-agent provides the `pi` runtime.
 npm install -g @mariozechner/pi-coding-agent
+
+# pnpm is the package manager for this repository.
+npm install -g pnpm
 ```
+
+> The repository is pinned to a specific pnpm version via the `packageManager` field in `package.json`. If you have [Corepack](https://nodejs.org/api/corepack.html) enabled, that version is used automatically; otherwise the globally installed pnpm is used as a fallback.
 
 ## 1. Clone the repository
 
@@ -22,64 +28,84 @@ git clone https://github.com/sbluemin/pi-fleet.git
 cd pi-fleet
 ```
 
-## 2. Install dependencies
+## 2. Install dependencies and register global commands
 
 ```bash
-# Install all workspace dependencies from the repository root.
-# The root postinstall hook also builds packages/unified-agent.
-npm install
+# One-time per machine: configure the pnpm global bin directory and add it to PATH.
+# Skip if `pnpm setup` was already run on this machine (PNPM_HOME is set).
+pnpm setup
+
+# After `pnpm setup`, open a new terminal so PNPM_HOME and PATH take effect, then cd back.
+# (In the same terminal you can also `export PNPM_HOME="$LOCALAPPDATA/pnpm"` on Windows
+# or `export PNPM_HOME="$HOME/Library/pnpm"` on macOS / `"$HOME/.local/share/pnpm"` on Linux,
+# and `export PATH="$PNPM_HOME:$PATH"` to use it without restarting the shell.)
+
+# Install all workspace dependencies. The root postinstall hook runs `pnpm -r build`,
+# which builds packages/unified-agent, packages/fleet-core, packages/fleet-wiki,
+# and packages/pi-fleet-extension in topological order.
+pnpm install
+
+# Approve native build scripts (one-time per machine).
+# Required for node-pty, esbuild, koffi, protobufjs, and @google/genai.
+# The result is saved to pnpm-workspace.yaml `allowBuilds` — subsequent installs
+# run these scripts automatically without a warning.
+pnpm approve-builds --all
 
 # Register the fleet wrapper commands globally.
-npm link
+pnpm link --global
 ```
 
-> The repository uses npm workspaces, and the root install is the single setup entry point.
+> The repository uses pnpm workspaces (see `pnpm-workspace.yaml`); the root install is the single setup entry point. `pnpm install` writes a single `pnpm-lock.yaml` at the repo root and links each workspace package's local dependencies via symlinks. Cross-package deps are declared with the `workspace:*` protocol so pnpm orders builds topologically.
 >
-> `npm install` installs the workspace dependencies for `packages/unified-agent`, `extensions/core`, and `extensions/fleet`, then builds `packages/unified-agent/dist/` via the root `postinstall` hook so the extensions can consume `@sbluemin/unified-agent` immediately.
->
-> `npm link` registers the global wrapper commands from this checkout:
+> `pnpm link --global` registers the global wrapper commands from this checkout:
 >
 > - `fleet` — launches `pi` with the standard Fleet mode.
 > - `fleet-exp` — launches standard Fleet mode with `PI_EXPERIMENTAL=1` enabled for the child process.
 > - `gfleet` — launches `pi` with Grand Fleet mode enabled for the child process.
-> - `fleet-dev` — launches standard Fleet mode, enables `PI_EXPERIMENTAL=1`, and loads each `extensions/*/index.ts` entry directly.
-> - `gfleet-dev` — launches Grand Fleet mode, enables `PI_EXPERIMENTAL=1`, and loads each `extensions/*/index.ts` entry directly.
+> - `fleet-dev` — launches standard Fleet mode, enables `PI_EXPERIMENTAL=1`, and loads `packages/pi-fleet-extension/src/index.ts` directly from this checkout.
+> - `gfleet-dev` — launches Grand Fleet mode, enables `PI_EXPERIMENTAL=1`, and loads `packages/pi-fleet-extension/src/index.ts` directly from this checkout.
 >
-> `extensions/core/shell` and `extensions/core/agentclientprotocol` are internal modules of the `extensions/core` workspace, so they no longer require separate `npm install` commands.
+> Fleet infrastructure, metaphor, carriers, and Agent Panel modules now live under `packages/pi-fleet-extension/src/`; they do not require separate `pnpm install` commands.
 
 ## 3. Register extensions in pi settings
 
-Add the `extensions` field to your pi settings file, pointing to the extension directories.
+Add or update the `extensions` field in your pi settings file so it points to the Fleet PI extension entry in this checkout.
 
 **Global** (`~/.pi/agent/settings.json`):
 
 ```json
 {
   "extensions": [
-    "<path-to-pi-fleet>/extensions"
+    "<path-to-pi-fleet>/packages/pi-fleet-extension/src/index.ts"
   ]
 }
 ```
 
 > Replace `<path-to-pi-fleet>` with the actual path where you cloned the repository.
 >
-> - `extensions/` — unified extension root. pi discovers the nested extension entry points under this directory.
-> - `extensions/core/` — single infrastructure extension whose root `index.ts` wires keybind, settings, log, welcome, hud, shell, thinking-timer, provider-guard, and acp-provider modules
-- `extensions/metaphor/` — metaphor framework extension (PERSONA/TONE management, operation naming, and directive refinement)
-> - `extensions/fleet/` — agent orchestration extension (carrier framework SDK, Admiral/Bridge/Carrier wiring, Agent Panel, unified pipeline)
-> - `extensions/fleet/admiral/` — Admiral prompt-policy library consumed by `fleet/index.ts`
-> - `extensions/fleet/bridge/` — active ACP provider bridge library consumed by `fleet/index.ts`
-> - `extensions/fleet/carriers/` — default carrier definitions consumed by `fleet/index.ts`
+> **Update rules (for AI one-shot setup):**
 >
-> With `extensions/` registered, pi discovers the extension entry points under that root, while `fleet/index.ts` internally wires the nested Admiral/Bridge/Carrier libraries.
+> - **File or directory missing**: create `~/.pi/agent/` if needed, then write the JSON above.
+> - **File exists without an `extensions` field**: add the field, preserving every other top-level field.
+> - **`extensions` already contains a pi-fleet entry** (e.g. legacy `<path-to-pi-fleet>/extensions` from older checkouts, or any path under `<path-to-pi-fleet>/`): replace that entry with the path above. Do not append a duplicate.
+> - **`extensions` references unrelated extensions**: keep them; only add or update the pi-fleet entry.
+>
+> **Entry options:**
+>
+> - Development entry: `packages/pi-fleet-extension/src/index.ts`
+> - Built entry after `pnpm --filter @sbluemin/pi-fleet-extension build`: `packages/pi-fleet-extension/dist/index.js`
+> - Product core: `packages/fleet-core/` contains Pi-agnostic runtime, public APIs, MCP/tool registry, job infrastructure, prompt policy, and metaphor logic.
+> - PI extension adapter: `packages/pi-fleet-extension/src/` wires keybind, settings, log, welcome, HUD, shell, thinking-timer, provider guard, ACP provider modules, metaphor UI, carriers, Admiral/Bridge libraries, Agent Panel, and unified pipeline.
+>
+> PI settings accept TypeScript or JavaScript extension entries. Use the TypeScript entry for local development, or the built JavaScript entry after building the workspace package.
 
 ## 4. Verify
 
 Launch `pi` and run `/reload`, then check:
 
 - No extension load errors in the output
-- `unified-agent --help` displays help output correctly
-- `unified-agent --list-models` shows the available model list
+- `ait --help` displays help output correctly
+- `ait --list-models` shows the available model list
 - `Alt+H` / `Alt+L` to move cursor between carrier slots
 - `Ctrl+Enter` to activate the carrier at cursor (exclusive mode)
 - `Alt+P` to toggle the Agent Panel
