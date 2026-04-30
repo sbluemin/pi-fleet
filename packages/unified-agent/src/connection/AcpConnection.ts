@@ -50,7 +50,7 @@ import { BaseConnection, type BaseConnectionOptions } from './BaseConnection.js'
 /** AcpConnection 생성 옵션 */
 export interface AcpConnectionOptions extends BaseConnectionOptions {
   /** CLI 종류 */
-  cliType?: CliType;
+  cliType?: CliType | 'codex-acp-bridge';
   /** 클라이언트 정보 */
   clientInfo?: {
     name: string;
@@ -94,7 +94,7 @@ type AcpConnectionEvents = BaseConnectionEventMap & AcpConnectionEventMap;
  * 공식 ACP SDK의 ClientSideConnection을 래핑하여 통합 이벤트 인터페이스를 제공합니다.
  */
 export class AcpConnection extends BaseConnection {
-  private readonly cliType: CliType | null;
+  private readonly cliType: CliType | 'codex-acp-bridge' | null;
   private readonly clientInfo: { name: string; version: string };
   private readonly protocolVersion: number;
   private readonly autoApprove: boolean;
@@ -217,11 +217,11 @@ export class AcpConnection extends BaseConnection {
         mcpServers: servers,
       };
 
-      const claudeSystemPrompt = this.getClaudeSystemPrompt(systemPrompt);
-      if (claudeSystemPrompt) {
+      const acpSystemPrompt = this.getAcpSystemPrompt(systemPrompt);
+      if (acpSystemPrompt) {
         newSessionParams._meta = {
           systemPrompt: {
-            append: claudeSystemPrompt,
+            append: acpSystemPrompt,
           },
         };
       }
@@ -345,9 +345,9 @@ export class AcpConnection extends BaseConnection {
     return this.createSession(workspace, sessionId, mcpServers, systemPrompt);
   }
 
-  /** Claude bridge만 native system prompt append를 지원하므로 이 경로만 사용합니다. */
-  private getClaudeSystemPrompt(systemPrompt?: string): string | null {
-    if (this.cliType !== 'claude') {
+  /** system prompt append를 지원하는 ACP bridge에만 `_meta`를 전달합니다. */
+  private getAcpSystemPrompt(systemPrompt?: string): string | null {
+    if (this.cliType !== 'claude' && this.cliType !== 'codex-acp-bridge') {
       return null;
     }
 

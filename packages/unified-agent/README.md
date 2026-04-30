@@ -4,7 +4,7 @@
 
 ## Overview
 
-Unified Agent provides two ways to control three major CLI agents — Gemini, Claude, and Codex — under a single interface.
+Unified Agent provides two ways to control Gemini, Claude, and Codex under a single interface.
 
 - **CLI Binary** — One-shot prompt execution from the command line
 - **TypeScript SDK** — Full programmatic control with event-based streaming
@@ -15,7 +15,7 @@ Unified Agent provides two ways to control three major CLI agents — Gemini, Cl
 |-----|----------|---------------|
 | **Gemini** | ACP | `gemini --acp` |
 | **Claude** | ACP | `npx --package=@agentclientprotocol/claude-agent-acp@0.29.2 claude-agent-acp` |
-| **Codex** | `codex-app-server` | `codex app-server --listen stdio://` |
+| **Codex** | `acp` (default bridge) / `codex-app-server` (internal alternate path) | `npx --package=@zed-industries/codex-acp@0.12.0 codex-acp` / `codex app-server --listen stdio://` |
 
 ### Prerequisites
 
@@ -148,7 +148,7 @@ On error:
 
 ### Reasoning Effort Support
 
-- **Codex**: supported via native `codex-app-server` turn config
+- **Codex**: supported; the default `acp` path uses the Codex ACP bridge and ACP `session/set_config_option`, and the internal app-server path keeps native pending turn config handling
 - **Claude (ACP via `claude-agent-acp`)**: unsupported, `ait -c claude -e high ...` is ignored with a notice
 - **Gemini**: unsupported, `ait -c gemini -e high ...` is ignored with a notice
 
@@ -220,7 +220,7 @@ const result = await client.connect({
 });
 ```
 
-For Codex, `systemPrompt` is passed to the native app-server as `developerInstructions` during thread creation rather than being prefixed onto the first user turn.
+For Codex, the public provider remains `codex`. Internally, `UnifiedCodexAgentClient` keeps both ACP bridge and `codex-app-server` flows explicit in one file. The current default path starts `npx --package=@zed-industries/codex-acp@0.12.0 codex-acp` with Codex-style `-c` overrides including `mcp_servers.*.tool_timeout_sec`. The ACP bridge receives `systemPrompt` through `_meta.systemPrompt.append`, while the app-server path still preserves `developerInstructions` thread creation semantics.
 
 #### `sendMessage(content: string | AcpContentBlock[]): Promise<PromptResponse>`
 

@@ -9,7 +9,7 @@ A minimal-dependency TypeScript SDK that integrates Gemini CLI, Claude Code, and
 - **Language**: TypeScript (ES2022, strict mode)
 - **Build**: tsup (ESM + CJS dual output)
 - **Test**: Vitest
-- **Runtime Dependencies**: `@agentclientprotocol/sdk`, `zod`, `picocolors`
+- **Runtime Dependencies**: `@agentclientprotocol/sdk`, `@zed-industries/codex-acp`, `zod`, `picocolors`
 - **Node.js**: >= 18.0.0
 
 ## Project Structure
@@ -33,7 +33,7 @@ src/
 │   ├── IUnifiedAgentClient.ts  # Public API contract + UnifiedAgent builder
 │   ├── UnifiedClaudeAgentClient.ts # Claude-specific client
 │   ├── UnifiedGeminiAgentClient.ts # Gemini-specific client
-│   └── UnifiedCodexAgentClient.ts  # Codex-specific client
+│   └── UnifiedCodexAgentClient.ts  # Codex client (app-server + ACP bridge split in one file)
 ├── detector/
 │   └── CliDetector.ts          # CLI auto-detection
 ├── models/
@@ -129,7 +129,7 @@ ait (gemini) ❯ {input}           # Omitted if effort is not supported
 - Test timeout: 180,000ms (3 mins), Session resume: 360,000ms (6 mins).
 
 ### Dependencies
-- **Minimize Runtime Dependencies**: `@agentclientprotocol/sdk` (Official ACP SDK) + `zod` (Schema validation) + `picocolors` (CLI styling).
+- **Minimize Runtime Dependencies**: `@agentclientprotocol/sdk` (Official ACP SDK) + `@zed-industries/codex-acp` (Codex ACP bridge) + `zod` (Schema validation) + `picocolors` (CLI styling).
 - Add only development tools to `devDependencies`: `typescript`, `tsup`, `vitest`, `@types/node`.
 
 ## Protocol Support Status per CLI
@@ -138,17 +138,18 @@ ait (gemini) ❯ {input}           # Omitted if effort is not supported
 |-----|----------|--------------|-------------------|----------|
 | Gemini | ACP | `gemini --acp` | ❌ | ❌ |
 | Claude | ACP (npx bridge) | `npx --package=@agentclientprotocol/claude-agent-acp@0.29.2 claude-agent-acp` | ✅ | ✅ |
-| Codex | `codex-app-server` | `codex app-server --listen stdio://` | Reflected in next turn/thread via pending override | Interpreted pending mode as next thread policy |
+| Codex | `acp` (default bridge) / `codex-app-server` (internal alternate path) | `npx --package=@zed-industries/codex-acp@0.12.0 codex-acp` / `codex app-server --listen stdio://` | ACP: ✅ / app-server: reflected in next turn/thread via pending override | ACP: ✅ / app-server: interpreted pending mode as next thread policy |
 
 ## Architecture Decisions
 
 1. **Specialized Clients per CLI**: The `UnifiedAgent` builder selects the provider client, and `UnifiedClaudeAgentClient` / `UnifiedGeminiAgentClient` / `UnifiedCodexAgentClient` directly hold each CLI specialization.
-2. **ACP SDK used only for Claude/Gemini**: Codex handles stdio JSON-RPC directly in `CodexAppServerConnection`.
+2. **Codex dual-flow in one class**: `UnifiedCodexAgentClient` keeps both native app-server and ACP bridge logic, with an internal protocol constant deciding the active path while preserving both implementations explicitly.
 3. **Config-driven + provider seam**: Maintain common contracts while encapsulating CLI differences in `CliConfigs.ts` and internal connection seams.
 4. **Event-driven Streaming**: Real-time response processing based on `EventEmitter` (`messageChunk`, `toolCall`, etc.).
 5. **Graceful Process Management**: 2-stage termination (SIGTERM → SIGKILL), and environment sanitization to prevent child process interference.
 6. **System Prompt Injection (Provider-aware)**:
    - **Claude**: `AcpConnection` appends to the native system prompt via `_meta.systemPrompt.append` when calling `session/new`. The `claude-agent-acp` bridge handles this.
-   - **Codex**: Passes `systemPrompt` as `developerInstructions` when creating/resuming a thread. Does not use first user turn prefixing.
+   - **Codex app-server**: Passes `systemPrompt` as `developerInstructions` when creating/resuming a thread. Does not use first user turn prefixing.
+   - **Codex ACP**: Uses ACP system prompt append through `AcpConnection` and starts the bridge with Codex-specific `-c` overrides including `mcp_servers.*.tool_timeout_sec`.
    - **Gemini**: `UnifiedGeminiAgentClient` manages `firstPromptPending` state and prefixes the first `sendMessage()` after a new session with the system text `ContentBlock`. This is not a true system-role guarantee.
    - **Session Persistence Contract**: Re-armed for new sessions after `resetSession()`. Codex resume/load paths via `sessionId` re-pass the current client's `systemPrompt`, policies (`approvalPolicy`/`sandbox`), and thread config to `thread/resume`. Claude/Gemini session resume follows a best-effort policy prioritizing conversation continuity; if intentional drift cleanup is needed, the caller must invoke `resetSession()`.
