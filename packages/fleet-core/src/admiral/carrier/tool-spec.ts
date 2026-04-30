@@ -12,6 +12,8 @@
  */
 
 import type { AgentToolSpec } from "../../public/tool-registry-services.js";
+import type { AgentStreamingSink } from "../../public/agent-services.js";
+import type { AgentStreamKey } from "../../services/agent/shared/types.js";
 import {
   buildSortieJobSummary,
   computeSortieFinalStatus,
@@ -74,6 +76,7 @@ interface SortieToolPorts {
   readonly logDebug: (category: string, message: string, options?: unknown) => void;
   readonly runAgentRequestBackground: (options: any) => Promise<any>;
   readonly enqueueCarrierCompletionPush: (payload: { jobId: string; summary: string }) => void;
+  readonly streamingSink?: AgentStreamingSink;
 }
 
 interface SortieBackgroundOptions {
@@ -321,6 +324,17 @@ async function runSortieAssignment(
     ].join("\n"),
     { hideFromFooter: true, category: "prompt" },
   );
+
+  const streamKey: AgentStreamKey = {
+    carrierId: assignment.carrier,
+    requestId: `${opts.sortieKey}:${assignment.carrier}`,
+  };
+  await opts.ports.streamingSink?.onAgentStreamEvent({
+    type: "request_begin",
+    key: streamKey,
+    requestPreview: composedRequest.trim().split(/\r?\n/, 1)[0],
+  });
+
   try {
     const result = await opts.ports.runAgentRequestBackground({
       cli: cliType,
@@ -336,28 +350,41 @@ async function runSortieAssignment(
         captureSortieRunId(opts.state, assignment.carrier);
         capturePanelTrackRunId(opts.jobId, assignment.carrier);
         updateColumnTrackStatus(opts.jobId, assignment.carrier, "stream");
+        void opts.ports.streamingSink?.onAgentStreamEvent({ type: "message", key: streamKey, text });
       },
       onThoughtChunk: (text: string) => {
         appendBlock(opts.jobId, toThoughtArchiveBlock(assignment.carrier, text));
         captureSortieRunId(opts.state, assignment.carrier);
         capturePanelTrackRunId(opts.jobId, assignment.carrier);
         updateColumnTrackStatus(opts.jobId, assignment.carrier, "stream");
+        void opts.ports.streamingSink?.onAgentStreamEvent({ type: "thought", key: streamKey, text });
       },
-      onToolCall: (toolTitle: string, toolStatus: string, _rawOutput?: string, _toolCallId?: string) => {
+      onToolCall: (toolTitle: string, toolStatus: string, _rawOutput?: string, toolCallId?: string) => {
         progress.status = "streaming";
         progress.toolCallCount++;
         captureSortieRunId(opts.state, assignment.carrier);
         capturePanelTrackRunId(opts.jobId, assignment.carrier);
         updateColumnTrackStatus(opts.jobId, assignment.carrier, "stream");
         opts.ports.logDebug(SORTIE_LOG_CATEGORY_STREAM, `carrier=${assignment.carrier} type=toolCall title=${toolTitle} status=${toolStatus}`, { hideFromFooter: true });
+        void opts.ports.streamingSink?.onAgentStreamEvent({ type: "tool", key: streamKey, title: toolTitle, status: toolStatus, toolCallId });
       },
     });
     progress.status = result.status === "done" ? "done" : "error";
+    const finalStatus = result.status === "done" ? "done" : result.status === "aborted" ? "aborted" : "error";
     updateColumnTrackStatus(
       opts.jobId,
       assignment.carrier,
-      result.status === "done" ? "done" : result.status === "aborted" ? "err" : "err",
+      finalStatus === "done" ? "done" : "err",
     );
+    void opts.ports.streamingSink?.onAgentStreamEvent({
+      type: "request_end",
+      key: streamKey,
+      reason: finalStatus,
+      sessionId: result.sessionId,
+      responseText: result.responseText,
+      thoughtText: result.thinking,
+      error: finalStatus === "aborted" ? "aborted" : result.error,
+    });
     opts.ports.logDebug(SORTIE_LOG_CATEGORY_EXEC, `carrier=${assignment.carrier} success=${result.status === "done"} status=${result.status} elapsedMs=${Date.now() - execStartedAt}`);
     return {
       carrierId: assignment.carrier,
@@ -371,6 +398,11 @@ async function runSortieAssignment(
     } as CarrierSortieResult;
   } catch (error) {
     updateColumnTrackStatus(opts.jobId, assignment.carrier, "err");
+    void opts.ports.streamingSink?.onAgentStreamEvent({
+      type: "error",
+      key: streamKey,
+      message: error instanceof Error ? error.message : String(error),
+    });
     opts.ports.logDebug(SORTIE_LOG_CATEGORY_EXEC, `carrier=${assignment.carrier} success=false status=error elapsedMs=${Date.now() - execStartedAt}`);
     throw error;
   }

@@ -45,6 +45,7 @@ import {
 } from "@sbluemin/fleet-core";
 
 import { enqueueCarrierCompletionPush } from "./agent/carrier-completion.js";
+import { createPanelStreamingSink } from "./agent/ui/agent-panel/streaming-sink.js";
 import { getFleetRuntime } from "./fleet.js";
 import { setAgentPanelModelConfig } from "./agent/ui/panel/config.js";
 import { renderCarrierJobsCall, renderCarrierJobsResult, type CarrierJobsToolResult } from "./job.js";
@@ -256,6 +257,7 @@ function createFleetRegistryPorts(pi: ExtensionAPI): FleetToolRegistryPorts {
     enqueueCarrierCompletionPush(payload) {
       enqueueCarrierCompletionPush(pi, payload);
     },
+    streamingSink: createPanelStreamingSink(),
   };
 }
 

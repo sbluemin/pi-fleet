@@ -29,7 +29,7 @@ import {
 } from "../services/agent/provider/tool-snapshot.js";
 import * as ToolRegistryServiceFacade from "../services/tool-registry/index.js";
 import { registerToolPromptManifest } from "../services/tool-registry/index.js";
-import type { FleetHostPorts } from "./agent-services.js";
+import type { AgentStreamingSink, FleetHostPorts } from "./agent-services.js";
 
 export type { McpCallToolResult };
 
@@ -86,6 +86,7 @@ export interface FleetToolRegistryPorts {
   readonly logDebug: (category: string, message: string, options?: unknown) => void;
   readonly runAgentRequestBackground: (options: any) => Promise<any>;
   readonly enqueueCarrierCompletionPush: (payload: { jobId: string; summary: string }) => void;
+  readonly streamingSink?: AgentStreamingSink;
 }
 
 export interface PendingToolCall {
