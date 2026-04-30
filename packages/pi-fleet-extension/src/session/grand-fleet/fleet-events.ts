@@ -1,10 +1,10 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 import { buildFleetAcpSystemPrompt, buildFleetContextPrompt } from "@sbluemin/fleet-core/admiralty";
+import { getLogAPI } from "@sbluemin/fleet-core/services/log";
 
-import { getLogAPI } from "../../bindings/config/log/bridge.js";
-import { getState } from "../../bindings/grand-fleet/state.js";
-import { sendCompleteReport } from "../../bindings/grand-fleet/fleet/reporter.js";
+import { getState } from "./state.js";
+import { sendCompleteReport } from "./fleet/reporter.js";
 import {
   clearFleetSessionBindings,
   connectToAdmiralty,
@@ -13,7 +13,7 @@ import {
   getFleetRuntime,
   setFleetSessionBindings,
   shutdownFleetRuntime,
-} from "../../bindings/grand-fleet/fleet/runtime.js";
+} from "./fleet/runtime.js";
 
 const LOG_SOURCE = "grand-fleet";
 

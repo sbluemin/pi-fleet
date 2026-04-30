@@ -26,7 +26,7 @@ vi.mock("@sbluemin/fleet-core/agent/runtime", () => ({
   onHostSessionChange: vi.fn(),
 }));
 
-vi.mock("../../src/bindings/config/log/bridge.js", () => ({
+vi.mock("@sbluemin/fleet-core/services/log", () => ({
   getLogAPI: () => ({
     debug: vi.fn(),
     registerCategory: vi.fn(),

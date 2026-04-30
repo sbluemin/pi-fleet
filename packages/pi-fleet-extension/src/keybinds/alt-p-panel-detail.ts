@@ -10,7 +10,7 @@
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 
-import { getKeybindAPI } from "../bindings/config/keybind/bridge.js";
+import { getKeybindAPI } from "../keybinds/core/bridge.js";
 import { BODY_H_STEP } from "@sbluemin/fleet-core/constants";
 import { toggleAgentPanel, showAgentPanel, setDetailView } from "../tui/panel-lifecycle.js";
 import { adjustPanelHeight } from "../tui/panel/config.js";

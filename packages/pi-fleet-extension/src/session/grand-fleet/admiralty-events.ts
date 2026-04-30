@@ -2,7 +2,7 @@ import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-age
 
 import { buildAdmiraltySystemPrompt } from "@sbluemin/fleet-core/admiralty";
 
-import { getState } from "../../bindings/grand-fleet/state.js";
+import { getState } from "./state.js";
 import {
   clearAdmiraltyRuntimePresenter,
   disposeAdmiraltyRuntime,
@@ -11,7 +11,7 @@ import {
   getAdmiraltyRegistry,
   getAdmiraltyServer,
   setRosterListenerDisposer,
-} from "../../bindings/grand-fleet/admiralty/runtime.js";
+} from "./admiralty/runtime.js";
 import { initRosterWidget, disposeRosterWidget, syncRosterWidget } from "../../tui/grand-fleet/admiralty/roster-widget.js";
 import { setEditorBorderColor, setEditorRightLabel } from "../../tui/hud/border-bridge.js";
 

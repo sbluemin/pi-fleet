@@ -1,5 +1,5 @@
 import { AgentSession, type ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import type { Model } from "../bindings/compat/pi-ai-bridge.js";
+import type { Model } from "./pi-ai-bridge.js";
 import {
   clampThinkingLevel,
   getAcpAvailableThinkingLevels,

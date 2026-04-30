@@ -135,7 +135,7 @@ vi.mock("../../src/provider/provider-events.js", () => ({
   }),
 }));
 
-vi.mock("../../src/bindings/config/log/bridge.js", () => ({
+vi.mock("@sbluemin/fleet-core/services/log", () => ({
   getLogAPI: () => ({
     debug: vi.fn(),
     info: vi.fn(),

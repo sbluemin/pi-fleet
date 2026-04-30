@@ -4,17 +4,17 @@
  * 배선(wiring)만 담당: 이벤트 핸들러, 커맨드 등록.
  */
 
-import type { Api, Model } from "../../bindings/compat/pi-ai-bridge.js";
 import type { ExtensionAPI, Theme } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
+import { isWorldviewEnabled } from "@sbluemin/fleet-core/metaphor";
 import type { ReasoningLevel } from "@sbluemin/fleet-core/metaphor/operation-name";
 import { REASONING_LEVELS, REASONING_LABELS, REASONING_COLORS, isValidReasoning } from "@sbluemin/fleet-core/metaphor/operation-name";
 import { loadSettings, saveSettings } from "@sbluemin/fleet-core/metaphor/operation-name";
 import type { OperationNameSettings } from "@sbluemin/fleet-core/metaphor/operation-name";
+import type { Api, Model } from "../../provider/pi-ai-bridge.js";
 import { generateOperationName, OPERATION_PREFIX, resolveModel } from "../../tui/metaphor/operation-name-summarizer.js";
-import { getSettingsAPI } from "../../bindings/config/settings/bridge.js";
-import { isWorldviewEnabled } from "@sbluemin/fleet-core/metaphor";
+import { getSettingsService } from "@sbluemin/fleet-core/services/settings";
 
 const OPERATION_NAME_STATUS_KEY = "metaphor-operation-name-status";
 const SESSION_ID_LENGTH = 8;
@@ -127,6 +127,10 @@ export function registerOperationNameCommand(pi: ExtensionAPI): void {
       );
     },
   });
+}
+
+export function registerOperationName(pi: ExtensionAPI): void {
+  registerOperationNameCommand(pi);
 }
 
 export default registerOperationNameCommand;

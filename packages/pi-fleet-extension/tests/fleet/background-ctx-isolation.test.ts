@@ -12,7 +12,7 @@ const runBackground = vi.fn(async (opts: any) => {
   };
 });
 
-vi.mock("../../src/bindings/runtime/fleet-boot.js", () => ({
+vi.mock("../../src/session/runtime/fleet-boot.js", () => ({
   getFleetRuntime: () => ({
     agent: {
       runBackground,
@@ -20,7 +20,7 @@ vi.mock("../../src/bindings/runtime/fleet-boot.js", () => ({
   }),
 }));
 
-import { createPanelStreamingSink } from "../../src/bindings/carrier/panel-streaming-sink.js";
+import { createPanelStreamingSink } from "../../src/tui/agent-panel/streaming-sink.js";
 import { runAgentRequestBackground } from "../../src/session/fleet/operation-runner.js";
 import { getState, syncColsWithRegisteredOrder } from "../../src/tui/panel/state.js";
 import * as panelState from "../../src/tui/panel/state.js";

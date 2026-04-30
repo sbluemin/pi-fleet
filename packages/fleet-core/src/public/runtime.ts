@@ -11,7 +11,6 @@ import {
 import { SettingsService } from "../services/settings/service.js";
 import {
   createAgentServices,
-  type BackendAdapter,
   type FleetAgentServices,
   type FleetHostPorts,
 } from "./agent-services.js";
@@ -48,7 +47,7 @@ import {
 export type { FleetAgentServices } from "./agent-services.js";
 export type { FleetServices } from "./fleet-services.js";
 export type { GrandFleetServices } from "./grand-fleet-services.js";
-export type { BackendAdapter, FleetHostPorts } from "./agent-services.js";
+export type { FleetHostPorts } from "./agent-services.js";
 export type { FleetJobServices } from "./job-services.js";
 export type { FleetLogServices } from "./log-services.js";
 export type { FleetMetaphorServices } from "./metaphor-services.js";
@@ -58,7 +57,6 @@ export type { FleetToolRegistryServices } from "./tool-registry-services.js";
 export interface FleetCoreRuntimeOptions {
   readonly dataDir: string;
   readonly ports: FleetHostPorts;
-  readonly backend?: BackendAdapter;
 }
 
 export interface FleetCoreRuntimeContext {

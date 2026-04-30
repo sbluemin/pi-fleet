@@ -17,7 +17,7 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 import type { CoreLogAPI, LogCategoryMeta, LogFooterBridge, LogEntry, LogLevel, LogOptions } from "@sbluemin/fleet-core/services/log";
 import { CORE_LOG_FOOTER_KEY, DEFAULT_LOG_CATEGORY } from "@sbluemin/fleet-core/services/log";
-import { _bootstrapLog } from "../bindings/config/log/bridge.js";
+import { initLogAPI } from "@sbluemin/fleet-core/services/log";
 import {
   loadSettings,
   saveSettings,
@@ -29,7 +29,7 @@ import {
   registerCategory,
   getRegisteredCategories,
 } from "@sbluemin/fleet-core/services/log";
-import { getSettingsAPI } from "../bindings/config/settings/bridge.js";
+import { getSettingsService } from "@sbluemin/fleet-core/services/settings";
 
 // ── 상수 ──
 
@@ -106,14 +106,14 @@ function createAPI(): CoreLogAPI {
 // ── globalThis에 실제 구현 등록 ──
 
 const impl = createAPI();
-_bootstrapLog(impl);
+initLogAPI(impl);
 
 // ── 확장 진입점 ──
 
 export default function (pi: ExtensionAPI) {
   // ── Settings 오버레이 섹션 등록 ──
 
-  const settingsApi = getSettingsAPI();
+  const settingsApi = getSettingsService();
   settingsApi?.registerSection({
     key: "core-log",
     displayName: "Log",

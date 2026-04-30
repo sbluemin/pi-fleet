@@ -9,7 +9,7 @@ legacy public leaf APIs such as `CoreServices`, `AgentRequestService`,
 
 - Subpaths: `@sbluemin/fleet-core`, `@sbluemin/fleet-core/runtime`
 - `createFleetCoreRuntime(options: FleetCoreRuntimeOptions): FleetCoreRuntimeContext`
-- `FleetCoreRuntimeOptions = { dataDir: string; ports: FleetHostPorts; backend?: BackendAdapter; }`
+- `FleetCoreRuntimeOptions = { dataDir: string; ports: FleetHostPorts; }`
 
 `FleetCoreRuntimeContext` is the only host-consumer context:
 
@@ -61,11 +61,10 @@ The old compatibility names are intentionally absent from the runtime context:
 
 The root export also provides support types needed to host the runtime:
 
-- `FleetHostPorts`, `FleetLogPort`, `CompletionPushPayload`
-- `BackendAdapter`, `BackendSession`, `BackendConnectOptions`, `BackendRequest`, `BackendResponse`
-- `LlmClient`, `LlmCompleteRequest`, `LlmCompleteResult`
-- `AgentStreamingSink`, `AgentStreamEvent`, `AgentStreamKey`, `CollectedStreamData`
-- `UnifiedAgentRequestOptions`, `UnifiedAgentBackgroundRequestOptions`, `UnifiedAgentResult`
+- `FleetHostPorts`, `FleetLogPort`
+- `AgentStreamingSink`, `AgentStreamEvent`, `AgentStreamKey`, `ColBlock`, `ColStatus`
+- `UnifiedAgentRequestOptions`, `UnifiedAgentBackgroundRequestOptions`, `UnifiedAgentRequestStatus`, `UnifiedAgentResult`
+- `ServiceStatusCallbacks`
 - `AgentToolSpec`, `AgentToolCtx`, `FleetToolRegistryPorts`
 
 These types support the domain services. They do not reintroduce separate

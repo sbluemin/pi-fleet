@@ -86,6 +86,7 @@ const PUBLIC_ACP_PROTOCOL: ProtocolType = 'acp';
 const INTERNAL_CODEX_ACP_BRIDGE_ID = 'codex-acp-bridge';
 const CODEX_TURN_LEVEL_CONFIG_KEYS = new Set(['reasoning_effort', 'model']);
 const CODEX_THREAD_POLICY_CONFIG_KEYS = new Set(['approvalPolicy', 'sandbox']);
+const CODEX_ACP_REASONING_EFFORT_NONE_FALLBACK = 'low';
 
 /**
  * Codex 내부 클라이언트.
@@ -502,7 +503,10 @@ export class UnifiedCodexAgentClient extends EventEmitter implements IUnifiedAge
       throw new Error('연결되어 있지 않습니다');
     }
 
-    await this.acpConnection.setConfigOption(this.sessionId, configId, value);
+    const acpValue = configId === 'reasoning_effort' && value === 'none'
+      ? CODEX_ACP_REASONING_EFFORT_NONE_FALLBACK
+      : value;
+    await this.acpConnection.setConfigOption(this.sessionId, configId, acpValue);
   }
 
   private async setModeAcp(mode: string): Promise<void> {

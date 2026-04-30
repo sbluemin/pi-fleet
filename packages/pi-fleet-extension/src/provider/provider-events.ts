@@ -11,12 +11,12 @@
  * imports → types/interfaces → constants → functions 순서 준수.
  */
 
-import type { AssistantMessage } from "../bindings/compat/pi-ai-bridge.js";
-import { createAssistantMessageEventStream } from "../bindings/compat/pi-ai-bridge.js";
+import type { AssistantMessage } from "./pi-ai-bridge.js";
+import { createAssistantMessageEventStream } from "./pi-ai-bridge.js";
 import type { FleetAcpToolCall, FleetAcpToolCallUpdate } from "@sbluemin/fleet-core/agent/provider-client";
 
 import { PROVIDER_ID } from "@sbluemin/fleet-core/agent/provider-types";
-import { getLogAPI } from "../bindings/config/log/bridge.js";
+import { getLogAPI } from "@sbluemin/fleet-core/services/log";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types / Interfaces

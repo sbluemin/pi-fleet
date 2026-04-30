@@ -66,12 +66,14 @@ Current capability buckets:
 
 | Bucket | Responsibility |
 |--------|----------------|
-| `src/bindings/runtime/` | PI lifecycle listeners and host event sequencing |
-| `src/bindings/compat/` | Compatibility-only seams, including the pi-ai bridge |
-| `src/bindings/` | Pi-bound wrappers/adapters over `fleet-core` ports (config, HUD, jobs, etc.) |
+| `src/session/runtime/` | PI lifecycle listeners and host event sequencing |
+| `src/session/grand-fleet/` | Grand Fleet session and runtime glue |
+| `src/provider/pi-ai-bridge.ts` | Provider-owned Pi AI gateway (gateway policy) |
 | `src/commands/` | Slash command registration |
 | `src/keybinds/` | Shortcut registration |
 | `src/tools/` | Tool registration and custom message/render wiring |
+| `src/tui/hud-lifecycle.ts` | HUD / editor lifecycle management |
+| `src/tui/agent-panel/` | Carrier streaming UI (streaming sink) |
 | `src/tui/` | Editor, footer, widgets, overlays, panel, shell, welcome |
 | `src/provider/` | Provider registration, provider stream wiring, and provider lifecycle glue |
 | `src/session/` | Non-provider Pi session features and active-run-safe wrappers |
@@ -108,7 +110,7 @@ When migrating or restoring behavior that once lived under those paths:
 - Do not import Grand Fleet surfaces from the deprecated Fleet Core location.
 - `fleet-core` must not import Pi packages.
 - `fleet-core` must not split internal admiralty ownership back out into a separate package.
-- `@mariozechner/pi-ai` imports stay confined to `packages/pi-fleet-extension/src/bindings/compat/pi-ai-bridge.ts`.
+- `@mariozechner/pi-ai` imports stay confined to `packages/pi-fleet-extension/src/provider/pi-ai-bridge.ts`.
 
 ## 7. PI Runtime Rules
 

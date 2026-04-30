@@ -7,17 +7,14 @@ import type {
 } from "../services/agent/types.js";
 
 export type {
-  AgentStreamEndReason,
   AgentStreamEvent,
   AgentStreamKey,
-  AgentStreamToolEvent,
   ColBlock,
   ColStatus,
-  CollectedStreamData,
 } from "../services/agent/types.js";
 export type { ServiceStatusCallbacks } from "../services/agent/service-status/store.js";
 
-export interface UnifiedAgentToolCall {
+interface UnifiedAgentToolCall {
   readonly title: string;
   readonly status: string;
 }
@@ -68,7 +65,7 @@ export interface UnifiedAgentResult {
   streamData?: CollectedStreamData;
 }
 
-export interface CompletionPushPayload {
+interface CompletionPushPayload {
   readonly jobId: string;
   readonly carrierId: string;
   readonly title: string;
@@ -76,30 +73,10 @@ export interface CompletionPushPayload {
   readonly details?: unknown;
 }
 
-export type FleetLogLevel = "debug" | "info" | "warn" | "error";
+type FleetLogLevel = "debug" | "info" | "warn" | "error";
 
 export interface FleetLogPort {
   (level: FleetLogLevel, message: string, details?: unknown): void;
-}
-
-export interface LlmCompleteMessage {
-  readonly role: "system" | "user" | "assistant";
-  readonly content: string;
-}
-
-export interface LlmCompleteRequest {
-  readonly systemPrompt?: string;
-  readonly messages: readonly LlmCompleteMessage[];
-  readonly model?: string;
-  readonly thinking?: string;
-}
-
-export interface LlmCompleteResult {
-  readonly text: string;
-}
-
-export interface LlmClient {
-  complete(request: LlmCompleteRequest): Promise<LlmCompleteResult>;
 }
 
 export interface FleetHostPorts {
@@ -111,7 +88,6 @@ export interface FleetHostPorts {
   log: FleetLogPort;
   now(): number;
   getDeliverAs(): string | undefined;
-  llmClient?: LlmClient;
   serviceStatus?: ServiceStatusCallbacks;
   streamingSink?: AgentStreamingSink;
 }

@@ -8,7 +8,7 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 
-import { getBindings } from "../bindings/config/keybind/registry.js";
+import { getBindings } from "../keybinds/core/registry.js";
 import { KeybindOverlay } from "../tui/overlays/keybind-overlay.js";
 
 // ── 팝업 상태 ──

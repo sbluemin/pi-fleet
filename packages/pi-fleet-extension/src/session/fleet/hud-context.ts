@@ -4,7 +4,7 @@
  * 세션 이벤트를 파싱하여 세그먼트 렌더링에 필요한 컨텍스트를 구성한다.
  */
 
-import type { AssistantMessage } from "../../bindings/compat/pi-ai-bridge.js";
+import type { AssistantMessage } from "../../provider/pi-ai-bridge.js";
 import type { Theme } from "@mariozechner/pi-coding-agent";
 
 import type { ColorScheme, HudCoreConfig, SegmentContext, SegmentStateProvider } from "../../tui/hud/types.js";

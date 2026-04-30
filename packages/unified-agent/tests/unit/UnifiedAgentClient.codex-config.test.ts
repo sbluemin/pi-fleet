@@ -169,6 +169,20 @@ describe('UnifiedCodexAgentClient ACP 기본 경로', () => {
     expect(mockAcpSendPrompt).toHaveBeenCalledWith('codex-session-1', '안녕');
   });
 
+  it('ACP bridge에서 reasoning_effort none은 codex-acp 호환을 위해 low로 전달한다', async () => {
+    const client = new UnifiedCodexAgentClient();
+    await client.connect({
+      cwd: '/workspace',
+      cli: 'codex',
+    });
+
+    await client.setConfigOption('reasoning_effort', 'none');
+    await client.setConfigOption('model', 'none');
+
+    expect(mockAcpSetConfigOption).toHaveBeenCalledWith('codex-session-1', 'reasoning_effort', 'low');
+    expect(mockAcpSetConfigOption).toHaveBeenCalledWith('codex-session-1', 'model', 'none');
+  });
+
   it('loadSession은 ACP loadSession 경로를 사용한다', async () => {
     const client = new UnifiedCodexAgentClient();
     await client.connect({

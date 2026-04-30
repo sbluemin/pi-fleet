@@ -1,6 +1,6 @@
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 
-import { getSettingsAPI } from "../bindings/config/settings/bridge.js";
+import { getSettingsService } from "@sbluemin/fleet-core/services/settings";
 
 export interface ProviderGuardSettings {
   enabled?: boolean;
@@ -42,7 +42,7 @@ export function getGuardState(): ProviderGuardState {
 }
 
 export function saveProviderGuardSettings(settings: ProviderGuardSettings): void {
-  const api = getSettingsAPI();
+  const api = getSettingsService();
   if (!api) throw new Error("Fleet-Core Settings API not available");
   api.save(PROVIDER_GUARD_SECTION_KEY, settings);
 }
@@ -65,7 +65,7 @@ export function enforceProviderGuardAllowedModel(pi: ExtensionAPI, ctx: Extensio
 }
 
 function loadProviderGuardSettings(): ProviderGuardSettings {
-  const api = getSettingsAPI();
+  const api = getSettingsService();
   if (!api) return {};
   try {
     return api.load<ProviderGuardSettings>(PROVIDER_GUARD_SECTION_KEY);

@@ -16,7 +16,7 @@ import type {
   SimpleStreamOptions,
   ThinkingBudgets,
   Tool,
-} from "../bindings/compat/pi-ai-bridge.js";
+} from "./pi-ai-bridge.js";
 import crypto from "crypto";
 import {
   buildProviderClient,
@@ -45,7 +45,7 @@ import {
 } from "@sbluemin/fleet-core/agent/provider-types";
 import { applyPostConnectConfig } from "@sbluemin/fleet-core/agent/executor";
 import { createEventMapper } from "./provider-events.js";
-import { getLogAPI } from "../bindings/config/log/bridge.js";
+import { getLogAPI } from "@sbluemin/fleet-core/services/log";
 import {
   startMcpServer,
   stopMcpServer,

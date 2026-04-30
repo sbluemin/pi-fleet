@@ -16,7 +16,7 @@ import {
   type CliType,
 } from "@sbluemin/fleet-core/agent/provider-client";
 
-import { getLogAPI } from "../bindings/config/log/bridge.js";
+import { getLogAPI } from "@sbluemin/fleet-core/services/log";
 import { setAgentLogPort } from "@sbluemin/fleet-core/agent/log-port";
 import {
   PROVIDER_ID,

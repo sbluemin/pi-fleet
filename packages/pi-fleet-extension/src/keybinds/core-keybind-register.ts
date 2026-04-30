@@ -8,10 +8,10 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 
-import { _bootstrapKeybind, getKeybindAPI } from "../bindings/config/keybind/bridge.js";
-import type { CoreKeybindAPI, KeybindRegistration, ResolvedBinding } from "../bindings/config/keybind/types.js";
-import { getOverrideKey } from "../bindings/config/keybind/store.js";
-import { addBinding, getBindings, getKey } from "../bindings/config/keybind/registry.js";
+import { _bootstrapKeybind, getKeybindAPI } from "./core/bridge.js";
+import type { CoreKeybindAPI, KeybindRegistration, ResolvedBinding } from "./core/types.js";
+import { getOverrideKey } from "./core/store.js";
+import { addBinding, getBindings, getKey } from "./core/registry.js";
 import { KeybindOverlay } from "../tui/overlays/keybind-overlay.js";
 
 // ── 팝업 상태 ──

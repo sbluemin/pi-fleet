@@ -10,7 +10,7 @@ import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
 import { stripControlChars, type ConnectedFleet } from "@sbluemin/fleet-core/admiralty";
-import { getState } from "../../../bindings/grand-fleet/state.js";
+import { getState } from "../../../session/grand-fleet/state.js";
 
 const WIDGET_KEY = "grand-fleet-roster";
 const ADMIRALTY_COLOR = "\x1b[38;2;255;200;60m";

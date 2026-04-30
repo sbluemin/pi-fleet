@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { CliType } from "@sbluemin/fleet-core/agent/provider-client";
 
-import { getKeybindAPI } from "../bindings/config/keybind/bridge.js";
+import { getKeybindAPI } from "../keybinds/core/bridge.js";
 import { getServiceSnapshots, refreshStatusQuiet } from "../provider/service-status-store.js";
 import { refreshAgentPanel } from "../tui/panel-lifecycle.js";
 import {

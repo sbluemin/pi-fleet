@@ -1,6 +1,6 @@
 # pi-fleet-extension Doctrine
 
-`packages/pi-fleet-extension` is the Pi capability package for Fleet. It owns Pi runtime wiring, capability-bucket entry points, TUI mounting, lifecycle listeners, bindings, provider registration, and compatibility adapters while consuming `@sbluemin/fleet-core` public exports, `@sbluemin/fleet-core/admiralty*` (internalized Grand Fleet domain, formerly `gfleet`), and `@sbluemin/fleet-wiki`.
+`packages/pi-fleet-extension` is the Pi capability package for Fleet. It owns Pi runtime wiring, capability-bucket entry points, TUI mounting, lifecycle listeners, provider registration, and the provider-owned Pi AI gateway while consuming `@sbluemin/fleet-core` public exports, `@sbluemin/fleet-core/admiralty*` (internalized Grand Fleet domain, formerly `gfleet`), and `@sbluemin/fleet-wiki`.
 
 ## Current Architecture Status
 
@@ -15,16 +15,12 @@
 
 ## Capability Buckets
 
-- `src/bindings/` — owns fleet-core public API to Pi wrapper/facade/adapter bridges
-  - `src/bindings/runtime/` — owns `pi.on(...)` listeners and host event sequencing (formerly lifecycle)
-  - `src/bindings/compat/` — owns compatibility seams, including the sole `@mariozechner/pi-ai` bridge (formerly compat)
-  - includes config/keybind/log/HUD/carrier/admiral/jobs/**bridge** bindings
 - `src/commands/` — owns `pi.registerCommand(...)` wiring
 - `src/keybinds/` — owns `pi.registerShortcut(...)` wiring
 - `src/tools/` — owns `pi.registerTool(...)` and Pi-side renderer registration
 - `src/tui/` — owns all `@mariozechner/pi-tui` rendering, overlays, and host shell UI
-- `src/provider/` — owns Pi provider registration, stream wiring, and provider lifecycle glue
-- `src/session/` — owns non-provider Pi session features and active-run-safe wrappers
+- `src/provider/` — owns Pi provider registration, stream wiring, provider lifecycle glue, and the sole `@mariozechner/pi-ai` gateway at `src/provider/pi-ai-bridge.ts`
+- `src/session/` — owns non-provider Pi session features, active-run-safe wrappers, Fleet boot/session runtime, and Grand Fleet session runtime
 
 ## Must Own
 
@@ -32,14 +28,14 @@
 - Pi widget/editor/footer/overlay rendering
 - Pi-specific lifecycle coordination and active-run-safe wrappers
 - Pi tool registration loops that consume `fleet-core` tool specs and call `pi.registerTool(...)`
-- Binding implementations that connect `fleet-core` public APIs and ports to Pi facilities
 
 ## Must Not Own
 
 - New Fleet domain business logic that can live in `fleet-core`
 - New deep domain trees under legacy homes like `src/fleet/**`, `src/grand-fleet/**`, or `src/metaphor/**`
 - Deep imports from `@sbluemin/fleet-core/src/**` or `@sbluemin/fleet-core/internal/**`
-- Additional `@mariozechner/pi-ai` imports outside `src/bindings/compat/pi-ai-bridge.ts`
+- Additional `@mariozechner/pi-ai` imports outside `src/provider/pi-ai-bridge.ts` (Gateway isolation policy)
+- Any code in `src/bindings/` (This legacy bucket is removed; consumption of fleet-core APIs must happen directly in the relevant capability bucket)
 
 ## Import Boundaries
 
@@ -68,3 +64,4 @@
 - Preserve slash command names and existing `globalThis` compatibility keys.
 - Preserve custom message delivery semantics for carrier completion pushes.
 - When a module mixes Pi wiring with pure logic, keep the Pi half here and move the pure half to `fleet-core`.
+- Compatibility bridges are now integrated into their respective capability buckets; no separate `bindings/` isolation is permitted.

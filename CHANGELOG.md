@@ -5,6 +5,14 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Changed
+- AGENTS doctrine "compat isolation pattern" replaced with "provider gateway pattern" — only `packages/pi-fleet-extension/src/provider/pi-ai-bridge.ts` is allowed to import `@mariozechner/pi-ai`.
+
+### Removed
+- Removed `pi-fleet-extension/src/bindings/` capability bucket (admiral, carrier, compat, config, grand-fleet, hud, jobs, metaphor, runtime). Service consumption now uses `fleet-core` public surface directly; `@mariozechner/pi-ai` gateway moved to `src/provider/pi-ai-bridge.ts`; runtime glue moved to `src/session/runtime/`; grand-fleet glue moved to `src/session/grand-fleet/`; HUD lifecycle moved to `src/tui/hud-lifecycle.ts`; carrier panel sink moved to `src/tui/agent-panel/`; carrier completion glue moved to `src/session/`.
+- Removed `fleet-core` public types `LlmClient`, `LlmCompleteMessage`, `LlmCompleteRequest`, `LlmCompleteResult` (dead code; `FleetAgentClient` is the active replacement).
+- Demoted `BackendAdapter`, `BackendConnectOptions`, `BackendRequest`, `BackendResponse`, and `BackendSession` from `fleet-core` public exports.
+
 ## [0.6.2] - 2026-04-30
 
 ### Removed

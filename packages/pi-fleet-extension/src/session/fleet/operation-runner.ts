@@ -6,7 +6,7 @@ import type {
   UnifiedAgentRequestStatus,
 } from "@sbluemin/fleet-core";
 
-import { getFleetRuntime, withAgentRequestContext } from "../../bindings/runtime/fleet-boot.js";
+import { getFleetRuntime, withAgentRequestContext } from "../runtime/fleet-boot.js";
 
 export type {
   UnifiedAgentBackgroundRequestOptions,

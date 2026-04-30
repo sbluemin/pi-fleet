@@ -17,9 +17,9 @@
 | `packages/fleet-core/src/services/` | Shared pure service modules, renamed from `core-services`. Includes `agent/`, `job/`, settings, log, and **tool-registry** (renamed from `tool-prompt-manifest`). Keybind ownership belongs to `packages/pi-fleet-extension/` because shortcuts require a UI host. |
 | `packages/fleet-core/src/admiralty/` | Grand Fleet domain home inside `fleet-core` (renamed from `gfleet`). Exposed via `@sbluemin/fleet-core/admiralty` and `@sbluemin/fleet-core/admiralty/ipc`. Formation/tmux helpers are removed. |
 | `packages/fleet-core/src/public/` | Public composition surface. Keep `runtime.ts` plus domain service modules only (`fleet-services`, `grand-fleet-services`, `metaphor-services`, `agent-services`, `job-services`, `log-services`, `settings-services`, `tool-registry-services`). Do not reintroduce legacy public leaves such as `agent-request`, `agent-runtime`, `host-ports`, `mcp`, `streaming-sink`, or raw `tool-registry`. |
-| `packages/pi-fleet-extension/` | Pi capability package — host runtime bindings, commands, keybinds, tools, TUI, provider registration, session features, and compat seams |
+| `packages/pi-fleet-extension/` | Pi capability package — host runtime listeners, commands, keybinds, tools, TUI, provider registration, provider-owned Pi AI gateway, and session features |
 | `packages/pi-fleet-extension/src/` | Current physical home of Pi capability buckets |
-| `packages/pi-fleet-extension/src/{bindings,commands,keybinds,tools,tui,provider,session}/` | Current doctrinal homes for Pi-specific ownership |
+| `packages/pi-fleet-extension/src/{commands,keybinds,tools,tui,provider,session}/` | Current doctrinal homes for Pi-specific ownership |
 | `packages/pi-fleet-extension/src/{fleet,grand-fleet,metaphor,core,boot}/` | Removed legacy domain directories. Do not reintroduce these homes inside `pi-fleet-extension`; use the current capability buckets under `src/` instead. |
 | `packages/pi-fleet-extension/src/{tui,commands,tools,session}/fleet-wiki/` | Active Fleet Wiki capability buckets. Keep Pi-side Wiki UI, command, tool, and session integrations in these bucket homes. |
 

@@ -9,7 +9,7 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { CliType } from "@sbluemin/fleet-core/agent/provider-client";
 
-import { getLogAPI } from "../../bindings/config/log/bridge.js";
+import { getLogAPI } from "@sbluemin/fleet-core/services/log";
 import { registerCarrier, reorderRegisteredByCliType } from "./framework.js";
 import type { CarrierConfig, CarrierMetadata } from "@sbluemin/fleet-core/admiral/carrier";
 import {

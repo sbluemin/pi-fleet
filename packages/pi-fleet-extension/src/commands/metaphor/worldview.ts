@@ -6,10 +6,10 @@
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import { isWorldviewEnabled, setWorldviewEnabled } from "@sbluemin/fleet-core/metaphor";
 
 import registerDirectiveRefinement from "./directive-refinement-register.js";
-import { registerOperationName } from "../../bindings/metaphor/operation-name-register.js";
-import { isWorldviewEnabled, setWorldviewEnabled } from "@sbluemin/fleet-core/metaphor";
+import { registerOperationName } from "./operation-name-command.js";
 
 /**
  * metaphor worldview 토글 커맨드를 등록한다.

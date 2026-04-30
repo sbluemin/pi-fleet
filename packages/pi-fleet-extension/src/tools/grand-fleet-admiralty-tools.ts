@@ -32,11 +32,11 @@ import {
   type MissionId,
 } from "@sbluemin/fleet-core/admiralty";
 
-import { getAdmiraltyRegistry, getAdmiraltyServer } from "../bindings/grand-fleet/admiralty/runtime.js";
-import type { AdmiraltyServer } from "../bindings/grand-fleet/admiralty/server.js";
-import type { FleetRegistry } from "../bindings/grand-fleet/admiralty/fleet-registry.js";
-import { getLogAPI } from "../bindings/config/log/bridge.js";
-import { getState } from "../bindings/grand-fleet/state.js";
+import { getAdmiraltyRegistry, getAdmiraltyServer } from "../session/grand-fleet/admiralty/runtime.js";
+import type { AdmiraltyServer } from "../session/grand-fleet/admiralty/server.js";
+import type { FleetRegistry } from "../session/grand-fleet/admiralty/fleet-registry.js";
+import { getLogAPI } from "@sbluemin/fleet-core/services/log";
+import { getState } from "../session/grand-fleet/state.js";
 import { syncRosterWidget } from "../tui/grand-fleet/admiralty/roster-widget.js";
 
 interface DeployParams {

@@ -10,7 +10,7 @@ import {
   getFleetRuntime,
   setFleetSessionBindings,
   shutdownFleetRuntime,
-} from "../../src/bindings/grand-fleet/fleet/runtime.js";
+} from "../../src/session/grand-fleet/fleet/runtime.js";
 import {
   GRAND_FLEET_STATE_KEY,
   GRAND_FLEET_FLEET_RUNTIME_KEY,

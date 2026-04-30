@@ -1,6 +1,5 @@
 import { createAgentRequestService } from "./request/service.js";
 import type {
-  BackendAdapter,
   FleetHostPorts,
   UnifiedAgentBackgroundRequestOptions,
   UnifiedAgentRequestOptions,
@@ -22,7 +21,6 @@ interface AgentRequestService {
 export interface AgentRuntimeOptions {
   readonly dataDir: string;
   readonly ports: FleetHostPorts;
-  readonly backend?: BackendAdapter;
   readonly toolRegistry?: AgentToolRegistry;
 }
 

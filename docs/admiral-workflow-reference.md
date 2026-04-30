@@ -70,7 +70,7 @@ Runtime composition is exposed through the package root and `@sbluemin/fleet-cor
 - keybind registration
 - tool registration
 - provider registration/stream glue and non-provider session handling
-- settings/keybind/log/HUD bridges
+- settings/keybind/log/HUD glue and lifecycle management
 - Pi overlays, widgets, editor/footer rendering
 - compatibility adapters and push delivery seams
 
@@ -80,12 +80,14 @@ Runtime composition is exposed through the package root and `@sbluemin/fleet-cor
 
 In the current layout, Pi ownership is expressed through these buckets:
 
-- `src/bindings/runtime/` — `pi.on(...)` listeners and host event sequencing
-- `src/bindings/compat/` — compatibility-only seams, including the pi-ai bridge
-- `src/bindings/` — Pi-bound wrappers/adapters over `fleet-core` (config, HUD, jobs, etc.)
+- `src/session/runtime/` — PI lifecycle listeners and host event sequencing
+- `src/session/grand-fleet/` — Grand Fleet session and runtime glue
+- `src/provider/pi-ai-bridge.ts` — provider-owned Pi AI gateway
 - `src/commands/` — slash command registration
 - `src/keybinds/` — shortcut registration
 - `src/tools/` — tool registration and Pi-side renderer/message wiring
+- `src/tui/hud-lifecycle.ts` — HUD / editor lifecycle management
+- `src/tui/agent-panel/` — carrier streaming UI (streaming sink)
 - `src/tui/` — all Pi TUI rendering
 - `src/provider/` — provider registration, provider stream wiring, and provider lifecycle glue
 - `src/session/` — non-provider Pi session features and active-run-safe wrappers
