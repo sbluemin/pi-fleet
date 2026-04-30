@@ -5,6 +5,8 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-04-30
+
 ### Removed
 - Removed Fleet Wiki AAR support, including the `wiki_aar_propose` MCP tool, the `aar_only` capture mode, and all AAR-specific prompt/schema surfaces.
 - Removed the Fleet Wiki `append_log` patch operation, the `.fleet/knowledge/log/` store directory, and the AAR-only types and validation paths tied to log entries.
