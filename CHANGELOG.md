@@ -5,6 +5,8 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-04-30
+
 ### Added
 - **Detached Fanout Helper**: Extracted `packages/fleet-core/src/admiral/_shared/detached-fanout.ts` to unify detached parallel-job runner logic for Squadron and TaskForce domains, reducing code duplication.
 - **Provider Catalog Extraction**: Split `packages/fleet-core/src/admiral/store/provider-catalog.ts` from `fleet-store.ts` to isolate model and budget definitions.
