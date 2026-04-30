@@ -47,6 +47,7 @@ export type StatusLineSegmentId =
   | "time_spent"
   | "time"
   | "session"
+  | "operation"
   | "hostname"
   | "cache_read"
   | "cache_write"
@@ -120,6 +121,7 @@ export interface SegmentContext {
   model: { id: string; name?: string; reasoning?: boolean; contextWindow?: number; provider?: string } | undefined;
   thinkingLevel: string;
   sessionId: string | undefined;
+  operationName: string | undefined;
   usageStats: UsageStats;
   contextPercent: number;
   contextWindow: number;
@@ -181,4 +183,8 @@ export interface SegmentStateProvider {
   footerDataRef: ReadonlyFooterDataProvider | null;
   getThinkingLevelFn: (() => string) | null;
   sessionStartTime: number;
+}
+
+export interface HudRenderRequestBridge {
+  requestRender: (() => void) | null;
 }

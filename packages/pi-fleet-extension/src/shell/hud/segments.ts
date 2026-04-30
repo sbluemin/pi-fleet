@@ -353,6 +353,14 @@ const sessionSegment: StatusLineSegment = {
   },
 };
 
+const operationSegment: StatusLineSegment = {
+  id: "operation",
+  render(ctx) {
+    if (!ctx.operationName) return { content: "", visible: false };
+    return { content: color(ctx, "pi", ctx.operationName), visible: true };
+  },
+};
+
 const hostnameSegment: StatusLineSegment = {
   id: "hostname",
   render() {
@@ -433,6 +441,7 @@ export const SEGMENTS: Record<StatusLineSegmentId, StatusLineSegment> = {
   time_spent: timeSpentSegment,
   time: timeSegment,
   session: sessionSegment,
+  operation: operationSegment,
   hostname: hostnameSegment,
   cache_read: cacheReadSegment,
   cache_write: cacheWriteSegment,

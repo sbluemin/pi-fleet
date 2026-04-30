@@ -14,6 +14,11 @@ import {
   getAllProtocols,
   setActiveProtocol,
 } from "@sbluemin/fleet-core/admiral";
+import {
+  composeOperationNameRequest,
+  loadSettings as loadOperationNameSettings,
+  sanitizeOperationNameDisplay,
+} from "@sbluemin/fleet-core/metaphor/operation-name";
 import { registerDefaultCarrierPersonas } from "@sbluemin/fleet-core/admiral/carrier/personas";
 import {
   getConfiguredTaskForceCarrierIds,
@@ -30,6 +35,8 @@ import { isWorldviewEnabled } from "@sbluemin/fleet-core/metaphor";
 import { getLogAPI } from "@sbluemin/fleet-core/services/log";
 import { bootBridge, ensureBridgeKeybinds } from "./agent/ui/acp-shell/register.js";
 import { syncModelConfig } from "./agent/carrier/model-ui.js";
+import { completeSimple } from "./agent/provider.js";
+import type { Api, Model, ThinkingLevel } from "./agent/provider.js";
 import { registerGrandFleet } from "./grand-fleet/index.js";
 import { getKeybindAPI } from "./shell/keybinds/core/bridge.js";
 import { attachStatusContext, detachStatusContext, refreshStatusNow } from "./agent/provider-internal/service-status-store.js";
@@ -57,6 +64,26 @@ export interface FleetLifecycleRuntime {
   fleetEnabled: boolean;
 }
 
+interface OperationNameGlobalState {
+  sessionId: string;
+  displayName?: string;
+  pending: boolean;
+}
+
+interface OperationNameSessionState {
+  displayName?: string;
+  pending: boolean;
+}
+
+interface OperationNameGlobalStore {
+  currentSessionId?: string;
+  sessions: Record<string, OperationNameSessionState | undefined>;
+}
+
+interface HudRenderRequestBridge {
+  requestRender?: (() => void) | null;
+}
+
 const FLEET_PREAMBLE = String.raw`
 This system prompt contains ${"\`"}<fleet section="...">${"\`"} XML blocks that define your identity, doctrine, and operational rules.
 Each block's ${"\`"}section${"\`"} attribute defines its domain; ${"\`"}tool${"\`"} narrows the scope to that specific tool.
@@ -80,6 +107,10 @@ This is a hard prerequisite. Do NOT skip this step or assume you already know th
 - Use Fleet carrier dispatch tools for implementation, analysis, review, and exploration tasks.
 - All responses must be written in Korean.
 `;
+
+const OPERATION_NAME_GLOBAL_KEY = "__pi_fleet_operation_name__";
+const HUD_RENDER_REQUEST_GLOBAL_KEY = "__pi_hud_render_request__";
+const OPERATION_NAME_ATTEMPTS = new Set<string>();
 
 let fleetRuntime: FleetCoreRuntimeContext | undefined;
 let currentAgentRequestCtx: ExtensionContext | undefined;
@@ -212,8 +243,9 @@ export function scheduleFleetBootReconciliation(): void {
 }
 
 export function wireFleetPiEvents(pi: ExtensionAPI): void {
-  pi.on("before_agent_start", (event) => {
+  pi.on("before_agent_start", (event, ctx) => {
     syncAcpRuntimeContext();
+    scheduleOperationNameGeneration(ctx);
     if (process.env.PI_GRAND_FLEET_ROLE === "fleet") return;
     return { systemPrompt: `${event.systemPrompt}\n\n${buildSystemPrompt()}` };
   });
@@ -380,7 +412,9 @@ function persistDirectChatIfEmpty(ctx: ExtensionContext): void {
 }
 
 function bindFleetHostSession(ctx: ExtensionContext): void {
-  onHostSessionChange(ctx.sessionManager.getSessionId());
+  const sessionId = ctx.sessionManager.getSessionId();
+  onHostSessionChange(sessionId);
+  syncOperationNameSession(sessionId);
   cleanIdleClients();
   refreshAgentPanel(ctx);
   attachStatusContext(ctx);
@@ -413,6 +447,163 @@ function registerAdmiralSettingsSection(): void {
       ];
     },
   });
+}
+
+function scheduleOperationNameGeneration(ctx: ExtensionContext | undefined): void {
+  if (!ctx?.sessionManager) return;
+
+  const sessionId = ctx.sessionManager.getSessionId();
+  if (!sessionId || OPERATION_NAME_ATTEMPTS.has(sessionId)) return;
+
+  const prompt = extractFirstUserPrompt(ctx);
+  if (!prompt) return;
+
+  OPERATION_NAME_ATTEMPTS.add(sessionId);
+  syncOperationNameSession(sessionId, true);
+
+  void generateOperationName(ctx, sessionId, prompt);
+}
+
+async function generateOperationName(ctx: ExtensionContext, sessionId: string, preparedPrompt: string): Promise<void> {
+  const worldviewEnabled = isWorldviewEnabled();
+  const model = resolveOperationNameModel(ctx);
+  if (!model) {
+    syncOperationNameSession(sessionId, false);
+    return;
+  }
+
+  try {
+    const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
+    if (!auth.ok) throw new Error(auth.error);
+    if (!auth.apiKey && !auth.headers && ctx.modelRegistry.isUsingOAuth(model)) {
+      throw new Error(`OAuth credentials unavailable for ${model.provider}/${model.id}`);
+    }
+
+    const settings = loadOperationNameSettings();
+    const composed = composeOperationNameRequest({ worldviewEnabled, preparedPrompt });
+    const response = await completeSimple(
+      model,
+      {
+        systemPrompt: composed.systemPrompt,
+        messages: composed.messages.map((message) => ({ ...message, timestamp: Date.now() })),
+      },
+      {
+        ...(auth.apiKey && { apiKey: auth.apiKey }),
+        ...(auth.headers && { headers: auth.headers }),
+        ...(settings.reasoning && settings.reasoning !== "off" && { reasoning: settings.reasoning as ThinkingLevel }),
+      },
+    );
+
+    if (response.stopReason === "aborted") {
+      syncOperationNameSession(sessionId, false);
+      return;
+    }
+
+    const raw = response.content
+      .filter((content): content is { type: "text"; text: string } => content.type === "text")
+      .map((content) => content.text)
+      .join("\n");
+    const displayName = sanitizeOperationNameDisplay(raw, worldviewEnabled);
+    if (!isCurrentOperationNameSession(ctx, sessionId)) return;
+    syncOperationNameSession(sessionId, false, displayName ?? undefined);
+  } catch (error) {
+    getLogAPI().debug(
+      "metaphor-operation",
+      `operation name generation failed: ${error instanceof Error ? error.message : String(error)}`,
+      { hideFromFooter: true },
+    );
+    syncOperationNameSession(sessionId, false);
+  }
+}
+
+function extractFirstUserPrompt(ctx: ExtensionContext): string | null {
+  const entries = ctx.sessionManager.getBranch?.() ?? ctx.sessionManager.getEntries?.() ?? [];
+  for (const entry of entries as any[]) {
+    if (entry?.type !== "message" || entry.message?.role !== "user") continue;
+    const text = extractMessageText(entry.message);
+    if (text) return text;
+  }
+  return null;
+}
+
+function extractMessageText(message: any): string | null {
+  if (typeof message?.content === "string") return message.content.trim() || null;
+  if (!Array.isArray(message?.content)) return null;
+
+  const text = message.content
+    .map((part: any) => typeof part?.text === "string" ? part.text : "")
+    .join("\n")
+    .trim();
+  return text || null;
+}
+
+function resolveOperationNameModel(ctx: ExtensionContext): Model<Api> | null {
+  const settings = loadOperationNameSettings();
+  const model = settings.provider && settings.model
+    ? ctx.modelRegistry.find(settings.provider, settings.model)
+    : ctx.model;
+
+  if (!model) {
+    getLogAPI().debug("metaphor-operation", "operation name model not available", { hideFromFooter: true });
+    return null;
+  }
+
+  return model;
+}
+
+function syncOperationNameSession(sessionId: string, pending = false, displayName?: string): void {
+  const store = readOperationNameStore();
+  const current = store.sessions[sessionId];
+  store.currentSessionId = sessionId;
+  store.sessions[sessionId] = {
+    displayName: displayName ?? current?.displayName,
+    pending,
+  };
+  (globalThis as any)[OPERATION_NAME_GLOBAL_KEY] = store;
+  requestHudRender();
+}
+
+function readOperationNameStore(): OperationNameGlobalStore {
+  const current = (globalThis as any)[OPERATION_NAME_GLOBAL_KEY] as
+    | OperationNameGlobalStore
+    | OperationNameGlobalState
+    | undefined;
+  if (isOperationNameGlobalStore(current)) {
+    return current;
+  }
+  if (isOperationNameGlobalState(current)) {
+    return {
+      currentSessionId: current.sessionId,
+      sessions: {
+        [current.sessionId]: {
+          displayName: current.displayName,
+          pending: current.pending,
+        },
+      },
+    };
+  }
+  return { sessions: {} };
+}
+
+function isOperationNameGlobalStore(value: OperationNameGlobalStore | OperationNameGlobalState | undefined): value is OperationNameGlobalStore {
+  return Boolean(value && "sessions" in value && value.sessions);
+}
+
+function isOperationNameGlobalState(value: OperationNameGlobalStore | OperationNameGlobalState | undefined): value is OperationNameGlobalState {
+  return Boolean(value && "sessionId" in value && value.sessionId);
+}
+
+function isCurrentOperationNameSession(ctx: ExtensionContext, sessionId: string): boolean {
+  try {
+    return ctx.sessionManager.getSessionId() === sessionId;
+  } catch {
+    return false;
+  }
+}
+
+function requestHudRender(): void {
+  const bridge = (globalThis as any)[HUD_RENDER_REQUEST_GLOBAL_KEY] as HudRenderRequestBridge | undefined;
+  bridge?.requestRender?.();
 }
 
 function createFleetHostPorts(streamingSink?: AgentStreamingSink): FleetHostPorts {

@@ -12,6 +12,21 @@ import { getPreset } from "../shell/hud/presets.js";
 import { getGitStatus } from "../shell/hud/git-status.js";
 import { getDefaultColors } from "../shell/hud/theme.js";
 
+const OPERATION_NAME_GLOBAL_KEY = "__pi_fleet_operation_name__";
+
+interface OperationNameGlobalState {
+  sessionId: string;
+  displayName?: string;
+}
+
+interface OperationNameSessionState {
+  displayName?: string;
+}
+
+interface OperationNameGlobalStore {
+  sessions?: Record<string, OperationNameSessionState | undefined>;
+}
+
 /**
  * 세션 이벤트에서 사용량 통계와 컨텍스트를 추출하여 SegmentContext를 구성.
  *
@@ -74,6 +89,7 @@ export function buildSegmentContext(
     model: ctx.model,
     thinkingLevel: thinkingLevelFromSession || provider.getThinkingLevelFn?.() || "off",
     sessionId: ctx.sessionManager?.getSessionId?.(),
+    operationName: getOperationNameForSession(ctx.sessionManager?.getSessionId?.()),
     usageStats: { input, output, cacheRead, cacheWrite, cost },
     contextPercent,
     contextWindow,
@@ -86,4 +102,28 @@ export function buildSegmentContext(
     theme,
     colors,
   };
+}
+
+function getOperationNameForSession(sessionId: string | undefined): string | undefined {
+  const state = (globalThis as any)[OPERATION_NAME_GLOBAL_KEY] as
+    | OperationNameGlobalStore
+    | OperationNameGlobalState
+    | undefined;
+  if (!sessionId) return undefined;
+
+  const sessionState = isOperationNameGlobalStore(state) ? state.sessions?.[sessionId] : undefined;
+  if (typeof sessionState?.displayName === "string") return sessionState.displayName;
+
+  if (isOperationNameGlobalState(state) && state.sessionId === sessionId) {
+    return typeof state.displayName === "string" ? state.displayName : undefined;
+  }
+  return undefined;
+}
+
+function isOperationNameGlobalStore(value: OperationNameGlobalStore | OperationNameGlobalState | undefined): value is OperationNameGlobalStore {
+  return Boolean(value && "sessions" in value && value.sessions);
+}
+
+function isOperationNameGlobalState(value: OperationNameGlobalStore | OperationNameGlobalState | undefined): value is OperationNameGlobalState {
+  return Boolean(value && "sessionId" in value && value.sessionId);
 }

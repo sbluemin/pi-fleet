@@ -7,7 +7,7 @@
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import { setupCustomEditor, setupStatusBar } from "./hud/editor.js";
+import { setupCustomEditor, setupHudRenderRequestBridge, setupStatusBar } from "./hud/editor.js";
 import { invalidateGitBranch, invalidateGitStatus } from "./hud/git-status.js";
 import type { HudEditorState } from "./hud/types.js";
 
@@ -23,6 +23,7 @@ export default function registerHudLifecycle(pi: ExtensionAPI) {
     tuiRef: null,
     layoutCache: { width: 0, result: null, timestamp: 0 },
   };
+  setupHudRenderRequestBridge(state);
 
   pi.on("session_start", async (_event, ctx) => {
     state.sessionStartTime = Date.now();

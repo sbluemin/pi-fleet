@@ -10,6 +10,7 @@ import type { ReadonlyFooterDataProvider, Theme } from "@mariozechner/pi-coding-
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
 import type { HudEditorState } from "./types.js";
+import type { HudRenderRequestBridge } from "./types.js";
 import type { SegmentStateProvider } from "./types.js";
 import { ansi, getFgAnsiCode } from "./colors.js";
 import { getEditorBorderColor, getEditorRightLabel } from "./border-bridge.js";  // [Feature] rightLabel을 상단 테두리 우측에 삽입
@@ -74,6 +75,16 @@ export function setupStatusBar(ctx: any, state: HudEditorState): void {
       },
     };
   });
+}
+
+export function setupHudRenderRequestBridge(state: HudEditorState): void {
+  const bridgeKey = "__pi_hud_render_request__";
+  const bridge = ((globalThis as any)[bridgeKey] ??= { requestRender: null }) as HudRenderRequestBridge;
+
+  bridge.requestRender = () => {
+    state.layoutCache.result = null;
+    state.tuiRef?.requestRender?.();
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
