@@ -27,6 +27,7 @@ import {
   installAcpThinkingLevelPatch,
   reconcileAcpThinkingLevel,
 } from "./thinking-level-patch.js";
+import { registerProviderGuard } from "./provider-guard.js";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Constants
@@ -75,6 +76,7 @@ export default function registerProviderRuntime(pi: ExtensionAPI): void {
 
   initRuntime(FLEET_DATA_DIR);
   installAcpThinkingLevelPatch();
+  registerProviderGuard(pi);
 
   // ── 세션 라이프사이클 ──
 

@@ -42,8 +42,7 @@ export default defineConfig({
     "core-services": "src/core-services/index.ts",
     "core-services/settings": "src/core-services/settings/index.ts",
     "core-services/keybind": "src/core-services/keybind/index.ts",
-    "core-services/log": "src/core-services/log/index.ts",
-    "core-services/provider-guard": "src/core-services/provider-guard/index.ts"
+    "core-services/log": "src/core-services/log/index.ts"
   },
   format: ["esm", "cjs"],
   dts: true,

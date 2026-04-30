@@ -181,7 +181,6 @@ This subpath owns host-agnostic carrier panel job/track state plus deterministic
 - `./core-services/settings`
 - `./core-services/keybind`
 - `./core-services/log`
-- `./core-services/provider-guard`
 
 Deep imports through `./internal/*` or `./src/*` are not part of this API.
 
@@ -205,5 +204,4 @@ Deep imports through `./internal/*` or `./src/*` are not part of this API.
 - `@sbluemin/fleet-core/core-services/settings`: runtime-owned settings registry/store contracts and helpers. Setter-style provider APIs (settings-port) have been removed in favor of runtime-owned singletons.
 - `@sbluemin/fleet-core/core-services/keybind`: keybind registry/store contracts and helpers.
 - `@sbluemin/fleet-core/core-services/log`: log store contracts and file-backed helpers.
-- `@sbluemin/fleet-core/core-services/provider-guard`: provider-guard settings contracts and pure runtime helpers.
 - `FleetHostPorts.appendStreamBlock`, `syncPanelColumn`, and `endStreamColumn` are deprecated for one public-API cycle. They will be removed in the next minor public-API cycle; implement `streamingSink` instead.

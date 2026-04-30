@@ -217,11 +217,6 @@
       "types": "./dist/core-services/log.d.ts",
       "import": "./dist/core-services/log.js",
       "require": "./dist/core-services/log.cjs"
-    },
-    "./core-services/provider-guard": {
-      "types": "./dist/core-services/provider-guard.d.ts",
-      "import": "./dist/core-services/provider-guard.js",
-      "require": "./dist/core-services/provider-guard.cjs"
     }
   },
   "scripts": {

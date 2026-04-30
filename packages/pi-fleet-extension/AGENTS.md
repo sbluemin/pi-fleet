@@ -18,7 +18,7 @@
 - `src/bindings/` — owns fleet-core public API to Pi wrapper/facade/adapter bridges
   - `src/bindings/runtime/` — owns `pi.on(...)` listeners and host event sequencing (formerly lifecycle)
   - `src/bindings/compat/` — owns compatibility seams, including the sole `@mariozechner/pi-ai` bridge (formerly compat)
-  - includes config/keybind/log/HUD/provider-guard/carrier/admiral/jobs/**bridge** bindings
+  - includes config/keybind/log/HUD/carrier/admiral/jobs/**bridge** bindings
 - `src/commands/` — owns `pi.registerCommand(...)` wiring
 - `src/keybinds/` — owns `pi.registerShortcut(...)` wiring
 - `src/tools/` — owns `pi.registerTool(...)` and Pi-side renderer registration

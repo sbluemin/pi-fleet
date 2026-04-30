@@ -12,7 +12,7 @@ fleet-core public API를 Pi 시설에 연결하는 wrapper/facade/adapter 레이
 | `carrier/` | Carrier boot host ports, panel streaming sink |
 | `jobs/` | Carrier job completion push channel |
 | `hud/` | HUD config bridge registration |
-| `config/` | Settings (runtime-owned)/keybind/log/provider-guard/thinking-timer bridge |
+| `config/` | Settings (runtime-owned)/keybind/log/thinking-timer bridge |
 
 ## 규칙
 
