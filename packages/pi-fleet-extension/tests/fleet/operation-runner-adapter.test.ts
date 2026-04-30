@@ -5,7 +5,7 @@ const runBackground = vi.fn();
 
 vi.mock("../../src/bindings/runtime/fleet-boot.js", () => ({
   getFleetRuntime: () => ({
-    agentRequest: {
+    agent: {
       run,
       runBackground,
     },
@@ -32,7 +32,7 @@ beforeEach(() => {
 });
 
 describe("operation runner adapter", () => {
-  it("strips ctx and delegates foreground requests to runtime.agentRequest", async () => {
+  it("strips ctx and delegates foreground requests to runtime.agent", async () => {
     const ctx = { cwd: "/workspace" };
 
     const result = await runAgentRequest({
@@ -52,7 +52,7 @@ describe("operation runner adapter", () => {
     expect(run).toHaveBeenCalledWith(expect.not.objectContaining({ ctx: expect.anything() }));
   });
 
-  it("delegates background requests to runtime.agentRequest.runBackground", async () => {
+  it("delegates background requests to runtime.agent.runBackground", async () => {
     const result = await runAgentRequestBackground({
       cli: "codex",
       carrierId: "genesis",

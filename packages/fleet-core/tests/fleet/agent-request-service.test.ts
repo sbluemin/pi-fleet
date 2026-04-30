@@ -15,7 +15,7 @@ vi.mock("../../src/admiral/store/index.js", () => ({
 }));
 
 import { createAgentRequestService } from "../../src/services/agent/request/service.js";
-import type { AgentStreamingSink } from "../../src/public/streaming-sink.js";
+import type { AgentStreamingSink } from "../../src/public/agent-services.js";
 
 beforeEach(() => {
   mocks.executeWithPool.mockReset();

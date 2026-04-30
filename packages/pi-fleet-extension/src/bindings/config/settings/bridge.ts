@@ -15,15 +15,9 @@ interface SettingsAPI {
   getSections(): SectionDisplayConfig[];
 }
 
-interface RuntimeWithSettings {
-  readonly coreServices: {
-    readonly settings: SettingsAPI;
-  };
-}
-
 export function getSettingsAPI(): SettingsAPI | undefined {
   try {
-    return (getFleetRuntime() as unknown as RuntimeWithSettings).coreServices.settings;
+    return getFleetRuntime().settings.settings;
   } catch {
     return undefined;
   }

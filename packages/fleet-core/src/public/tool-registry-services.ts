@@ -1,9 +1,22 @@
 import crypto from "crypto";
 
-import type { FleetHostPorts, FleetLogPort } from "./host-ports.js";
 import { buildSortieToolSpec } from "../admiral/carrier/tool-spec.js";
+import {
+  CARRIER_JOBS_DESCRIPTION,
+  CARRIER_JOBS_MANIFEST,
+  buildCarrierJobsPromptGuidelines,
+  buildCarrierJobsPromptSnippet,
+  buildCarrierJobsSchema,
+  dispatchCarrierJobsAction,
+  type CarrierJobsParams,
+} from "../admiral/carrier-jobs/index.js";
 import { buildSquadronToolSpec } from "../admiral/squadron/tool-spec.js";
 import { buildTaskForceToolSpec } from "../admiral/taskforce/tool-spec.js";
+import {
+  startMcpServer,
+  stopMcpServer,
+  type McpCallToolResult,
+} from "../services/agent/provider-mcp.js";
 import {
   clearAllTools,
   computeToolHash,
@@ -14,16 +27,11 @@ import {
   removeToolsForSession,
   type Tool,
 } from "../services/agent/tool-snapshot.js";
-import {
-  CARRIER_JOBS_DESCRIPTION,
-  CARRIER_JOBS_MANIFEST,
-  buildCarrierJobsPromptGuidelines,
-  buildCarrierJobsPromptSnippet,
-  buildCarrierJobsSchema,
-  dispatchCarrierJobsAction,
-  type CarrierJobsParams,
-} from "../admiral/carrier-jobs/index.js";
+import * as ToolRegistryServiceFacade from "../services/tool-registry/index.js";
 import { registerToolPromptManifest } from "../services/tool-registry/index.js";
+import type { FleetHostPorts, FleetLogPort } from "./agent-services.js";
+
+export type { McpCallToolResult };
 
 export interface TypeBoxSchema {
   readonly [key: string]: unknown;
@@ -81,6 +89,45 @@ export interface FleetToolRegistryPorts {
   readonly enqueueCarrierCompletionPush: (payload: { jobId: string; summary: string }) => void;
 }
 
+export interface PendingToolCall {
+  readonly token: string;
+  readonly toolName: string;
+  readonly args: unknown;
+  readonly createdAt: number;
+}
+
+export interface PendingToolResult {
+  readonly token: string;
+  readonly toolName: string;
+  readonly result?: unknown;
+  readonly error?: string;
+}
+
+export interface McpServerOptions {
+  readonly sessionToken?: string;
+  readonly now?: () => number;
+}
+
+export interface McpServerHandle {
+  listTools(): readonly AgentToolSpec[];
+  close(): Promise<void>;
+}
+
+export interface McpRegistryAPI {
+  readonly registry: AgentToolRegistry;
+  createServer(options?: McpServerOptions): McpServerHandle;
+}
+
+export interface FleetToolRegistryServices {
+  register(provider: AgentToolSpec): void;
+  unregister(id: string): void;
+  get(id: string): AgentToolSpec | undefined;
+  list(): readonly AgentToolSpec[];
+  onChange(listener: () => void): () => void;
+  computeHash(): string;
+  readonly manifests: typeof ToolRegistryServiceFacade;
+}
+
 export function createAgentToolRegistry(): AgentToolRegistry {
   const sessionToken = `registry:${crypto.randomUUID()}`;
   const specs = new Map<string, AgentToolSpec>();
@@ -130,6 +177,52 @@ export function createFleetToolRegistry(ports: FleetToolRegistryPorts): readonly
   specs.push(buildCarrierJobsToolSpec());
 
   return specs;
+}
+
+export function createMcpServerForRegistry(
+  registry: AgentToolRegistry,
+  options?: McpServerOptions,
+): McpServerHandle {
+  const sessionToken = options?.sessionToken ?? `registry:${crypto.randomUUID()}`;
+  const snapshot = () => registerToolsForSession(sessionToken, registry.list().map(specToTool));
+  snapshot();
+  const unsubscribe = registry.onChange(snapshot);
+  void startMcpServer();
+
+  return {
+    listTools() {
+      return registry.list();
+    },
+    async close() {
+      unsubscribe();
+      removeToolsForSession(sessionToken);
+      await stopMcpServer();
+    },
+  };
+}
+
+export function createToolRegistryServices(registry: AgentToolRegistry): FleetToolRegistryServices {
+  return {
+    register(provider) {
+      registry.register(provider);
+    },
+    unregister(id) {
+      registry.unregister(id);
+    },
+    get(id) {
+      return registry.get(id);
+    },
+    list() {
+      return registry.list();
+    },
+    onChange(listener) {
+      return registry.onChange(listener);
+    },
+    computeHash() {
+      return registry.computeHash();
+    },
+    manifests: ToolRegistryServiceFacade,
+  };
 }
 
 export {

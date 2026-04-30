@@ -18,15 +18,15 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
+    "./runtime": {
+      "types": "./dist/runtime.d.ts",
+      "import": "./dist/runtime.js",
+      "require": "./dist/runtime.cjs"
+    },
     "./agent": {
       "types": "./dist/agent.d.ts",
       "import": "./dist/agent.js",
       "require": "./dist/agent.cjs"
-    },
-    "./agent/request": {
-      "types": "./dist/agent/request.d.ts",
-      "import": "./dist/agent/request.js",
-      "require": "./dist/agent/request.cjs"
     },
     "./agent/provider-types": {
       "types": "./dist/agent/provider-types.d.ts",
@@ -97,11 +97,6 @@
       "types": "./dist/constants.d.ts",
       "import": "./dist/constants.js",
       "require": "./dist/constants.cjs"
-    },
-    "./streaming-sink": {
-      "types": "./dist/streaming-sink.d.ts",
-      "import": "./dist/streaming-sink.js",
-      "require": "./dist/streaming-sink.cjs"
     },
     "./job": {
       "types": "./dist/job.d.ts",
@@ -197,11 +192,6 @@
       "types": "./dist/services/settings.d.ts",
       "import": "./dist/services/settings.js",
       "require": "./dist/services/settings.cjs"
-    },
-    "./services/keybind": {
-      "types": "./dist/services/keybind.d.ts",
-      "import": "./dist/services/keybind.js",
-      "require": "./dist/services/keybind.cjs"
     },
     "./services/log": {
       "types": "./dist/services/log.d.ts",

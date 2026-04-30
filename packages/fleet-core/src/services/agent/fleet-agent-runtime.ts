@@ -1,9 +1,23 @@
-import type { BackendAdapter } from "./backend-adapter.js";
-import type { FleetHostPorts } from "./host-ports.js";
-import { createAgentRequestService } from "./agent-request.js";
-import type { AgentRequestService } from "./agent-request.js";
-import { createMcpServerForRegistry, type McpRegistryAPI, type McpServerHandle } from "./mcp.js";
-import { createAgentToolRegistry, type AgentToolRegistry } from "./tool-registry.js";
+import { createAgentRequestService } from "./request/service.js";
+import type {
+  BackendAdapter,
+  FleetHostPorts,
+  UnifiedAgentBackgroundRequestOptions,
+  UnifiedAgentRequestOptions,
+  UnifiedAgentResult,
+} from "../../public/agent-services.js";
+import {
+  createMcpServerForRegistry,
+  createAgentToolRegistry,
+  type AgentToolRegistry,
+  type McpRegistryAPI,
+  type McpServerHandle,
+} from "../../public/tool-registry-services.js";
+
+interface AgentRequestService {
+  run(options: UnifiedAgentRequestOptions): Promise<UnifiedAgentResult>;
+  runBackground(options: UnifiedAgentBackgroundRequestOptions): Promise<UnifiedAgentResult>;
+}
 
 export interface AgentRuntimeOptions {
   readonly dataDir: string;
@@ -12,14 +26,14 @@ export interface AgentRuntimeOptions {
   readonly toolRegistry?: AgentToolRegistry;
 }
 
-export interface AgentRuntime {
+export interface FleetAgentRuntime {
   readonly toolRegistry: AgentToolRegistry;
   readonly mcp: McpRegistryAPI;
-  readonly agentRequest: AgentRequestService;
+  readonly requestRunner: AgentRequestService;
   shutdown(): Promise<void>;
 }
 
-export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
+export function createAgentRuntime(options: AgentRuntimeOptions): FleetAgentRuntime {
   const toolRegistry = options.toolRegistry ?? createAgentToolRegistry();
   const serverHandles = new Set<McpServerHandle>();
   const mcp: McpRegistryAPI = {
@@ -38,14 +52,14 @@ export function createAgentRuntime(options: AgentRuntimeOptions): AgentRuntime {
       };
     },
   };
-  const agentRequest = createAgentRequestService({
+  const requestRunner = createAgentRequestService({
     streamingSink: options.ports.streamingSink,
   });
 
   return {
     toolRegistry,
     mcp,
-    agentRequest,
+    requestRunner,
     async shutdown() {
       const handles = [...serverHandles];
       serverHandles.clear();

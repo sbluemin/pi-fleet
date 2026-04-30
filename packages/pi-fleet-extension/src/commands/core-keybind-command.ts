@@ -8,10 +8,7 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 
-import { _bootstrapKeybind, getKeybindAPI } from "../bindings/config/keybind/bridge.js";
-import type { CoreKeybindAPI, KeybindRegistration, ResolvedBinding } from "@sbluemin/fleet-core/services/keybind";
-import { getOverrideKey } from "../bindings/config/keybind/store.js";
-import { addBinding, getBindings, getKey } from "../bindings/config/keybind/registry.js";
+import { getBindings } from "../bindings/config/keybind/registry.js";
 import { KeybindOverlay } from "../tui/overlays/keybind-overlay.js";
 
 // ── 팝업 상태 ──

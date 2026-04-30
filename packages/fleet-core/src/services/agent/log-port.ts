@@ -1,4 +1,4 @@
-import type { FleetLogPort } from "../../public/host-ports.js";
+import type { FleetLogPort } from "../../public/agent-services.js";
 
 let agentLogPort: FleetLogPort = () => {};
 

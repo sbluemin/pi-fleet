@@ -3,7 +3,7 @@ import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import { createFleetCoreRuntime, type FleetCoreRuntime } from "@sbluemin/fleet-core";
+import { createFleetCoreRuntime, type FleetCoreRuntimeContext } from "@sbluemin/fleet-core";
 import {
   loadCliTypeOverrides,
   loadSortieDisabled,
@@ -19,7 +19,7 @@ import {
   setSquadronEnabledCarriers,
 } from "../../tools/carrier/framework.js";
 
-let fleetRuntime: FleetCoreRuntime | undefined;
+let fleetRuntime: FleetCoreRuntimeContext | undefined;
 let currentAgentRequestCtx: ExtensionContext | undefined;
 
 export function shouldBootFleet(): boolean {
@@ -52,7 +52,7 @@ export async function withAgentRequestContext<T>(
   }
 }
 
-export function getFleetRuntime(): FleetCoreRuntime {
+export function getFleetRuntime(): FleetCoreRuntimeContext {
   if (!fleetRuntime) {
     throw new Error("Fleet core runtime has not been initialized.");
   }

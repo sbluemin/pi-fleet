@@ -14,7 +14,7 @@ const runBackground = vi.fn(async (opts: any) => {
 
 vi.mock("../../src/bindings/runtime/fleet-boot.js", () => ({
   getFleetRuntime: () => ({
-    agentRequest: {
+    agent: {
       runBackground,
     },
   }),

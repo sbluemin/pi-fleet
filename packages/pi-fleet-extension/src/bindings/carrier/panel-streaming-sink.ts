@@ -3,7 +3,7 @@ import type {
   AgentStreamEvent,
   AgentStreamKey,
   AgentStreamingSink,
-} from "@sbluemin/fleet-core/streaming-sink";
+} from "@sbluemin/fleet-core";
 import type { ColStatus } from "@sbluemin/fleet-core/agent/types";
 import {
   appendTextBlockByRunId,

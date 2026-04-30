@@ -2,21 +2,25 @@ import { executeWithPool } from "../executor.js";
 import type { AgentStatus } from "../types.js";
 import { loadModels as getModelConfig } from "../../../admiral/store/index.js";
 import type {
-  AgentRequestService,
   UnifiedAgentBackgroundRequestOptions,
   UnifiedAgentRequestOptions,
   UnifiedAgentRequestStatus,
   UnifiedAgentResult,
-} from "../../../public/agent-request.js";
+} from "../../../public/agent-services.js";
 import type {
   AgentStreamEvent,
   AgentStreamKey,
   AgentStreamingSink,
   CollectedStreamData,
-} from "../../../public/streaming-sink.js";
+} from "../../../public/agent-services.js";
 
 interface AgentRequestServiceOptions {
   readonly streamingSink?: AgentStreamingSink;
+}
+
+interface AgentRequestService {
+  run(options: UnifiedAgentRequestOptions): Promise<UnifiedAgentResult>;
+  runBackground(options: UnifiedAgentBackgroundRequestOptions): Promise<UnifiedAgentResult>;
 }
 
 interface ExecuteAgentCoreOptions {

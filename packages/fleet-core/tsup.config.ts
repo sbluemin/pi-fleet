@@ -3,8 +3,8 @@ import { defineConfig } from "tsup";
 export default defineConfig({
   entry: {
     index: "src/index.ts",
+    runtime: "src/public/runtime.ts",
     agent: "src/services/agent/index.ts",
-    "agent/request": "src/public/agent-request.ts",
     "agent/provider-types": "src/services/agent/provider-types.ts",
     "agent/provider-client": "src/services/agent/provider-client.ts",
     "agent/types": "src/services/agent/types.ts",
@@ -19,7 +19,6 @@ export default defineConfig({
     "agent/log-port": "src/services/agent/log-port.ts",
     "agent/service-status": "src/services/agent/service-status/index.ts",
     constants: "src/constants.ts",
-    "streaming-sink": "src/public/streaming-sink.ts",
     job: "src/services/job/index.ts",
     "admiral/carrier": "src/admiral/carrier/index.ts",
     "admiral/carrier/personas": "src/admiral/carrier/personas/index.ts",
@@ -41,7 +40,6 @@ export default defineConfig({
     "metaphor/directive-refinement": "src/metaphor/directive-refinement/index.ts",
     services: "src/services/index.ts",
     "services/settings": "src/services/settings/index.ts",
-    "services/keybind": "src/services/keybind/index.ts",
     "services/log": "src/services/log/index.ts"
   },
   format: ["esm", "cjs"],

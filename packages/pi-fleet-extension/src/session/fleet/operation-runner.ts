@@ -4,7 +4,7 @@ import type {
   UnifiedAgentRequestOptions as CoreUnifiedAgentRequestOptions,
   UnifiedAgentResult,
   UnifiedAgentRequestStatus,
-} from "@sbluemin/fleet-core/agent/request";
+} from "@sbluemin/fleet-core";
 
 import { getFleetRuntime, withAgentRequestContext } from "../../bindings/runtime/fleet-boot.js";
 
@@ -12,7 +12,7 @@ export type {
   UnifiedAgentBackgroundRequestOptions,
   UnifiedAgentResult,
   UnifiedAgentRequestStatus,
-} from "@sbluemin/fleet-core/agent/request";
+} from "@sbluemin/fleet-core";
 
 export interface UnifiedAgentRequestOptions extends CoreUnifiedAgentRequestOptions {
   ctx: ExtensionContext;
@@ -30,11 +30,11 @@ const UNIFIED_AGENT_REQUEST_KEY = "__pi_ua_request__";
 
 export async function runAgentRequest(options: RunAgentRequestOptions): Promise<UnifiedAgentResult> {
   return withAgentRequestContext(options.ctx, () =>
-    getFleetRuntime().agentRequest.run(toCoreOptions(options)));
+    getFleetRuntime().agent.run(toCoreOptions(options)));
 }
 
 export async function runAgentRequestBackground(options: RunAgentRequestBackgroundOptions): Promise<UnifiedAgentResult> {
-  return getFleetRuntime().agentRequest.runBackground(options);
+  return getFleetRuntime().agent.runBackground(options);
 }
 
 export function exposeAgentApi(): UnifiedAgentRequestBridge {

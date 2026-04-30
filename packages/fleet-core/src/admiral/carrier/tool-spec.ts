@@ -11,7 +11,7 @@
  * 3. renderCall/renderResult는 고정 요약만 담당하고, 실시간 스트리밍 표시는 Agent Panel이 전담합니다.
  */
 
-import type { AgentToolSpec } from "../../public/tool-registry.js";
+import type { AgentToolSpec } from "../../public/tool-registry-services.js";
 import {
   buildSortieJobSummary,
   computeSortieFinalStatus,

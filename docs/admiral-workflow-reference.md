@@ -32,6 +32,8 @@ Agents must not confuse logical ownership with bucket relocation. `packages/pi-f
 - pure runtime stores, ports, and adapter-facing contracts
 - shared doctrine/runtime surfaces consumed by extracted leaf packages
 
+Runtime composition is exposed through the package root and `@sbluemin/fleet-core/runtime`. Public service access should flow through `FleetCoreRuntimeContext` domain services; legacy direct subpaths remain migration compatibility only.
+
 `fleet-core` must not own:
 
 - `ExtensionContext`

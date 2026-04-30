@@ -14,9 +14,9 @@
 | `packages/` | First-party workspace packages: `unified-agent`, `fleet-core`, `fleet-wiki`, `pi-fleet-extension` |
 | `packages/fleet-core/` | Pi-agnostic Fleet product core — Fleet domain logic, prompts, runtime contracts, MCP/tool/job internals, **Admiral orchestration runtime**, and public APIs |
 | `packages/fleet-core/src/admiral/` | Admiral-owned Fleet orchestration/runtime modules: `bridge/`, `carrier/`, `carrier-jobs/`, `squadron/`, `taskforce/`, `store/`, and `protocols/`. **Standing orders** are integrated under `protocols/standing-orders/`. |
-| `packages/fleet-core/src/services/` | Shared pure service modules, renamed from `core-services`. Includes `agent/`, `job/`, settings, keybind, log, and **tool-registry** (renamed from `tool-prompt-manifest`). |
+| `packages/fleet-core/src/services/` | Shared pure service modules, renamed from `core-services`. Includes `agent/`, `job/`, settings, log, and **tool-registry** (renamed from `tool-prompt-manifest`). Keybind ownership belongs to `packages/pi-fleet-extension/` because shortcuts require a UI host. |
 | `packages/fleet-core/src/admiralty/` | Grand Fleet domain home inside `fleet-core` (renamed from `gfleet`). Exposed via `@sbluemin/fleet-core/admiralty` and `@sbluemin/fleet-core/admiralty/ipc`. Formation/tmux helpers are removed. |
-| `packages/fleet-core/src/public/` | Public API surfaces. `fleet-tool-registry` has been folded into `public/tool-registry.ts`. |
+| `packages/fleet-core/src/public/` | Public composition surface. Keep `runtime.ts` plus domain service modules only (`fleet-services`, `grand-fleet-services`, `metaphor-services`, `agent-services`, `job-services`, `log-services`, `settings-services`, `tool-registry-services`). Do not reintroduce legacy public leaves such as `agent-request`, `agent-runtime`, `host-ports`, `mcp`, `streaming-sink`, or raw `tool-registry`. |
 | `packages/pi-fleet-extension/` | Pi capability package — host runtime bindings, commands, keybinds, tools, TUI, provider registration, session features, and compat seams |
 | `packages/pi-fleet-extension/src/` | Current physical home of Pi capability buckets |
 | `packages/pi-fleet-extension/src/{bindings,commands,keybinds,tools,tui,provider,session}/` | Current doctrinal homes for Pi-specific ownership |

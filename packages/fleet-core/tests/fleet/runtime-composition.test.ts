@@ -6,10 +6,9 @@ import * as path from "node:path";
 import { refreshStatusNow, type ServiceStatusContextPort } from "../../src/services/agent/service-status/store.js";
 import { getDataDir } from "../../src/services/agent/runtime.js";
 import { getSettingsService } from "../../src/services/settings/runtime.js";
-import { getToolsForSession } from "../../src/services/agent/tool-snapshot.js";
-import * as agentRuntimeModule from "../../src/public/agent-runtime.js";
+import * as agentRuntimeModule from "../../src/services/agent/fleet-agent-runtime.js";
 import { createFleetCoreRuntime } from "../../src/public/runtime.js";
-import type { FleetHostPorts } from "../../src/public/host-ports.js";
+import type { FleetHostPorts } from "../../src/public/agent-services.js";
 
 let tmpDir: string;
 
@@ -23,18 +22,22 @@ afterEach(() => {
 });
 
 describe("createFleetCoreRuntime", () => {
-  it("initializes runtime, store, agent runtime, and MCP composition", async () => {
+  it("initializes the domain service runtime context", async () => {
     const dataDir = path.join(tmpDir, "core", ".data");
     const runtime = createFleetCoreRuntime({ dataDir, ports: createMinimalPorts() });
 
     expect(runtime.agent).toBeTruthy();
-    expect(runtime.coreServices.settings).toBeTruthy();
-    expect(runtime.toolRegistry).toBe(runtime.agent.toolRegistry);
-    expect(runtime.mcp).toBe(runtime.agent.mcp);
-    expect(runtime.jobs).toEqual({});
-    expect(runtime.carriers).toEqual({});
-    expect(runtime.admiral).toEqual({});
-    expect(runtime.metaphor).toEqual({});
+    expect(runtime.settings.settings).toBeTruthy();
+    expect(runtime.toolRegistry.list()).toEqual([]);
+    expect(runtime.fleet.carrier).toBeTruthy();
+    expect(runtime.fleet.protocols).toBeTruthy();
+    expect(runtime.jobs.archive).toBeTruthy();
+    expect(runtime.jobs.carrierJobs).toBeTruthy();
+    expect(runtime.agent.run).toEqual(expect.any(Function));
+    expect(runtime.agent.runBackground).toEqual(expect.any(Function));
+    expect(runtime.metaphor.core).toBeTruthy();
+    expect(runtime.grandFleet.admiralty).toBeTruthy();
+    expect("keybind" in runtime.settings).toBe(false);
     expect(runtime.shutdown).toEqual(expect.any(Function));
     expect(getDataDir()).toBe(dataDir);
     expect(fs.existsSync(dataDir)).toBe(true);
@@ -45,7 +48,7 @@ describe("createFleetCoreRuntime", () => {
   it("keeps settings section registration mutable after runtime creation", async () => {
     const runtime = createFleetCoreRuntime({ dataDir: tmpDir, ports: createMinimalPorts() });
 
-    runtime.coreServices.settings.registerSection({
+    runtime.settings.settings.registerSection({
       key: "runtime-section",
       displayName: "Runtime Section",
       getDisplayFields() {
@@ -53,7 +56,7 @@ describe("createFleetCoreRuntime", () => {
       },
     });
 
-    expect(runtime.coreServices.settings.getSections()).toEqual([
+    expect(runtime.settings.settings.getSections()).toEqual([
       {
         key: "runtime-section",
         displayName: "Runtime Section",
@@ -144,11 +147,11 @@ describe("createFleetCoreRuntime", () => {
       ports: createMinimalPorts(),
     });
 
-    expect(getSettingsService()).toBe(newerRuntime.coreServices.settings);
+    expect(getSettingsService()).toBe(newerRuntime.settings.settings);
 
     await olderRuntime.shutdown();
 
-    expect(getSettingsService()).toBe(newerRuntime.coreServices.settings);
+    expect(getSettingsService()).toBe(newerRuntime.settings.settings);
 
     await newerRuntime.shutdown();
     expect(getSettingsService()).toBeNull();
@@ -170,24 +173,6 @@ describe("createFleetCoreRuntime", () => {
     ).toThrow(expectedError);
     expect(createAgentRuntimeSpy).toHaveBeenCalledOnce();
     expect(getSettingsService()).toBeNull();
-  });
-
-  it("closes MCP servers created after construction during shutdown", async () => {
-    const runtime = createFleetCoreRuntime({ dataDir: tmpDir, ports: createMinimalPorts() });
-    runtime.toolRegistry.register({
-      name: "runtime_composition_tool",
-      label: "Runtime Composition Tool",
-      description: "Test tool",
-      parameters: { type: "object", properties: {} },
-      async execute() { return {}; },
-    });
-    runtime.mcp.createServer({ sessionToken: "runtime-composition-test" });
-
-    expect(getToolsForSession("runtime-composition-test")).toHaveLength(1);
-
-    await runtime.shutdown();
-
-    expect(getToolsForSession("runtime-composition-test")).toHaveLength(0);
   });
 });
 

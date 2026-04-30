@@ -53,7 +53,7 @@ The Pi extension should increasingly read like host wiring. If a module requires
 - Keep documentation honest about the current physical state: `packages/pi-fleet-extension/src/` still exists.
 
 ## Suggested Work Streams
-1. **Adapter thinning audit:** In progress. Agent request orchestration now lives behind `@sbluemin/fleet-core/agent/request` as `AgentRequestService`, leaving Pi to adapt host lifecycle and compatibility aliases.
+1. **Adapter thinning audit:** In progress. Agent execution is now consumed through `FleetCoreRuntimeContext.agent` as `FleetAgentServices`; the old public `AgentRequestService`/`agentRequest` surface is legacy and should not be reintroduced.
 2. **Public API closure:** Compare every `pi-fleet-extension` integration need against `packages/fleet-core/api/PUBLIC_API.md`; add public contracts before adding adapter workarounds.
 3. **Port cleanup:** Replace host-specific assumptions with explicit core ports where future non-Pi hosts would need the same behavior.
 4. **Boundary tests:** Add focused tests that fail on `fleet-core` Pi imports, `pi-fleet-extension` deep imports, and legacy directory reintroduction.
@@ -65,6 +65,6 @@ The Pi extension should increasingly read like host wiring. If a module requires
 - `pi-fleet-extension/src/tools/fleet-pi-tools.ts` acts as a Pi adapter loop: it builds the host ports, iterates the core registry, binds Pi renderers/push delivery, and calls `pi.registerTool(...)`.
 - Pi-only surfaces such as custom message rendering and modal/request UI remain in the Pi extension.
 - `createFleetCoreRuntime` (in `fleet-core`) centralizes the initialization of agent runtime, domain stores, settings singletons, and optional service status; the Pi extension (via `src/bindings/runtime/index.ts`) acts as the host that triggers this composition and manages its shutdown lifecycle.
-- Foreground carrier requests now flow through `runtime.agentRequest.run(...)` in `fleet-core`. Pi supplies a host `AgentStreamingSink` that maps core column lifecycle events back to panel APIs.
-- The `AgentStreamingSink` supports an optional `AgentColumnStream` token returned by `onColumnBegin` and passed back to `onColumnEnd`. This allows the Pi adapter to capture the `ExtensionContext` and column index at the start of a run for deterministic routing when the run finishes.
+- Foreground carrier requests now flow through `runtime.agent.run(...)` in `fleet-core`. Pi supplies a host `AgentStreamingSink` that maps core column lifecycle events back to panel APIs.
+- The `AgentStreamingSink` receives normalized request lifecycle events (`request_begin`, `status`, `message`, `thought`, `tool`, `request_end`) and leaves Pi-specific panel routing to the adapter.
 - Background requests use `runBackground(...)` which executes without triggering the host `streamingSink` panel lifecycle.

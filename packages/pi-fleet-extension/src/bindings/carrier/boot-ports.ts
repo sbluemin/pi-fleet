@@ -1,5 +1,4 @@
-import type { FleetHostPorts, FleetLogPort } from "@sbluemin/fleet-core";
-import type { AgentStreamingSink } from "@sbluemin/fleet-core/streaming-sink";
+import type { AgentStreamingSink, FleetHostPorts, FleetLogPort } from "@sbluemin/fleet-core";
 
 import { getLogAPI } from "../config/log/bridge.js";
 import { setAgentPanelServiceLoading, setAgentPanelServiceStatus } from "../../tui/panel/config.js";

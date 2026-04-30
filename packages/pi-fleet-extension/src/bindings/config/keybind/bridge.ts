@@ -1,10 +1,11 @@
-export { CORE_KEYBIND_KEY } from "@sbluemin/fleet-core/services/keybind";
-import { CORE_KEYBIND_KEY } from "@sbluemin/fleet-core/services/keybind";
+import { CORE_KEYBIND_KEY } from "./types.js";
 import type {
   CoreKeybindAPI,
   KeybindRegistration,
   ResolvedBinding,
-} from "@sbluemin/fleet-core/services/keybind";
+} from "./types.js";
+
+export { CORE_KEYBIND_KEY } from "./types.js";
 
 if (!(globalThis as any)[CORE_KEYBIND_KEY]) {
   (globalThis as any)[CORE_KEYBIND_KEY] = {
