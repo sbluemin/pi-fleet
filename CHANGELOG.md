@@ -5,6 +5,8 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-04-30
+
 ### Added
 - Extracted the experimental wiki domain into the new `@sbluemin/fleet-wiki` workspace package and moved its source and tests out of `fleet-core`.
 
