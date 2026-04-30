@@ -1,6 +1,6 @@
 # fleet-wiki Doctrine
 
-`packages/fleet-wiki` is a leaf workspace package dedicated to the LLM-Wiki domain. It owns the memory store, briefing, dry-dock, AAR/patch queue/ingest tool builder, safety policy, and path resolution.
+`packages/fleet-wiki` is a leaf workspace package dedicated to the LLM-Wiki domain. It owns the memory store, briefing, dry-dock, patch queue/ingest tool builder, safety policy, and path resolution.
 
 ## Owns
 
@@ -23,5 +23,5 @@
 ## Compatibility Doctrine
 
 - Preserve the `experimentalWiki` symbol key name for downstream compatibility.
-- Do not change MCP tool names: `wiki_aar_propose`, `wiki_briefing`, `wiki_drydock`, `wiki_ingest`, and `wiki_patch_queue`.
+- Do not change MCP tool names: `wiki_briefing`, `wiki_drydock`, `wiki_ingest`, and `wiki_patch_queue`.
 - Forbid refactoring, signature changes, or adding new interfaces beyond the extraction objective.

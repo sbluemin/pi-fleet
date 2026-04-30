@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { PATCH_FILENAME, PATCH_META_FILENAME, REQUIRED_LOG_FRONTMATTER_KEYS, REQUIRED_WIKI_FRONTMATTER_KEYS } from "./constants.js";
+import { PATCH_FILENAME, PATCH_META_FILENAME, REQUIRED_WIKI_FRONTMATTER_KEYS } from "./constants.js";
 import { findUnsafeMemoryText } from "./safety.js";
 import { listDirectoryNames, listFileNames, readJsonFile, readPatchFile } from "./store.js";
 import type { DryDockIssue, DryDockReport, MemoryPaths, PatchMeta } from "./types.js";
@@ -43,29 +43,6 @@ export async function runDryDock(paths: MemoryPaths): Promise<DryDockReport> {
     for (const linkedId of extractWikiLinks(parsedWikiFile.body)) {
       if (!wikiIds.has(linkedId)) {
         issues.push(issue("broken_link", "error", `깨진 wiki 링크: ${linkedId}`, parsedWikiFile.filePath));
-      }
-    }
-  }
-
-  for (const fileName of await listFileNames(paths.logDir)) {
-    if (!fileName.endsWith(".md")) continue;
-    const filePath = path.join(paths.logDir, fileName);
-    const content = await readPatchFile(filePath);
-    issues.push(...safetyIssues(content, filePath));
-    const parsed = parseFrontmatter(content);
-    if (!parsed) {
-      issues.push(issue("missing_frontmatter", "error", "로그 frontmatter가 없습니다.", filePath));
-      continue;
-    }
-    for (const key of REQUIRED_LOG_FRONTMATTER_KEYS) {
-      if (!(key in parsed.frontmatter)) {
-        issues.push(issue("missing_frontmatter", "error", `로그 필수 키 누락: ${key}`, filePath));
-      }
-    }
-    const refs = Array.isArray(parsed.frontmatter.refs) ? parsed.frontmatter.refs.map(String) : [];
-    for (const ref of refs) {
-      if (!wikiIds.has(ref)) {
-        issues.push(issue("orphan_log_ref", "warning", `존재하지 않는 wiki 참조: ${ref}`, filePath));
       }
     }
   }

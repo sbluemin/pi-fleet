@@ -4,7 +4,6 @@ import { briefingQuery } from "@sbluemin/fleet-wiki";
 import { registerWikiCommands } from "../../commands/wiki-menu.js";
 import { runDryDock } from "@sbluemin/fleet-wiki";
 import { resolveMemoryPaths } from "@sbluemin/fleet-wiki";
-import { buildAarProposeToolConfig } from "@sbluemin/fleet-wiki";
 import { buildBriefingToolConfig } from "@sbluemin/fleet-wiki";
 import { buildDryDockToolConfig } from "@sbluemin/fleet-wiki";
 import { buildIngestToolConfig } from "@sbluemin/fleet-wiki";
@@ -14,7 +13,6 @@ export type {
   BriefingHit,
   DryDockIssue,
   DryDockReport,
-  LogEntry,
   WikiIndexEntry,
   MemoryPaths,
   Patch,
@@ -40,7 +38,6 @@ export function bootFleetWiki(pi: ExtensionAPI): void {
 
   pi.registerTool(buildIngestToolConfig());
   pi.registerTool(buildBriefingToolConfig());
-  pi.registerTool(buildAarProposeToolConfig());
   pi.registerTool(buildDryDockToolConfig());
   pi.registerTool(buildPatchQueueToolConfig());
   registerWikiCommands(pi);

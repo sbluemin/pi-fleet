@@ -59,17 +59,15 @@ describe("wiki drydock", () => {
     expect(report.issues.some((issue) => issue.code === "broken_link")).toBe(false);
   });
 
-  it("detects missing frontmatter, broken link, duplicate id, orphan ref, and malformed queue", async () => {
+  it("detects missing frontmatter, broken link, duplicate id, and malformed queue", async () => {
     const root = await makeTempRoot();
     const paths = resolveMemoryPaths(root);
     await mkdir(paths.wikiDir, { recursive: true });
-    await mkdir(paths.logDir, { recursive: true });
     await mkdir(path.join(paths.queueDir, "bad"), { recursive: true });
 
     await writeFile(path.join(paths.wikiDir, "missing.md"), "no frontmatter", "utf8");
     await writeFile(path.join(paths.wikiDir, "dup-a.md"), `---\nid: "dup"\ntitle: "Dup A"\ntags: []\ncreated: "2026-04-26T00:00:00.000Z"\nupdated: "2026-04-26T00:00:00.000Z"\nversion: 1\n---\n[[wiki:ghost]]`, "utf8");
     await writeFile(path.join(paths.wikiDir, "dup-b.md"), `---\nid: "dup"\ntitle: "Dup B"\ntags: []\ncreated: "2026-04-26T00:00:00.000Z"\nupdated: "2026-04-26T00:00:00.000Z"\nversion: 1\n---\nbody`, "utf8");
-    await writeFile(path.join(paths.logDir, "2026-04-26-aar.md"), `---\nid: "aar"\ncreated: "2026-04-26T00:00:00.000Z"\nkind: "aar"\nrefs: ["ghost"]\n---\nbody`, "utf8");
     await writeFile(path.join(paths.queueDir, "bad", PATCH_FILENAME), "broken", "utf8");
 
     const report = await runDryDock(paths);
@@ -79,7 +77,6 @@ describe("wiki drydock", () => {
     expect(codes).toContain("missing_frontmatter");
     expect(codes).toContain("broken_link");
     expect(codes).toContain("duplicate_id");
-    expect(codes).toContain("orphan_log_ref");
     expect(codes).toContain("malformed_queue");
   });
 

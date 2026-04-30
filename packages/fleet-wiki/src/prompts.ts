@@ -17,13 +17,6 @@ export const WIKI_BRIEFING_GUIDELINES = [
   "임베딩이나 의미 검색 없이 id, tag, title, body 순으로 매칭합니다.",
 ];
 
-export const WIKI_AAR_DESCRIPTION = "AAR 로그 append 패치를 제안하거나 명시적으로 auto-apply 합니다.";
-export const WIKI_AAR_PROMPT_SNIPPET = "AAR은 log에만 append할 수 있으며 auto_apply는 명시적으로 켜야 합니다.";
-export const WIKI_AAR_GUIDELINES = [
-  "auto_apply=false 이면 queue만 기록합니다.",
-  "auto_apply=true 여도 wiki는 절대 변경하지 않습니다.",
-];
-
 export const WIKI_DRYDOCK_DESCRIPTION = "Fleet Wiki 저장소의 정적 건전성을 검사합니다.";
 export const WIKI_DRYDOCK_PROMPT_SNIPPET = "frontmatter, 링크, queue 무결성을 검사해 file-first 보고를 제공합니다.";
 export const WIKI_DRYDOCK_GUIDELINES = [
@@ -33,12 +26,12 @@ export const WIKI_DRYDOCK_GUIDELINES = [
 export const WIKI_PATCH_QUEUE_DESCRIPTION = "Fleet Wiki patch queue를 list/show/approve/reject 합니다.";
 export const WIKI_PATCH_QUEUE_PROMPT_SNIPPET = "큐 항목을 검토하고 human approval gate를 집행합니다.";
 export const WIKI_PATCH_QUEUE_GUIDELINES = [
-  "approve만 wiki/log mutation을 유발할 수 있습니다.",
-  "reject는 archive만 갱신하고 wiki/log는 건드리지 않습니다.",
+  "approve는 wiki를 갱신하고 patch를 archive로 이동합니다.",
+  "reject는 archive만 갱신하고 wiki는 건드리지 않습니다.",
 ];
 
 export function buildWikiCaptureDirective(input: {
-  mode: "stage" | "preview" | "aar_only";
+  mode: "stage" | "preview";
   session: MemoryCaptureSession;
 }): string {
   if (input.mode === "stage") {
@@ -48,42 +41,32 @@ export function buildWikiCaptureDirective(input: {
       "Use the current conversation/session history already present in context to identify durable, long-term meaningful knowledge worth retaining in Fleet Wiki.",
       "Stage actual pending Fleet Wiki patches in this turn.",
       "For wiki-worthy knowledge, call `wiki_ingest` to create pending wiki patches with raw source captured from the current conversation context.",
-      "For AAR/log-worthy knowledge, call `wiki_aar_propose` with `auto_apply:false` so the result remains approval-gated.",
       "Do not approve, merge, or otherwise finalize any patch in this turn.",
       "",
       "Your workflow:",
       "1. Identify durable knowledge from the active conversation/session, ignoring transient chatter.",
       "2. Write each wiki body as self-contained synthesized markdown; do not put raw_source_ref in the body.",
       "3. Call `wiki_ingest` for each wiki candidate that should become long-term memory.",
-      "4. Call `wiki_aar_propose` with `auto_apply:false` for each AAR/log candidate worth staging.",
-      "5. Report the staged patch IDs, what each patch contains, and the exact approval/rejection commands the user can run next.",
-      "6. Surface conflicts, unknowns, and unsafe/privacy warnings before recommending approval.",
+      "4. Report the staged patch IDs, what each patch contains, and the exact approval/rejection commands the user can run next.",
+      "5. Surface conflicts, unknowns, and unsafe/privacy warnings before recommending approval.",
       "",
       `Base all staging on the active context for branch \`${input.session.branchId}\`.`,
       "Do not restate the full transcript unless a short excerpt is strictly necessary to explain a conflict or warning.",
     ].join("\n");
   }
 
-  const modeLabel = input.mode === "aar_only" ? "AAR-only preview" : "capture preview";
-  const nextAction = input.mode === "aar_only"
-    ? "Focus the preview on AAR/log candidates first, and only mention wiki candidates if they are obviously required."
-    : "Cover both wiki candidates and AAR/log candidates in the preview.";
-
   return [
     "Fleet Wiki capture preview",
     "",
-    `You are preparing a staged Fleet Wiki ${modeLabel} from the current PI conversation history.`,
+    "You are preparing a staged Fleet Wiki capture preview from the current PI conversation history.",
     "Produce a preview only. Do not mutate Fleet Wiki state in this turn.",
-    "Do not call `wiki_ingest` or `wiki_aar_propose` until the user explicitly approves the preview in a later turn.",
+    "Do not call `wiki_ingest` until the user explicitly approves the preview in a later turn.",
     "",
     "The preview must include:",
     "1. candidate wiki entries",
-    "2. candidate AAR/log entries",
-    "3. conflicts or unknowns that block safe capture",
-    "4. unsafe or privacy-sensitive warnings",
-    "5. proposed next actions for the user to approve or refine",
-    "",
-    nextAction,
+    "2. conflicts or unknowns that block safe capture",
+    "3. unsafe or privacy-sensitive warnings",
+    "4. proposed next actions for the user to approve or refine",
     "",
     `Base the preview on the current conversation/session history already present in context for branch \`${input.session.branchId}\`.`,
     "Do not restate the full transcript unless a short excerpt is strictly necessary to explain a conflict or warning.",
@@ -108,19 +91,6 @@ export function buildWikiBriefingSchema() {
     topic: Type.Optional(Type.String({ description: "조회 주제 또는 위키 ID" })),
     tags: Type.Optional(Type.Array(Type.String(), { description: "필터 태그" })),
     limit: Type.Optional(Type.Number({ description: "최대 결과 수" })),
-  });
-}
-
-export function buildWikiAarSchema() {
-  return Type.Object({
-    id: Type.String({ description: "로그 엔트리 ID" }),
-    kind: Type.String({ description: "AAR kind" }),
-    title: Type.Optional(Type.String({ description: "로그 제목" })),
-    body: Type.String({ description: "AAR 본문" }),
-    tags: Type.Optional(Type.Array(Type.String(), { description: "태그 목록" })),
-    refs: Type.Optional(Type.Array(Type.String(), { description: "참조 wiki ID" })),
-    auto_apply: Type.Optional(Type.Boolean({ description: "true면 log와 archive에 즉시 반영" })),
-    proposer: Type.Optional(Type.String({ description: "제안자 식별자" })),
   });
 }
 

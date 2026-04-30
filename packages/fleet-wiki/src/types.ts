@@ -12,19 +12,6 @@ export interface WikiEntry extends WikiEntryFrontmatter {
   body: string;
 }
 
-export interface LogEntryFrontmatter {
-  id: string;
-  created: string;
-  kind: string;
-  title?: string;
-  tags?: string[];
-  refs?: string[];
-}
-
-export interface LogEntry extends LogEntryFrontmatter {
-  body: string;
-}
-
 export interface RawSourceEntry {
   id: string;
   created: string;
@@ -34,7 +21,7 @@ export interface RawSourceEntry {
   content: string;
 }
 
-export type PatchOp = "create_wiki" | "update_wiki" | "append_log";
+export type PatchOp = "create_wiki" | "update_wiki";
 export type PatchStatus = "pending" | "accepted" | "rejected";
 
 export interface PatchFrontmatter {
@@ -65,7 +52,6 @@ export interface MemoryPaths {
   rawDir: string;
   wikiDir: string;
   schemaDir: string;
-  logDir: string;
   queueDir: string;
   archiveDir: string;
   conflictsDir: string;
@@ -95,7 +81,6 @@ export interface DryDockIssue {
     | "missing_frontmatter"
     | "broken_link"
     | "duplicate_id"
-    | "orphan_log_ref"
     | "malformed_queue"
     | "inline_raw_source_ref"
     | "unsafe_secret"

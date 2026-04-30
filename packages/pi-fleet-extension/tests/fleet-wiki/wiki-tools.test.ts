@@ -5,8 +5,7 @@ import path from "node:path";
 
 import { showQueue } from "@sbluemin/fleet-wiki";
 import { resolveMemoryPaths } from "@sbluemin/fleet-wiki";
-import { listLog, pathExists } from "@sbluemin/fleet-wiki";
-import { buildAarProposeToolConfig } from "@sbluemin/fleet-wiki";
+import { pathExists } from "@sbluemin/fleet-wiki";
 import { buildIngestToolConfig } from "@sbluemin/fleet-wiki";
 import { buildPatchQueueToolConfig } from "@sbluemin/fleet-wiki";
 
@@ -119,25 +118,6 @@ describe("wiki tools", () => {
 
     expect(await pathExists(paths.rawDir)).toBe(false);
     expect(await pathExists(paths.queueDir)).toBe(false);
-  });
-
-  it("AAR auto_apply writes only log and archive artifacts", async () => {
-    const root = await makeTempRoot();
-    const paths = resolveMemoryPaths(root);
-    const tool = buildAarProposeToolConfig();
-
-    const result = await tool.execute("tool-call", {
-      id: "aar-1",
-      kind: "session",
-      body: "after action",
-      auto_apply: true,
-    }, undefined, undefined, { cwd: root } as any);
-    const payload = JSON.parse(result.content[0]!.text) as { archive: string };
-    const logs = await listLog(paths);
-
-    expect(logs).toHaveLength(1);
-    expect(await pathExists(path.join(paths.root, payload.archive))).toBe(true);
-    expect(await pathExists(path.join(paths.wikiDir, "aar-1.md"))).toBe(false);
   });
 
   it("patch queue tool returns guidance instead of raw ENOENT leakage", async () => {

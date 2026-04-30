@@ -51,7 +51,6 @@ describe("wiki capture directive", () => {
 
     expect(directive).toContain("Fleet Wiki capture staging");
     expect(directive).toContain("call `wiki_ingest`");
-    expect(directive).toContain("call `wiki_aar_propose` with `auto_apply:false`");
     expect(directive).toContain("Do not approve, merge, or otherwise finalize any patch");
     expect(directive).toContain("Report the staged patch IDs");
   });
@@ -63,7 +62,7 @@ describe("wiki capture directive", () => {
     });
 
     expect(directive).toContain("Fleet Wiki capture preview");
-    expect(directive).toContain("Do not call `wiki_ingest` or `wiki_aar_propose`");
+    expect(directive).toContain("Do not call `wiki_ingest`");
     expect(directive).toContain("candidate wiki entries");
     expect(directive).toContain("Base the preview on the current conversation/session history");
     expect(directive).toContain("branch `branch-1`");

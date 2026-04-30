@@ -4,7 +4,6 @@ import path from "node:path";
 import { PATCH_FILENAME, PATCH_META_FILENAME } from "./constants.js";
 import { ensureMemoryRoot } from "./paths.js";
 import {
-  appendLogEntry,
   assertSafeEntryId,
   listDirectoryNames,
   movePath,
@@ -17,7 +16,7 @@ import {
   writePatchFile,
   writeWikiEntry,
 } from "./store.js";
-import type { LogEntry, MemoryPaths, Patch, PatchMeta, WikiEntry } from "./types.js";
+import type { MemoryPaths, Patch, PatchMeta, WikiEntry } from "./types.js";
 
 export interface QueueSelection {
   id: string;
@@ -52,7 +51,7 @@ export async function parsePatch(markdown: string): Promise<Patch> {
 
 export async function validatePatch(patch: Patch, paths: MemoryPaths): Promise<void> {
   const { op, target, summary, proposer, created } = patch.frontmatter;
-  if (!["create_wiki", "update_wiki", "append_log"].includes(op)) throw new Error("invalid patch op");
+  if (!["create_wiki", "update_wiki"].includes(op)) throw new Error("invalid patch op");
   if (!target || !summary || !proposer || !created) throw new Error("patch frontmatter is incomplete");
   if (summary.length > 120) throw new Error("patch summary exceeds 120 chars");
 
@@ -61,24 +60,12 @@ export async function validatePatch(patch: Patch, paths: MemoryPaths): Promise<v
     throw new Error("patch target escapes wiki root");
   }
 
-  if (op === "append_log") {
-    if (!absoluteTarget.startsWith(`${paths.logDir}${path.sep}`)) throw new Error("append_log must target log/");
-    return;
-  }
-
   if (!absoluteTarget.startsWith(`${paths.wikiDir}${path.sep}`)) throw new Error("wiki patch must target wiki/");
   if (op === "update_wiki" && !(await pathExists(absoluteTarget))) throw new Error("update_wiki target does not exist");
 }
 
 export async function applyPatch(patch: Patch, paths: MemoryPaths): Promise<string> {
   await validatePatch(patch, paths);
-
-  if (patch.frontmatter.op === "append_log") {
-    const entry = JSON.parse(patch.body) as LogEntry;
-    const relativePath = await appendLogEntry(entry, paths);
-    await rebuildIndex(paths);
-    return relativePath;
-  }
 
   const entry = normalizeWikiEntryPatch(JSON.parse(patch.body) as WikiEntry, patch.frontmatter.target, paths);
   const relativePath = await writeWikiEntry(entry, paths);

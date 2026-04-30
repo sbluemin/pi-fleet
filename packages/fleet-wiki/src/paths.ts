@@ -6,7 +6,6 @@ import {
   CONFLICTS_DIRNAME,
   INDEX_FILENAME,
   KNOWLEDGE_ROOT_DIRNAME,
-  LOG_DIRNAME,
   QUEUE_DIRNAME,
   RAW_DIRNAME,
   SCHEMA_DIRNAME,
@@ -21,7 +20,6 @@ export function resolveMemoryPaths(cwd: string): MemoryPaths {
     rawDir: path.join(root, RAW_DIRNAME),
     wikiDir: path.join(root, WIKI_DIRNAME),
     schemaDir: path.join(root, SCHEMA_DIRNAME),
-    logDir: path.join(root, LOG_DIRNAME),
     queueDir: path.join(root, QUEUE_DIRNAME),
     archiveDir: path.join(root, ARCHIVE_DIRNAME),
     conflictsDir: path.join(root, CONFLICTS_DIRNAME),
@@ -34,7 +32,6 @@ export async function ensureMemoryRoot(paths: MemoryPaths): Promise<void> {
   await mkdir(paths.rawDir, { recursive: true });
   await mkdir(paths.wikiDir, { recursive: true });
   await mkdir(paths.schemaDir, { recursive: true });
-  await mkdir(paths.logDir, { recursive: true });
   await mkdir(paths.queueDir, { recursive: true });
   await mkdir(paths.archiveDir, { recursive: true });
   await mkdir(paths.conflictsDir, { recursive: true });

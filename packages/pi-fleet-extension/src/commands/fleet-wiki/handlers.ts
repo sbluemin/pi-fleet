@@ -39,7 +39,6 @@ export async function runCapture(pi: ExtensionAPI, ctx: ExtensionCommandContext)
   const choice = await ctx.ui.select("Fleet Wiki capture:", [
     "의미 있는 지식 staging",
     "프리뷰 캡처 계획",
-    "AAR 전용 프리뷰",
     "취소",
   ]);
 
@@ -49,11 +48,7 @@ export async function runCapture(pi: ExtensionAPI, ctx: ExtensionCommandContext)
   }
 
   const directive = buildWikiCaptureDirective({
-    mode: choice === "의미 있는 지식 staging"
-      ? "stage"
-      : choice === "AAR 전용 프리뷰"
-        ? "aar_only"
-        : "preview",
+    mode: choice === "의미 있는 지식 staging" ? "stage" : "preview",
     session,
   });
 

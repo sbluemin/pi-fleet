@@ -193,7 +193,7 @@ Each feature area maps to exactly one command domain. Use the domain below regar
 | Feature Area | Domain | Rationale |
 |-----------|--------|-----------|
 | `fleet` agent orchestration surfaces | `agent` | Sub-agent orchestration features |
-| `fleet-wiki` surfaces | `wiki` | Fleet Wiki store, patch queue, AAR ingest |
+| `fleet-wiki` surfaces | `wiki` | Fleet Wiki store, patch queue, ingest |
 | Admiral protocol and doctrine surfaces | `admiral` | Host-agent prompt policy, protocols, and operational doctrine |
 | Detached carrier job surfaces | `jobs` | Detached carrier job rendering and verbose toggle |
 | Metaphor/persona/worldview surfaces | `metaphor` | Naval Fleet persona prompts, worldview management, and shared metaphor controls |

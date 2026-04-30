@@ -3,9 +3,9 @@ import { readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises
 import os from "node:os";
 import path from "node:path";
 
-import { INDEX_FILENAME, REQUIRED_LOG_FRONTMATTER_KEYS, REQUIRED_WIKI_FRONTMATTER_KEYS } from "./constants.js";
+import { INDEX_FILENAME, REQUIRED_WIKI_FRONTMATTER_KEYS } from "./constants.js";
 import { ensureMemoryRoot } from "./paths.js";
-import type { LogEntry, WikiIndexEntry, MemoryPaths, RawSourceEntry, WikiEntry } from "./types.js";
+import type { WikiIndexEntry, MemoryPaths, RawSourceEntry, WikiEntry } from "./types.js";
 
 type FrontmatterShape = Record<string, unknown>;
 
@@ -25,15 +25,6 @@ export async function writeWikiEntry(entry: WikiEntry, paths: MemoryPaths): Prom
   assertSafeEntryId(entry.id);
   const relativePath = path.join("wiki", `${entry.id}.md`);
   await writeMarkdownAtomic(path.join(paths.root, relativePath), serializeWikiEntry(entry), paths);
-  return relativePath;
-}
-
-export async function appendLogEntry(entry: LogEntry, paths: MemoryPaths): Promise<string> {
-  await ensureMemoryRoot(paths);
-  assertSafeEntryId(entry.id);
-  const datePrefix = entry.created.slice(0, 10);
-  const relativePath = path.join("log", `${datePrefix}-${entry.id}.md`);
-  await writeMarkdownAtomic(path.join(paths.root, relativePath), serializeLogEntry(entry), paths);
   return relativePath;
 }
 
@@ -58,15 +49,6 @@ export async function writeRawSourceEntry(entry: RawSourceEntry, paths: MemoryPa
 
 export async function listWiki(paths: MemoryPaths): Promise<WikiEntry[]> {
   return listMarkdownEntries(paths.wikiDir, (content) => parseWikiEntry(content));
-}
-
-export async function listLog(paths: MemoryPaths, range?: { from?: string; to?: string }): Promise<LogEntry[]> {
-  const entries = await listMarkdownEntries(paths.logDir, (content) => parseLogEntry(content));
-  return entries.filter((entry) => {
-    if (range?.from && entry.created < range.from) return false;
-    if (range?.to && entry.created > range.to) return false;
-    return true;
-  });
 }
 
 export async function loadIndex(paths: MemoryPaths): Promise<Record<string, WikiIndexEntry>> {
@@ -166,19 +148,6 @@ function serializeWikiEntry(entry: WikiEntry): string {
   return serializeMarkdown(frontmatter, entry.body);
 }
 
-function serializeLogEntry(entry: LogEntry): string {
-  const frontmatter: FrontmatterShape = {
-    id: entry.id,
-    created: entry.created,
-    kind: entry.kind,
-  };
-  if (entry.title) frontmatter.title = entry.title;
-  if (entry.tags) frontmatter.tags = entry.tags;
-  if (entry.refs) frontmatter.refs = entry.refs;
-  assertRequiredKeys(frontmatter, REQUIRED_LOG_FRONTMATTER_KEYS);
-  return serializeMarkdown(frontmatter, entry.body);
-}
-
 function parseWikiEntry(content: string): WikiEntry {
   const parsed = parseMarkdown(content);
   assertRequiredKeys(parsed.frontmatter, REQUIRED_WIKI_FRONTMATTER_KEYS);
@@ -190,20 +159,6 @@ function parseWikiEntry(content: string): WikiEntry {
     updated: String(parsed.frontmatter.updated),
     version: Number(parsed.frontmatter.version),
     rawSourceRef: parsed.frontmatter.rawSourceRef ? String(parsed.frontmatter.rawSourceRef) : undefined,
-    body: parsed.body,
-  };
-}
-
-function parseLogEntry(content: string): LogEntry {
-  const parsed = parseMarkdown(content);
-  assertRequiredKeys(parsed.frontmatter, REQUIRED_LOG_FRONTMATTER_KEYS);
-  return {
-    id: String(parsed.frontmatter.id),
-    created: String(parsed.frontmatter.created),
-    kind: String(parsed.frontmatter.kind),
-    title: parsed.frontmatter.title ? String(parsed.frontmatter.title) : undefined,
-    tags: parsed.frontmatter.tags ? normalizeStringArray(parsed.frontmatter.tags) : undefined,
-    refs: parsed.frontmatter.refs ? normalizeStringArray(parsed.frontmatter.refs) : undefined,
     body: parsed.body,
   };
 }
@@ -224,10 +179,7 @@ async function readMarkdownFile<T>(filePath: string): Promise<T> {
   if (filePath.endsWith(`${INDEX_FILENAME}`)) {
     throw new Error("JSON index file cannot be read as markdown");
   }
-  if (filePath.includes(`${path.sep}wiki${path.sep}`)) {
-    return parseWikiEntry(content) as T;
-  }
-  return parseLogEntry(content) as T;
+  return parseWikiEntry(content) as T;
 }
 
 function parseMarkdown(content: string): { frontmatter: FrontmatterShape; body: string } {

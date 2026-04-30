@@ -30,14 +30,12 @@ describe("wiki patch queue", () => {
     expect(await pathExists(path.join(paths.wikiDir, "alpha.md"))).toBe(true);
   });
 
-  it("rejects traversal targets and invalid append targets", async () => {
+  it("rejects traversal targets", async () => {
     const root = await makeTempRoot();
     const paths = resolveMemoryPaths(root);
     const traversal = await parsePatch(`---\nop: "create_wiki"\ntarget: "../../../etc/passwd"\nsummary: "Bad"\nproposer: "test"\ncreated: "2026-04-26T00:00:00.000Z"\n---\n{}`);
-    const badLog = await parsePatch(`---\nop: "append_log"\ntarget: "wiki/nope.md"\nsummary: "Bad log"\nproposer: "test"\ncreated: "2026-04-26T00:00:00.000Z"\n---\n{}`);
 
     await expect(validatePatch(traversal, paths)).rejects.toThrow(/escapes wiki root/);
-    await expect(validatePatch(badLog, paths)).rejects.toThrow(/log/);
   });
 
   it("rejects update_wiki when the target is missing", async () => {
@@ -58,7 +56,7 @@ describe("wiki patch queue", () => {
     expect(await pathExists(path.join(paths.wikiDir, "safe.md"))).toBe(false);
   });
 
-  it("archives rejections without mutating wiki or log", async () => {
+  it("archives rejections without mutating wiki files", async () => {
     const root = await makeTempRoot();
     const paths = resolveMemoryPaths(root);
     const patch = await parsePatch(`---\nop: "create_wiki"\ntarget: "wiki/beta.md"\nsummary: "Beta"\nproposer: "test"\ncreated: "2026-04-26T00:00:00.000Z"\n---\n{"id":"beta","title":"Beta","tags":[],"created":"2026-04-26T00:00:00.000Z","updated":"2026-04-26T00:00:00.000Z","version":1,"body":"hello"}`);
@@ -70,7 +68,6 @@ describe("wiki patch queue", () => {
     expect(meta.status).toBe("rejected");
     expect(archivedMeta.reason).toBe("nope");
     expect(await pathExists(path.join(paths.wikiDir, "beta.md"))).toBe(false);
-    expect(await pathExists(path.join(paths.logDir, "beta.md"))).toBe(false);
   });
 
   it("fails reject after approve because the queue entry is gone", async () => {

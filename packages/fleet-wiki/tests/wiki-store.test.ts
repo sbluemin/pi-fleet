@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { resolveMemoryPaths } from "../src/paths.js";
-import { appendLogEntry, listLog, loadIndex, readPatchFile, readWikiEntry, rebuildIndex, writeRawSourceEntry, writeWikiEntry } from "../src/store.js";
+import { loadIndex, readPatchFile, readWikiEntry, rebuildIndex, writeRawSourceEntry, writeWikiEntry } from "../src/store.js";
 
 const cleanupPaths: string[] = [];
 
@@ -13,7 +13,7 @@ afterEach(async () => {
 });
 
 describe("wiki store", () => {
-  it("round-trips wiki and log entries and rebuilds the index", async () => {
+  it("round-trips wiki entries and rebuilds the index", async () => {
     const root = await makeTempRoot();
     const paths = resolveMemoryPaths(root);
 
@@ -28,23 +28,13 @@ describe("wiki store", () => {
       body: "hello world",
     }, paths);
 
-    await appendLogEntry({
-      id: "aar-1",
-      created: "2026-04-26T00:00:00.000Z",
-      kind: "aar",
-      refs: ["alpha"],
-      body: "after action",
-    }, paths);
-
     await rebuildIndex(paths);
 
     const wiki = await readWikiEntry("alpha", paths);
-    const log = await listLog(paths);
     const index = await loadIndex(paths);
 
     expect(wiki?.title).toBe("Alpha");
     expect(wiki?.rawSourceRef).toBe("raw/2026-04-26-alpha-source.md");
-    expect(log).toHaveLength(1);
     expect(index.alpha?.path).toBe(path.join("wiki", "alpha.md"));
   });
 
@@ -110,7 +100,6 @@ describe("wiki store", () => {
     const title = "Alpha \"Quoted\"\nLine";
     const tag = "tag\\slash\rreturn";
     const proposer = "tool:\"wiki\"\noperator";
-    const kind = "aar\"kind";
 
     await writeWikiEntry({
       id: "escape-alpha",
@@ -121,17 +110,6 @@ describe("wiki store", () => {
       version: 1,
       rawSourceRef: "raw/escape.md",
       body: "safe body",
-    }, paths);
-
-    await appendLogEntry({
-      id: "escape-log",
-      created: "2026-04-26T00:00:00.000Z",
-      kind,
-      title,
-      tags: [tag],
-      proposer,
-      refs: ["escape-alpha"],
-      body: "after action",
     }, paths);
 
     const wikiFile = await readFile(path.join(paths.wikiDir, "escape-alpha.md"), "utf8");
@@ -145,7 +123,6 @@ describe("wiki store", () => {
     }, paths);
     const rawFile = await readFile(path.join(paths.root, rawRef), "utf8");
     const wiki = await readWikiEntry("escape-alpha", paths);
-    const [log] = await listLog(paths);
 
     expect(wikiFile).toContain('title: "Alpha \\"Quoted\\"\\nLine"');
     expect(wikiFile).toContain('tags: ["tag\\\\slash\\rreturn"]');
@@ -154,20 +131,15 @@ describe("wiki store", () => {
     expect(rawFile).toContain('---\ntool:"wiki"\noperator');
     expect(wiki?.title).toBe(title);
     expect(wiki?.tags).toEqual([tag]);
-    expect(log?.kind).toBe(kind);
-    expect(log?.title).toBe(title);
-    expect(log?.tags).toEqual([tag]);
   });
 
-  it("preserves literal backslash escape sequences across round-trip", async () => {
+  it("preserves literal backslash escape sequences across wiki round-trip", async () => {
     const root = await makeTempRoot();
     const paths = resolveMemoryPaths(root);
     // backslash + n/r/" 같은 literal escape 시퀀스가 디코드 단계에서 실제
     // 제어문자로 변형되지 않고 원본 그대로 보존되는지 검증한다.
     const title = "literal \\n stays \\r same";
     const tag = "double\\\\back";
-    const proposer = "tool\\\"name";
-    const kind = "aar\\nkind";
 
     await writeWikiEntry({
       id: "literal-escape",
@@ -180,25 +152,10 @@ describe("wiki store", () => {
       body: "literal body",
     }, paths);
 
-    await appendLogEntry({
-      id: "literal-log",
-      created: "2026-04-26T00:00:00.000Z",
-      kind,
-      title,
-      tags: [tag],
-      proposer,
-      refs: ["literal-escape"],
-      body: "literal log",
-    }, paths);
-
     const wiki = await readWikiEntry("literal-escape", paths);
-    const [log] = await listLog(paths);
 
     expect(wiki?.title).toBe(title);
     expect(wiki?.tags).toEqual([tag]);
-    expect(log?.kind).toBe(kind);
-    expect(log?.title).toBe(title);
-    expect(log?.tags).toEqual([tag]);
   });
 });
 
