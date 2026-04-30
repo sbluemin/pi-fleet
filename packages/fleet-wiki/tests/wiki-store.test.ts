@@ -158,6 +158,48 @@ describe("wiki store", () => {
     expect(log?.title).toBe(title);
     expect(log?.tags).toEqual([tag]);
   });
+
+  it("preserves literal backslash escape sequences across round-trip", async () => {
+    const root = await makeTempRoot();
+    const paths = resolveMemoryPaths(root);
+    // backslash + n/r/" 같은 literal escape 시퀀스가 디코드 단계에서 실제
+    // 제어문자로 변형되지 않고 원본 그대로 보존되는지 검증한다.
+    const title = "literal \\n stays \\r same";
+    const tag = "double\\\\back";
+    const proposer = "tool\\\"name";
+    const kind = "aar\\nkind";
+
+    await writeWikiEntry({
+      id: "literal-escape",
+      title,
+      tags: [tag],
+      created: "2026-04-26T00:00:00.000Z",
+      updated: "2026-04-26T00:00:00.000Z",
+      version: 1,
+      rawSourceRef: "raw/literal.md",
+      body: "literal body",
+    }, paths);
+
+    await appendLogEntry({
+      id: "literal-log",
+      created: "2026-04-26T00:00:00.000Z",
+      kind,
+      title,
+      tags: [tag],
+      proposer,
+      refs: ["literal-escape"],
+      body: "literal log",
+    }, paths);
+
+    const wiki = await readWikiEntry("literal-escape", paths);
+    const [log] = await listLog(paths);
+
+    expect(wiki?.title).toBe(title);
+    expect(wiki?.tags).toEqual([tag]);
+    expect(log?.kind).toBe(kind);
+    expect(log?.title).toBe(title);
+    expect(log?.tags).toEqual([tag]);
+  });
 });
 
 async function makeTempRoot(): Promise<string> {

@@ -286,11 +286,18 @@ function escapeFrontmatterString(value: unknown): string {
 }
 
 function decodeFrontmatterString(value: string): string {
-  return value
-    .replace(/\\r/g, "\r")
-    .replace(/\\n/g, "\n")
-    .replace(/\\"/g, "\"")
-    .replace(/\\\\/g, "\\");
+  // 단일 패스로 backslash escape를 풀어 순서 의존을 제거한다.
+  // 순차 replace를 사용하면 직렬화된 `\\n`(literal `\n`)이 디코드 단계에서
+  // 실제 newline으로 잘못 변환되어 원본이 손상될 수 있다.
+  return value.replace(/\\(.)/g, (_, ch: string) => {
+    switch (ch) {
+      case "r": return "\r";
+      case "n": return "\n";
+      case "\"": return "\"";
+      case "\\": return "\\";
+      default: return `\\${ch}`;
+    }
+  });
 }
 
 function assertRequiredKeys(value: object, keys: readonly string[]): void {
