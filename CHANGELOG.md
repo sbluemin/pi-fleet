@@ -5,6 +5,8 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-05-01
+
 ### Added
 - **`opencode-go` CLI Provider**: Added the OpenCode Go CLI as a first-class provider in `packages/unified-agent`, including `UnifiedOpenCodeAgentClient`, `CLI_BACKENDS` entry, models entry, and dedicated E2E coverage. The Fleet ACP provider, ModelRegistry, and CLI registry are centralized accordingly.
 - **`claude-zai` / `claude-kimi` CLI Providers**: Added Z.AI GLM and Moonshot Kimi backends as Claude-family aliases of `UnifiedClaudeAgentClient` (separate `defaultEnv.ANTHROPIC_BASE_URL`, separate `models.json` entries, npx bridge with `--cli`).
