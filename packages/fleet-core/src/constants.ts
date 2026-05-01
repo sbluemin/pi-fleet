@@ -4,18 +4,34 @@
  * Carrier 프레임워크 및 기본 구현에서 공유되는 상수입니다.
  */
 
+import { CLI_BACKENDS, getProviderModels } from "@sbluemin/unified-agent";
+import type { CliType } from "@sbluemin/unified-agent";
+
 // ─── CLI 표시 이름 ───────────────────────────────────────
 
-export const CLI_DISPLAY_NAMES: Record<string, string> = {
-  // cliType 키 (unified-agent CliType 기준)
-  claude: "Claude",
-  codex: "Codex",
-  gemini: "Gemini",
-  // carrierId 키 (fleet 페르소나 기준)
+export const CLI_PROVIDER_DISPLAY_NAMES: Record<CliType, string> = Object.fromEntries(
+  Object.keys(CLI_BACKENDS).map((cliType) => [
+    cliType,
+    getProviderModels(cliType as CliType).name,
+  ]),
+) as Record<CliType, string>;
+
+export const CARRIER_DISPLAY_NAMES: Record<string, string> = {
   genesis: "Genesis",
   sentinel: "Sentinel",
   vanguard: "Vanguard",
 };
+
+export const CLI_DISPLAY_NAMES: Record<string, string> = {
+  ...CLI_PROVIDER_DISPLAY_NAMES,
+  ...CARRIER_DISPLAY_NAMES,
+};
+
+export const CLI_TYPE_DISPLAY_ORDER: Record<CliType, number> = Object.fromEntries(
+  Object.keys(CLI_BACKENDS).map((cliType, index) => [cliType, index]),
+) as Record<CliType, number>;
+
+export const VALID_CLI_TYPES = new Set<CliType>(Object.keys(CLI_BACKENDS) as CliType[]);
 
 // ─── ANSI 상수 ───────────────────────────────────────────
 
@@ -57,19 +73,29 @@ export const STREAMING_PREVIEW_LINES = 12;
 
 // ─── Carrier 스타일 ──────────────────────────────────────
 
+/** Carrier별 RGB 원천값 */
+export const CARRIER_RGBS: Record<string, [number, number, number]> = Object.fromEntries(
+  Object.entries(CLI_BACKENDS).map(([cliType, backend]) => [
+    cliType,
+    [...backend.colorRgb],
+  ]),
+) as Record<string, [number, number, number]>;
+
 /** Carrier별 입력창 상하단 라인 색상 (ANSI 24-bit RGB) */
-export const CARRIER_COLORS: Record<string, string> = {
-  claude:        "\x1b[38;2;255;149;0m",      // 주황색
-  codex:         "\x1b[38;2;169;169;169m",     // 밝은 회색
-  gemini:        "\x1b[38;2;66;133;244m",      // 파란색
-};
+export const CARRIER_COLORS: Record<string, string> = Object.fromEntries(
+  Object.entries(CLI_BACKENDS).map(([cliType, backend]) => {
+    const [r, g, b] = backend.colorRgb;
+    return [cliType, rgb(r, g, b)];
+  }),
+) as Record<string, string>;
 
 /** Carrier별 응답 배경색 (은은한 톤 — 다크 테마 기준) */
-export const CARRIER_BG_COLORS: Record<string, string> = {
-  claude:        "\x1b[48;2;40;25;8m",         // 따뜻한 어두운 주황
-  codex:         "\x1b[48;2;35;35;35m",        // 약간 밝은 검정
-  gemini:        "\x1b[48;2;15;22;42m",        // 차가운 어두운 파랑
-};
+export const CARRIER_BG_COLORS: Record<string, string> = Object.fromEntries(
+  Object.entries(CLI_BACKENDS).map(([cliType, backend]) => {
+    const [r, g, b] = backend.bgColorRgb;
+    return [cliType, bgRgb(r, g, b)];
+  }),
+) as Record<string, string>;
 
 // ─── 에이전트 패널 스타일 ────────────────────────────────
 
@@ -133,4 +159,12 @@ export function formatPanelMultiColHint(bodyH?: number): string {
   return bodyH === undefined
     ? PANEL_MULTI_COL_HINT
     : `${PANEL_MULTI_COL_HINT}[h=${bodyH}]`;
+}
+
+function rgb(r: number, g: number, b: number): string {
+  return `\x1b[38;2;${r};${g};${b}m`;
+}
+
+function bgRgb(r: number, g: number, b: number): string {
+  return `\x1b[48;2;${r};${g};${b}m`;
 }

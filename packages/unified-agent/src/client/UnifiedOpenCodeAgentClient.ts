@@ -3,8 +3,8 @@ import type { PromptResponse, McpServer } from '@agentclientprotocol/sdk';
 
 import type {
   AgentMode,
-  CliDetectionResult,
   CliType,
+  CliDetectionResult,
   McpServerConfig,
   UnifiedClientOptions,
 } from '../types/config.js';
@@ -38,24 +38,33 @@ import {
   mcpServerConfigsToAcp,
 } from '../config/CliConfigs.js';
 import { cleanEnvironment } from '../utils/env.js';
-import { getProviderModels, getProviderModelsMapping } from '../models/ModelRegistry.js';
+import { getProviderModels } from '../models/ModelRegistry.js';
 import type { ProviderModelInfo } from '../models/schemas.js';
 
 /**
- * Claude Code ACP 전용 내부 클라이언트.
- * Claude의 system prompt, mode, model 계약을 이 클래스 안에서 완결합니다.
+ * OpenCode ACP 전용 내부 클라이언트.
+ * OpenCode의 spawn option, system prompt prefix, reset 제한을 이 클래스 안에서 완결합니다.
+ *
+ * OpenCode ACP 특성:
+ * - 직접 spawn: `opencode acp` (npx 브릿지 없음)
+ * - 세션 교체: closeSession은 best-effort로 호출하고 resetSession은 disconnect + reconnect 사용
+ * - systemPrompt: `_meta.systemPrompt.append` 미지원 → firstPromptPending 방식
+ * - authRequired: false (자체 인증 스텁)
+ * - YOLO 모드: `build` 모드로 매핑
  */
-export class UnifiedClaudeAgentClient extends EventEmitter implements IUnifiedAgentClient {
+export class UnifiedOpenCodeAgentClient extends EventEmitter implements IUnifiedAgentClient {
+  private readonly providerId: Extract<CliType, 'opencode-go'>;
   private connection: AcpConnection | null = null;
   private sessionId: string | null = null;
   private sessionCwd: string | null = null;
   private currentSystemPrompt: string | null = null;
+  /** 첫 프롬프트 전송 시 systemPrompt를 텍스트 블록으로 앞에 붙이기 위한 플래그 */
+  private firstPromptPending: string | null = null;
   private detector = new CliDetector();
-  private readonly cliType: CliType & ('claude' | 'claude-zai' | 'claude-kimi');
 
-  constructor(cliType: CliType & ('claude' | 'claude-zai' | 'claude-kimi') = 'claude') {
+  constructor(providerId: Extract<CliType, 'opencode-go'>) {
     super();
-    this.cliType = cliType;
+    this.providerId = providerId;
   }
 
   on<K extends keyof UnifiedClientEvents>(
@@ -88,44 +97,20 @@ export class UnifiedClaudeAgentClient extends EventEmitter implements IUnifiedAg
 
   async connect(options: UnifiedClientOptions): Promise<ConnectResult> {
     await this.disconnect();
-    if (options.cli && options.cli !== this.cliType) {
-      throw new Error(`UnifiedClaudeAgentClient는 ${this.cliType} CLI만 지원합니다.`);
+    if (options.cli && options.cli !== this.providerId) {
+      throw new Error(`UnifiedOpenCodeAgentClient는 ${this.providerId} CLI만 지원합니다.`);
     }
 
     const acpMcpServers = this.resolveMcpServers(options.mcpServers);
-    const spawnConfig = createSpawnConfig(this.cliType, options);
-
-    // modelsMapping에서 환경변수 기본값 생성
-    const modelsMapping = getProviderModelsMapping(this.cliType);
-    const mappingEnv: Record<string, string> = {};
-    if (modelsMapping) {
-      // modelId → ANTHROPIC_DEFAULT_*_MODEL 환경변수 매핑
-      for (const [modelId, mappedModel] of Object.entries(modelsMapping)) {
-        const envKey = `ANTHROPIC_DEFAULT_${modelId.toUpperCase()}_MODEL`;
-        mappingEnv[envKey] = mappedModel;
-      }
-    }
-
-    // 백엔드 기본 환경변수 (프록시 설정 등)
-    const backendConfig = getBackendConfig(this.cliType);
-    const defaultEnv = backendConfig.defaultEnv ?? {};
-
-    // 사용자 설정(options.env) > modelsMapping 기본값(mappingEnv) > 백엔드 기본값(defaultEnv) > process.env
-    const cleanEnv = cleanEnvironment(process.env, { ...defaultEnv, ...mappingEnv, ...options.env });
-
-    // Anthropic 호환 커스텀 백엔드는 별도 API 토큰이 필요합니다.
-    if (defaultEnv.ANTHROPIC_BASE_URL && !cleanEnv.ANTHROPIC_AUTH_TOKEN) {
-      throw new Error(
-        `[${this.cliType}] ANTHROPIC_AUTH_TOKEN 환경변수가 설정되지 않았습니다. ${getProviderModels(this.cliType).name} API 키를 환경변수로 설정해주세요.`,
-      );
-    }
+    const spawnConfig = createSpawnConfig(this.providerId, options);
+    const cleanEnv = cleanEnvironment(process.env, options.env);
 
     const connection = new AcpConnection({
       command: spawnConfig.command,
       args: spawnConfig.args,
-      cliType: this.cliType,
+      cliType: this.providerId,
       cwd: options.cwd,
-      env: { ...cleanEnv },
+      env: cleanEnv,
       requestTimeout: options.timeout,
       initTimeout: options.timeout,
       promptIdleTimeout: options.promptIdleTimeout,
@@ -146,11 +131,13 @@ export class UnifiedClaudeAgentClient extends EventEmitter implements IUnifiedAg
 
     let session: AcpSessionNewResult;
     try {
+      // OpenCode는 _meta.systemPrompt.append를 지원하지 않으므로
+      // systemPrompt를 세션 생성 시 전달하지 않고 firstPromptPending으로 처리합니다.
       session = await connection.connect(
         options.cwd,
         options.sessionId,
         acpMcpServers,
-        options.systemPrompt,
+        undefined,
       );
     } catch (error) {
       const connectionError = this.buildConnectionError(error, recentLogs);
@@ -169,15 +156,8 @@ export class UnifiedClaudeAgentClient extends EventEmitter implements IUnifiedAg
       return;
     }
 
+    // OpenCode 계열은 disconnect 경로에서 프로세스 종료를 우선합니다.
     const conn = this.connection;
-    if (this.sessionId && conn.canResetSession) {
-      try {
-        await conn.endSession(this.sessionId);
-      } catch {
-        // 세션 close 실패는 프로세스 종료를 막지 않습니다.
-      }
-    }
-
     await conn.disconnect();
     conn.removeAllListeners();
     this.connection = null;
@@ -195,7 +175,7 @@ export class UnifiedClaudeAgentClient extends EventEmitter implements IUnifiedAg
 
   getConnectionInfo(): ConnectionInfo {
     return {
-      cli: this.connection ? this.cliType : null,
+      cli: this.connection ? this.providerId : null,
       protocol: this.connection ? 'acp' : null,
       sessionId: this.sessionId,
       state: this.connection ? this.connection.connectionState : 'disconnected',
@@ -211,7 +191,22 @@ export class UnifiedClaudeAgentClient extends EventEmitter implements IUnifiedAg
       throw new Error('연결되어 있지 않습니다');
     }
 
-    return this.connection.sendPrompt(this.sessionId, content);
+    // OpenCode는 _meta.systemPrompt.append를 지원하지 않아
+    // 첫 프롬프트에 systemPrompt를 텍스트 블록으로 앞에 붙입니다.
+    const systemPrompt = this.firstPromptPending;
+    if (!systemPrompt) {
+      return this.connection.sendPrompt(this.sessionId, content);
+    }
+
+    const userBlocks: AcpContentBlock[] = typeof content === 'string'
+      ? [{ type: 'text', text: content }]
+      : content;
+    const response = await this.connection.sendPrompt(this.sessionId, [
+      { type: 'text', text: systemPrompt },
+      ...userBlocks,
+    ]);
+    this.firstPromptPending = null;
+    return response;
   }
 
   async cancelPrompt(): Promise<void> {
@@ -247,15 +242,16 @@ export class UnifiedClaudeAgentClient extends EventEmitter implements IUnifiedAg
   }
 
   async setYoloMode(enabled: boolean): Promise<void> {
-    return this.setMode(enabled ? getYoloModeId(this.cliType) : 'default');
+    // OpenCode의 YOLO 모드는 'build' 모드로 매핑됩니다.
+    return this.setMode(enabled ? getYoloModeId(this.providerId) : 'plan');
   }
 
   getAvailableModes(): AgentMode[] {
-    return getBackendConfig(this.cliType).modes ?? [];
+    return getBackendConfig(this.providerId).modes ?? [];
   }
 
   getAvailableModels(): ProviderModelInfo | null {
-    return getProviderModels(this.cliType);
+    return getProviderModels(this.providerId);
   }
 
   getCurrentSystemPrompt(): string | null {
@@ -273,38 +269,44 @@ export class UnifiedClaudeAgentClient extends EventEmitter implements IUnifiedAg
       mcpServers: this.resolveMcpServers(mcpServers),
     });
     this.sessionId = sessionId;
+    // 세션 로드 시 기존 systemPrompt 컨텍스트를 유지하지 않습니다.
     this.currentSystemPrompt = null;
+    this.firstPromptPending = null;
   }
 
   async resetSession(cwd?: string): Promise<ConnectResult> {
-    if (!this.connection || !this.sessionId) {
+    if (!this.connection) {
       throw new Error('연결되어 있지 않습니다');
     }
 
+    // OpenCode 계열은 disconnect 후 재연결하는 방식으로 세션을 교체합니다.
     const targetCwd = cwd ?? this.sessionCwd ?? process.cwd();
-    if (!this.connection.canResetSession) {
-      throw new Error(`[${this.cliType}] 세션 리셋을 지원하지 않습니다. disconnect() 후 재연결하세요.`);
-    }
+    await this.disconnect();
 
-    await this.connection.endSession(this.sessionId);
-    this.sessionId = null;
+    const newClient = new UnifiedOpenCodeAgentClient(this.providerId);
+    const result = await newClient.connect({
+      cwd: targetCwd,
+      autoApprove: true,
+      systemPrompt: this.currentSystemPrompt ?? undefined,
+    });
 
-    const session = this.currentSystemPrompt
-      ? await this.connection.reconnectSession(
-          targetCwd,
-          undefined,
-          undefined,
-          this.currentSystemPrompt,
-        )
-      : await this.connection.reconnectSession(targetCwd);
+    // 새 클라이언트의 내부 상태를 현재 인스턴스로 이전합니다.
+    this.connection = newClient.connection;
+    this.sessionId = newClient.sessionId;
+    this.sessionCwd = newClient.sessionCwd;
+    this.currentSystemPrompt = newClient.currentSystemPrompt;
+    this.firstPromptPending = newClient.firstPromptPending;
 
-    this.sessionId = session.sessionId;
-    this.sessionCwd = targetCwd;
+    // 새 클라이언트의 이벤트 리스너를 현재 인스턴스로 재설정합니다.
+    this.setupEventForwarding();
+
+    // 임시 클라이언트의 리스너를 정리합니다.
+    newClient.removeAllListeners();
 
     return {
-      cli: this.cliType,
+      cli: this.providerId,
       protocol: 'acp',
-      session,
+      session: result.session,
     };
   }
 
@@ -318,7 +320,7 @@ export class UnifiedClaudeAgentClient extends EventEmitter implements IUnifiedAg
   ): Promise<ConnectResult> {
     if (options.yoloMode && session.sessionId) {
       try {
-        await this.connection!.setMode(session.sessionId, getYoloModeId(this.cliType));
+        await this.connection!.setMode(session.sessionId, getYoloModeId(this.providerId));
       } catch {
         // YOLO 모드 미지원 상황은 연결 성공을 막지 않습니다.
       }
@@ -335,9 +337,11 @@ export class UnifiedClaudeAgentClient extends EventEmitter implements IUnifiedAg
     this.sessionId = session.sessionId;
     this.sessionCwd = options.cwd;
     this.currentSystemPrompt = options.systemPrompt ?? null;
+    // 세션 재개가 아닌 경우 systemPrompt를 첫 프롬프트에 주입합니다.
+    this.firstPromptPending = options.sessionId ? null : this.currentSystemPrompt;
 
     return {
-      cli: this.cliType,
+      cli: this.providerId,
       protocol: 'acp',
       session,
     };
@@ -347,6 +351,7 @@ export class UnifiedClaudeAgentClient extends EventEmitter implements IUnifiedAg
     this.sessionId = null;
     this.sessionCwd = null;
     this.currentSystemPrompt = null;
+    this.firstPromptPending = null;
   }
 
   private setupEventForwarding(): void {
@@ -420,13 +425,8 @@ export class UnifiedClaudeAgentClient extends EventEmitter implements IUnifiedAg
     this.clearSessionState();
   }
 
-  private buildConnectionError(error: unknown, recentLogs: string[]): Error {
-    if (getBackendConfig(this.cliType).authRequired && this.isAuthenticationError(error, recentLogs)) {
-      return new Error(
-        `[${this.cliType}] 인증이 필요하거나 인증이 만료되었습니다. 먼저 해당 CLI에서 로그인/인증을 완료한 뒤 다시 시도해주세요.`,
-      );
-    }
-
+  private buildConnectionError(error: unknown, _recentLogs: string[]): Error {
+    // OpenCode는 authRequired: false이므로 인증 에러 패턴 매칭이 불필요합니다.
     if (error instanceof Error) {
       return error;
     }
@@ -442,45 +442,5 @@ export class UnifiedClaudeAgentClient extends EventEmitter implements IUnifiedAg
     }
 
     return new Error(String(error));
-  }
-
-  private isAuthenticationError(error: unknown, recentLogs: string[]): boolean {
-    const authPatterns = [
-      /auth_required/i,
-      /authentication required/i,
-      /not authenticated/i,
-      /please login/i,
-      /please log in/i,
-      /sign in/i,
-      /reauth/i,
-      /unauthorized/i,
-      /invalid api key/i,
-    ];
-
-    if (this.matchAnyPattern(this.extractErrorText(error), authPatterns)) {
-      return true;
-    }
-
-    return recentLogs.some((log) => this.matchAnyPattern(log, authPatterns));
-  }
-
-  private extractErrorText(error: unknown): string {
-    if (error instanceof Error) {
-      const code = (error as { code?: unknown }).code;
-      if (code === -32000) {
-        return `auth_required ${error.message}`;
-      }
-      return error.message;
-    }
-
-    if (typeof error === 'string') {
-      return error;
-    }
-
-    return String(error);
-  }
-
-  private matchAnyPattern(text: string, patterns: RegExp[]): boolean {
-    return patterns.some((pattern) => pattern.test(text));
   }
 }

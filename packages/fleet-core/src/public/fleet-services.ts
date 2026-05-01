@@ -27,6 +27,8 @@ import {
   type RegisteredTool,
   type Tool,
 } from "../services/tool-registry/tool-snapshot.js";
+import { createAuthService } from "../services/auth/index.js";
+import type { AuthService } from "../services/auth/index.js";
 import type { AgentToolSpec } from "../services/tool-registry/types.js";
 
 export type { McpCallToolResult, ToolCallArrivedCallback };
@@ -44,6 +46,7 @@ export interface FleetServices {
   readonly carrier: typeof CarrierServiceFacade;
   readonly squadron: typeof SquadronServiceFacade;
   readonly taskForce: typeof TaskForceServiceFacade;
+  readonly auth: AuthService;
   readonly tools: readonly AgentToolSpec[];
   readonly mcp: {
     url(): Promise<string>;
@@ -64,11 +67,14 @@ export interface FleetServices {
 let cachedMcpUrlPromise: Promise<string> | null = null;
 
 export function createFleetServices(ports: FleetServicesPorts): FleetServices {
+  const auth = createAuthService();
+
   return {
     protocols: AdmiralProtocolFacade,
     carrier: CarrierServiceFacade,
     squadron: SquadronServiceFacade,
     taskForce: TaskForceServiceFacade,
+    auth,
     // carrier 등록은 runtime 초기화 이후에 일어나므로 매 접근마다 lazy로 재계산해야
     // sortie/squadron/taskforce ToolSpec이 정상 노출됨.
     get tools(): readonly AgentToolSpec[] {

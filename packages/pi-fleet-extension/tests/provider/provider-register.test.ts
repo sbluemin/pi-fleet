@@ -10,6 +10,7 @@ vi.mock("@sbluemin/unified-agent", () => ({
   getModelsRegistry: () => ({
     providers: {
       codex: {
+        name: "OpenAI Codex CLI",
         models: [{ modelId: "gpt-5.4", name: "GPT-5.4" }],
         reasoningEffort: {
           supported: true,
@@ -19,6 +20,15 @@ vi.mock("@sbluemin/unified-agent", () => ({
       },
     },
   }),
+  CLI_BACKENDS: {
+    codex: {
+      supportsSessionClose: true,
+      supportsSessionLoad: true,
+      requiresModelAtSpawn: false,
+      usesNpxBridge: false,
+      defaultMaxTokens: 100_000,
+    },
+  },
 }));
 
 vi.mock("../../src/agent/provider-internal/session-runtime.js", () => ({
@@ -49,6 +59,31 @@ import { handleSessionStart } from "../../src/agent/provider-internal/provider-s
 import { initRuntime, onHostSessionChange } from "../../src/agent/provider-internal/session-runtime.js";
 
 describe("provider register", () => {
+  it("provider/model 등록 라벨을 Unified 표기로 노출한다", () => {
+    const pi = {
+      on: vi.fn((event: string, handler: Function) => {
+        mockState.handlers.set(event, handler);
+      }),
+      registerProvider: vi.fn(),
+    };
+
+    registerProviderRuntime(pi as any);
+
+    expect(pi.registerProvider).toHaveBeenCalledWith(
+      "OpenAI Codex CLI",
+      expect.objectContaining({
+        baseUrl: "OpenAI Codex CLI",
+        api: "OpenAI Codex CLI",
+        models: [
+          expect.objectContaining({
+            id: "GPT-5.4 (Unified)",
+            name: "GPT-5.4",
+          }),
+        ],
+      }),
+    );
+  });
+
   it("provider 자체가 Fleet session-map runtime을 초기화하고 session_start에서 PI session에 바인딩한다", async () => {
     const pi = {
       on: vi.fn((event: string, handler: Function) => {
@@ -67,7 +102,7 @@ describe("provider register", () => {
     sessionStart?.(
       { reason: "resume" },
       {
-        model: { id: "GPT-5.4 (ACP)" },
+        model: { id: "GPT-5.4 (Unified)" },
         sessionManager: {
           getSessionId: () => "pi-session-resume",
         },

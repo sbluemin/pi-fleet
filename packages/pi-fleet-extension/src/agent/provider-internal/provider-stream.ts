@@ -15,6 +15,7 @@ import type {
   Model,
   SimpleStreamOptions,
   ThinkingBudgets,
+  Tool as PiTool,
 } from "../provider.js";
 import crypto from "crypto";
 import {
@@ -25,7 +26,11 @@ import {
   type McpServerConfig,
   type UnifiedClientOptions,
 } from "@sbluemin/unified-agent";
-import type { AgentToolSpec, McpCallToolResult, Tool } from "@sbluemin/fleet-core";
+import {
+  resolveAuthEnv,
+  type AgentToolSpec,
+  type McpCallToolResult,
+} from "@sbluemin/fleet-core";
 import {
   DEFAULT_PROMPT_IDLE_TIMEOUT,
   DEFAULT_BRIDGE_SCOPE,
@@ -67,17 +72,19 @@ interface ToolResultEnvelope {
   toolCallId?: string;
 }
 
+type McpTool = { name: string; description?: string; parameters?: unknown; [key: string]: unknown };
+
 interface FleetMcpApi {
   url(): Promise<string>;
   setOnToolCallArrived(token: string, cb: ((toolName: string, args: Record<string, unknown>) => string) | null): void;
   resolveNextToolCall(token: string, toolCallId: string, result: McpCallToolResult): void;
   hasPendingToolCall(token: string): boolean;
   clearPendingForSession(token: string): void;
-  registerTools(token: string, tools: Tool[]): void;
+  registerTools(token: string, tools: McpTool[]): void;
   getToolNames(token: string): Set<string>;
   removeTools(token: string): void;
   clearAllTools(): void;
-  computeToolHash(tools: Tool[]): string;
+  computeToolHash(tools: McpTool[]): string;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -110,7 +117,7 @@ function mcpApi(): FleetMcpApi {
   return getFleetRuntime().fleet.mcp as unknown as FleetMcpApi;
 }
 
-function specToTool(spec: AgentToolSpec): Tool {
+function specToTool(spec: AgentToolSpec): McpTool {
   return {
     name: spec.mcp?.exposeAs ?? spec.name,
     description: spec.description,
@@ -118,9 +125,18 @@ function specToTool(spec: AgentToolSpec): Tool {
   };
 }
 
-function buildMcpTools(piTools: readonly Tool[] | undefined): Tool[] {
+function piToolToMcpTool(tool: PiTool): McpTool {
+  return {
+    ...tool,
+    name: tool.name,
+    description: tool.description,
+    parameters: tool.parameters,
+  };
+}
+
+function buildMcpTools(piTools: readonly PiTool[] | undefined): McpTool[] {
   const fleetTools = getFleetRuntime().fleet.tools.map(specToTool);
-  return [...(piTools ?? []), ...fleetTools];
+  return [...(piTools ?? []).map(piToolToMcpTool), ...fleetTools];
 }
 
 /** 명시적 디버그 플래그에서만 prompt 원문을 파일 로그에 남긴다. */
@@ -562,7 +578,7 @@ async function ensureSession(
   cwd: string,
   systemPrompt: string | undefined,
   systemPromptHash: string,
-  tools?: Tool[],
+  tools?: PiTool[],
   effortOverrides?: { effort?: string; budgetTokens?: number },
 ): Promise<AcpSessionState> {
   const state = getOrInitState();
@@ -699,7 +715,7 @@ async function ensureSession(
     client = await UnifiedAgent.build({ cli, sessionId: savedSessionId });
     let connectResult;
     try {
-      connectResult = await client.connect(buildProviderConnectOptions(
+      connectResult = await client.connect(await buildProviderConnectOptions(
         cli,
         cwd,
         backendModel,
@@ -722,7 +738,7 @@ async function ensureSession(
       client.removeAllListeners();
       client = await UnifiedAgent.build({ cli });
       resumedFromSavedSession = false;
-      connectResult = await client.connect(buildProviderConnectOptions(
+      connectResult = await client.connect(await buildProviderConnectOptions(
         cli,
         cwd,
         backendModel,
@@ -853,9 +869,9 @@ export function streamAcp(
   context: Context,
   options?: SimpleStreamOptions,
 ): AssistantMessageEventStream {
-  const parsed = parseModelId(model.id);
+  const parsed = parseModelId(model.id, model.provider) ?? parseModelId(model.id);
   if (!parsed) {
-    const mapper = createEventMapper(model.id, "");
+    const mapper = createEventMapper(model.id, "", undefined, model.provider);
     queueMicrotask(() => {
       mapper.finishWithError("error", `잘못된 ACP model ID: ${model.id}`);
     });
@@ -869,7 +885,7 @@ export function streamAcp(
   try {
     scopeKey = getSessionScopeKey(streamOptions, cwd);
   } catch (err) {
-    const errorMapper = createEventMapper(model.id, "");
+    const errorMapper = createEventMapper(model.id, "", undefined, model.provider);
     queueMicrotask(() => {
       errorMapper.finishWithError("error", errorMessage(err));
     });
@@ -907,7 +923,7 @@ export function streamAcp(
         markMcpToolUseStarted(session);
       }
     },
-  });
+  }, model.provider);
 
   if (isToolResultDelivery) {
     if (!toolResultSession) {
@@ -1342,14 +1358,14 @@ async function clearSessionsAndPreSpawn(state: AcpProviderState): Promise<void> 
   mcpApi().clearAllTools();
 }
 
-function buildProviderConnectOptions(
+async function buildProviderConnectOptions(
   cli: CliType,
   cwd: string,
   backendModel: string,
   systemPrompt?: string,
   mcpServers?: McpServerConfig[],
   sessionId?: string,
-): UnifiedClientOptions {
+): Promise<UnifiedClientOptions> {
   const connectOptions: UnifiedClientOptions = {
     cwd,
     cli,
@@ -1358,9 +1374,13 @@ function buildProviderConnectOptions(
     clientInfo: { name: "pi-unified-agent-provider", version: "1.0.0" },
     timeout: 0,
     yoloMode: true,
-    env: { MCP_TOOL_TIMEOUT: "1800000" },
     promptIdleTimeout: DEFAULT_PROMPT_IDLE_TIMEOUT,
   };
+
+  const env = await resolveAuthEnv(cli);
+  if (Object.keys(env).length > 0) {
+    connectOptions.env = env;
+  }
 
   if (systemPrompt) {
     connectOptions.systemPrompt = systemPrompt;

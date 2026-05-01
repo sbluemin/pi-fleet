@@ -12,16 +12,16 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import * as os from "node:os";
 import * as path from "node:path";
 import {
+  CLI_BACKENDS,
   getModelsRegistry,
   type CliType,
 } from "@sbluemin/unified-agent";
 
 import { getLogAPI } from "@sbluemin/fleet-core/services/log";
 import {
-  PROVIDER_ID,
   ACTIVE_STREAM_KEY,
-  CLI_DEFAULTS,
   buildModelId,
+  buildProviderId,
 } from "./state.js";
 import { initRuntime, onHostSessionChange } from "./session-runtime.js";
 import { streamAcp, cleanupAll, handleSessionStart } from "./provider-stream.js";
@@ -37,33 +37,22 @@ import { registerProviderGuard } from "./provider-guard.js";
 
 /**
  * models.json을 순회하여 pi registerProvider 형식의 모델 목록을 동적 생성.
- * Model.id는 models.json의 display name(name)에 ` (ACP)` postfix를 붙여 등록한다.
+ * Model.id는 models.json의 display name(name)에 ` (Unified)` postfix를 붙여 등록한다.
  * provider 내부 cli/backendModel 복원은 provider/types의 parseModelId /
  * buildModelId가 담당하며, thinking level UI 보정은 thinking-level-patch.ts가 맡는다.
  */
-const MODELS = Object.entries(getModelsRegistry().providers).flatMap(
-  ([cliKey, provider]) => {
+const PROVIDER_REGISTRATIONS = Object.entries(getModelsRegistry().providers)
+  .flatMap(([cliKey, provider]) => {
     const cli = cliKey as CliType;
-    const defaults = CLI_DEFAULTS[cli];
-    if (!defaults) return [];
+    const models = buildProviderModels(cli, provider);
+    if (models.length === 0) return [];
 
-    // reasoning boolean은 models.json의 reasoningEffort.supported에서 유도
-    const reasoning = provider.reasoningEffort.supported;
-
-    return provider.models.map((m) => ({
-      id: buildModelId(cli, m.modelId),
-      name: m.name,
-      reasoning,
-      input: ["text", "image"] as ("text" | "image")[],
-      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-      contextWindow: defaults.contextWindow,
-      maxTokens: defaults.maxTokens,
-    }));
-  },
-);
+    return [{ providerId: buildProviderId(cli), models }];
+  });
 
 /** Fleet와 동일한 SessionMapStore 영속 경로 */
 const FLEET_DATA_DIR = path.join(os.homedir(), ".pi", "fleet");
+type ProviderModels = NonNullable<Parameters<ExtensionAPI["registerProvider"]>[1]["models"]>;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Extension Entry Point
@@ -121,13 +110,35 @@ export default function registerProviderRuntime(pi: ExtensionAPI): void {
     // 최초 인스턴스: streamSimple 참조 저장 후 등록
     g[ACTIVE_STREAM_KEY] = streamAcp;
 
-    pi.registerProvider(PROVIDER_ID, {
-      baseUrl: PROVIDER_ID,
-      apiKey: "not-used",
-      api: PROVIDER_ID,
-      models: MODELS,
-      streamSimple: streamAcp,
-    });
+    for (const { providerId, models } of PROVIDER_REGISTRATIONS) {
+      pi.registerProvider(providerId, {
+        baseUrl: providerId,
+        apiKey: "not-used",
+        api: providerId,
+        models,
+        streamSimple: streamAcp,
+      });
+    }
   }
   // 후속 인스턴스(subagent): 부모의 ModelRegistry 등록을 공유하므로 skip
+}
+
+function buildProviderModels(
+  cli: CliType,
+  provider: ReturnType<typeof getModelsRegistry>["providers"][CliType],
+): ProviderModels {
+  const backend = CLI_BACKENDS[cli];
+  if (!backend) return [] as ProviderModels;
+
+  // reasoning boolean은 models.json의 reasoningEffort.supported에서 유도
+  const reasoning = provider.reasoningEffort.supported;
+
+  return provider.models.map((m) => ({
+    id: buildModelId(cli, m.modelId),
+    name: m.name,
+    reasoning,
+    input: ["text", "image"] as ("text" | "image")[],
+    cost: { input: 0, output: 0 },
+    maxTokens: backend.defaultMaxTokens,
+  })) as unknown as ProviderModels;
 }

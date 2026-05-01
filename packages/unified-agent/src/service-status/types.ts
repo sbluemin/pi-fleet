@@ -1,5 +1,7 @@
+import type { CliType } from '../config/CliConfigs.js';
+
 /** 서비스 상태 프로바이더 키 */
-export type ProviderKey = 'claude' | 'codex' | 'gemini';
+export type ProviderKey = CliType;
 
 /** 서비스 헬스 상태 */
 export type HealthStatus =

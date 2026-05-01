@@ -11,7 +11,7 @@ export interface AnsiColors {
 // Color name to ANSI code mapping
 type ColorName =
   | "sep" | "model" | "path" | "gitClean" | "gitDirty"
-  | "context" | "spend" | "staged" | "unstaged" | "untracked"
+  | "spend" | "staged" | "unstaged" | "untracked"
   | "output" | "cost" | "subagents" | "accent" | "border"
   | "warning" | "error" | "text"
   | "thinkingOff" | "thinkingMinimal" | "thinkingLow"
@@ -32,7 +32,6 @@ const THEME = {
   path: "#00afaf",                    // Teal/cyan
   gitClean: "#5faf5f",                // Green
   gitDirty: "#d7af5f",                // Gold/orange
-  context: "#8787af",                 // Purple-gray
   spend: "#5fafaf",                   // Teal
   staged: 70,                         // ANSI 256 green
   unstaged: 178,                      // ANSI 256 gold

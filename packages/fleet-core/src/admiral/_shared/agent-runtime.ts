@@ -9,6 +9,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 import {
+  CLI_BACKENDS,
   UnifiedAgent,
   getReasoningEffortLevels,
   type AcpToolCall,
@@ -20,6 +21,7 @@ import {
   type UnifiedClientOptions,
 } from "@sbluemin/unified-agent";
 
+import { resolveAuthEnv } from "../../services/auth/index.js";
 import { getLogAPI } from "../../services/log/store.js";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -245,7 +247,7 @@ const POOL_KEY = "__pi_unified_agent_client_pool__";
 const LAUNCH_CONFIG_KEY = "__pi_unified_agent_launch_config__";
 
 /** cliType 기반 legacy 키 목록 (carrierId 체계 전환 이전에 사용된 키) */
-const LEGACY_CLI_KEYS = new Set(["claude", "codex", "gemini"]);
+const LEGACY_CLI_KEYS = new Set(Object.keys(CLI_BACKENDS));
 
 const DEAD_SESSION_PATTERNS = [
   /session not found/i,
@@ -452,7 +454,7 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
     }
 
     if (needsConnect) {
-      const connectOpts = buildConnectOptions(cliType, cwd, {
+      const connectOpts = await buildConnectOptions(cliType, cwd, {
         model: opts.model,
         promptIdleTimeout: opts.promptIdleTimeout,
       }, opts.connectSystemPrompt ?? null);
@@ -658,7 +660,7 @@ export async function executeOneShot(opts: ExecuteOptions): Promise<ExecuteResul
       signal.addEventListener("abort", onAbort, { once: true });
     }
 
-    const connectOpts = buildConnectOptions(cliType, cwd, {
+    const connectOpts = await buildConnectOptions(cliType, cwd, {
       model: opts.model,
       promptIdleTimeout: opts.promptIdleTimeout,
     }, opts.connectSystemPrompt ?? null);
@@ -1133,12 +1135,12 @@ function raceAbort<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
  * CLI 연결에 필요한 공통 옵션 객체를 구성합니다.
  * 호출자가 주입한 model 값을 그대로 사용합니다.
  */
-function buildConnectOptions(
+async function buildConnectOptions(
   cli: CliType,
   cwd: string,
   overrides: { model?: string; promptIdleTimeout?: number } | undefined,
   systemPrompt: string | null | undefined,
-): UnifiedClientOptions {
+): Promise<UnifiedClientOptions> {
   const opts: UnifiedClientOptions = {
     cwd,
     cli,
@@ -1157,6 +1159,11 @@ function buildConnectOptions(
 
   if (systemPrompt) {
     opts.systemPrompt = systemPrompt;
+  }
+
+  const env = await resolveAuthEnv(cli);
+  if (Object.keys(env).length > 0) {
+    opts.env = env;
   }
 
   return opts;

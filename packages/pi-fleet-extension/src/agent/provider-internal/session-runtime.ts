@@ -1,6 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
+import { CLI_BACKENDS } from "@sbluemin/unified-agent";
+
 type SessionMap = Record<string, string>;
 
 export interface SessionMapStore {
@@ -21,7 +23,7 @@ export type ResumeFailureKind =
   | "abort"
   | "unknown";
 
-const LEGACY_CLI_KEYS = new Set(["claude", "codex", "gemini"]);
+const LEGACY_CLI_KEYS = new Set(Object.keys(CLI_BACKENDS));
 const noopStore: SessionMapStore = {
   restore() {},
   get() { return undefined; },

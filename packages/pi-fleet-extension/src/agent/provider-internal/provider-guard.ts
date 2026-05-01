@@ -1,6 +1,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 
 import { getSettingsService } from "@sbluemin/fleet-core/services/settings";
+import { getFleetProviderIds } from "./state.js";
 
 export interface ProviderGuardSettings {
   enabled?: boolean;
@@ -23,7 +24,7 @@ export interface PatchableModelRegistry {
 
 const PROVIDER_GUARD_SECTION_KEY = "core-provider-guard";
 const DEFAULT_PROVIDER_GUARD_ENABLED = true;
-const GUARDED_ALLOWED_PROVIDERS = new Set(["Fleet ACP", "openai-codex"]);
+const GUARDED_ALLOWED_PROVIDERS = new Set([...getFleetProviderIds(), "openai-codex"]);
 
 let guardState: ProviderGuardState | null = null;
 

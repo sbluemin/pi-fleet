@@ -7,6 +7,7 @@
 import { parseArgs } from 'node:util';
 import picocolors from 'picocolors';
 
+import { CLI_BACKENDS } from './config/CliConfigs.js';
 import { getModelsRegistry, getProviderModels } from './models/ModelRegistry.js';
 import { runOneShot } from './cli-oneshot.js';
 import { startRepl } from './cli-repl.js';
@@ -27,7 +28,7 @@ const ce = picocolors.createColors(picocolors.isColorSupported && isErrTTY);
 
 // ─── 인자 파싱 ────────────────────────────────────────────
 
-const VALID_CLIS = ['gemini', 'claude', 'codex'] as const;
+const VALID_CLIS = Object.keys(CLI_BACKENDS) as CliType[];
 const VALID_EFFORTS = ['none', 'low', 'medium', 'high', 'xhigh'] as const;
 
 let parsed: ReturnType<typeof parseArgs>;
@@ -67,7 +68,7 @@ ${c.bold('사용법')}
   echo "프롬프트" | ait [옵션]
 
 ${c.bold('옵션')}
-  -c, --cli <name>      CLI 선택 (gemini | claude | codex)
+  -c, --cli <name>      CLI 선택 (gemini | claude | claude-zai | claude-kimi | codex | opencode-go)
   -s, --session <id>    이전 세션 재개 (사용 시 -c 필수)
   -m, --model <name>    모델 지정
   -e, --effort <level>  reasoning effort (provider별 지원 시에만 적용)

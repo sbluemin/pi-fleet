@@ -27,6 +27,7 @@ export {
 export { UnifiedClaudeAgentClient } from './client/UnifiedClaudeAgentClient.js';
 export { UnifiedCodexAgentClient } from './client/UnifiedCodexAgentClient.js';
 export { UnifiedGeminiAgentClient } from './client/UnifiedGeminiAgentClient.js';
+export { UnifiedOpenCodeAgentClient } from './client/UnifiedOpenCodeAgentClient.js';
 
 // === 모델 레지스트리 ===
 export {
@@ -76,6 +77,8 @@ export {
   getBackendConfig,
   getAllBackendConfigs,
 } from './config/CliConfigs.js';
+
+export type { CliType } from './config/CliConfigs.js';
 
 // === 공식 ACP SDK re-export ===
 export {
@@ -146,7 +149,6 @@ export type {
 
 export type {
   // 설정
-  CliType,
   ProtocolType,
   AgentMode,
   CliSpawnConfig,

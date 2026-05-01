@@ -2,7 +2,7 @@ import { AgentSession, type ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { getProviderModels } from "@sbluemin/unified-agent";
 import type { Model } from "../provider.js";
 
-import { parseModelId, PROVIDER_ID } from "./state.js";
+import { isFleetProviderId, parseModelId, parseProviderId } from "./state.js";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types / Interfaces
@@ -73,16 +73,16 @@ export function reconcileAcpThinkingLevel(
 export function getAcpAvailableThinkingLevels(
   model: PatchableModel | undefined,
 ): UiThinkingLevel[] | null {
-  if (!model || model.provider !== PROVIDER_ID || !model.reasoning) {
+  if (!model || !isFleetProviderId(model.provider) || !model.reasoning) {
     return null;
   }
 
-  const parsed = parseModelId(model.id);
-  if (!parsed) {
+  const cli = parseProviderId(model.provider) ?? parseModelId(model.id, model.provider)?.cli;
+  if (!cli) {
     return null;
   }
 
-  const provider = getProviderModels(parsed.cli);
+  const provider = getProviderModels(cli);
   if (!provider?.reasoningEffort.supported) {
     return ["off"];
   }

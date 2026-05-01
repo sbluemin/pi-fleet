@@ -5,6 +5,7 @@
  */
 
 import {
+  CLI_BACKENDS,
   getModelsRegistry,
   type CliType,
   type IUnifiedAgentClient,
@@ -74,64 +75,62 @@ export interface CliCapability {
 
 export type CliRuntimeContextBuilder = (userRequest: string) => string;
 
-export const PROVIDER_ID = "Fleet ACP";
 export const GLOBAL_STATE_KEY = Symbol.for("__pi_fleet_acp_state__");
 export const ACTIVE_STREAM_KEY = Symbol.for("__pi_fleet_acp_stream__");
 export const DEFAULT_REQUEST_TIMEOUT = 600_000;
 export const DEFAULT_INIT_TIMEOUT = 60_000;
 export const DEFAULT_PROMPT_IDLE_TIMEOUT = 1_800_000;
 export const DEFAULT_BRIDGE_SCOPE = "default";
-export const CLI_CAPABILITIES: Record<CliType, CliCapability> = {
-  gemini: {
-    supportsSessionClose: false,
-    supportsSessionLoad: false,
-    requiresModelAtSpawn: true,
-    usesNpxBridge: false,
-  },
-  claude: {
-    supportsSessionClose: true,
-    supportsSessionLoad: true,
-    requiresModelAtSpawn: false,
-    usesNpxBridge: false,
-  },
-  codex: {
-    supportsSessionClose: true,
-    supportsSessionLoad: true,
-    requiresModelAtSpawn: false,
-    usesNpxBridge: true,
-  },
-};
-export const CLI_DEFAULTS: Record<CliType, { contextWindow: number; maxTokens: number }> = {
-  claude: { contextWindow: 200_000, maxTokens: 16_384 },
-  gemini: { contextWindow: 1_048_576, maxTokens: 65_536 },
-  codex: { contextWindow: 200_000, maxTokens: 100_000 },
-};
+export const CLI_CAPABILITIES: Record<CliType, CliCapability> = Object.fromEntries(
+  Object.entries(CLI_BACKENDS).map(([cliType, backend]) => [
+    cliType,
+    {
+      supportsSessionClose: backend.supportsSessionClose,
+      supportsSessionLoad: backend.supportsSessionLoad,
+      requiresModelAtSpawn: backend.requiresModelAtSpawn,
+      usesNpxBridge: backend.usesNpxBridge,
+    },
+  ]),
+) as Record<CliType, CliCapability>;
 
 const CLI_RUNTIME_CONTEXT_KEY = Symbol.for("__pi_fleet_acp_cli_runtime_context__");
-const ACP_MODEL_ID_POSTFIX = " (ACP)";
+const LEGACY_PROVIDER_PREFIX = "Fleet ";
+const MODEL_ID_POSTFIX = " (Unified)";
+const LEGACY_MODEL_ID_POSTFIX = " (ACP)";
 const MODEL_LOOKUP: {
   byRegisteredId: Map<string, { cli: CliType; backendModel: string }>;
+  byProviderAndRegisteredId: Map<string, { cli: CliType; backendModel: string }>;
   byCliModel: Map<string, string>;
 } = (() => {
   const byRegisteredId = new Map<string, { cli: CliType; backendModel: string }>();
+  const byProviderAndRegisteredId = new Map<string, { cli: CliType; backendModel: string }>();
   const byCliModel = new Map<string, string>();
   const registry = getModelsRegistry();
 
   for (const [cliKey, provider] of Object.entries(registry.providers)) {
     const cli = cliKey as CliType;
-    if (!CLI_DEFAULTS[cli]) continue;
+    if (!CLI_BACKENDS[cli]) continue;
+    const providerIds = buildProviderIdAliases(cli);
     for (const model of provider.models) {
-      byRegisteredId.set(`${model.name}${ACP_MODEL_ID_POSTFIX}`, { cli, backendModel: model.modelId });
-      byRegisteredId.set(model.name, { cli, backendModel: model.modelId });
-      byRegisteredId.set(model.modelId, { cli, backendModel: model.modelId });
-      byCliModel.set(`${cli}\u0000${model.modelId}`, `${model.name}${ACP_MODEL_ID_POSTFIX}`);
+      const modelIds = buildModelIdAliases(model.name);
+      for (const modelId of [...modelIds, model.modelId]) {
+        byRegisteredId.set(modelId, { cli, backendModel: model.modelId });
+        for (const providerId of providerIds) {
+          byProviderAndRegisteredId.set(`${providerId}\u0000${modelId}`, { cli, backendModel: model.modelId });
+        }
+      }
+      byCliModel.set(`${cli}\u0000${model.modelId}`, modelIds[0]!);
     }
   }
 
-  return { byRegisteredId, byCliModel };
+  return { byRegisteredId, byProviderAndRegisteredId, byCliModel };
 })();
 
-export function parseModelId(modelId: string): ParsedModelId | null {
+export function parseModelId(modelId: string, providerId?: string): ParsedModelId | null {
+  if (providerId) {
+    const lookup = MODEL_LOOKUP.byProviderAndRegisteredId.get(`${providerId}\u0000${modelId}`);
+    if (lookup) return { cli: lookup.cli, backendModel: lookup.backendModel };
+  }
   const lookup = MODEL_LOOKUP.byRegisteredId.get(modelId);
   if (!lookup) return null;
   return { cli: lookup.cli, backendModel: lookup.backendModel };
@@ -140,6 +139,28 @@ export function parseModelId(modelId: string): ParsedModelId | null {
 export function buildModelId(cli: CliType, backendModel: string): string {
   const registeredId = MODEL_LOOKUP.byCliModel.get(`${cli}\u0000${backendModel}`);
   return registeredId ?? `${cli}/${backendModel}`;
+}
+
+export function buildProviderId(cli: CliType): string {
+  return getCanonicalProviderName(cli);
+}
+
+export function getFleetProviderIds(): string[] {
+  return Object.keys(getModelsRegistry().providers)
+    .map((cli) => buildProviderId(cli as CliType));
+}
+
+export function isFleetProviderId(providerId: string): boolean {
+  return parseProviderId(providerId) !== null;
+}
+
+export function parseProviderId(providerId: string): CliType | null {
+  for (const cliKey of Object.keys(getModelsRegistry().providers)) {
+    const cli = cliKey as CliType;
+    if (!CLI_BACKENDS[cli]) continue;
+    if (buildProviderIdAliases(cli).includes(providerId)) return cli;
+  }
+  return null;
 }
 
 export function hashSystemPrompt(prompt: string | undefined): string {
@@ -209,4 +230,17 @@ function createInitialState(): AcpProviderState {
     bridgeScopeSessionKeys: new Map(),
     sessionLaunchConfigs: new Map(),
   };
+}
+
+function getCanonicalProviderName(cli: CliType): string {
+  return getModelsRegistry().providers[cli]?.name ?? cli;
+}
+
+function buildProviderIdAliases(cli: CliType): string[] {
+  const canonicalName = getCanonicalProviderName(cli);
+  return [canonicalName, `${LEGACY_PROVIDER_PREFIX}${canonicalName}`];
+}
+
+function buildModelIdAliases(displayName: string): string[] {
+  return [`${displayName}${MODEL_ID_POSTFIX}`, `${displayName}${LEGACY_MODEL_ID_POSTFIX}`, displayName];
 }

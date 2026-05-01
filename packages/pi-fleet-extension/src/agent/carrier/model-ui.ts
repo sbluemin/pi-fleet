@@ -12,13 +12,15 @@ import {
 } from "@sbluemin/fleet-core/constants";
 import type { ModelSelection, SelectedModelsConfig } from "@sbluemin/fleet-core/admiral/store";
 import {
-  getAvailableModels,
-  getEffortLevels,
-  getDefaultBudgetTokens,
   loadModels as getModelConfig,
   updateAllModelSelections,
 } from "@sbluemin/fleet-core/admiral/store";
-import type { CliType } from "@sbluemin/unified-agent";
+import {
+  CLI_BACKENDS,
+  getProviderModels,
+  getReasoningEffortLevels,
+  type CliType,
+} from "@sbluemin/unified-agent";
 
 import { setAgentPanelModelConfig } from "../ui/panel/config.js";
 import {
@@ -73,7 +75,7 @@ export function registerModelCommands(pi: ExtensionAPI): void {
 }
 
 function isCliType(value: string): value is CliType {
-  return value === "claude" || value === "codex" || value === "gemini";
+  return value in CLI_BACKENDS;
 }
 
 function resolveCarrierCliType(carrierId: string): CliType | undefined {
@@ -94,7 +96,7 @@ async function selectModelForCli(
 
   let provider;
   try {
-    provider = getAvailableModels(cli);
+    provider = getProviderModels(cli);
   } catch {
     ctx.ui.notify(`${cliName}: 모델 정보를 가져올 수 없습니다.`, "error");
     return undefined;
@@ -115,7 +117,7 @@ async function selectModelForCli(
   const selection: ModelSelection = { model: modelId };
 
   if (cli === "codex") {
-    const effortLevels = getEffortLevels(cli);
+    const effortLevels = getReasoningEffortLevels(cli);
     if (effortLevels && effortLevels.length > 0) {
       const defaultEffort = provider.reasoningEffort.supported
         ? (provider.reasoningEffort as { default: string }).default
@@ -136,7 +138,7 @@ async function selectModelForCli(
   }
 
   if (cli === "claude") {
-    const effortLevels = getEffortLevels(cli);
+    const effortLevels = getReasoningEffortLevels(cli);
     if (effortLevels && effortLevels.length > 0) {
       const defaultEffort = provider.reasoningEffort.supported
         ? (provider.reasoningEffort as { default: string }).default
@@ -153,31 +155,6 @@ async function selectModelForCli(
       const effortChoice = await ctx.ui.select("Claude thinking level:", effortOptions);
       if (effortChoice === undefined) return undefined;
       selection.effort = effortChoice.split(" [")[0]!.trim();
-
-      if (selection.effort !== "none") {
-        const defaultBudget = getDefaultBudgetTokens(selection.effort);
-        const currentBudget = prev?.budgetTokens;
-        const placeholder = currentBudget
-          ? `${currentBudget} (current)`
-          : `${defaultBudget} (default for ${selection.effort})`;
-
-        const budgetInput = await ctx.ui.input(
-          `Claude budget_tokens (${selection.effort}):`,
-          placeholder,
-        );
-
-        if (budgetInput !== undefined && budgetInput.trim()) {
-          const parsed = parseInt(budgetInput.trim(), 10);
-          if (!isNaN(parsed) && parsed > 0) {
-            selection.budgetTokens = parsed;
-          } else {
-            selection.budgetTokens = defaultBudget;
-            ctx.ui.notify(`유효하지 않은 입력. 기본값 ${defaultBudget} 사용.`, "warning");
-          }
-        } else {
-          selection.budgetTokens = currentBudget ?? defaultBudget;
-        }
-      }
     }
   }
 

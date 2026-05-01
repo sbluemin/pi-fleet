@@ -38,7 +38,8 @@ src/
 │   ├── IUnifiedAgentClient.ts  # Public API contract + UnifiedAgent builder
 │   ├── UnifiedClaudeAgentClient.ts # Claude-specific client
 │   ├── UnifiedGeminiAgentClient.ts # Gemini-specific client
-│   └── UnifiedCodexAgentClient.ts  # Codex-specific client
+│   ├── UnifiedCodexAgentClient.ts  # Codex-specific client
+│   └── UnifiedOpenCodeAgentClient.ts # OpenCode-specific client
 ├── detector/
 │   └── CliDetector.ts          # CLI auto-detection
 ├── models/
@@ -143,12 +144,15 @@ ait (gemini) ❯ {input}           # Omitted if effort is not supported
 |-----|----------|--------------|-------------------|----------|
 | Gemini | ACP | `gemini --acp` | ❌ | ❌ |
 | Claude | ACP (npx bridge) | `npx --package=@agentclientprotocol/claude-agent-acp@0.29.2 claude-agent-acp` | ✅ | ✅ |
+| Claude (ZAI) | ACP (npx bridge) | `npx --package=@agentclientprotocol/claude-agent-acp@0.29.2 claude-agent-acp --cli` | ✅ | ✅ |
+| Claude (Kimi) | ACP (npx bridge) | `npx --package=@agentclientprotocol/claude-agent-acp@0.29.2 claude-agent-acp --cli` | ✅ | ✅ |
 | Codex | `codex-app-server` | `codex app-server --listen stdio://` | Reflected in next turn/thread via pending override | Interpreted pending mode as next thread policy |
+| opencode-go | ACP | `opencode acp` | ✅ | ✅ |
 
 ## Architecture Decisions
 
-1. **Specialized Clients per CLI**: The `UnifiedAgent` builder selects the provider client, and `UnifiedClaudeAgentClient` / `UnifiedGeminiAgentClient` / `UnifiedCodexAgentClient` directly hold each CLI specialization.
-2. **ACP SDK used only for Claude/Gemini**: Codex handles stdio JSON-RPC directly in `CodexAppServerConnection`.
+1. **Specialized Clients per CLI**: The `UnifiedAgent` builder selects the provider client, and `UnifiedClaudeAgentClient` / `UnifiedGeminiAgentClient` / `UnifiedCodexAgentClient` / `UnifiedOpenCodeAgentClient` directly hold each CLI specialization.
+2. **ACP SDK used for ACP-based CLIs**: Claude, Gemini, and OpenCode Go use the ACP SDK via `AcpConnection`. Codex handles stdio JSON-RPC directly in `CodexAppServerConnection`.
 3. **Config-driven + provider seam**: Maintain common contracts while encapsulating CLI differences in `CliConfigs.ts` and internal connection seams.
 4. **Event-driven Streaming**: Real-time response processing based on `EventEmitter` (`messageChunk`, `toolCall`, etc.).
 5. **Graceful Process Management**: 2-stage termination (SIGTERM → SIGKILL), and environment sanitization to prevent child process interference.
@@ -157,4 +161,26 @@ ait (gemini) ❯ {input}           # Omitted if effort is not supported
    - **Claude**: `AcpConnection` appends to the native system prompt via `_meta.systemPrompt.append` when calling `session/new`. The `claude-agent-acp` bridge handles this.
    - **Codex**: Passes `systemPrompt` as `developerInstructions` when creating/resuming a thread. Does not use first user turn prefixing.
    - **Gemini**: `UnifiedGeminiAgentClient` manages `firstPromptPending` state and prefixes the first `sendMessage()` after a new session with the system text `ContentBlock`. This is not a true system-role guarantee.
+   - **OpenCode Go**: `UnifiedOpenCodeAgentClient` also manages `firstPromptPending` state (same approach as Gemini) since `_meta.systemPrompt.append` is unsupported. Session reset is handled via disconnect + reconnect.
    - **Session Persistence Contract**: Re-armed for new sessions after `resetSession()`. Codex resume/load paths via `sessionId` re-pass the current client's `systemPrompt`, policies (`approvalPolicy`/`sandbox`), and thread config to `thread/resume`. Claude/Gemini session resume follows a best-effort policy prioritizing conversation continuity; if intentional drift cleanup is needed, the caller must invoke `resetSession()`.
+
+8. **CLI_BACKENDS Single Source of Truth**: `CLI_BACKENDS` in `src/config/CliConfigs.ts` is the sole configuration registry for all CLI providers. `CliType` is derived as `keyof typeof CLI_BACKENDS`. Each entry defines:
+   - `id`, `cliCommand`, `protocol`, `authRequired`
+   - `acpArgs`, `appServerArgs`, `npxPackage` — spawn method configuration
+   - `modes` — available agent mode definitions
+   - `supportsSessionClose`, `supportsSessionLoad` — session capability flags
+   - `requiresModelAtSpawn`, `usesNpxBridge` — spawn behavior flags
+   - `defaultMaxTokens` — resource limits
+   - `colorRgb`, `bgColorRgb` — ANSI display colors
+   - Display names are sourced from `models.json` via `providers.<cli>.name`
+
+## Adding a New CLI Provider
+
+Adding a new CLI provider requires updating the provider registry first, then any provider-specific seams that do not derive automatically:
+
+1. **`packages/unified-agent/src/config/CliConfigs.ts`** — Add an entry to `CLI_BACKENDS` with the required spawn/protocol metadata.
+2. **Claude-family alias additions** — If the new provider reuses `UnifiedClaudeAgentClient`, also update the `cliType` union in `src/client/UnifiedClaudeAgentClient.ts`, the Claude bridge allowlist in `src/connection/AcpConnection.ts#getClaudeSystemPrompt()`, the status fetcher registration in `src/service-status/store.ts`, and any provider-specific fallback URL/target switches in the same store.
+3. **OpenCode-specific note** — The current OpenCode surface keeps only `opencode-go`. Adding another OpenCode variant requires reintroducing explicit routing in `src/client/IUnifiedAgentClient.ts`, the provider union in `src/client/UnifiedOpenCodeAgentClient.ts`, OpenCode entries in `src/service-status/store.ts`, the model registry in `models.json`, and E2E coverage in `tests/e2e/opencode.test.ts`.
+4. **Non-derived provider seams** — Add or adjust any dedicated client routing, status fetcher, or fallback behavior that is not automatically derived from `CLI_BACKENDS`.
+
+All downstream consumers (`fleet-core` constants: `CARRIER_COLORS`, `CARRIER_BG_COLORS`, `VALID_CLI_TYPES`, `CLI_PROVIDER_DISPLAY_NAMES`, `CLI_TYPE_DISPLAY_ORDER`) derive automatically from `CLI_BACKENDS`.

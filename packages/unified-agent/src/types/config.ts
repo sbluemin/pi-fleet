@@ -2,8 +2,9 @@
  * CLI 설정 및 구성 타입 정의
  */
 
-/** 지원하는 CLI 종류 */
-export type CliType = 'gemini' | 'claude' | 'codex';
+import type { CliType } from '../config/CliConfigs.js';
+
+export type { CliType } from '../config/CliConfigs.js';
 
 /** 통신 프로토콜 */
 export type ProtocolType = 'acp' | 'codex-app-server';
@@ -31,9 +32,7 @@ export interface CliSpawnConfig {
 /** CLI 백엔드 설정 */
 export interface CliBackendConfig {
   /** CLI 식별자 */
-  id: CliType;
-  /** CLI 표시 이름 */
-  name: string;
+  id: string;
   /** CLI 커맨드 */
   cliCommand: string;
   /** 통신 프로토콜 */
@@ -44,10 +43,28 @@ export interface CliBackendConfig {
   acpArgs?: string[];
   /** npx 패키지 (브릿지인 경우) */
   npxPackage?: string;
+  /** npx 패키지 실행 시 bin 뒤에 전달할 추가 인자 */
+  npxExtraArgs?: string[];
   /** app-server 시작 인자 (Codex native spawn용) */
   appServerArgs?: string[];
   /** 사용 가능한 에이전트 모드 목록 (session/set_mode 지원 시) */
   modes?: AgentMode[];
+  /** session/close 지원 여부 */
+  supportsSessionClose: boolean;
+  /** session/load 지원 여부 */
+  supportsSessionLoad: boolean;
+  /** 모델을 spawn 시점에 전달해야 하는지 여부 */
+  requiresModelAtSpawn: boolean;
+  /** npx 브릿지 실행 여부 */
+  usesNpxBridge: boolean;
+  /** 기본 최대 토큰 */
+  defaultMaxTokens: number;
+  /** 전경 RGB 색상 */
+  colorRgb: readonly [number, number, number];
+  /** 배경 RGB 색상 */
+  bgColorRgb: readonly [number, number, number];
+  /** 기본 환경변수 (프록시 등 설정용) */
+  defaultEnv?: Record<string, string>;
 }
 
 /** 통합 MCP 서버 설정 (백엔드 무관 공통 타입) */

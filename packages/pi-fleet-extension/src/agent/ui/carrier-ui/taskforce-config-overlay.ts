@@ -10,8 +10,8 @@
 import type { Component, Focusable, TUI } from "@mariozechner/pi-tui";
 import { Key, matchesKey } from "@mariozechner/pi-tui";
 import type { Theme } from "@mariozechner/pi-coding-agent";
-import { CARRIER_BG_COLORS } from "@sbluemin/fleet-core/constants";
-import type { ProviderInfo } from "@sbluemin/fleet-core/admiral/store";
+import { CARRIER_BG_COLORS, CLI_DISPLAY_NAMES } from "@sbluemin/fleet-core/constants";
+import type { ProviderModelInfo } from "@sbluemin/unified-agent";
 import {
   TASKFORCE_CLI_TYPES,
   type TaskForceCliType,
@@ -34,9 +34,8 @@ interface BackendEntry {
 }
 
 interface TaskForceOverlayProps {
-  getAvailableModels: (cliType: string) => ProviderInfo;
+  getAvailableModels: (cliType: string) => ProviderModelInfo;
   getEffortLevels: (cliType: string) => string[] | null;
-  getDefaultBudgetTokens: (effort: string) => number;
   /** 백엔드별 현재 설정 반환 (origin 포함) */
   getBackendConfig: (cliType: string) => { model: string; effort: string | null; isCustom: boolean };
   /** 백엔드 설정 저장 */
@@ -60,12 +59,6 @@ const CLI_COLORS: Record<string, string> = {
   claude: "\x1b[38;2;255;149;0m",
   codex: "\x1b[38;2;169;169;169m",
   gemini: "\x1b[38;2;66;133;244m",
-};
-
-const CLI_DISPLAY_NAMES: Record<string, string> = {
-  claude: "Claude",
-  codex: "Codex",
-  gemini: "Gemini",
 };
 
 // ─── 컴포넌트 ────────────────────────────────────────────
@@ -324,10 +317,6 @@ export class TaskForceConfigOverlay implements Component, Focusable {
       model: this.pendingModelId,
       effort: selectedEffort,
     };
-
-    if (entry.cliType === "claude" && selectedEffort !== "none") {
-      selection.budgetTokens = this.callbacks.getDefaultBudgetTokens(selectedEffort);
-    }
 
     void this.commitSelection(entry, selection);
   }

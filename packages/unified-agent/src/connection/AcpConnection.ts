@@ -347,7 +347,11 @@ export class AcpConnection extends BaseConnection {
 
   /** Claude bridge만 native system prompt append를 지원하므로 이 경로만 사용합니다. */
   private getClaudeSystemPrompt(systemPrompt?: string): string | null {
-    if (this.cliType !== 'claude') {
+    if (
+      this.cliType !== 'claude' &&
+      this.cliType !== 'claude-zai' &&
+      this.cliType !== 'claude-kimi'
+    ) {
       return null;
     }
 

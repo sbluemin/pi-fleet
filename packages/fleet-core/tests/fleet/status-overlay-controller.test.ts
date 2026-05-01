@@ -95,6 +95,39 @@ function makeProviders(): Record<CarrierCliType, CliModelInfo> {
         supported: false,
       },
     },
+    "opencode-go": {
+      defaultModel: "opencode-go/glm-5.1",
+      models: [
+        { modelId: "opencode-go/glm-5.1", name: "GLM-5.1" },
+      ],
+      reasoningEffort: {
+        supported: true,
+        levels: ["none", "low", "medium", "high", "max"],
+        default: "high",
+      },
+    },
+    "claude-zai": {
+      defaultModel: "zai-coding-plan/glm-5.1",
+      models: [
+        { modelId: "zai-coding-plan/glm-5.1", name: "GLM-5.1" },
+      ],
+      reasoningEffort: {
+        supported: true,
+        levels: ["none", "low", "medium", "high", "max"],
+        default: "high",
+      },
+    },
+    "claude-kimi": {
+      defaultModel: "kimi-for-coding/k2p6",
+      models: [
+        { modelId: "kimi-for-coding/k2p6", name: "Kimi K2P6" },
+      ],
+      reasoningEffort: {
+        supported: true,
+        levels: ["none", "low", "medium", "high", "max"],
+        default: "high",
+      },
+    },
   };
 }
 

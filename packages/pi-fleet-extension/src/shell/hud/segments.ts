@@ -232,8 +232,8 @@ const tokenTotalSegment: StatusLineSegment = {
   id: "token_total",
   render(ctx) {
     const icons = getIcons();
-    const { input, output, cacheRead, cacheWrite } = ctx.usageStats;
-    const total = input + output + cacheRead + cacheWrite;
+    const { input, output } = ctx.usageStats;
+    const total = input + output;
     if (!total) return { content: "", visible: false };
 
     const content = withIcon(icons.tokens, formatTokens(total));
@@ -256,50 +256,6 @@ const costSegment: StatusLineSegment = {
     if (!costDisplay) return { content: "", visible: false };
 
     return { content: color(ctx, "cost", costDisplay), visible: true };
-  },
-};
-
-const contextPctSegment: StatusLineSegment = {
-  id: "context_pct",
-  render(ctx) {
-    // Fleet ACP 프로바이더는 컨텍스트를 서브에이전트가 관리하므로 표시 불필요
-    if (ctx.model?.provider === "Fleet ACP") {
-      return { content: "", visible: false };
-    }
-
-    const icons = getIcons();
-    const pct = ctx.contextPercent;
-    const window = ctx.contextWindow;
-
-    const autoIcon = ctx.autoCompactEnabled && icons.auto ? ` ${icons.auto}` : "";
-    // 5칸 막대 + 퍼센트 + 컨텍스트 윈도우 크기
-    const bar = contextBar(pct);
-    const text = `${bar} ${pct.toFixed(0)}%/${formatTokens(window)}${autoIcon}`;
-
-    let content: string;
-    if (pct > 90) {
-      content = withIcon(icons.context, color(ctx, "contextError", text));
-    } else if (pct > 70) {
-      content = withIcon(icons.context, color(ctx, "contextWarn", text));
-    } else {
-      content = withIcon(icons.context, color(ctx, "context", text));
-    }
-
-    return { content, visible: true };
-  },
-};
-
-const contextTotalSegment: StatusLineSegment = {
-  id: "context_total",
-  render(ctx) {
-    const icons = getIcons();
-    const window = ctx.contextWindow;
-    if (!window) return { content: "", visible: false };
-
-    return {
-      content: color(ctx, "context", withIcon(icons.context, formatTokens(window))),
-      visible: true,
-    };
   },
 };
 
@@ -371,34 +327,6 @@ const hostnameSegment: StatusLineSegment = {
   },
 };
 
-const cacheReadSegment: StatusLineSegment = {
-  id: "cache_read",
-  render(ctx) {
-    const icons = getIcons();
-    const { cacheRead } = ctx.usageStats;
-    if (!cacheRead) return { content: "", visible: false };
-
-    // Space-separated parts
-    const parts = [icons.cache, icons.input, formatTokens(cacheRead)].filter(Boolean);
-    const content = parts.join(" ");
-    return { content: color(ctx, "tokens", content), visible: true };
-  },
-};
-
-const cacheWriteSegment: StatusLineSegment = {
-  id: "cache_write",
-  render(ctx) {
-    const icons = getIcons();
-    const { cacheWrite } = ctx.usageStats;
-    if (!cacheWrite) return { content: "", visible: false };
-
-    // Space-separated parts
-    const parts = [icons.cache, icons.output, formatTokens(cacheWrite)].filter(Boolean);
-    const content = parts.join(" ");
-    return { content: color(ctx, "tokens", content), visible: true };
-  },
-};
-
 const extensionStatusesSegment: StatusLineSegment = {
   id: "extension_statuses",
   render(ctx) {
@@ -436,15 +364,11 @@ export const SEGMENTS: Record<StatusLineSegmentId, StatusLineSegment> = {
   token_out: tokenOutSegment,
   token_total: tokenTotalSegment,
   cost: costSegment,
-  context_pct: contextPctSegment,
-  context_total: contextTotalSegment,
   time_spent: timeSpentSegment,
   time: timeSegment,
   session: sessionSegment,
   operation: operationSegment,
   hostname: hostnameSegment,
-  cache_read: cacheReadSegment,
-  cache_write: cacheWriteSegment,
   extension_statuses: extensionStatusesSegment,
 };
 
@@ -485,15 +409,6 @@ function formatDuration(ms: number): string {
   if (hours > 0) return `${hours}h${minutes % 60}m`;
   if (minutes > 0) return `${minutes}m${seconds % 60}s`;
   return `${seconds}s`;
-}
-
-/**
- * 5칸 블록 막대 — 컨텍스트 사용량 시각화
- * 예: ████░ (80%), ██░░░ (40%), ░░░░░ (0%)
- */
-function contextBar(pct: number, width = 5): string {
-  const filled = Math.min(Math.round((pct / 100) * width), width);
-  return "█".repeat(filled) + "░".repeat(width - filled);
 }
 
 /**

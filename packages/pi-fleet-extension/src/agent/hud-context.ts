@@ -28,7 +28,7 @@ interface OperationNameGlobalStore {
 }
 
 /**
- * 세션 이벤트에서 사용량 통계와 컨텍스트를 추출하여 SegmentContext를 구성.
+ * 세션 이벤트에서 사용량 통계를 추출하여 SegmentContext를 구성.
  *
  * @param ctx       - pi ExtensionContext (세션, 모델 정보)
  * @param theme     - 현재 pi 테마
@@ -45,8 +45,7 @@ export function buildSegmentContext(
   const colors: ColorScheme = presetDef.colors ?? getDefaultColors();
 
   // 사용량 통계 + thinking 레벨을 세션에서 추출
-  let input = 0, output = 0, cacheRead = 0, cacheWrite = 0, cost = 0;
-  let lastAssistant: AssistantMessage | undefined;
+  let input = 0, output = 0, cost = 0;
   let thinkingLevelFromSession = "off";
 
   const sessionEvents = ctx.sessionManager?.getBranch?.() ?? [];
@@ -61,20 +60,9 @@ export function buildSegmentContext(
       }
       input += m.usage.input;
       output += m.usage.output;
-      cacheRead += m.usage.cacheRead;
-      cacheWrite += m.usage.cacheWrite;
       cost += m.usage.cost.total;
-      lastAssistant = m;
     }
   }
-
-  // 컨텍스트 사용률 계산 (마지막 턴의 총 토큰 / 컨텍스트 윈도우)
-  const contextTokens = lastAssistant
-    ? lastAssistant.usage.input + lastAssistant.usage.output +
-      lastAssistant.usage.cacheRead + lastAssistant.usage.cacheWrite
-    : 0;
-  const contextWindow = ctx.model?.contextWindow || 0;
-  const contextPercent = contextWindow > 0 ? (contextTokens / contextWindow) * 100 : 0;
 
   // Git 상태 (캐시됨)
   const gitBranch = provider.footerDataRef?.getGitBranch() ?? null;
@@ -90,10 +78,7 @@ export function buildSegmentContext(
     thinkingLevel: thinkingLevelFromSession || provider.getThinkingLevelFn?.() || "off",
     sessionId: ctx.sessionManager?.getSessionId?.(),
     operationName: getOperationNameForSession(ctx.sessionManager?.getSessionId?.()),
-    usageStats: { input, output, cacheRead, cacheWrite, cost },
-    contextPercent,
-    contextWindow,
-    autoCompactEnabled: ctx.settingsManager?.getCompactionSettings?.()?.enabled ?? true,
+    usageStats: { input, output, cost },
     usingSubscription,
     sessionStartTime: provider.sessionStartTime,
     git: gitStatus,

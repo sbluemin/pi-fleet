@@ -22,9 +22,6 @@ const DEFAULT_COLORS: Required<ColorScheme> = {
   gitClean: "success",
   thinking: "muted",
   thinkingHigh: "accent",
-  context: "dim",
-  contextWarn: "warning",
-  contextError: "error",
   cost: "text",
   tokens: "muted",
   separator: "dim",
@@ -42,9 +39,6 @@ const GEEK_COLORS: Required<ColorScheme> = {
   gitClean: "#9ECE6A",  // Tokyo Night Green
   thinking: "#F7768E",  // Neon Pink — 연산 활성화
   thinkingHigh: "#FF9E64", // Warm Orange — 높은 연산
-  context: "#7AA2F7",   // Tokyo Night Blue — 컨텍스트 정상
-  contextWarn: "#E0AF68",  // Orange — 70%+
-  contextError: "#F7768E", // Neon Pink — 90%+
   cost: "#FF9E64",      // Warm Orange — 비용
   tokens: "#565F89",    // Tokyo Night dim blue — 토큰(muted)
   separator: "#3D59A1", // Tokyo Night dark blue — 구분선

@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { promisify } from "node:util";
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
-import type { HealthStatus, ProviderKey, ServiceSnapshot } from "@sbluemin/unified-agent";
+import { CLI_BACKENDS, getProviderModels, type CliType, type HealthStatus, type ProviderKey, type ServiceSnapshot } from "@sbluemin/unified-agent";
 
 export interface ServiceStatusCallbacks {
   setLoading: () => void;
@@ -35,11 +35,13 @@ interface ComponentResponse {
 }
 
 interface ProviderFetchConfig {
-  key: ProviderKey;
+  key: CliType;
   intervalMs: number;
-  fetcher: () => Promise<ServiceSnapshot>;
+  fetcher: FetcherFn;
   fallback: (error: unknown) => ServiceSnapshot;
 }
+
+type FetcherFn = () => Promise<ServiceSnapshot>;
 
 const execFileAsync = promisify(execFile);
 const POLL_TICK_MS = 3 * 60_000;
@@ -51,27 +53,27 @@ const GEMINI_RENDER_TIMEOUT_MS = 20_000;
 const CLAUDE_COMPONENT_NAMES = ["Claude API (api.anthropic.com)", "Claude Code"];
 const OPENAI_COMPONENT_NAMES = ["Codex", "Responses", "Chat Completions"];
 const STORE_KEY = "__pi_unified_agent_status_store__";
-const PROVIDER_ORDER: ProviderKey[] = ["claude", "codex", "gemini"];
-const PROVIDER_CONFIGS: ProviderFetchConfig[] = [
-  {
-    key: "claude",
-    intervalMs: JSON_API_INTERVAL_MS,
-    fetcher: fetchClaudeStatus,
-    fallback: (err) => buildUnknownSnapshot("claude", "Claude", CLAUDE_COMPONENT_NAMES[0], "https://status.claude.com/#", err),
-  },
-  {
-    key: "codex",
-    intervalMs: JSON_API_INTERVAL_MS,
-    fetcher: fetchOpenAiStatus,
-    fallback: (err) => buildUnknownSnapshot("codex", "Codex", OPENAI_COMPONENT_NAMES[0], "https://status.openai.com/", err),
-  },
-  {
-    key: "gemini",
-    intervalMs: GEMINI_INTERVAL_MS,
-    fetcher: fetchGeminiStatus,
-    fallback: (err) => buildUnknownSnapshot("gemini", "Gemini", "API", "https://aistudio.google.com/status", err),
-  },
-];
+const PROVIDER_FETCHERS: Record<CliType, FetcherFn> = {
+  claude: fetchClaudeStatus,
+  codex: fetchOpenAiStatus,
+  gemini: fetchGeminiStatus,
+  "opencode-go": () => fetchOpenCodeStatus("opencode-go"),
+  "claude-zai": () => fetchUnavailableStatus("claude-zai"),
+  "claude-kimi": () => fetchUnavailableStatus("claude-kimi"),
+};
+const PROVIDER_ORDER = Object.keys(PROVIDER_FETCHERS) as CliType[];
+const PROVIDER_CONFIGS: ProviderFetchConfig[] = PROVIDER_ORDER.map((key) => ({
+  key,
+  intervalMs: key === "gemini" ? GEMINI_INTERVAL_MS : JSON_API_INTERVAL_MS,
+  fetcher: PROVIDER_FETCHERS[key],
+  fallback: (err) => buildUnknownSnapshot(
+    key,
+    getProviderLabel(key),
+    getProviderFallbackTarget(key),
+    getProviderFallbackSourceUrl(key),
+    err,
+  ),
+}));
 
 let currentStatusCtx: ServiceStatusContextPort | null = null;
 let statusContextGeneration = 0;
@@ -153,12 +155,12 @@ function getStore(): StatusStore {
       lastRefreshStartedAt: 0,
       lastUpdatedAt: null,
       snapshots: [],
-      providerLastChecked: { claude: 0, codex: 0, gemini: 0 },
+      providerLastChecked: createProviderLastChecked(),
     };
     (globalThis as unknown as Record<string, StatusStore | undefined>)[STORE_KEY] = store;
   }
   if (!store.providerLastChecked) {
-    store.providerLastChecked = { claude: 0, codex: 0, gemini: 0 };
+    store.providerLastChecked = createProviderLastChecked();
   }
   return store;
 }
@@ -242,6 +244,57 @@ function buildUnknownSnapshot(
     checkedAt: Date.now(),
     note: message,
   };
+}
+
+function createProviderLastChecked(): Record<ProviderKey, number> {
+  return Object.fromEntries(PROVIDER_ORDER.map((provider) => [provider, 0])) as Record<ProviderKey, number>;
+}
+
+function getProviderLabel(provider: CliType): string {
+  return getProviderModels(provider).name;
+}
+
+function getProviderFallbackTarget(provider: CliType): string {
+  switch (provider) {
+    case "claude":
+      return CLAUDE_COMPONENT_NAMES[0]!;
+    case "codex":
+      return OPENAI_COMPONENT_NAMES[0]!;
+    case "gemini":
+      return "API";
+    case "opencode-go":
+    case "claude-zai":
+    case "claude-kimi":
+      return "Service";
+  }
+}
+
+function getProviderFallbackSourceUrl(provider: CliType): string {
+  switch (provider) {
+    case "claude":
+      return "https://status.claude.com/#";
+    case "codex":
+      return "https://status.openai.com/";
+    case "gemini":
+      return "https://aistudio.google.com/status";
+    case "opencode-go":
+      return "https://opencode.ai/";
+    case "claude-zai":
+      return "https://z.ai/";
+    case "claude-kimi":
+      return "https://www.kimi.com/";
+  }
+}
+
+function getUnavailableProviderNote(provider: Extract<CliType, "opencode-go" | "claude-zai" | "claude-kimi">): string {
+  switch (provider) {
+    case "opencode-go":
+      return "OpenCode 서비스 상태 페이지가 존재하지 않아 상태를 확인할 수 없습니다";
+    case "claude-zai":
+      return "Z.AI Claude 서비스 상태 페이지가 존재하지 않아 상태를 확인할 수 없습니다";
+    case "claude-kimi":
+      return "Moonshot Kimi Claude 서비스 상태 페이지가 존재하지 않아 상태를 확인할 수 없습니다";
+  }
 }
 
 async function fetchClaudeStatus(): Promise<ServiceSnapshot> {
@@ -378,6 +431,22 @@ async function fetchGeminiStatus(): Promise<ServiceSnapshot> {
     checkedAt: Date.now(),
     note: apiBlock ? undefined : "API 블록 파싱 실패 — HTML 구조 변경 가능성",
   };
+}
+
+function fetchOpenCodeStatus(provider: Extract<CliType, "opencode-go">): Promise<ServiceSnapshot> {
+  return fetchUnavailableStatus(provider);
+}
+
+function fetchUnavailableStatus(provider: Extract<CliType, "opencode-go" | "claude-zai" | "claude-kimi">): Promise<ServiceSnapshot> {
+  return Promise.resolve({
+    provider,
+    label: getProviderLabel(provider),
+    status: "unknown",
+    matchedTarget: "Service",
+    sourceUrl: getProviderFallbackSourceUrl(provider),
+    checkedAt: Date.now(),
+    note: getUnavailableProviderNote(provider),
+  });
 }
 
 async function loadSnapshots(force: boolean): Promise<ServiceSnapshot[]> {

@@ -4,10 +4,12 @@ import { BRIDGE_TITLE_PREFIX } from "./types.js";
 export function buildBridgeCommand(context: BridgeLaunchContext): BridgeCommandSpec {
   switch (context.cli) {
     case "claude":
+    case "claude-zai":
+    case "claude-kimi":
       return {
         command: buildClaudeCommand(context),
         cwd: context.cwd,
-        title: `${BRIDGE_TITLE_PREFIX} · Claude`,
+        title: `${BRIDGE_TITLE_PREFIX} · ${getBridgeTitle(context.cli)}`,
       };
     case "codex":
       return {
@@ -21,8 +23,30 @@ export function buildBridgeCommand(context: BridgeLaunchContext): BridgeCommandS
         cwd: context.cwd,
         title: `${BRIDGE_TITLE_PREFIX} · Gemini`,
       };
+    case "opencode-go":
+      return {
+        command: buildOpenCodeCommand(context),
+        cwd: context.cwd,
+        title: `${BRIDGE_TITLE_PREFIX} · OpenCode Go`,
+      };
   }
+}
 
+function getBridgeTitle(cli: BridgeLaunchContext["cli"]): string {
+  switch (cli) {
+    case "claude":
+      return "Claude";
+    case "claude-zai":
+      return "Claude ZAI";
+    case "claude-kimi":
+      return "Claude Kimi";
+    case "codex":
+      return "Codex";
+    case "gemini":
+      return "Gemini";
+    case "opencode-go":
+      return "OpenCode Go";
+  }
 }
 
 function buildClaudeCommand(context: BridgeLaunchContext): string {
@@ -61,6 +85,17 @@ function buildGeminiCommand(context: BridgeLaunchContext): string {
   const args = ["gemini", "--yolo"];
   if (context.sessionId) {
     args.push("--resume", shellQuote(context.sessionId));
+  }
+  if (context.model) {
+    args.push("--model", shellQuote(context.model));
+  }
+  return args.join(" ");
+}
+
+function buildOpenCodeCommand(context: BridgeLaunchContext): string {
+  const args = ["opencode"];
+  if (context.sessionId) {
+    args.push("--session", shellQuote(context.sessionId));
   }
   if (context.model) {
     args.push("--model", shellQuote(context.model));

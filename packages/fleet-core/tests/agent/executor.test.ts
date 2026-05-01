@@ -107,6 +107,7 @@ vi.mock("@sbluemin/unified-agent", () => ({
     void cli;
     return mockState.reasoningEffortLevels;
   }),
+  CLI_BACKENDS: {},
 }));
 
 vi.mock("../../src/admiral/_shared/agent-runtime.js", async (importOriginal) => {

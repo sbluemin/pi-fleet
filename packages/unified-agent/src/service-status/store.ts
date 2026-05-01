@@ -9,6 +9,8 @@ import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { promisify } from 'node:util';
 
+import type { CliType } from '../config/CliConfigs.js';
+import { getProviderModels } from '../models/ModelRegistry.js';
 import type { HealthStatus, ProviderKey, ServiceSnapshot } from './types.js';
 
 /** 상위 계층이 주입하는 패널 동기화 콜백 */
@@ -43,11 +45,13 @@ interface ComponentResponse {
 }
 
 interface ProviderFetchConfig {
-  key: ProviderKey;
+  key: CliType;
   intervalMs: number;
-  fetcher: () => Promise<ServiceSnapshot>;
+  fetcher: FetcherFn;
   fallback: (error: unknown) => ServiceSnapshot;
 }
+
+type FetcherFn = () => Promise<ServiceSnapshot>;
 
 const execFileAsync = promisify(execFile);
 
@@ -76,34 +80,27 @@ const OPENAI_COMPONENT_NAMES = [
 
 const STORE_KEY = '__pi_unified_agent_status_store__';
 
-const PROVIDER_CONFIGS: ProviderFetchConfig[] = [
-  {
-    key: 'claude',
-    intervalMs: JSON_API_INTERVAL_MS,
-    fetcher: fetchClaudeStatus,
-    fallback: (err) => buildUnknownSnapshot(
-      'claude', 'Claude', CLAUDE_COMPONENT_NAMES[0], 'https://status.claude.com/#', err,
-    ),
-  },
-  {
-    key: 'codex',
-    intervalMs: JSON_API_INTERVAL_MS,
-    fetcher: fetchOpenAiStatus,
-    fallback: (err) => buildUnknownSnapshot(
-      'codex', 'Codex', OPENAI_COMPONENT_NAMES[0], 'https://status.openai.com/', err,
-    ),
-  },
-  {
-    key: 'gemini',
-    intervalMs: GEMINI_INTERVAL_MS,
-    fetcher: fetchGeminiStatus,
-    fallback: (err) => buildUnknownSnapshot(
-      'gemini', 'Gemini', 'API', 'https://aistudio.google.com/status', err,
-    ),
-  },
-];
-
-const PROVIDER_ORDER: ProviderKey[] = ['claude', 'codex', 'gemini'];
+const PROVIDER_FETCHERS: Record<CliType, FetcherFn> = {
+  claude: () => fetchClaudeStatus('claude'),
+  'claude-zai': () => fetchClaudeStatus('claude-zai'),
+  'claude-kimi': () => fetchClaudeStatus('claude-kimi'),
+  codex: fetchOpenAiStatus,
+  gemini: fetchGeminiStatus,
+  'opencode-go': () => fetchOpenCodeStatus('opencode-go'),
+};
+const PROVIDER_ORDER = Object.keys(PROVIDER_FETCHERS) as CliType[];
+const PROVIDER_CONFIGS: ProviderFetchConfig[] = PROVIDER_ORDER.map((key) => ({
+  key,
+  intervalMs: key === 'gemini' ? GEMINI_INTERVAL_MS : JSON_API_INTERVAL_MS,
+  fetcher: PROVIDER_FETCHERS[key],
+  fallback: (err) => buildUnknownSnapshot(
+    key,
+    getProviderLabel(key),
+    getProviderFallbackTarget(key),
+    getProviderFallbackSourceUrl(key),
+    err,
+  ),
+}));
 
 let currentStatusCtx: ServiceStatusContextPort | null = null;
 let statusContextGeneration = 0;
@@ -178,13 +175,13 @@ function getStore(): StatusStore {
       lastRefreshStartedAt: 0,
       lastUpdatedAt: null,
       snapshots: [],
-      providerLastChecked: { claude: 0, codex: 0, gemini: 0 },
+      providerLastChecked: createProviderLastChecked(),
     };
     (globalThis as unknown as Record<string, StatusStore | undefined>)[STORE_KEY] = store;
   }
 
   if (!store.providerLastChecked) {
-    store.providerLastChecked = { claude: 0, codex: 0, gemini: 0 };
+    store.providerLastChecked = createProviderLastChecked();
   }
 
   return store;
@@ -282,19 +279,60 @@ function buildUnknownSnapshot(
   };
 }
 
-async function fetchClaudeStatus(): Promise<ServiceSnapshot> {
-  const sourceUrl = 'https://status.claude.com/api/v2/components.json';
-  const response = await fetchJson<ComponentResponse>(sourceUrl);
-  const matched = findComponent(response, CLAUDE_COMPONENT_NAMES);
+function createProviderLastChecked(): Record<ProviderKey, number> {
+  return Object.fromEntries(PROVIDER_ORDER.map((provider) => [provider, 0])) as Record<ProviderKey, number>;
+}
 
-  return {
-    provider: 'claude',
-    label: 'Claude',
-    status: mapRawStatus(matched.status),
-    matchedTarget: matched.name,
-    sourceUrl,
-    checkedAt: matched.updatedAt ? Date.parse(matched.updatedAt) || Date.now() : Date.now(),
-  };
+function getProviderLabel(provider: CliType): string {
+  return getProviderModels(provider).name;
+}
+
+function getProviderFallbackTarget(provider: CliType): string {
+  switch (provider) {
+    case 'claude':
+    case 'claude-zai':
+    case 'claude-kimi':
+      return CLAUDE_COMPONENT_NAMES[0]!;
+    case 'codex':
+      return OPENAI_COMPONENT_NAMES[0]!;
+    case 'gemini':
+      return 'API';
+    case 'opencode-go':
+      return 'Service';
+  }
+}
+
+function getProviderFallbackSourceUrl(provider: CliType): string {
+  switch (provider) {
+    case 'claude':
+    case 'claude-zai':
+    case 'claude-kimi':
+      return 'https://status.claude.com/#';
+    case 'codex':
+      return 'https://status.openai.com/';
+    case 'gemini':
+      return 'https://aistudio.google.com/status';
+    case 'opencode-go':
+      return 'https://opencode.ai/';
+  }
+}
+
+function fetchClaudeStatus(
+  provider: Extract<CliType, 'claude' | 'claude-zai' | 'claude-kimi'>,
+): Promise<ServiceSnapshot> {
+  const sourceUrl = 'https://status.claude.com/api/v2/components.json';
+  return fetchJson<ComponentResponse>(sourceUrl).then((response) => {
+    const matched = findComponent(response, CLAUDE_COMPONENT_NAMES);
+
+    return {
+      provider,
+      label: getProviderLabel(provider),
+      status: mapRawStatus(matched.status),
+      matchedTarget: matched.name,
+      sourceUrl,
+      checkedAt: matched.updatedAt ? Date.parse(matched.updatedAt) || Date.now() : Date.now(),
+    };
+  });
 }
 
 async function fetchOpenAiStatus(): Promise<ServiceSnapshot> {
@@ -435,6 +473,18 @@ async function fetchGeminiStatus(): Promise<ServiceSnapshot> {
     checkedAt: Date.now(),
     note: apiBlock ? undefined : 'API 블록 파싱 실패 — HTML 구조 변경 가능성',
   };
+}
+
+function fetchOpenCodeStatus(provider: Extract<CliType, 'opencode-go'>): Promise<ServiceSnapshot> {
+  return Promise.resolve({
+    provider,
+    label: getProviderLabel(provider),
+    status: 'unknown',
+    matchedTarget: 'Service',
+    sourceUrl: 'https://opencode.ai/',
+    checkedAt: Date.now(),
+    note: 'OpenCode 서비스 상태 페이지가 존재하지 않아 상태를 확인할 수 없습니다',
+  });
 }
 
 async function loadSnapshots(force: boolean): Promise<ServiceSnapshot[]> {

@@ -16,7 +16,7 @@ import { createAssistantMessageEventStream } from "../provider.js";
 import type { AcpToolCall, AcpToolCallUpdate } from "@sbluemin/unified-agent";
 
 import { getLogAPI } from "@sbluemin/fleet-core/services/log";
-import { PROVIDER_ID } from "./state.js";
+import { buildProviderId, parseModelId } from "./state.js";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types / Interfaces
@@ -60,6 +60,11 @@ function debug(...args: unknown[]): void {
   log.debug("acp-provider", args.map(String).join(" "), { category: "acp" });
 }
 
+function resolveProviderId(modelId: string): string {
+  const parsed = parseModelId(modelId);
+  return parsed ? buildProviderId(parsed.cli) : "unknown";
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // createEventMapper — 팩토리 함수
 // ═══════════════════════════════════════════════════════════════════════════
@@ -81,6 +86,7 @@ export function createEventMapper(
     onBuiltinToolStarted?: () => void;
     onMcpToolUseStarted?: () => void;
   },
+  providerId: string = resolveProviderId(modelId),
 ): EventMapperHandle {
   const stream = createAssistantMessageEventStream();
 
@@ -91,23 +97,21 @@ export function createEventMapper(
   let piToolNames: Set<string> = new Set();
 
   // ── 턴 출력 메시지 초기화 ──
-  const output: AssistantMessage = {
+  const output = {
     role: "assistant",
     content: [],
-    api: PROVIDER_ID,
-    provider: PROVIDER_ID,
+    api: providerId,
+    provider: providerId,
     model: modelId,
     usage: {
       input: 0,
       output: 0,
-      cacheRead: 0,
-      cacheWrite: 0,
       totalTokens: 0,
-      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+      cost: { input: 0, output: 0, total: 0 },
     },
     stopReason: "stop",
     timestamp: Date.now(),
-  };
+  } as unknown as AssistantMessage;
 
   // ── block accumulator 상태 ──
   let started = false;

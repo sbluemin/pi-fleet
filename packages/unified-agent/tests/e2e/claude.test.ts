@@ -227,7 +227,7 @@ describe.skipIf(!installed)('E2E: Claude ACP', () => {
 
       // 2차: 동일 sessionId로 loadSession 경로를 거쳐 컨텍스트 확인
       const { client: c2, sessionId: secondSessionId } = await connectClient('claude', {
-        sessionId: firstSessionId,
+        sessionId: firstSessionId ?? undefined,
       });
       client = c2;
 

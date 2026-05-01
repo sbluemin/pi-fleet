@@ -29,6 +29,9 @@ export const ReasoningEffortSchema = z.union([
   }),
 ]);
 
+/** 모델 매핑 스키마 (modelId → 실제 모델명) */
+export const ModelsMappingSchema = z.record(z.string(), z.string());
+
 /** 프로바이더 스키마 (교차 필드 검증 포함) */
 export const ProviderSchema = z.object({
   /** 프로바이더 표시 이름 */
@@ -39,6 +42,8 @@ export const ProviderSchema = z.object({
   models: z.array(ModelEntrySchema).min(1),
   /** reasoning effort 설정 */
   reasoningEffort: ReasoningEffortSchema,
+  /** modelId와 연관된 매핑 모델 (선택) */
+  modelsMapping: ModelsMappingSchema.optional(),
 }).check((ctx) => {
   const ids = new Set(ctx.value.models.map((m) => m.modelId));
 
@@ -62,6 +67,20 @@ export const ProviderSchema = z.object({
   }
 });
 
+/** 모델 매핑 스키마 (modelId → 실제 모델명) */
+export const ModelMappingSchema = z.record(z.string(), z.string());
+
+/** modelsMapper 개별 항목 스키마 */
+export const ModelsMapperEntrySchema = z.object({
+  /** modelId와 연관된 매핑 모델 */
+  modelMapping: ModelMappingSchema,
+  /** 추가 환경변수 (선택) */
+  env: z.record(z.string(), z.string()).optional(),
+});
+
+/** modelsMapper 전체 스키마 */
+export const ModelsMapperSchema = z.record(z.string(), ModelsMapperEntrySchema);
+
 /** 모델 레지스트리 전체 스키마 */
 export const ModelsRegistrySchema = z.object({
   /** 스키마 버전 */
@@ -79,6 +98,9 @@ export type ModelEntry = z.infer<typeof ModelEntrySchema>;
 
 /** reasoning effort 설정 */
 export type ReasoningEffort = z.infer<typeof ReasoningEffortSchema>;
+
+/** 모델 매핑 (modelId → 실제 모델명) */
+export type ModelsMapping = z.infer<typeof ModelsMappingSchema>;
 
 /** 프로바이더 모델 정보 */
 export type ProviderModelInfo = z.infer<typeof ProviderSchema>;

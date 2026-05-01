@@ -1,8 +1,9 @@
+import { CLI_BACKENDS, type CliType } from "@sbluemin/unified-agent";
+
 import type {
   CarrierInfo,
   CarrierMap,
   CarrierStatus,
-  CliBackend,
   FleetId,
   FleetStatus,
 } from "./types.js";
@@ -157,11 +158,8 @@ function deriveCarrierTask(run: StreamRunLikeState | undefined): string | undefi
   return error ? sanitizeTaskText(error) : undefined;
 }
 
-function normalizeCliBackend(value: string | undefined): CliBackend | undefined {
-  if (value === "claude" || value === "codex" || value === "gemini") {
-    return value;
-  }
-  return undefined;
+function normalizeCliBackend(value: string | undefined): CliType | undefined {
+  return value !== undefined && value in CLI_BACKENDS ? value as CliType : undefined;
 }
 
 function getVisibleRunMap(streams: StreamStoreLikeState): Map<string, StreamRunLikeState> {

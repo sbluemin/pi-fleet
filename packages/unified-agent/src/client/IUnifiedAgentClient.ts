@@ -10,6 +10,7 @@ import type { PromptResponse } from '@agentclientprotocol/sdk';
 import { UnifiedClaudeAgentClient } from './UnifiedClaudeAgentClient.js';
 import { UnifiedCodexAgentClient } from './UnifiedCodexAgentClient.js';
 import { UnifiedGeminiAgentClient } from './UnifiedGeminiAgentClient.js';
+import { UnifiedOpenCodeAgentClient } from './UnifiedOpenCodeAgentClient.js';
 import { CliDetector } from '../detector/CliDetector.js';
 import type {
   CliType,
@@ -283,11 +284,15 @@ export const UnifiedAgent = {
   createClient(cli: CliType): IUnifiedAgentClient {
     switch (cli) {
       case 'claude':
-        return new UnifiedClaudeAgentClient();
+      case 'claude-zai':
+      case 'claude-kimi':
+        return new UnifiedClaudeAgentClient(cli);
       case 'codex':
         return new UnifiedCodexAgentClient();
       case 'gemini':
         return new UnifiedGeminiAgentClient();
+      case 'opencode-go':
+        return new UnifiedOpenCodeAgentClient('opencode-go');
     }
   },
 
@@ -303,7 +308,7 @@ export const UnifiedAgent = {
     const preferred = await new CliDetector().getPreferred();
     if (!preferred) {
       throw new Error(
-        '사용 가능한 CLI가 없습니다. gemini, claude, codex 중 하나를 설치해주세요.',
+        '사용 가능한 CLI가 없습니다. gemini, claude, claude-zai, claude-kimi, codex, opencode-go 중 하나를 설치해주세요.',
       );
     }
 

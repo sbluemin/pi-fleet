@@ -3,7 +3,7 @@ interface SystemReminderAttributes {
 }
 
 export const JOB_LAUNCH_NOTICE = [
-  "Job accepted; result arrives as <system-reminder source=\"carrier-completion\"> with [carrier:result] push.",
+  "Job accepted; result arrives later via carrier-completion follow-up push tagged [carrier:result].",
   "DO NOT poll carrier_jobs.",
 ].join(" ");
 

@@ -12,6 +12,7 @@ vi.mock("@sbluemin/unified-agent", () => ({
     build: mocks.build,
   },
   getReasoningEffortLevels: vi.fn(() => []),
+  CLI_BACKENDS: {},
 }));
 
 import {

@@ -7,7 +7,6 @@ import type { McpServer } from '@agentclientprotocol/sdk';
 import type {
   CliBackendConfig,
   CliSpawnConfig,
-  CliType,
   ConnectionOptions,
   McpServerConfig,
 } from '../types/config.js';
@@ -18,10 +17,9 @@ import { cleanEnvironment } from '../utils/env.js';
 const DEFAULT_ACP_ARGS = ['--acp'];
 
 /** CLI 백엔드 설정 전체 맵 */
-export const CLI_BACKENDS: Record<CliType, CliBackendConfig> = {
+export const CLI_BACKENDS = {
   gemini: {
     id: 'gemini',
-    name: 'Google Gemini CLI',
     cliCommand: 'gemini',
     protocol: 'acp',
     authRequired: true,
@@ -31,10 +29,16 @@ export const CLI_BACKENDS: Record<CliType, CliBackendConfig> = {
       { id: 'autoEdit', label: 'Auto-Accept Edits' },
       { id: 'yolo', label: 'YOLO' },
     ],
+    supportsSessionClose: false,
+    supportsSessionLoad: false,
+    requiresModelAtSpawn: true,
+    usesNpxBridge: false,
+    defaultMaxTokens: 65_536,
+    colorRgb: [66, 133, 244],
+    bgColorRgb: [15, 22, 42],
   },
   claude: {
     id: 'claude',
-    name: 'Anthropic Claude Code',
     cliCommand: 'claude',
     protocol: 'acp',
     authRequired: true,
@@ -44,10 +48,64 @@ export const CLI_BACKENDS: Record<CliType, CliBackendConfig> = {
       { id: 'plan', label: 'Plan' },
       { id: 'bypassPermissions', label: 'YOLO' },
     ],
+    supportsSessionClose: true,
+    supportsSessionLoad: true,
+    requiresModelAtSpawn: false,
+    usesNpxBridge: true,
+    defaultMaxTokens: 16_384,
+    colorRgb: [255, 149, 0],
+    bgColorRgb: [40, 25, 8],
+  },
+  'claude-zai': {
+    id: 'claude-zai',
+    cliCommand: 'claude',
+    protocol: 'acp',
+    authRequired: true,
+    npxPackage: '@agentclientprotocol/claude-agent-acp@0.29.2',
+    modes: [
+      { id: 'default', label: 'Default' },
+      { id: 'plan', label: 'Plan' },
+      { id: 'bypassPermissions', label: 'YOLO' },
+    ],
+    supportsSessionClose: true,
+    supportsSessionLoad: true,
+    requiresModelAtSpawn: false,
+    usesNpxBridge: true,
+    defaultMaxTokens: 16_384,
+    colorRgb: [0, 200, 120],
+    bgColorRgb: [8, 32, 18],
+    defaultEnv: {
+      ANTHROPIC_BASE_URL: 'https://api.z.ai/api/anthropic',
+      API_TIMEOUT_MS: '3000000',
+    },
+  },
+  'claude-kimi': {
+    id: 'claude-kimi',
+    cliCommand: 'claude',
+    protocol: 'acp',
+    authRequired: true,
+    npxPackage: '@agentclientprotocol/claude-agent-acp@0.29.2',
+    modes: [
+      { id: 'default', label: 'Default' },
+      { id: 'plan', label: 'Plan' },
+      { id: 'bypassPermissions', label: 'YOLO' },
+    ],
+    supportsSessionClose: true,
+    supportsSessionLoad: true,
+    requiresModelAtSpawn: false,
+    usesNpxBridge: true,
+    defaultMaxTokens: 16_384,
+    colorRgb: [180, 100, 255],
+    bgColorRgb: [20, 12, 40],
+    defaultEnv: {
+      ANTHROPIC_BASE_URL: 'https://api.kimi.com/coding/',
+      ENABLE_TOOL_SEARCH: 'false',
+      CLAUDE_CODE_SUBAGENT_MODEL: 'kimi-k2.5',
+      API_TIMEOUT_MS: '3000000',
+    },
   },
   codex: {
     id: 'codex',
-    name: 'OpenAI Codex CLI',
     cliCommand: 'codex',
     protocol: 'codex-app-server',
     authRequired: true,
@@ -57,8 +115,35 @@ export const CLI_BACKENDS: Record<CliType, CliBackendConfig> = {
       { id: 'autoEdit', label: 'Auto Edit' },
       { id: 'yolo', label: 'Full Auto' },
     ],
+    supportsSessionClose: true,
+    supportsSessionLoad: true,
+    requiresModelAtSpawn: false,
+    usesNpxBridge: false,
+    defaultMaxTokens: 100_000,
+    colorRgb: [169, 169, 169],
+    bgColorRgb: [35, 35, 35],
   },
-};
+  'opencode-go': {
+    id: 'opencode-go',
+    cliCommand: 'opencode',
+    protocol: 'acp',
+    authRequired: false,
+    acpArgs: ['acp'],
+    modes: [
+      { id: 'build', label: 'Build' },
+      { id: 'plan', label: 'Plan' },
+    ],
+    supportsSessionClose: true,
+    supportsSessionLoad: true,
+    requiresModelAtSpawn: true,
+    usesNpxBridge: false,
+    defaultMaxTokens: 128_000,
+    colorRgb: [0, 200, 160],
+    bgColorRgb: [8, 32, 28],
+  },
+} as const satisfies Record<string, CliBackendConfig>;
+
+export type CliType = keyof typeof CLI_BACKENDS;
 
 /**
  * CLI별 spawn 설정을 생성합니다.
@@ -71,13 +156,17 @@ export function createSpawnConfig(
   cli: CliType,
   options: ConnectionOptions,
 ): CliSpawnConfig {
-  const backend = CLI_BACKENDS[cli];
+  const backend: CliBackendConfig = CLI_BACKENDS[cli];
 
   // npx 브릿지 패키지를 사용하는 경우 (Claude ACP)
   if (backend.npxPackage) {
     const cleanEnv = cleanEnvironment(process.env, options.env);
     const npxPath = resolveNpxPath(cleanEnv);
     const npxArgs = buildNpxArgs(backend.npxPackage);
+
+    if (backend.npxExtraArgs) {
+      npxArgs.push(...backend.npxExtraArgs);
+    }
 
     return {
       command: npxPath,
@@ -96,7 +185,7 @@ export function createSpawnConfig(
     };
   }
 
-  // CLI를 직접 spawn하는 경우 (Gemini)
+  // CLI를 직접 spawn하는 경우 (Gemini, OpenCode 계열)
   const command = options.cliPath ?? backend.cliCommand;
   const args = backend.acpArgs ? [...backend.acpArgs] : [];
 
@@ -136,7 +225,11 @@ export function getBackendConfig(cli: CliType): CliBackendConfig {
 export function getYoloModeId(cli: CliType): string {
   switch (cli) {
     case 'claude':
+    case 'claude-zai':
+    case 'claude-kimi':
       return 'bypassPermissions';
+    case 'opencode-go':
+      return 'build';
     case 'gemini':
     case 'codex':
       return 'yolo';

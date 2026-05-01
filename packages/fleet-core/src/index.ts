@@ -19,6 +19,11 @@ export {
 export {
   createSettingsServices,
 } from "./public/settings-services.js";
+export {
+  CLI_TO_AUTH_PROVIDER_ID,
+  createAuthService,
+  resolveAuthEnv,
+} from "./services/auth/index.js";
 
 export type {
   FleetCoreRuntimeContext,
@@ -28,6 +33,7 @@ export type {
   FleetServices,
   FleetServicesPorts,
   McpCallToolResult,
+  Tool,
   ToolCallArrivedCallback,
 } from "./public/fleet-services.js";
 export type { GrandFleetServices } from "./public/grand-fleet-services.js";
@@ -35,6 +41,11 @@ export type { FleetMetaphorServices } from "./public/metaphor-services.js";
 export type { FleetJobServices } from "./public/job-services.js";
 export type { FleetLogServices } from "./public/log-services.js";
 export type { FleetSettingsServices } from "./public/settings-services.js";
+export type {
+  AuthService,
+  AuthStorageData,
+  AuthStorageEntry,
+} from "./services/auth/index.js";
 export type {
   AgentToolCtx,
   AgentToolMcpDescriptor,

@@ -1,6 +1,11 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { getServiceSnapshots, refreshStatusQuiet } from "@sbluemin/unified-agent";
-import type { CliType } from "@sbluemin/unified-agent";
+import {
+  getProviderModels,
+  getReasoningEffortLevels,
+  getServiceSnapshots,
+  refreshStatusQuiet,
+} from "@sbluemin/unified-agent";
+import type { CliType, ProviderModelInfo } from "@sbluemin/unified-agent";
 
 import { getKeybindAPI } from "../../shell/keybinds/core/bridge.js";
 import { refreshAgentPanel } from "./panel-lifecycle.js";
@@ -21,11 +26,8 @@ import {
   updateCarrierCliType,
 } from "../../tool-registry.js";
 import {
-  getAvailableModels,
   getConfiguredTaskForceBackends,
   getConfiguredTaskForceCarrierIds,
-  getDefaultBudgetTokens,
-  getEffortLevels,
   getPerCliSettings,
   getTaskForceModelConfig,
   loadModels as getModelConfig,
@@ -146,7 +148,7 @@ function buildStatusEntries(): CarrierStatusEntry[] {
 
     const cliType = config.cliType;
     const selection = modelConfig[id];
-    const provider = getAvailableModels(cliType);
+    const provider = getProviderModels(cliType);
     const meta = config.carrierMetadata;
 
     entries.push({
@@ -200,14 +202,7 @@ function createStatusOverlayController(
 }
 
 function getCliModelInfo(cliType: CarrierCliType): CliModelInfo {
-  const provider = getAvailableModels(cliType as CliType);
-  const effortLevels = getEffortLevels(cliType as CliType) ?? [];
-  return {
-    ...provider,
-    defaultBudgetTokens: Object.fromEntries(
-      effortLevels.map((level) => [level, getDefaultBudgetTokens(level)]),
-    ),
-  };
+  return getProviderModels(cliType as CliType) as ProviderModelInfo;
 }
 
 function handleModelUpdated(): void {
@@ -246,15 +241,14 @@ function openTaskForceOverlay(carrierId: string, ctx: Parameters<Parameters<Retu
 
   const carrierDisplayName = carrierConfig?.displayName ?? carrierId;
   const tfCallbacks = {
-    getAvailableModels: (cliType: string) => getAvailableModels(requireTaskForceCliType(cliType)),
-    getEffortLevels: (cliType: string) => getEffortLevels(requireTaskForceCliType(cliType)),
-    getDefaultBudgetTokens,
+    getAvailableModels: (cliType: string) => getProviderModels(requireTaskForceCliType(cliType)),
+    getEffortLevels: (cliType: string) => getReasoningEffortLevels(requireTaskForceCliType(cliType)),
     getBackendConfig: (cliType: string) => {
       const resolvedCliType = requireTaskForceCliType(cliType);
       const tfConfig = getTaskForceModelConfig(carrierId, resolvedCliType);
       const modelConfigNow = getModelConfig();
       const isCustom = !!(modelConfigNow[carrierId]?.taskforce?.[resolvedCliType]);
-      const provider = getAvailableModels(resolvedCliType);
+      const provider = getProviderModels(resolvedCliType);
       return {
         model: tfConfig?.model ?? provider.defaultModel,
         effort: tfConfig?.effort ?? null,

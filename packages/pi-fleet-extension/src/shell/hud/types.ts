@@ -17,9 +17,6 @@ export type SemanticColor =
   | "gitClean"
   | "thinking"
   | "thinkingHigh"
-  | "context"
-  | "contextWarn"
-  | "contextError"
   | "cost"
   | "tokens"
   | "separator"
@@ -42,15 +39,11 @@ export type StatusLineSegmentId =
   | "token_out"
   | "token_total"
   | "cost"
-  | "context_pct"
-  | "context_total"
   | "time_spent"
   | "time"
   | "session"
   | "operation"
   | "hostname"
-  | "cache_read"
-  | "cache_write"
   | "thinking"
   | "extension_statuses";
 
@@ -112,20 +105,15 @@ export interface GitStatus {
 export interface UsageStats {
   input: number;
   output: number;
-  cacheRead: number;
-  cacheWrite: number;
   cost: number;
 }
 
 export interface SegmentContext {
-  model: { id: string; name?: string; reasoning?: boolean; contextWindow?: number; provider?: string } | undefined;
+  model: { id: string; name?: string; reasoning?: boolean; provider?: string } | undefined;
   thinkingLevel: string;
   sessionId: string | undefined;
   operationName: string | undefined;
   usageStats: UsageStats;
-  contextPercent: number;
-  contextWindow: number;
-  autoCompactEnabled: boolean;
   usingSubscription: boolean;
   sessionStartTime: number;
   git: GitStatus;

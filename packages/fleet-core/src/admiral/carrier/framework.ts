@@ -16,9 +16,11 @@
 
 import type { CliType } from "@sbluemin/unified-agent";
 import {
-  CLI_DISPLAY_NAMES,
-  CARRIER_COLORS,
   CARRIER_BG_COLORS,
+  CARRIER_COLORS,
+  CARRIER_RGBS,
+  CLI_DISPLAY_NAMES,
+  CLI_TYPE_DISPLAY_ORDER,
 } from "../../constants.js";
 
 import type {
@@ -33,14 +35,6 @@ export type { CarrierConfig };
 // ─── 상수 ─────────────────────────────────────────────────
 
 const DEFAULT_CARRIER_RGB: [number, number, number] = [180, 160, 220];
-const CARRIER_RGBS: Record<string, [number, number, number]> = {
-  claude: [255, 149, 0],
-  codex: [169, 169, 169],
-  gemini: [66, 133, 244],
-};
-
-/** CliType 표시 우선순위: claude → codex → gemini */
-const CLI_TYPE_DISPLAY_ORDER: Record<string, number> = { claude: 0, codex: 1, gemini: 2 };
 
 // ─── 공개 API ────────────────────────────────────────────
 
@@ -301,8 +295,8 @@ export function reorderRegisteredByCliType(): void {
   gs.registeredOrder.sort((a, b) => {
     const configA = gs.modes.get(a)?.config;
     const configB = gs.modes.get(b)?.config;
-    const orderA = CLI_TYPE_DISPLAY_ORDER[configA?.cliType ?? ""] ?? 99;
-    const orderB = CLI_TYPE_DISPLAY_ORDER[configB?.cliType ?? ""] ?? 99;
+    const orderA = configA ? CLI_TYPE_DISPLAY_ORDER[configA.cliType] : 99;
+    const orderB = configB ? CLI_TYPE_DISPLAY_ORDER[configB.cliType] : 99;
     if (orderA !== orderB) return orderA - orderB;
     // 같은 CliType 내에서는 slot 순 유지
     return (configA?.slot ?? 99) - (configB?.slot ?? 99);

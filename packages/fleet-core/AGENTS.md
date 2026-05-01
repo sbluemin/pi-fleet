@@ -11,9 +11,9 @@
 
 ## Owns
 
-- Fleet domain modules such as `admiral/` (including `_shared/` for agent-runtime with session pool, `executeWithPool`, `executeOneShot`, MCP servers, and `detached-fanout.ts`, `bridge/` with allowlist exports, `carrier/`, `carrier-jobs/`, `squadron/`, `store/` with isolated `provider-catalog/`, `taskforce/`, and `protocols/` with integrated `standing-orders/`), `admiralty/` (internalized Grand Fleet domain), `services/job/`, unified settings/log/tool-registry services (now absorbing tool-snapshot), and `metaphor/`
+- Fleet domain modules such as `admiral/` (including `_shared/` for agent-runtime with session pool, `executeWithPool`, `executeOneShot`, MCP servers, and `detached-fanout.ts`, `bridge/` with allowlist exports, `carrier/`, `carrier-jobs/`, `squadron/`, `store/`, `taskforce/`, and `protocols/` with integrated `standing-orders/`), `admiralty/` (internalized Grand Fleet domain), `services/auth/`, `services/job/`, unified settings/log/tool-registry services (now absorbing tool-snapshot), and `metaphor/`
 - Public API contracts and frozen consumer surfaces, including the canonical `public/runtime.ts` for agent runtime assembly. Note that `agent-services.ts` and `tool-registry-services.ts` have been removed from the public surface.
-- `createFleetCoreRuntime` as the canonical composition entry point, exported from the package root, that initializes the runtime-owned state and domain services by injecting host-provided `ports` (logging, background execution, streaming sinks); it returns `FleetCoreRuntimeContext` containing `fleet`, `grandFleet`, `metaphor`, `jobs`, `log`, and `settings` services. It also owns the `shutdown` lifecycle that cleans up the agent, resets the settings service, and cleans up service status state.
+- `createFleetCoreRuntime` as the canonical composition entry point, exported from the package root, that initializes the runtime-owned state and domain services by exposing explicit public APIs in `public/`; it returns `FleetCoreRuntimeContext` containing `fleet`, `grandFleet`, `metaphor`, `jobs`, `log`, and `settings` services. The `fleet` service surface now also exposes runtime-owned auth access. It also owns the `shutdown` lifecycle that cleans up the agent, resets the settings service, and cleans up service status state.
 - Agent execution is orchestrated through the internal `@sbluemin/fleet-core/admiral/agent-runtime` layer. Unified-agent request orchestration remains an internal implementation detail and must not be reintroduced as a public `AgentRequestService`/`agentRequest` runtime field.
 
 - Fleet tool specs and registry factories that are host-agnostic and registered by adapters through public APIs
@@ -49,3 +49,13 @@
 - Preserve existing `globalThis` compatibility keys exactly unless a higher-order doctrine explicitly changes them.
 - Background paths must accept plain runtime data and host ports, never Pi `ExtensionContext`.
 - Job archive behavior remains read-many within TTL.
+
+## CLI Provider Constants
+
+CLI provider constants are derived from `@sbluemin/unified-agent`'s `CLI_BACKENDS` SSoT:
+
+- `CliType` (`keyof typeof CLI_BACKENDS`) is imported from `@sbluemin/unified-agent` — not a manual union.
+- `CLI_PROVIDER_DISPLAY_NAMES` (auto-derived from `getProviderModels(cli).name`, i.e. `models.json` provider name, used as-is with no stripping) vs `CARRIER_DISPLAY_NAMES` (manual mapping for carrier personas: genesis, sentinel, vanguard).
+- `CLI_DISPLAY_NAMES` merges both maps for backward compatibility.
+- `CARRIER_COLORS`, `CARRIER_BG_COLORS`, `CARRIER_RGBS` iterate `CLI_BACKENDS` using `colorRgb` / `bgColorRgb`.
+- `VALID_CLI_TYPES` and `CLI_TYPE_DISPLAY_ORDER` are computed from `Object.keys(CLI_BACKENDS)`.

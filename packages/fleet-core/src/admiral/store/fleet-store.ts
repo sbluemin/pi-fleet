@@ -12,9 +12,13 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { CliType } from "@sbluemin/unified-agent";
+import {
+  CLI_BACKENDS,
+  getProviderModels,
+  getReasoningEffortLevels,
+  type CliType,
+} from "@sbluemin/unified-agent";
 import { disconnectClient, getSessionStore } from "../_shared/agent-runtime.js";
-import { getAvailableModels, getDefaultBudgetTokens, getEffortLevels } from "./provider-catalog.js";
 
 // ─── 타입 정의 ──────────────────────────────────────────
 
@@ -87,7 +91,7 @@ const LOCK_TIMEOUT_MS = 5000;
 const STALE_LOCK_MS = 30000;
 
 /** 유효한 cliType 값 집합 */
-const VALID_CLI_TYPES = new Set(["claude", "codex", "gemini"]);
+const VALID_CLI_TYPES = new Set(Object.keys(CLI_BACKENDS));
 
 // ─── 내부 상태 ─────────────────────────────────────────
 
@@ -691,7 +695,7 @@ function resolveSelectionForCliType(
   current: ModelSelection,
   cliType: CliType,
 ): ModelSelection | null {
-  const provider = getAvailableModels(cliType);
+  const provider = getProviderModels(cliType);
   const allowedModels = new Set(provider.models.map((model) => model.modelId));
   const saved = sanitizePerCliSettings(current.perCliSettings?.[cliType]);
 
@@ -702,22 +706,25 @@ function resolveSelectionForCliType(
       : provider.defaultModel;
 
   const result: ModelSelection = { model };
-  const effortLevels = getEffortLevels(cliType) ?? [];
+  const effortLevels = getReasoningEffortLevels(cliType) ?? [];
 
   if (effortLevels.length > 0) {
+    const defaultEffort = provider.reasoningEffort.supported
+      ? provider.reasoningEffort.default
+      : undefined;
     const effort = current.effort && effortLevels.includes(current.effort)
       ? current.effort
       : saved?.effort && effortLevels.includes(saved.effort)
         ? saved.effort
-        : provider.reasoningEffort.default;
+        : defaultEffort;
 
     if (effort) {
       result.effort = effort;
       if (cliType === "claude" && effort !== "none") {
-        result.budgetTokens =
-          current.budgetTokens
-          ?? saved?.budgetTokens
-          ?? getDefaultBudgetTokens(effort);
+        const budgetTokens = current.budgetTokens ?? saved?.budgetTokens;
+        if (budgetTokens !== undefined) {
+          result.budgetTokens = budgetTokens;
+        }
       }
     }
   }
@@ -767,19 +774,22 @@ function isTaskForceFormableInConfig(
 function sanitizeTaskForceSelection(cliType: CliType, value: unknown): TaskForceSelection | null {
   if (!isRecord(value)) return null;
 
-  const provider = getAvailableModels(cliType);
+  const provider = getProviderModels(cliType);
   const allowedModels = new Set(provider.models.map((model) => model.modelId));
   const model = sanitizeFreeformText(value.model);
   if (!model || !allowedModels.has(model)) return null;
 
   const result: TaskForceSelection = { model };
-  const effortLevels = getEffortLevels(cliType);
+  const effortLevels = getReasoningEffortLevels(cliType);
   const effort = sanitizeFreeformText(value.effort);
 
   if (effortLevels && effort && effortLevels.includes(effort)) {
     result.effort = effort;
     if (cliType === "claude" && effort !== "none") {
-      result.budgetTokens = sanitizeBudgetTokens(value.budgetTokens) ?? getDefaultBudgetTokens(effort);
+      const budgetTokens = sanitizeBudgetTokens(value.budgetTokens);
+      if (budgetTokens !== undefined) {
+        result.budgetTokens = budgetTokens;
+      }
     }
   }
 

@@ -13,7 +13,7 @@ import { Key, matchesKey, visibleWidth } from "@mariozechner/pi-tui";
 import type { Theme } from "@mariozechner/pi-coding-agent";
 
 import { CARRIER_BG_COLORS, CARRIER_COLORS, CLI_DISPLAY_NAMES } from "@sbluemin/fleet-core/constants";
-import type { HealthStatus } from "@sbluemin/unified-agent";
+import { CLI_BACKENDS, type HealthStatus } from "@sbluemin/unified-agent";
 
 import { createOverlayFrame } from "./overlay-frame.js";
 import { buildModelEffortTransition } from "./overlay-model-flow.js";
@@ -54,7 +54,7 @@ const ANSI_RESET = "\x1b[0m";
 const ANSI_DIM = "\x1b[38;2;100;100;100m";
 const SLOT_WIDTH = 4;
 const NAME_WIDTH = 12;
-const ALL_CLI_TYPES: CarrierCliType[] = ["claude", "codex", "gemini"];
+const ALL_CLI_TYPES = Object.keys(CLI_BACKENDS) as CarrierCliType[];
 
 const STATUS_TEXT: Record<HealthStatus, string> = {
   operational: "OP",
@@ -225,11 +225,7 @@ export class CarrierStatusOverlay implements Component, Focusable {
         const isSelected = entry.carrierId === viewModel.selectedCarrierId;
         const slotStr = `#${entry.slot}`;
         const slotPad = " ".repeat(Math.max(0, SLOT_WIDTH - slotStr.length));
-        const cliOverrideSuffix = entry.cliType !== entry.defaultCliType
-          ? `${ANSI_DIM}~${entry.cliType}${ANSI_RESET}`
-          : "";
-        const nameVisualWidth = entry.displayName.length + (entry.cliType !== entry.defaultCliType ? 1 + entry.cliType.length : 0);
-        const namePad = " ".repeat(Math.max(0, NAME_WIDTH - nameVisualWidth));
+        const namePad = " ".repeat(Math.max(0, NAME_WIDTH - entry.displayName.length));
         const isDisabled = !entry.isSortieEnabled;
         const nameColor = isDisabled ? ANSI_DIM : this.getEntryColor(entry);
         const coloredName = `${nameColor}${entry.displayName}${ANSI_RESET}`;
@@ -248,7 +244,7 @@ export class CarrierStatusOverlay implements Component, Focusable {
           : " ";
 
         const content =
-          `  ${selectedPrefix} ${dim(slotStr)}${slotPad}${coloredName}${cliOverrideSuffix}${namePad}${modelStr}${effortStr}${roleStr}${sortieTag}${tfTag}${sqTag}`;
+          `  ${selectedPrefix} ${dim(slotStr)}${slotPad}${coloredName}${namePad}${modelStr}${effortStr}${roleStr}${sortieTag}${tfTag}${sqTag}`;
         lines.push(frame.row(content, isSelected ? CARRIER_BG_COLORS[entry.cliType] : undefined));
 
         if (isSelected && this.shouldRenderEntryEditor(entry.carrierId)) {
@@ -475,9 +471,6 @@ export class CarrierStatusOverlay implements Component, Focusable {
       model: this.state.pendingModel,
       effort: selectedEffort,
     };
-    if (entry.cliType === "claude" && selectedEffort !== "none") {
-      selection.budgetTokens = this.callbacks.getAvailableModels(entry.cliType).defaultBudgetTokens?.[selectedEffort];
-    }
 
     void this.commitSelection(entry, selection);
   }
@@ -523,7 +516,7 @@ export class CarrierStatusOverlay implements Component, Focusable {
     const entry = this.getSelectedEntry();
     if (!entry) return;
 
-    const choices = (["claude", "codex", "gemini"] as const).map((cli): CliTypeChoice => ({
+    const choices = ALL_CLI_TYPES.map((cli): CliTypeChoice => ({
       value: cli,
       label: cli !== entry.defaultCliType ? `${cli} (default: ${entry.defaultCliType})` : cli,
     }));

@@ -4,6 +4,7 @@
  */
 
 import { execFile } from 'child_process';
+import { CLI_BACKENDS } from '../config/CliConfigs.js';
 import type { CliDetectionResult, CliType, ProtocolType } from '../types/config.js';
 import { isWindows } from '../utils/env.js';
 
@@ -12,11 +13,11 @@ const CLI_DETECT_LIST: Array<{
   id: CliType;
   command: string;
   protocols: ProtocolType[];
-}> = [
-  { id: 'gemini', command: 'gemini', protocols: ['acp'] },
-  { id: 'claude', command: 'claude', protocols: ['acp'] },
-  { id: 'codex', command: 'codex', protocols: ['codex-app-server'] },
-];
+}> = Object.entries(CLI_BACKENDS).map(([id, backend]) => ({
+  id: id as CliType,
+  command: backend.cliCommand,
+  protocols: [backend.protocol],
+}));
 
 /**
  * CLI 자동 감지 클래스.

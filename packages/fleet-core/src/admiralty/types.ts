@@ -6,6 +6,8 @@
  * 순서를 따른다.
  */
 
+import type { CliType } from "@sbluemin/unified-agent";
+
 export interface JsonRpcRequest {
   jsonrpc: "2.0";
   method: string;
@@ -49,7 +51,7 @@ export type CarrierStatus =
   | "done"
   | "error"
   | "unavailable";
-export type CliBackend = "claude" | "codex" | "gemini";
+export type CliBackend = CliType;
 export type ReportType = "progress" | "complete" | "failed" | "blocked";
 export type DeregisterReason = "shutdown" | "user_request" | "error";
 export type GrandFleetRole = "admiralty" | "fleet";

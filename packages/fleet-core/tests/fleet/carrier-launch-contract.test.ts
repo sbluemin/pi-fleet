@@ -67,10 +67,11 @@ describe("carrier launch contract", () => {
     const accepted = formatLaunchResponseText({ job_id: "sortie:call-1", accepted: true }, true);
     expect(accepted.startsWith(JOB_LAUNCH_NOTICE)).toBe(true);
     expect(accepted).toContain("Job accepted");
-    expect(accepted).toContain('<system-reminder source="carrier-completion">');
-    expect(accepted).toContain("[carrier:result] push");
+    expect(accepted).toContain("carrier-completion follow-up push");
+    expect(accepted).toContain("[carrier:result]");
     expect(accepted).toContain("DO NOT poll carrier_jobs");
     expect(accepted).toContain('{"job_id":"sortie:call-1","accepted":true}');
+    expect(accepted).not.toContain("<system-reminder");
     expect(accepted).not.toMatch(/^<[^>\n]+>/);
 
     const rejected = formatLaunchResponseText({ job_id: "sortie:call-1", accepted: false, error: "carrier busy" }, false);

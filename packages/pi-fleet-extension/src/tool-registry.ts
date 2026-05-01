@@ -257,7 +257,7 @@ function syncModelConfig(): void {
 
 export function createFleetRegistryPorts(pi?: ExtensionAPI): FleetServicesPorts {
   return {
-    logDebug(category: string, message: string, options?: LogOptions) {
+    logDebug(category: string, message: string, options?: unknown) {
       getLogAPI().debug(category, message, options as Parameters<ReturnType<typeof getLogAPI>["debug"]>[2]);
     },
     runAgentRequestBackground(options: Parameters<typeof runAgentRequestBackground>[0]) {

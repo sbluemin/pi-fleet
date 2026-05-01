@@ -5,7 +5,7 @@
 
 import modelsData from '../../models.json';
 import { ModelsRegistrySchema } from './schemas.js';
-import type { ModelsRegistry, ProviderModelInfo } from './schemas.js';
+import type { ModelsRegistry, ProviderModelInfo, ModelsMapping } from './schemas.js';
 import type { CliType } from '../types/config.js';
 
 // 빌드 시 인라인, 한 번만 검증 후 동결
@@ -56,4 +56,18 @@ export function getReasoningEffortLevels(cli: CliType): string[] | null {
     return null;
   }
   return reasoningEffort.levels;
+}
+
+/**
+ * 특정 CLI(프로바이더)의 modelsMapping을 반환합니다.
+ *
+ * @param cli - CLI 타입
+ * @returns modelsMapping (없으면 null)
+ */
+export function getProviderModelsMapping(cli: CliType): ModelsMapping | null {
+  const provider = registry.providers[cli];
+  if (!provider) {
+    throw new Error(`알 수 없는 프로바이더: "${cli}"`);
+  }
+  return provider.modelsMapping ? structuredClone(provider.modelsMapping) : null;
 }

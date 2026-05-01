@@ -7,6 +7,7 @@ import type {
   CliModelInfo,
   OverlayState,
 } from "@sbluemin/fleet-core/admiral/bridge/carrier-control";
+import type { ProviderKey } from "@sbluemin/unified-agent";
 
 interface DeferredPromise<T> {
   promise: Promise<T>;
@@ -64,7 +65,7 @@ function makeProvider(defaultModel: string, effortLevels?: string[], defaultEffo
 
 function createOverlay(options?: {
   entries?: CarrierStatusEntry[];
-  providers?: Partial<Record<"claude" | "codex" | "gemini", CliModelInfo>>;
+  providers?: Partial<Record<ProviderKey, CliModelInfo>>;
   saveModelSelection?: CarrierOverlayCallbacks["saveModelSelection"];
 }) {
   const entries = options?.entries ?? [makeEntry()];
@@ -72,6 +73,9 @@ function createOverlay(options?: {
     claude: makeProvider("claude-a", ["low", "high"], "low"),
     codex: makeProvider("codex-a", ["medium", "high"], "medium"),
     gemini: makeProvider("gemini-a"),
+    "opencode-go": makeProvider("opencode-go/glm-5.1", ["none", "low", "medium", "high"], "high"),
+    "claude-zai": makeProvider("zai-coding-plan/glm-5.1", ["none", "low", "medium", "high"], "high"),
+    "claude-kimi": makeProvider("kimi-for-coding/k2p6", ["none", "low", "medium", "high"], "high"),
     ...options?.providers,
   };
   const requestRender = vi.fn();
@@ -95,6 +99,9 @@ function createOverlay(options?: {
       ["claude", { status: "operational" }],
       ["codex", { status: "operational" }],
       ["gemini", { status: "operational" }],
+      ["opencode-go", { status: "unknown" }],
+      ["claude-zai", { status: "unknown" }],
+      ["claude-kimi", { status: "unknown" }],
     ]),
     getDefaultCliType: () => "claude",
   };
@@ -201,7 +208,7 @@ describe("CarrierStatusOverlay state transitions", () => {
     const state = getOverlayState(overlay);
     expect(state.kind).toBe("batchFrom");
     if (state.kind === "batchFrom") {
-      expect(state.choices.map((choice) => choice.cliType)).toEqual(["claude", "codex", "gemini"]);
+      expect(state.choices.map((choice) => choice.cliType)).toEqual(["gemini", "claude", "claude-zai", "claude-kimi", "codex", "opencode-go"]);
     }
   });
 
@@ -216,16 +223,34 @@ describe("CarrierStatusOverlay state transitions", () => {
       fromCli: "claude",
       choices: [
         {
+          cliType: "gemini",
+          label: "gemini (0 carriers)",
+          carrierCount: 0,
+          status: "operational",
+        },
+        {
+          cliType: "claude-zai",
+          label: "claude-zai (0 carriers)",
+          carrierCount: 0,
+          status: "unknown",
+        },
+        {
+          cliType: "claude-kimi",
+          label: "claude-kimi (0 carriers)",
+          carrierCount: 0,
+          status: "unknown",
+        },
+        {
           cliType: "codex",
           label: "codex (0 carriers)",
           carrierCount: 0,
           status: "operational",
         },
         {
-          cliType: "gemini",
-          label: "gemini (0 carriers)",
+          cliType: "opencode-go",
+          label: "opencode-go (0 carriers)",
           carrierCount: 0,
-          status: "operational",
+          status: "unknown",
         },
       ],
       cursor: 0,

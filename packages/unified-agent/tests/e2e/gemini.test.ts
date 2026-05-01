@@ -182,7 +182,7 @@ describe.skipIf(!installed)('E2E: Gemini ACP', () => {
       // 2차: 동일 sessionId와 모델로 loadSession 경로를 거쳐 컨텍스트 확인
       const { client: c2, sessionId: secondSessionId } = await connectClient('gemini', {
         model: DEFAULT_MODEL,
-        sessionId: firstSessionId,
+        sessionId: firstSessionId ?? undefined,
       });
       client = c2;
 
