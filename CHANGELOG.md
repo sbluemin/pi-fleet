@@ -5,6 +5,30 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Added
+- **`opencode-go` CLI Provider**: Added the OpenCode Go CLI as a first-class provider in `packages/unified-agent`, including `UnifiedOpenCodeAgentClient`, `CLI_BACKENDS` entry, models entry, and dedicated E2E coverage. The Fleet ACP provider, ModelRegistry, and CLI registry are centralized accordingly.
+- **`claude-zai` / `claude-kimi` CLI Providers**: Added Z.AI GLM and Moonshot Kimi backends as Claude-family aliases of `UnifiedClaudeAgentClient` (separate `defaultEnv.ANTHROPIC_BASE_URL`, separate `models.json` entries, npx bridge with `--cli`).
+- **`fleet-core` Auth Service**: New `services/auth/` module exposing `AuthService` (`getApiKey`/`setApiKey`/`setAuthPath`) on `FleetServices.auth`. Reads and writes `~/.pi/agent/auth.json` via Node `fs`; the default path is overridable via `setAuthPath()`.
+- **`resolveAuthEnv(cli)` Helper**: New shared helper exported from `@sbluemin/fleet-core` that maps `claude-zai` / `claude-kimi` to their `auth.json` provider IDs and returns `{ ANTHROPIC_AUTH_TOKEN }`. Throws when a mapped cli has no token registered. Both `agent-runtime.buildConnectOptions` (detached sortie/squadron/taskforce) and `provider-stream.buildProviderConnectOptions` (host PI agent) consume it as the single source of truth.
+- **`CLI_TO_AUTH_PROVIDER_ID` Mapping**: Constant exported from `@sbluemin/fleet-core` that maps `claude-zai` → `Claude Code with Z.AI GLM` and `claude-kimi` → `Claude Code with Moonshot Kimi`.
+
+### Changed
+- **CLI Display Name SSoT — `models.json`**: `packages/unified-agent/models.json` (`providers.<cli>.name`) is now the sole source of truth for CLI provider display names. `fleet-core` `CLI_PROVIDER_DISPLAY_NAMES` derives directly from `getProviderModels(cli).name` with no vendor/`CLI` suffix stripping. All downstream consumers (status store, taskforce overlay, model UI, etc.) now go through this surface.
+- **`buildConnectOptions` is now async**: `agent-runtime.buildConnectOptions` returns `Promise<UnifiedClientOptions>` and uses `resolveAuthEnv(cli)`, so detached carrier paths (`carriers_sortie`, `carrier_squadron`, `carrier_taskforce`) automatically receive the per-cli auth env.
+- **`buildProviderConnectOptions` Consolidation**: `provider-stream.buildProviderConnectOptions` is async and shares the `resolveAuthEnv` helper; the inline `CLI_TO_AUTH_PROVIDER_ID` and `fleet.auth.getApiKey` calls are removed.
+- **Fleet ACP Provider Split**: The Fleet ACP provider implementation is split per CLI and now sources provider names from `models.json`. Unified provider labels are aligned across the runtime.
+- **Carrier Job Launch Notice**: Clarified the language of the carrier job launch notice for less ambiguity.
+
+### Removed
+- **`CLI_BACKENDS.name` Field**: The `name` property on every `CLI_BACKENDS` entry and on the `CliBackendConfig` type is removed; consumers must use `getProviderModels(cli).name` (= `models.json`).
+- **Local `CLI_DISPLAY_NAMES` Hardcode**: Removed the local `CLI_DISPLAY_NAMES` constant from `packages/pi-fleet-extension/src/agent/ui/carrier-ui/taskforce-config-overlay.ts`; the overlay now imports `CLI_DISPLAY_NAMES` from `@sbluemin/fleet-core/constants`.
+- **Vendor / `CLI` Suffix Stripping**: Dropped the historic `.replace(/ CLI$/, "").replace("Anthropic ", "")...` strip pipeline for display names.
+- **`provider-catalog` Thin Wrapper**: Removed `packages/fleet-core/src/admiral/store/provider-catalog.ts` and its re-export. All consumers now use `@sbluemin/unified-agent`'s `getProviderModels` and `getReasoningEffortLevels` directly as the single source of truth.
+- **`CLAUDE_THINKING_BUDGETS` Default Auto-Fill**: Removed automatic Claude budget token filling from `fleet-store`, `model-ui`, `alt-o-status-overlay`, `taskforce-config-overlay`, and `status-overlay`. Budget tokens now flow only when explicitly user-set; otherwise the value falls back to unified-agent defaults.
+- **`MCP_TOOL_TIMEOUT` Env Injection**: Dropped the historic `MCP_TOOL_TIMEOUT: "1800000"` env injection from all carrier connect paths (host and detached); no longer needed.
+- **`opencode-zai` / `opencode-kimi` Providers**: Pruned the OpenCode Z.AI / Moonshot variants; only `opencode-go` remains under the OpenCode surface.
+- **HUD Context Window & Cache Usage**: Removed the context window rendering and cache usage tracking from the HUD layout.
+
 ## [0.6.6] - 2026-04-30
 
 Release v0.6.6
