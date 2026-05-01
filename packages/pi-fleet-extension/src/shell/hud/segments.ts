@@ -4,6 +4,14 @@ import type { ColorValue, RenderedSegment, SegmentContext, SemanticColor, Status
 import { fg, rainbow, applyColor } from "./theme.js";
 import { getIcons, SEP_DOT, getThinkingText } from "./icons.js";
 
+const APC_REGEX = /\x1b_[^\x07\x1b]*(?:\x07|\x1b\\)/g;
+const BIDI_CONTROL_REGEX = /[\u202A-\u202E\u2066-\u2069]/g;
+const CONTROL_REGEX = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g;
+const CSI_REGEX = /\x1b\[[0-9;?]*[A-Za-z]/g;
+const DCS_REGEX = /\x1bP[^\x07\x1b]*(?:\x07|\x1b\\)/g;
+const ESC_SINGLE_REGEX = /\x1b[@-_]/g;
+const OSC_REGEX = /\x1b\][^\x07]*(?:\x07|\x1b\\)/g;
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Segment Implementations
 // ═══════════════════════════════════════════════════════════════════════════
@@ -40,9 +48,10 @@ const modelSegment: StatusLineSegment = {
     const opts = ctx.options.model ?? {};
 
     // 기본은 display name 우선이지만, Fleet ACP는 구분 postfix를 보이기 위해 id를 우선 표시
-    const modelName = ctx.model?.provider === "Fleet ACP"
+    const rawModelName = ctx.model?.provider === "Fleet ACP"
       ? (ctx.model?.id || ctx.model?.name || "no-model")
       : (ctx.model?.name || ctx.model?.id || "no-model");
+    const modelName = sanitizePlainDisplay(rawModelName) || "no-model";
     let content = withIcon(icons.model, modelName);
 
     // Add thinking level with dot separator
@@ -309,14 +318,6 @@ const sessionSegment: StatusLineSegment = {
   },
 };
 
-const operationSegment: StatusLineSegment = {
-  id: "operation",
-  render(ctx) {
-    if (!ctx.operationName) return { content: "", visible: false };
-    return { content: color(ctx, "pi", ctx.operationName), visible: true };
-  },
-};
-
 const hostnameSegment: StatusLineSegment = {
   id: "hostname",
   render() {
@@ -367,7 +368,6 @@ export const SEGMENTS: Record<StatusLineSegmentId, StatusLineSegment> = {
   time_spent: timeSpentSegment,
   time: timeSegment,
   session: sessionSegment,
-  operation: operationSegment,
   hostname: hostnameSegment,
   extension_statuses: extensionStatusesSegment,
 };
@@ -391,6 +391,20 @@ function color(ctx: SegmentContext, semantic: SemanticColor, text: string): stri
 
 function withIcon(icon: string, text: string): string {
   return icon ? `${icon} ${text}` : text;
+}
+
+function sanitizePlainDisplay(value: string): string {
+  let output = value;
+  if (output.includes("\u001b")) {
+    output = output.replace(OSC_REGEX, "");
+    output = output.replace(APC_REGEX, "");
+    output = output.replace(DCS_REGEX, "");
+    output = output.replace(CSI_REGEX, "");
+    output = output.replace(ESC_SINGLE_REGEX, "");
+  }
+  return output
+    .replace(BIDI_CONTROL_REGEX, "")
+    .replace(CONTROL_REGEX, "");
 }
 
 function formatTokens(n: number): string {

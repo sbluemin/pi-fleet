@@ -5,7 +5,7 @@ export const PRESETS: Record<StatusLinePreset, PresetDef> = {
   // sbluemin — Tokyo Night + Cyberpunk Neon
   // sparkline thinking · μ$/m$ cost · chevron 구분자
   sbluemin: {
-    leftSegments: ["pi", "operation", "model", "thinking", "path", "git"],
+    leftSegments: ["pi", "model", "thinking", "path", "git"],
     rightSegments: ["cost", "time_spent"],
     secondarySegments: ["extension_statuses"],
     separator: "chevron",

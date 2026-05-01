@@ -12,21 +12,6 @@ import { getPreset } from "../shell/hud/presets.js";
 import { getGitStatus } from "../shell/hud/git-status.js";
 import { getDefaultColors } from "../shell/hud/theme.js";
 
-const OPERATION_NAME_GLOBAL_KEY = "__pi_fleet_operation_name__";
-
-interface OperationNameGlobalState {
-  sessionId: string;
-  displayName?: string;
-}
-
-interface OperationNameSessionState {
-  displayName?: string;
-}
-
-interface OperationNameGlobalStore {
-  sessions?: Record<string, OperationNameSessionState | undefined>;
-}
-
 /**
  * 세션 이벤트에서 사용량 통계를 추출하여 SegmentContext를 구성.
  *
@@ -43,41 +28,46 @@ export function buildSegmentContext(
 ): SegmentContext {
   const presetDef = getPreset(config.preset);
   const colors: ColorScheme = presetDef.colors ?? getDefaultColors();
+  const selectedModel = provider.selectedModel ?? ctx?.model;
 
-  // 사용량 통계 + thinking 레벨을 세션에서 추출
+  // ctx getter(sessionManager, modelRegistry)는 stale ctx에서 assertActive() throw 가능.
+  // selectedModel 등 ctx-independent 데이터는 throw 시에도 반환되어야 하므로 내부 try/catch.
   let input = 0, output = 0, cost = 0;
   let thinkingLevelFromSession = "off";
+  let sessionId: string | undefined;
+  let usingSubscription = false;
 
-  const sessionEvents = ctx.sessionManager?.getBranch?.() ?? [];
-  for (const e of sessionEvents) {
-    if (e.type === "thinking_level_change" && e.thinkingLevel) {
-      thinkingLevelFromSession = e.thinkingLevel;
-    }
-    if (e.type === "message" && e.message.role === "assistant") {
-      const m = e.message as AssistantMessage;
-      if (m.stopReason === "error" || m.stopReason === "aborted") {
-        continue;
+  try {
+    const sessionEvents = ctx?.sessionManager?.getBranch?.() ?? [];
+    for (const e of sessionEvents) {
+      if (e.type === "thinking_level_change" && e.thinkingLevel) {
+        thinkingLevelFromSession = e.thinkingLevel;
       }
-      input += m.usage.input;
-      output += m.usage.output;
-      cost += m.usage.cost.total;
+      if (e.type === "message" && e.message.role === "assistant") {
+        const m = e.message as AssistantMessage;
+        if (m.stopReason === "error" || m.stopReason === "aborted") {
+          continue;
+        }
+        input += m.usage.input;
+        output += m.usage.output;
+        cost += m.usage.cost.total;
+      }
     }
+    sessionId = ctx?.sessionManager?.getSessionId?.();
+    usingSubscription = selectedModel
+      ? ctx?.modelRegistry?.isUsingOAuth?.(selectedModel) ?? false
+      : false;
+  } catch {
+    // stale ctx — 사용량/세션 데이터는 이전 값 유지, selectedModel은 정상 반환
   }
 
-  // Git 상태 (캐시됨)
   const gitBranch = provider.footerDataRef?.getGitBranch() ?? null;
   const gitStatus = getGitStatus(gitBranch);
 
-  // OAuth 구독 여부
-  const usingSubscription = ctx.model
-    ? ctx.modelRegistry?.isUsingOAuth?.(ctx.model) ?? false
-    : false;
-
   return {
-    model: ctx.model,
+    model: selectedModel,
     thinkingLevel: thinkingLevelFromSession || provider.getThinkingLevelFn?.() || "off",
-    sessionId: ctx.sessionManager?.getSessionId?.(),
-    operationName: getOperationNameForSession(ctx.sessionManager?.getSessionId?.()),
+    sessionId,
     usageStats: { input, output, cost },
     usingSubscription,
     sessionStartTime: provider.sessionStartTime,
@@ -87,28 +77,4 @@ export function buildSegmentContext(
     theme,
     colors,
   };
-}
-
-function getOperationNameForSession(sessionId: string | undefined): string | undefined {
-  const state = (globalThis as any)[OPERATION_NAME_GLOBAL_KEY] as
-    | OperationNameGlobalStore
-    | OperationNameGlobalState
-    | undefined;
-  if (!sessionId) return undefined;
-
-  const sessionState = isOperationNameGlobalStore(state) ? state.sessions?.[sessionId] : undefined;
-  if (typeof sessionState?.displayName === "string") return sessionState.displayName;
-
-  if (isOperationNameGlobalState(state) && state.sessionId === sessionId) {
-    return typeof state.displayName === "string" ? state.displayName : undefined;
-  }
-  return undefined;
-}
-
-function isOperationNameGlobalStore(value: OperationNameGlobalStore | OperationNameGlobalState | undefined): value is OperationNameGlobalStore {
-  return Boolean(value && "sessions" in value && value.sessions);
-}
-
-function isOperationNameGlobalState(value: OperationNameGlobalStore | OperationNameGlobalState | undefined): value is OperationNameGlobalState {
-  return Boolean(value && "sessionId" in value && value.sessionId);
 }

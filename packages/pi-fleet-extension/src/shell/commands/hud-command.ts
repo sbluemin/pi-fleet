@@ -7,7 +7,6 @@
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-
 import type { HudEditorState, StatusLinePreset } from "../hud/types.js";
 import { PRESETS } from "../hud/presets.js";
 import { setupCustomEditor, setupStatusBar } from "../hud/editor.js";
@@ -16,23 +15,12 @@ import { setupCustomEditor, setupStatusBar } from "../hud/editor.js";
 // 확장 진입점
 // ═══════════════════════════════════════════════════════════════════════════
 
-export default function registerHudCommand(pi: ExtensionAPI) {
-  const state: HudEditorState = {
-    enabled: true,
-    sessionStartTime: Date.now(),
-    currentCtx: null,
-    getThinkingLevelFn: null,
-    currentEditor: null,
-    config: { preset: "sbluemin" },
-    footerDataRef: null,
-    tuiRef: null,
-    layoutCache: { width: 0, result: null, timestamp: 0 },
-  };
-
+export default function registerHudCommand(pi: ExtensionAPI, state: HudEditorState) {
   pi.registerCommand("fleet:hud:editor", {
     description: "Configure hud-editor status (toggle, preset)",
     handler: async (args, ctx) => {
       state.currentCtx = ctx;
+      state.selectedModel = ctx.model;
 
       if (!args) {
         state.enabled = !state.enabled;
@@ -43,7 +31,6 @@ export default function registerHudCommand(pi: ExtensionAPI) {
         } else {
           ctx.ui.setEditorComponent(undefined);
           ctx.ui.setFooter(undefined);   // 기본 footer 복원
-          ctx.ui.setWidget("hud-status-bar", undefined);
           ctx.ui.setWidget("hud-notification", undefined);
           state.footerDataRef = null;
           state.tuiRef = null;

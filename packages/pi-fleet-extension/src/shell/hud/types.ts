@@ -42,7 +42,6 @@ export type StatusLineSegmentId =
   | "time_spent"
   | "time"
   | "session"
-  | "operation"
   | "hostname"
   | "thinking"
   | "extension_statuses";
@@ -112,7 +111,6 @@ export interface SegmentContext {
   model: { id: string; name?: string; reasoning?: boolean; provider?: string } | undefined;
   thinkingLevel: string;
   sessionId: string | undefined;
-  operationName: string | undefined;
   usageStats: UsageStats;
   usingSubscription: boolean;
   sessionStartTime: number;
@@ -145,6 +143,7 @@ export interface HudEditorState {
   enabled: boolean;
   sessionStartTime: number;
   currentCtx: any;
+  selectedModel: SegmentContext["model"];
   getThinkingLevelFn: (() => string) | null;
   currentEditor: any;
   config: HudCoreConfig;
@@ -152,6 +151,8 @@ export interface HudEditorState {
   footerDataRef: ReadonlyFooterDataProvider | null;
   /** footer 콜백에서 직접 수신한 TUI 인스턴스 */
   tuiRef: any;
+  /** footer 콜백에서 수신한 전체 PI Theme (fg 메서드 포함) */
+  themeRef: import("@mariozechner/pi-coding-agent").Theme | null;
   layoutCache: {
     width: number;
     result: { topContent: string; secondaryContent: string } | null;
@@ -171,8 +172,5 @@ export interface SegmentStateProvider {
   footerDataRef: ReadonlyFooterDataProvider | null;
   getThinkingLevelFn: (() => string) | null;
   sessionStartTime: number;
-}
-
-export interface HudRenderRequestBridge {
-  requestRender: (() => void) | null;
+  selectedModel?: SegmentContext["model"];
 }

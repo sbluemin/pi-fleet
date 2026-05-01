@@ -10,16 +10,21 @@ import type { ReadonlyFooterDataProvider, Theme } from "@mariozechner/pi-coding-
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
 import type { HudEditorState } from "./types.js";
-import type { HudRenderRequestBridge } from "./types.js";
 import type { SegmentStateProvider } from "./types.js";
 import { ansi, getFgAnsiCode } from "./colors.js";
-import { getEditorBorderColor, getEditorRightLabel } from "./border-bridge.js";  // [Feature] rightLabel을 상단 테두리 우측에 삽입
+import { getEditorBorderColor, getEditorRightLabel, getEditorTopRightLabel } from "./border-bridge.js";
 import { getPreset } from "./presets.js";
 import { buildSegmentContext } from "../../agent/hud-context.js";
 import { getLogFooterBridge } from "../../log.js";
 import { computeResponsiveLayout } from "./layout.js";
 import { getWelcomeBridge } from "../welcome/types.js";
 import { isStaleExtensionContextError } from "../context-errors.js";
+
+const MIN_LABEL_DASH_WIDTH = 2;
+const STATUS_BORDER_RESERVED_WIDTH = 7;
+const TOP_RIGHT_DASH_WIDTH = 2;
+
+let hudRenderState: HudEditorState | null = null;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 상태바 설정 (footerDataRef 획득 목적)
@@ -39,6 +44,7 @@ export function setupStatusBar(ctx: any, state: HudEditorState): void {
   ctx.ui.setFooter((tui: any, theme: Theme, footerData: ReadonlyFooterDataProvider) => {
     state.footerDataRef = footerData;
     state.tuiRef = tui;
+    state.themeRef = theme;
 
     // log footer bridge 초기화 — requestRender 콜백 주입
     // 이미 bridge 객체가 있으면(log가 먼저 로드됨) requestRender만 주입한다.
@@ -73,13 +79,14 @@ export function setupStatusBar(ctx: any, state: HudEditorState): void {
 }
 
 export function setupHudRenderRequestBridge(state: HudEditorState): void {
-  const bridgeKey = "__pi_hud_render_request__";
-  const bridge = ((globalThis as any)[bridgeKey] ??= { requestRender: null }) as HudRenderRequestBridge;
+  hudRenderState = state;
+}
 
-  bridge.requestRender = () => {
-    state.layoutCache.result = null;
-    state.tuiRef?.requestRender?.();
-  };
+export function requestHudRender(): void {
+  const state = hudRenderState;
+  if (!state) return;
+  state.layoutCache.timestamp = 0;
+  state.tuiRef?.requestRender?.();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -144,22 +151,8 @@ export function setupCustomEditor(ctx: any, state: HudEditorState): void {
 
           const result: string[] = [];
 
-          // 상단 테두리 — 레이블을 중앙에 삽입
-          const rightLabel = getEditorRightLabel();
-          if (rightLabel) {
-            const rawLabel = rightLabel.replace(/\x1b\[[0-9;]*m/g, "");
-            const labelVisibleWidth = visibleWidth(rawLabel);
-            const totalDash = width - 2 - labelVisibleWidth - 2; // 양쪽 공백 각 1칸
-            if (totalDash >= 2) {
-              const leftDash = Math.floor(totalDash / 2);
-              const rightDash = totalDash - leftDash;
-              result.push(" " + bc("─".repeat(leftDash)) + " " + rightLabel + " " + bc("─".repeat(rightDash)));
-            } else {
-              result.push(" " + bc("─".repeat(width - 2)));
-            }
-          } else {
-            result.push(" " + bc("─".repeat(width - 2)));
-          }
+          // 상단 테두리 — 프로토콜은 중앙, operation name은 우측에 함께 표시
+          result.push(renderTopBorder(width, bc, getEditorRightLabel(), getEditorTopRightLabel()));
 
           // 콘텐츠 줄: 첫 줄 "> " 프롬프트, 이후 들여쓰기
           for (let i = 1; i < bottomBorderIndex; i++) {
@@ -172,8 +165,8 @@ export function setupCustomEditor(ctx: any, state: HudEditorState): void {
             result.push(`${promptPrefix}${" ".repeat(contentWidth)}`);
           }
 
-          // 하단 테두리 — solid 라인 복원 [Feature]
-          result.push(" " + bc("─".repeat(width - 2)));
+          // 하단 테두리 — Status Bar 세그먼트를 중앙에 통합
+          result.push(renderStatusBorder(width, bc, state));
 
           // 자동완성 항목
           for (let i = bottomBorderIndex + 1; i < lines.length; i++) {
@@ -188,36 +181,7 @@ export function setupCustomEditor(ctx: any, state: HudEditorState): void {
 
       if (!setEditorComponent(ctx, editorFactory)) return;
 
-      // 상태바 위젯 (belowEditor)
-      ctx.ui.setWidget("hud-status-bar", (_tui: any, theme: Theme) => {
-        return {
-          dispose() {},
-          invalidate() {},
-          render(width: number): string[] {
-            if (!state.currentCtx) return [];
-            // pi 0.69: 세션 교체/종료 직후 stale ctx 접근 시 sessionManager getter가 throw.
-            // 마지막 render tick이 teardown과 레이스할 수 있으므로 방어적으로 무시.
-            try {
-              const layout = getResponsiveLayout(width, theme, state);
-              const lines: string[] = [];
-
-              if (layout.topContent) {
-                lines.push(centerLine(` ${layout.topContent}`, width));
-              }
-
-              if (layout.secondaryContent) {
-                lines.push(centerLine(` ${layout.secondaryContent}`, width));
-              }
-
-              return lines;
-            } catch {
-              return [];
-            }
-          },
-        };
-      }, { placement: "belowEditor" });
-
-      // 확장 상태 알림 위젯 (에디터 아래)
+      // 확장 상태 알림 위젯 (에디터 위)
       ctx.ui.setWidget("hud-notification", () => {
         return {
           dispose() {},
@@ -246,7 +210,7 @@ export function setupCustomEditor(ctx: any, state: HudEditorState): void {
             }
           },
         };
-      }, { placement: "belowEditor" });
+      }, { placement: "aboveEditor" });
     } catch (error) {
       if (!isStaleExtensionContextError(error)) throw error;
     }
@@ -278,6 +242,130 @@ function setEditorComponent(ctx: any, editorFactory: (...args: any[]) => any): b
   }
 }
 
+function renderTopBorder(
+  width: number,
+  colorizeBorder: (s: string) => string,
+  centerLabel: string | null,
+  topRightLabel: string | null,
+): string {
+  if (centerLabel && topRightLabel) {
+    const line = renderTopBorderWithRightLabel(width, colorizeBorder, centerLabel, topRightLabel);
+    if (line) return line;
+  }
+
+  if (centerLabel) {
+    const line = renderCenteredBorder(width, colorizeBorder, centerLabel);
+    if (line) return line;
+  }
+
+  if (topRightLabel) {
+    const line = renderRightBorder(width, colorizeBorder, topRightLabel);
+    if (line) return line;
+  }
+
+  return renderSolidBorder(width, colorizeBorder);
+}
+
+function renderTopBorderWithRightLabel(
+  width: number,
+  colorizeBorder: (s: string) => string,
+  centerLabel: string,
+  topRightLabel: string,
+): string | null {
+  const innerWidth = width - 2;
+  const centerWidth = visibleWidth(centerLabel);
+  const rightWidth = visibleWidth(topRightLabel);
+  const centerBlockWidth = centerWidth + 2;
+  const rightBlockWidth = rightWidth + 2 + TOP_RIGHT_DASH_WIDTH;
+  const leftDash = Math.floor((innerWidth - centerBlockWidth) / 2);
+  const middleDash = innerWidth - leftDash - centerBlockWidth - rightBlockWidth;
+
+  if (leftDash < MIN_LABEL_DASH_WIDTH || middleDash < MIN_LABEL_DASH_WIDTH) {
+    return null;
+  }
+
+  return [
+    " ",
+    colorizeBorder("─".repeat(leftDash)),
+    " ",
+    centerLabel,
+    " ",
+    colorizeBorder("─".repeat(middleDash)),
+    " ",
+    topRightLabel,
+    " ",
+    colorizeBorder("─".repeat(TOP_RIGHT_DASH_WIDTH)),
+  ].join("");
+}
+
+function renderCenteredBorder(
+  width: number,
+  colorizeBorder: (s: string) => string,
+  label: string,
+): string | null {
+  const innerWidth = width - 2;
+  const labelWidth = visibleWidth(label);
+  const totalDash = innerWidth - labelWidth - 2; // 양쪽 공백 각 1칸
+
+  if (totalDash < MIN_LABEL_DASH_WIDTH) {
+    return null;
+  }
+
+  const leftDash = Math.floor(totalDash / 2);
+  const rightDash = totalDash - leftDash;
+  return " " + colorizeBorder("─".repeat(leftDash)) + " " + label + " " + colorizeBorder("─".repeat(rightDash));
+}
+
+function renderRightBorder(
+  width: number,
+  colorizeBorder: (s: string) => string,
+  label: string,
+): string | null {
+  const innerWidth = width - 2;
+  const labelWidth = visibleWidth(label);
+  const dashWidth = innerWidth - labelWidth - 2 - TOP_RIGHT_DASH_WIDTH;
+
+  if (dashWidth < MIN_LABEL_DASH_WIDTH) {
+    return null;
+  }
+
+  return " "
+    + colorizeBorder("─".repeat(dashWidth))
+    + " "
+    + label
+    + " "
+    + colorizeBorder("─".repeat(TOP_RIGHT_DASH_WIDTH));
+}
+
+function renderStatusBorder(
+  width: number,
+  colorizeBorder: (s: string) => string,
+  state: HudEditorState,
+): string {
+  if (!state.currentCtx) return renderSolidBorder(width, colorizeBorder);
+  if (!state.themeRef) return renderSolidBorder(width, colorizeBorder);
+
+  try {
+    const layout = getResponsiveLayout(Math.max(1, width - STATUS_BORDER_RESERVED_WIDTH), state);
+    if (!layout.topContent) return renderSolidBorder(width, colorizeBorder);
+
+    const label = fitStatusBorderLabel(` ${layout.topContent}`, width);
+    const line = renderCenteredBorder(width, colorizeBorder, label);
+    return line ?? renderSolidBorder(width, colorizeBorder);
+  } catch {
+    return renderSolidBorder(width, colorizeBorder);
+  }
+}
+
+function renderSolidBorder(width: number, colorizeBorder: (s: string) => string): string {
+  return " " + colorizeBorder("─".repeat(width - 2));
+}
+
+function fitStatusBorderLabel(label: string, width: number): string {
+  const maxLabelWidth = Math.max(1, width - STATUS_BORDER_RESERVED_WIDTH);
+  return visibleWidth(label) > maxLabelWidth ? truncateToWidth(label, maxLabelWidth) : label;
+}
+
 function centerLine(line: string, width: number): string {
   const visLen = visibleWidth(line);
   const pad = Math.max(0, Math.floor((width - visLen) / 2));
@@ -290,34 +378,33 @@ function centerLine(line: string, width: number): string {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * 캐시된 반응형 레이아웃을 반환하거나 새로 계산.
- * 같은 렌더 사이클(50ms 이내) 내에서 동일 너비면 캐시 재사용.
+ * 반응형 레이아웃을 매번 새로 계산.
+ * 위젯이 하단 테두리에 통합되어 중복 호출이 없으므로 TTL 캐시 불필요.
  */
 function getResponsiveLayout(
   width: number,
-  theme: Theme,
   state: HudEditorState,
 ): { topContent: string; secondaryContent: string } {
-  const now = Date.now();
   const cache = state.layoutCache;
-
-  if (cache.result && cache.width === width && now - cache.timestamp < 50) {
-    return cache.result;
-  }
-
   const presetDef = getPreset(state.config.preset);
+  const theme = state.themeRef;
+
+  if (!theme) {
+    return { topContent: "", secondaryContent: "" };
+  }
 
   const provider: SegmentStateProvider = {
     footerDataRef: state.footerDataRef,
     getThinkingLevelFn: state.getThinkingLevelFn,
     sessionStartTime: state.sessionStartTime,
+    selectedModel: state.selectedModel,
   };
 
   const segmentCtx = buildSegmentContext(state.currentCtx, theme, provider, state.config);
 
   cache.width = width;
   cache.result = computeResponsiveLayout(segmentCtx, presetDef, width);
-  cache.timestamp = now;
+  cache.timestamp = Date.now();
 
   return cache.result;
 }

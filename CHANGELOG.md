@@ -5,6 +5,19 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Changed
+- **HUD Status Bar → Editor Bottom Border**: Relocated the HUD status bar from a standalone `belowEditor` widget into the editor's bottom border line, producing a more compact single-line layout.
+- **Operation Name → Editor Top Border (Right)**: Moved the operation name display from the status bar segment to the editor's top-right border label alongside the protocol label.
+- **HUD State Shared Singleton**: Replaced per-module `HudEditorState` creation in `hud-lifecycle` and `hud-command` with a single shared state factory (`hud/state.ts`), eliminating dual-state divergence.
+- **Model Change Reactivity**: Added `model_select` event handler with `selectedModel` stored directly from `event.model`, bypassing stale `ctx.model` getter issues on session boundaries.
+- **`buildSegmentContext` Resilience**: Wrapped ctx-dependent accessors (`sessionManager`, `modelRegistry`) in an internal try/catch so that stale-ctx throws no longer propagate; `selectedModel` and other ctx-independent data are always returned.
+
+### Removed
+- **`globalThis` HUD Render Bridge**: Removed `__pi_hud_render_request__` globalThis bridge; `fleet.ts` now imports `requestHudRender()` directly from `editor.ts`.
+- **`globalThis` Border Bridge**: Replaced globalThis-based editor border/label storage in `border-bridge.ts` with module-level variables.
+- **`operationSegment` Dead Code**: Removed the unused `operationSegment` definition, `SegmentContext.operationName` field, and `getOperationNameForSession()` helper from `hud-context.ts` (operation name now flows through `border-bridge` only).
+- **`editorTheme` Confusion**: Eliminated the `editorTheme` (editor factory visual config) being passed where a full PI `Theme` was expected; `state.themeRef` (captured from the footer callback) is now the sole theme source for segment rendering.
+
 ## [0.7.0] - 2026-05-01
 
 ### Added

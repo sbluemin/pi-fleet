@@ -44,6 +44,7 @@ import { registerGrandFleet } from "./grand-fleet/index.js";
 import { getKeybindAPI } from "./shell/keybinds/core/bridge.js";
 import { exposeAgentApi } from "./agent/runner.js";
 import { detachAgentPanelUi, refreshAgentPanel } from "./agent/ui/panel-lifecycle.js";
+import { requestHudRender } from "./shell/hud/editor.js";
 import { setDeliverAs, getDeliverAs } from "./settings.js";
 import {
   getRegisteredCarrierConfig,
@@ -58,7 +59,7 @@ import {
   setSquadronEnabledCarriers,
   setTaskForceConfiguredCarriers,
 } from "./tool-registry.js";
-import { setEditorBorderColor, setEditorRightLabel } from "./shell/hud/border-bridge.js";
+import { setEditorBorderColor, setEditorRightLabel, setEditorTopRightLabel } from "./shell/hud/border-bridge.js";
 import { setCarrierJobsVerbose, toggleCarrierJobsVerbose } from "./job.js";
 
 export interface FleetLifecycleRuntime {
@@ -87,10 +88,6 @@ interface OperationNameSessionState {
 interface OperationNameGlobalStore {
   currentSessionId?: string;
   sessions: Record<string, OperationNameSessionState | undefined>;
-}
-
-interface HudRenderRequestBridge {
-  requestRender?: (() => void) | null;
 }
 
 interface PiServiceStatusContextLike {
@@ -128,7 +125,6 @@ This is a hard prerequisite. Do NOT skip this step or assume you already know th
 `;
 
 const OPERATION_NAME_GLOBAL_KEY = "__pi_fleet_operation_name__";
-const HUD_RENDER_REQUEST_GLOBAL_KEY = "__pi_hud_render_request__";
 const OPERATION_NAME_ATTEMPTS = new Set<string>();
 
 let fleetRuntime: FleetCoreRuntimeContext | undefined;
@@ -565,12 +561,14 @@ function resolveOperationNameModel(ctx: ExtensionContext): Model<Api> | null {
 function syncOperationNameSession(sessionId: string, pending = false, displayName?: string): void {
   const store = readOperationNameStore();
   const current = store.sessions[sessionId];
+  const nextDisplayName = displayName ?? current?.displayName;
   store.currentSessionId = sessionId;
   store.sessions[sessionId] = {
-    displayName: displayName ?? current?.displayName,
+    displayName: nextDisplayName,
     pending,
   };
   (globalThis as any)[OPERATION_NAME_GLOBAL_KEY] = store;
+  setEditorTopRightLabel(!pending && nextDisplayName ? nextDisplayName : null);
   requestHudRender();
 }
 
@@ -610,11 +608,6 @@ function isCurrentOperationNameSession(ctx: ExtensionContext, sessionId: string)
   } catch {
     return false;
   }
-}
-
-function requestHudRender(): void {
-  const bridge = (globalThis as any)[HUD_RENDER_REQUEST_GLOBAL_KEY] as HudRenderRequestBridge | undefined;
-  bridge?.requestRender?.();
 }
 
 function toServiceStatusContext(ctx: PiServiceStatusContextLike): ServiceStatusContextPort {

@@ -11,23 +11,13 @@ import { setupCustomEditor, setupHudRenderRequestBridge, setupStatusBar } from "
 import { invalidateGitBranch, invalidateGitStatus } from "./hud/git-status.js";
 import type { HudEditorState } from "./hud/types.js";
 
-export default function registerHudLifecycle(pi: ExtensionAPI) {
-  const state: HudEditorState = {
-    enabled: true,
-    sessionStartTime: Date.now(),
-    currentCtx: null,
-    getThinkingLevelFn: null,
-    currentEditor: null,
-    config: { preset: "sbluemin" },
-    footerDataRef: null,
-    tuiRef: null,
-    layoutCache: { width: 0, result: null, timestamp: 0 },
-  };
+export default function registerHudLifecycle(pi: ExtensionAPI, state: HudEditorState) {
   setupHudRenderRequestBridge(state);
 
   pi.on("session_start", async (_event, ctx) => {
     state.sessionStartTime = Date.now();
     state.currentCtx = ctx;
+    state.selectedModel = ctx.model;
     state.getThinkingLevelFn = null;
 
     setupStatusBar(ctx, state);
@@ -35,6 +25,13 @@ export default function registerHudLifecycle(pi: ExtensionAPI) {
     if (state.enabled && ctx.hasUI) {
       setupCustomEditor(ctx, state);
     }
+  });
+
+  pi.on("model_select", async (event, ctx) => {
+    state.currentCtx = ctx;
+    state.selectedModel = event.model;
+    state.layoutCache.timestamp = 0;
+    state.tuiRef?.requestRender?.();
   });
 
   pi.on("tool_result", async (event) => {

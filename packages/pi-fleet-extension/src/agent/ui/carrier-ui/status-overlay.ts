@@ -229,7 +229,8 @@ export class CarrierStatusOverlay implements Component, Focusable {
         const isDisabled = !entry.isSortieEnabled;
         const nameColor = isDisabled ? ANSI_DIM : this.getEntryColor(entry);
         const coloredName = `${nameColor}${entry.displayName}${ANSI_RESET}`;
-        const modelStr = (entry.isDefault || isDisabled) ? dim(entry.model) : entry.model;
+        const modelName = this.callbacks.getAvailableModels(entry.cliType).models.find(m => m.modelId === entry.model)?.name ?? entry.model;
+        const modelStr = (entry.isDefault || isDisabled) ? dim(modelName) : modelName;
         const effortStr = entry.effort ? dim(" · ") + (isDisabled ? dim(entry.effort) : entry.effort) : "";
         const sortieTag = entry.isSquadronEnabled
           ? `  \x1b[38;2;180;140;255m→SQ${ANSI_RESET}`
