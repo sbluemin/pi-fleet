@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import type { FleetSettingsServices } from "@sbluemin/fleet-core";
 
-import { getKeybindAPI } from "./shell/keybinds/core/bridge.js";
+import { getKeybindAPI } from "./shell/keybinds/bridge.js";
 import { getFleetRuntime } from "./fleet.js";
 import { SettingsOverlay } from "./shell/overlays/settings-overlay.js";
 

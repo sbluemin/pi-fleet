@@ -34,7 +34,6 @@ export type StatusLineSegmentId =
   | "model"
   | "path"
   | "git"
-  | "subagents"
   | "token_in"
   | "token_out"
   | "token_total"

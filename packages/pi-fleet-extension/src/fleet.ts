@@ -41,7 +41,7 @@ import { syncModelConfig } from "./agent/carrier/model-ui.js";
 import { completeSimple } from "./agent/provider.js";
 import type { Api, Model, ThinkingLevel } from "./agent/provider.js";
 import { registerGrandFleet } from "./grand-fleet/index.js";
-import { getKeybindAPI } from "./shell/keybinds/core/bridge.js";
+import { getKeybindAPI } from "./shell/keybinds/bridge.js";
 import { exposeAgentApi } from "./agent/runner.js";
 import { detachAgentPanelUi, refreshAgentPanel } from "./agent/ui/panel-lifecycle.js";
 import { requestHudRender } from "./shell/hud/editor.js";

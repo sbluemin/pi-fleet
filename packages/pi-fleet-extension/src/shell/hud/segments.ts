@@ -203,16 +203,6 @@ const thinkingSegment: StatusLineSegment = {
   },
 };
 
-const subagentsSegment: StatusLineSegment = {
-  id: "subagents",
-  render() {
-    // Note: pi-mono doesn't have subagent tracking built-in
-    // This would require extension state management
-    // For now, return not visible
-    return { content: "", visible: false };
-  },
-};
-
 const tokenInSegment: StatusLineSegment = {
   id: "token_in",
   render(ctx) {
@@ -360,7 +350,6 @@ export const SEGMENTS: Record<StatusLineSegmentId, StatusLineSegment> = {
   path: pathSegment,
   git: gitSegment,
   thinking: thinkingSegment,
-  subagents: subagentsSegment,
   token_in: tokenInSegment,
   token_out: tokenOutSegment,
   token_total: tokenTotalSegment,

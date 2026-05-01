@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import { getKeybindAPI } from "../../../shell/keybinds/core/bridge.js";
+import { getKeybindAPI } from "../../../shell/keybinds/bridge.js";
 import { launchBridgeShell } from "./handler.js";
 import {
   BRIDGE_ACTION_ID,

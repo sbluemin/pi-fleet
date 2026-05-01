@@ -8,11 +8,11 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 
-import { _bootstrapKeybind, getKeybindAPI } from "./core/bridge.js";
-import type { CoreKeybindAPI, KeybindRegistration, ResolvedBinding } from "./core/types.js";
-import { getOverrideKey } from "./core/store.js";
-import { addBinding, getBindings, getKey } from "./core/registry.js";
-import { KeybindOverlay } from "../overlays/keybind-overlay.js";
+import { _bootstrapKeybind, getKeybindAPI } from "./bridge.js";
+import { KeybindOverlay } from "./overlay.js";
+import { addBinding, getBindings, getKey } from "./registry.js";
+import { getOverrideKey } from "./store.js";
+import type { CoreKeybindAPI, KeybindRegistration, ResolvedBinding } from "./types.js";
 
 // ── 팝업 상태 ──
 
@@ -49,6 +49,13 @@ export default function (pi: ExtensionAPI) {
     description: "키바인딩 오버레이 팝업 표시",
     category: "Core",
     handler: async (ctx) => {
+      await openKeybindPopup(ctx);
+    },
+  });
+
+  pi.registerCommand("fleet:keybind:popup", {
+    description: "키바인딩 오버레이 팝업 표시",
+    handler: async (_args, ctx) => {
       await openKeybindPopup(ctx);
     },
   });

@@ -95,60 +95,6 @@ const MIN_LAYOUT_WIDTH = 44;
 const MIN_WELCOME_WIDTH = 76;
 const MAX_WELCOME_WIDTH = 96;
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Welcome Components
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Welcome overlay component for pi agent.
- * Displays a branded splash screen with logo, tips, and loaded counts.
- */
-export class WelcomeComponent implements Component {
-  private data: WelcomeData;
-  private countdown: number = 30;
-
-  constructor(
-    modelName: string,
-    providerName: string,
-    recentSessions: RecentSession[] = [],
-    loadedCounts: LoadedCounts = { contextFiles: 0, extensions: 0, skills: 0, promptTemplates: 0 },
-    gitUpdate?: GitUpdateStatus,
-  ) {
-    this.data = { modelName, providerName, recentSessions, loadedCounts, gitUpdate };
-  }
-
-  setCountdown(seconds: number): void {
-    this.countdown = seconds;
-  }
-
-  invalidate(): void {}
-
-  render(termWidth: number): string[] {
-    // Minimum width for two-column layout (must match renderWelcomeBox)
-    if (termWidth < MIN_LAYOUT_WIDTH) {
-      return [];
-    }
-
-    const boxWidth = getWelcomeBoxWidth(termWidth);
-
-    // Bottom line with countdown
-    const countdownText = ` Press any key to continue (${this.countdown}s) `;
-    const countdownStyled = dim(countdownText);
-    const bottomContentWidth = boxWidth - 2;
-    const countdownVisLen = visibleWidth(countdownText);
-    const leftPad = Math.floor((bottomContentWidth - countdownVisLen) / 2);
-    const rightPad = bottomContentWidth - countdownVisLen - leftPad;
-    const hChar = "─";
-    const bottomLine = dim(hChar.repeat(Math.max(0, leftPad))) +
-      countdownStyled +
-      dim(hChar.repeat(Math.max(0, rightPad)));
-
-    const bannerLines = renderUpdateAlertBanner(this.data.gitUpdate, termWidth);
-    const boxLines = renderWelcomeBox(this.data, termWidth, bottomLine);
-    return bannerLines.length > 0 ? [...bannerLines, ...boxLines] : boxLines;
-  }
-}
-
 /**
  * Welcome header - same layout as overlay but persistent (no countdown).
  * Welcome header — persistent Fleet banner rendered on session start.

@@ -5,10 +5,10 @@ import * as fs from "node:fs";
 export type KeybindingsConfig = Record<string, Record<string, string>>;
 
 const EXT_DIR = path.dirname(fileURLToPath(import.meta.url));
-const KEYBINDINGS_PATH = path.resolve(EXT_DIR, "..", "keybindings.json");
-const KEYBINDINGS_DEFAULT_PATH = path.resolve(EXT_DIR, "..", "keybindings.default.json");
+const KEYBINDINGS_PATH = path.resolve(EXT_DIR, "keybindings.json");
+const KEYBINDINGS_DEFAULT_PATH = path.resolve(EXT_DIR, "keybindings.default.json");
 
-export function loadKeybindings(): KeybindingsConfig {
+function loadKeybindings(): KeybindingsConfig {
   return readKeybindingsFile(KEYBINDINGS_PATH)
     ?? readKeybindingsFile(KEYBINDINGS_DEFAULT_PATH)
     ?? {};

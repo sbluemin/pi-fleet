@@ -8,7 +8,7 @@
  * fleet/index.ts에서 호출됩니다.
  */
 
-import { getKeybindAPI } from "../../shell/keybinds/core/bridge.js";
+import { getKeybindAPI } from "../../shell/keybinds/bridge.js";
 import { BODY_H_STEP } from "@sbluemin/fleet-core/constants";
 import { toggleAgentPanel, showAgentPanel, setDetailView } from "./panel-lifecycle.js";
 import { adjustPanelHeight } from "./panel/config.js";

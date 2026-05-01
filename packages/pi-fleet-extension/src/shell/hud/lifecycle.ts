@@ -7,9 +7,9 @@
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import { setupCustomEditor, setupHudRenderRequestBridge, setupStatusBar } from "./hud/editor.js";
-import { invalidateGitBranch, invalidateGitStatus } from "./hud/git-status.js";
-import type { HudEditorState } from "./hud/types.js";
+import { setupCustomEditor, setupHudRenderRequestBridge, setupStatusBar } from "./editor.js";
+import { invalidateGitBranch, invalidateGitStatus } from "./git-status.js";
+import type { HudEditorState } from "./types.js";
 
 export default function registerHudLifecycle(pi: ExtensionAPI, state: HudEditorState) {
   setupHudRenderRequestBridge(state);

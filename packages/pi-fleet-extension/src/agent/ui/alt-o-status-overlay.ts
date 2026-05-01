@@ -7,7 +7,7 @@ import {
 } from "@sbluemin/unified-agent";
 import type { CliType, ProviderModelInfo } from "@sbluemin/unified-agent";
 
-import { getKeybindAPI } from "../../shell/keybinds/core/bridge.js";
+import { getKeybindAPI } from "../../shell/keybinds/bridge.js";
 import { refreshAgentPanel } from "./panel-lifecycle.js";
 import {
   disableSortieCarrier,

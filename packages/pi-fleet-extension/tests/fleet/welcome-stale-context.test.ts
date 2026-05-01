@@ -4,13 +4,6 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../src/shell/welcome/welcome.js", () => ({
-  WelcomeComponent: class {
-    invalidate() {}
-    render() {
-      return [];
-    }
-    setCountdown() {}
-  },
   WelcomeHeader: class {
     invalidate() {}
     render() {
@@ -92,6 +85,7 @@ function registerWelcomeForTest(): {
     on: vi.fn((name: string, handler: Handler) => {
       handlers.set(name, handler);
     }),
+    registerCommand: vi.fn(),
   };
 
   registerWelcome(pi as any);

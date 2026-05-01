@@ -1,5 +1,5 @@
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
-import { getShellPopupBridge } from "../../../shell/tui/shell/types.js";
+import { getShellPopupBridge } from "../../../shell/tui/types.js";
 import {
   DEFAULT_BRIDGE_SCOPE,
   getBridgeScopeSession,

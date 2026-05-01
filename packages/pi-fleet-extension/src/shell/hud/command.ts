@@ -7,9 +7,9 @@
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import type { HudEditorState, StatusLinePreset } from "../hud/types.js";
-import { PRESETS } from "../hud/presets.js";
-import { setupCustomEditor, setupStatusBar } from "../hud/editor.js";
+import { setupCustomEditor, setupStatusBar } from "./editor.js";
+import { PRESETS } from "./presets.js";
+import type { HudEditorState, StatusLinePreset } from "./types.js";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 확장 진입점
