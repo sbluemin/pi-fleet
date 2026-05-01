@@ -5,6 +5,8 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-05-01
+
 ### Changed
 - **HUD Status Bar → Editor Bottom Border**: Relocated the HUD status bar from a standalone `belowEditor` widget into the editor's bottom border line, producing a more compact single-line layout.
 - **Operation Name → Editor Top Border (Right)**: Moved the operation name display from the status bar segment to the editor's top-right border label alongside the protocol label.
