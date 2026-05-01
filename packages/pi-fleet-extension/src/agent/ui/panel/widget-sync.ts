@@ -20,6 +20,7 @@ import { getActiveJobs } from "@sbluemin/fleet-core/admiral/bridge/carrier-panel
 import {
   renderPanelFull,
 } from "../../../shell/render/panel-renderer.js";
+import { renderJobBar } from "../../../shell/render/job-bar-renderer.js";
 import { renderCarrierStatus } from "../carrier-ui/status-renderer.js";
 import { isStaleExtensionContextError } from "../../../shell/context-errors.js";
 import { getState, makeFooterCols, WIDGET_KEY } from "./state.js";
@@ -108,30 +109,39 @@ function applyWidgetSync(ctx: ExtensionContext): void {
     // 멀티칼럼/상세 뷰 패널 (aboveEditor) — expanded 시만
     if (!s.expanded) {
       ctx.ui.setWidget(WIDGET_KEY, undefined);
-      return;
+    } else {
+      ctx.ui.setWidget(WIDGET_KEY, (_tui, _theme) => ({
+        render(width: number): string[] {
+          const state = getState();
+          const activeJobs = getActiveJobs();
+          const frameColor = PANEL_COLOR;
+
+          // 터미널 높이 기반 bodyH 클램핑
+          // 에디터(30%) + footer(2) + spacer/status 여유(5) + job bar(below) 확보
+          const termH = process.stdout.rows ?? 24;
+          const hasJobs = activeJobs.length > 0;
+          const belowH = state.jobBarExpandedJobId ? 8 : (hasJobs && state.jobBarMode ? 2 : (hasJobs ? 1 : 0));
+          const reserved = Math.ceil(termH * 0.3) + 7 + belowH;
+          const maxBodyH = Math.max(MIN_BODY_H, termH - reserved);
+          const effectiveBodyH = Math.min(state.bodyH, maxBodyH);
+
+          return renderPanelFull(
+            width, activeJobs, state.frame, frameColor,
+            state.bottomHint, state.detailTrackId, effectiveBodyH,
+            state.cursorColumn,
+          );
+        },
+        invalidate() {},
+      }));
     }
 
-    ctx.ui.setWidget(WIDGET_KEY, (_tui, _theme) => ({
+    // Job Bar (belowEditor) — 활성 job 표시
+    ctx.ui.setWidget("fleet-job-bar", (_tui, _theme) => ({
       render(width: number): string[] {
-        const state = getState();
-        const activeJobs = getActiveJobs();
-        const frameColor = PANEL_COLOR;
-
-        // 터미널 높이 기반 bodyH 클램핑
-        // 에디터(30%) + footer(2) + spacer/status 여유(5) 확보
-        const termH = process.stdout.rows ?? 24;
-        const reserved = Math.ceil(termH * 0.3) + 7;
-        const maxBodyH = Math.max(MIN_BODY_H, termH - reserved);
-        const effectiveBodyH = Math.min(state.bodyH, maxBodyH);
-
-        return renderPanelFull(
-          width, activeJobs, state.frame, frameColor,
-          state.bottomHint, state.detailTrackId, effectiveBodyH,
-          state.cursorColumn,
-        );
+        return renderJobBar(width, getState().frame);
       },
       invalidate() {},
-    }));
+    }), { placement: "belowEditor" });
   } catch (error) {
     if (!isStaleExtensionContextError(error)) throw error;
     detachWidgetSync();

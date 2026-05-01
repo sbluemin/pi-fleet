@@ -7,7 +7,15 @@
  */
 
 import type { ReadonlyFooterDataProvider, Theme } from "@mariozechner/pi-coding-agent";
-import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
+import { Key, matchesKey, truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
+import { getActiveJobs } from "@sbluemin/fleet-core/admiral/bridge/carrier-panel";
+import {
+  isJobBarMode,
+  enterJobBarMode,
+  exitJobBarMode,
+  navigateJobBar,
+  toggleJobBarExpanded,
+} from "../../agent/ui/panel-lifecycle.js";
 
 import type { HudEditorState } from "./types.js";
 import type { SegmentStateProvider } from "./types.js";
@@ -111,6 +119,29 @@ export function setupCustomEditor(ctx: any, state: HudEditorState): void {
             state.currentEditor?.handleInput(data);
             return;
           }
+
+          // ── Job Bar 가상 포커스 ──
+          if (isJobBarMode()) {
+            if (getActiveJobs().length === 0) {
+              exitJobBarMode();
+              // fall through to normal flow
+            } else {
+              if (matchesKey(data, Key.left))  { navigateJobBar("left");  return; }
+              if (matchesKey(data, Key.right)) { navigateJobBar("right"); return; }
+              if (matchesKey(data, Key.enter)) { toggleJobBarExpanded();  return; }
+              if (matchesKey(data, Key.up) || matchesKey(data, Key.escape)) { exitJobBarMode(); return; }
+              return; // 모든 키 소비
+            }
+          }
+
+          // ↓ 진입: 빈 에디터 + 활성 job 있을 때만
+          if (matchesKey(data, Key.down)) {
+            if (editor.getText().trim() === "" && getActiveJobs().length > 0) {
+              enterJobBarMode();
+              return;
+            }
+          }
+
           // 타이핑 시작 → welcome 디스미스
           setTimeout(() => dismissWelcomeViaBridge(), 0);
           originalHandleInput(data);

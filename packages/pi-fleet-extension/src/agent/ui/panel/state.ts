@@ -39,6 +39,12 @@ export interface AgentPanelState {
   bodyH: number;
   /** 인라인 슬롯 내비게이션 커서 위치 (-1 = 비활성) */
   cursorColumn: number;
+  /** Job Bar 가상 포커스 활성 여부 */
+  jobBarMode: boolean;
+  /** Job Bar 포커스된 타일 인덱스 (-1 = 비활성) */
+  jobBarCursor: number;
+  /** Job Bar 확장된 PanelJob ID */
+  jobBarExpandedJobId: string | null;
 }
 
 export const STATE_KEY = "__pi_agent_panel_state__";
@@ -73,6 +79,9 @@ export function getState(): AgentPanelState {
       toggleCallbacks: [],
       bodyH: DEFAULT_BODY_H,
       cursorColumn: -1,
+      jobBarMode: false,
+      jobBarCursor: -1,
+      jobBarExpandedJobId: null,
     };
     (globalThis as any)[STATE_KEY] = s;
   }
@@ -87,6 +96,9 @@ export function getState(): AgentPanelState {
   if (!s.toggleCallbacks) s.toggleCallbacks = [];
   if (s.bodyH === undefined) s.bodyH = DEFAULT_BODY_H;
   if (s.cursorColumn === undefined) s.cursorColumn = -1;
+  if (s.jobBarMode === undefined) s.jobBarMode = false;
+  if (s.jobBarCursor === undefined) s.jobBarCursor = -1;
+  if (s.jobBarExpandedJobId === undefined) s.jobBarExpandedJobId = null;
   if ("lastCtx" in s) delete (s as AgentPanelState & { lastCtx?: unknown }).lastCtx;
 
   // cols가 비어있는데 캐리어가 이미 등록된 경우 lazy 재생성

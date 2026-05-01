@@ -187,3 +187,57 @@ function notifyToggle(expanded: boolean): void {
     try { cb(expanded); } catch { /* 리스너 에러 무시 */ }
   }
 }
+
+// ─── Job Bar 가상 포커스 ──────────────────────────────────
+
+/** Job Bar 가상 포커스 활성 여부 */
+export function isJobBarMode(): boolean {
+  return getState().jobBarMode;
+}
+
+/** Job Bar 가상 포커스 진입 */
+export function enterJobBarMode(): void {
+  const s = getState();
+  s.jobBarMode = true;
+  s.jobBarCursor = 0;
+  s.jobBarExpandedJobId = null;
+  ensureAnimTimer();
+  syncCurrentWidget();
+}
+
+/** Job Bar 가상 포커스 종료 */
+export function exitJobBarMode(): void {
+  const s = getState();
+  s.jobBarMode = false;
+  s.jobBarCursor = -1;
+  s.jobBarExpandedJobId = null;
+  syncCurrentWidget();
+}
+
+/** Job Bar 내 커서 이동 */
+export function navigateJobBar(direction: "left" | "right"): void {
+  const s = getState();
+  const jobs = getActiveJobs();
+  if (jobs.length === 0) { exitJobBarMode(); return; }
+  if (direction === "left") {
+    s.jobBarCursor = Math.max(0, s.jobBarCursor - 1);
+  } else {
+    s.jobBarCursor = Math.min(jobs.length - 1, s.jobBarCursor + 1);
+  }
+  syncCurrentWidget();
+}
+
+/** Job Bar 확장 상태 토글 */
+export function toggleJobBarExpanded(): void {
+  const s = getState();
+  const jobs = getActiveJobs();
+  if (jobs.length === 0) { exitJobBarMode(); return; }
+  const cursor = Math.min(s.jobBarCursor, jobs.length - 1);
+  const job = jobs[cursor];
+  if (job) {
+    s.jobBarExpandedJobId = s.jobBarExpandedJobId === job.jobId
+      ? null
+      : job.jobId;
+  }
+  syncCurrentWidget();
+}

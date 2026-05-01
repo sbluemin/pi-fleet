@@ -5,6 +5,11 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Added
+- **Job Bar (belowEditor)**: Active carrier jobs (sortie, squadron, taskforce) now render as horizontal tiles below the editor input. Empty editor + active jobs + ↓ enters virtual focus mode; ←→ navigates between tiles; Enter expands a job to show streaming content at its position; Esc/↑ returns to editor.
+- **Job Bar Track Tree**: Squadron and taskforce jobs render sub-tasks/backends in a `├─`/`└─` tree with per-track signature colors, status icons, and tool-call stats. Sortie jobs show direct streaming lines.
+- **Job Bar Visual Polish**: Focused tiles are wrapped in `[...]` brackets with carrier-colored wave animation. Spinner and completion icons (`⏺`) use carrier signature colors throughout tiles and track trees.
+
 ## [0.7.1] - 2026-05-01
 
 ### Changed
