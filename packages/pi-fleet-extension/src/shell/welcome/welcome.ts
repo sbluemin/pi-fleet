@@ -280,6 +280,18 @@ export function checkGitUpdateStatus(): GitUpdateStatus {
     return { behind: 0, branch: "", hasRemote: false, isGitRepo: false, version };
   }
 
+  // 원격 ref를 최신으로 갱신하여 정확한 behind 카운트 보장
+  try {
+    execSync("git fetch", {
+      cwd: __dirname,
+      encoding: "utf-8",
+      stdio: ["ignore", "ignore", "ignore"],
+      timeout: 15_000,
+    });
+  } catch {
+    // fetch 실패 시에도 캐시된 ref 기준으로 계속 진행
+  }
+
   try {
     const upstream = execSync("git rev-parse --abbrev-ref --symbolic-full-name @{u}", {
       cwd: __dirname,
