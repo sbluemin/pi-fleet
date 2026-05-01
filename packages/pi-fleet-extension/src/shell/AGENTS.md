@@ -8,6 +8,7 @@ Owns host shell surfaces and aggregate UI management for `pi-fleet-extension`.
 - `hud/` — HUD lifecycle and mounting (Status Bar, Editor overlays)
 - `overlays/` — shared TUI overlays consumed by various domains
 - `render/` — shared Pi-facing render utilities and component factory
+  - `job-bar-renderer.ts` — Renders active PanelJob tiles below the editor. All job kinds (sortie, squadron, taskforce) render tracks in a unified `├─`/`└─` tree. The latest active streaming block is merged inline on the track line via a `·` separator using `STREAM_INLINE_COLOR` (rgb(100,210,245)). `MAX_EXPANDED_STREAM_LINES` is 1.
 - `keybinds/` — central Pi shortcut bridge (mirrors `shell/` shortcut intent)
 
 ## Rules

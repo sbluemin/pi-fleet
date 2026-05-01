@@ -7,8 +7,20 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ### Added
 - **Job Bar (belowEditor)**: Active carrier jobs (sortie, squadron, taskforce) now render as horizontal tiles below the editor input. Empty editor + active jobs + ↓ enters virtual focus mode; ←→ navigates between tiles; Enter expands a job to show streaming content at its position; Esc/↑ returns to editor.
-- **Job Bar Track Tree**: Squadron and taskforce jobs render sub-tasks/backends in a `├─`/`└─` tree with per-track signature colors, status icons, and tool-call stats. Sortie jobs show direct streaming lines.
+- **Job Bar Track Tree**: All job kinds (sortie, squadron, taskforce) render tracks in a unified `├─`/`└─` tree with per-track signature colors and status icons. The latest active streaming block is merged inline on the track line via a `·` separator.
 - **Job Bar Visual Polish**: Focused tiles are wrapped in `[...]` brackets with carrier-colored wave animation. Spinner and completion icons (`⏺`) use carrier signature colors throughout tiles and track trees.
+
+### Changed
+- **Job Bar Inline Streaming**: Expanded tracks render the latest active streaming block inline on the same line as the track header (`· <text>`), replacing the previous multi-line child block rendering below each track. `MAX_EXPANDED_STREAM_LINES` reduced from 5 to 1.
+- **Unified Streaming Color**: All inline streaming text uses a single `STREAM_INLINE_COLOR` (rgb(100,210,245)) regardless of block type (ToolCall, Text, Thought).
+- **Sortie Tree Depth Unification**: Sortie jobs now always render with tree depth (`├─`/`└─`) identical to Squadron and Taskforce, even for single-carrier sorties. Direct inline streaming on the sortie tile line is removed.
+
+### Removed
+- **`[N tools]` Track Stats**: Removed the `[N tools]` tool-call statistic from track lines.
+- **`appendSingleTrackStream()`**: Replaced by the inline streaming approach.
+- **`latestInlineBlock()`**: Unused after Sortie tree rendering unification.
+- **`trackStatsText()`**: Removed along with `[N tools]` display.
+- **`blockLineToAnsi` import in `job-bar-renderer.ts`**: No longer consumed by the Job Bar renderer; the export in `block-renderer.ts` is retained for `panel-renderer.ts` and `message-renderers.ts` consumers.
 
 ## [0.7.1] - 2026-05-01
 

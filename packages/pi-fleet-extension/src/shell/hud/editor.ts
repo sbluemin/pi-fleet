@@ -8,6 +8,7 @@
 
 import type { ReadonlyFooterDataProvider, Theme } from "@mariozechner/pi-coding-agent";
 import { Key, matchesKey, truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
+import { PANEL_DIM_COLOR } from "@sbluemin/fleet-core/constants";
 import { getActiveJobs } from "@sbluemin/fleet-core/admiral/bridge/carrier-panel";
 import {
   isJobBarMode,
@@ -31,6 +32,7 @@ import { isStaleExtensionContextError } from "../context-errors.js";
 const MIN_LABEL_DASH_WIDTH = 2;
 const STATUS_BORDER_RESERVED_WIDTH = 7;
 const TOP_RIGHT_DASH_WIDTH = 2;
+const JOB_BAR_HINT = `${PANEL_DIM_COLOR}↑·↓ move job/editor`;
 
 let hudRenderState: HudEditorState | null = null;
 
@@ -368,6 +370,56 @@ function renderRightBorder(
     + colorizeBorder("─".repeat(TOP_RIGHT_DASH_WIDTH));
 }
 
+function renderBorderWithLeftAndCenter(
+  width: number,
+  colorizeBorder: (s: string) => string,
+  leftLabel: string,
+  centerLabel: string,
+): string | null {
+  const innerWidth = width - 2;
+  const leftWidth = visibleWidth(leftLabel);
+  const centerWidth = visibleWidth(centerLabel);
+  const leftBlockWidth = leftWidth + 2;
+  const centerBlockWidth = centerWidth + 2;
+  const leftDash = MIN_LABEL_DASH_WIDTH;
+  const rightDash = MIN_LABEL_DASH_WIDTH;
+  const middleDash = innerWidth - leftDash - leftBlockWidth - centerBlockWidth - rightDash;
+
+  if (middleDash < MIN_LABEL_DASH_WIDTH) return null;
+
+  return [
+    " ",
+    colorizeBorder("─".repeat(leftDash)),
+    " ",
+    leftLabel,
+    " ",
+    colorizeBorder("─".repeat(middleDash)),
+    " ",
+    centerLabel,
+    " ",
+    colorizeBorder("─".repeat(rightDash)),
+  ].join("");
+}
+
+function renderLeftBorder(
+  width: number,
+  colorizeBorder: (s: string) => string,
+  label: string,
+): string | null {
+  const innerWidth = width - 2;
+  const labelWidth = visibleWidth(label);
+  const labelBlockWidth = labelWidth + 2;
+  const leftDash = MIN_LABEL_DASH_WIDTH;
+  const rightDash = innerWidth - leftDash - labelBlockWidth;
+
+  if (rightDash < MIN_LABEL_DASH_WIDTH) return null;
+
+  return " "
+    + colorizeBorder("─".repeat(leftDash))
+    + " " + label + " "
+    + colorizeBorder("─".repeat(rightDash));
+}
+
 function renderStatusBorder(
   width: number,
   colorizeBorder: (s: string) => string,
@@ -378,11 +430,26 @@ function renderStatusBorder(
 
   try {
     const layout = getResponsiveLayout(Math.max(1, width - STATUS_BORDER_RESERVED_WIDTH), state);
-    if (!layout.topContent) return renderSolidBorder(width, colorizeBorder);
+    const hint = getActiveJobs().length > 0 ? JOB_BAR_HINT : null;
 
-    const label = fitStatusBorderLabel(` ${layout.topContent}`, width);
-    const line = renderCenteredBorder(width, colorizeBorder, label);
-    return line ?? renderSolidBorder(width, colorizeBorder);
+    if (hint && layout.topContent) {
+      const centerLabel = fitStatusBorderLabel(` ${layout.topContent}`, width);
+      const line = renderBorderWithLeftAndCenter(width, colorizeBorder, hint, centerLabel);
+      if (line) return line;
+    }
+
+    if (hint) {
+      const line = renderLeftBorder(width, colorizeBorder, hint);
+      if (line) return line;
+    }
+
+    if (layout.topContent) {
+      const label = fitStatusBorderLabel(` ${layout.topContent}`, width);
+      const line = renderCenteredBorder(width, colorizeBorder, label);
+      return line ?? renderSolidBorder(width, colorizeBorder);
+    }
+
+    return renderSolidBorder(width, colorizeBorder);
   } catch {
     return renderSolidBorder(width, colorizeBorder);
   }

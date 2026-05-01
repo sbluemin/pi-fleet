@@ -22,12 +22,12 @@ import {
 import type { PanelJobViewModel, PanelTrackViewModel } from "@sbluemin/fleet-core/admiral/bridge/carrier-panel";
 import { resolveCarrierColor, resolveCarrierRgb } from "../../tool-registry.js";
 import { getState } from "../../agent/ui/panel/state.js";
-import { blockLineToAnsi, renderBlockLines } from "./block-renderer.js";
+import { renderBlockLines } from "./block-renderer.js";
 import { waveText } from "./panel-renderer.js";
 
 // ─── 상수 ────────────────────────────────────────────────
 
-const MAX_EXPANDED_STREAM_LINES = 5;
+const MAX_EXPANDED_STREAM_LINES = 1;
 const MAX_EXPANDED_TOTAL_LINES = 8;
 const TILE_SEPARATOR = ` ${PANEL_DIM_COLOR}│${ANSI_RESET} `;
 const SEPARATOR_VIS_W = 3;
@@ -35,6 +35,9 @@ const COLOR_DONE = "\x1b[38;2;80;200;120m";
 const COLOR_ERROR = "\x1b[38;2;255;80;80m";
 const COLOR_ACTIVE = "\x1b[38;2;100;180;255m";
 const STREAM_PREFIX = "  ";
+const STREAM_INLINE_COLOR = "\x1b[38;2;100;210;245m";
+const FOCUS_BG_FACTOR = 0.12;
+const FOCUS_BG_BASE = 12;
 
 const KIND_LABELS: Record<string, string> = {
 	sortie: "Sortie",
@@ -87,24 +90,13 @@ function renderJobBarExpanded(
 	const expandedJob = jobs[expandedIdx];
 	if (!expandedJob) return [];
 
-	// 모든 타일 가로 나열 → 각 타일의 시작 offset 계산
 	const tiles = jobs.map((job, i) => formatJobTile(job, i === cursor, frame));
 	const offsets = computeTileOffsets(tiles);
 
-	// 첫 줄: 전체 타일
-	const lines: string[] = [truncateToWidth(tiles.join(TILE_SEPARATOR), width)];
-
-	// 확장된 job 위치에서 들여쓰기
-	const expandedOffset = offsets[expandedIdx] ?? 0;
-	const indent = " ".repeat(expandedOffset);
-
-	// 스쿼드론/태스크포스는 트랙 수와 관계없이 트리 형태로 렌더링
-	if (expandedJob.kind === "squadron" || expandedJob.kind === "taskforce") {
-		appendTrackTree(lines, width, expandedJob, indent, frame);
-	} else {
-		appendSingleTrackStream(lines, width, expandedJob, indent);
-	}
-
+	// 모든 kind가 동일하게 트리 뎁스를 표시
+	const indent = " ".repeat(offsets[expandedIdx] ?? 0);
+	const lines: string[] = [tiles.join(TILE_SEPARATOR)];
+	appendTrackTree(lines, width, expandedJob, indent, frame);
 	return lines.map((line) => truncateToWidth(line, width));
 }
 
@@ -117,7 +109,7 @@ function appendTrackTree(
 	indent: string,
 	frame: number,
 ): void {
-	const budget = MAX_EXPANDED_TOTAL_LINES - 1; // 첫 줄(tile) 제외
+	const budget = MAX_EXPANDED_TOTAL_LINES - 1;
 	const fallbackColor = resolveCarrierColor(job.ownerCarrierId);
 	let remaining = budget;
 
@@ -126,52 +118,31 @@ function appendTrackTree(
 		if (!track) continue;
 		const isLast = i === job.tracks.length - 1;
 		const branch = isLast ? "└─" : "├─";
-		const connector = isLast ? "   " : "│  ";
 
-		// 트랙별 시그니처 컬러: displayCli(태스크포스 백엔드) 또는 job 캐리어 색상
 		const trackColor = resolveCarrierColor(track.displayCli) ?? fallbackColor;
 		const icon = trackStatusIcon(track, frame, trackColor);
 		const name = `${trackColor}${trackDisplayName(track)}${ANSI_RESET}`;
-		const stats = trackStatsText(track);
+
+		// 활성 트랙의 최신 스트리밍 인라인
+		const inline = !track.isComplete ? trackInlineBlock(track) : "";
 
 		lines.push(truncateToWidth(
-			`${indent}${STREAM_PREFIX}${PANEL_DIM_COLOR}${branch}${ANSI_RESET} ${icon} ${name}${stats}`,
+			`${indent}${STREAM_PREFIX}${PANEL_DIM_COLOR}${branch}${ANSI_RESET} ${icon} ${name}${inline}`,
 			width,
 		));
 		remaining--;
-
-		// 활성(미완료) 트랙의 최근 스트리밍 표시
-		if (!track.isComplete && remaining > 0 && track.blocks.length > 0) {
-			const blockLines = renderBlockLines(track.blocks)
-				.filter((bl) => bl.text.trim());
-			const tailLines = blockLines.slice(-Math.min(2, remaining));
-			const streamPrefix = `${indent}${STREAM_PREFIX}${PANEL_DIM_COLOR}${connector}${ANSI_RESET}  `;
-			for (const bl of tailLines) {
-				if (remaining <= 0) break;
-				lines.push(truncateToWidth(`${streamPrefix}${blockLineToAnsi(bl)}`, width));
-				remaining--;
-			}
-		}
 	}
 }
 
-// ─── 싱글 트랙 스트리밍 ──────────────────────────────────
+// ─── 인라인 스트리밍 헬퍼 ──────────────────────────────────
 
-function appendSingleTrackStream(
-	lines: string[],
-	width: number,
-	job: PanelJobViewModel,
-	indent: string,
-): void {
-	const activeTrack = job.tracks.find((t) => !t.isComplete) ?? job.tracks[0];
-
-	if (activeTrack) {
-		const blockLines = renderBlockLines(activeTrack.blocks);
-		const tailLines = blockLines.slice(-MAX_EXPANDED_STREAM_LINES);
-		for (const bl of tailLines) {
-			lines.push(truncateToWidth(`${indent}${STREAM_PREFIX}${blockLineToAnsi(bl)}`, width));
-		}
-	}
+/** 트랙의 최신 블록을 인라인 문자열로 반환 (· 구분자 포함) */
+function trackInlineBlock(track: PanelTrackViewModel): string {
+	if (track.blocks.length === 0) return "";
+	const rendered = renderBlockLines(track.blocks).filter((bl) => bl.text.trim());
+	const latest = rendered[rendered.length - 1];
+	if (!latest) return "";
+	return ` ${PANEL_DIM_COLOR}·${ANSI_RESET} ${STREAM_INLINE_COLOR}${latest.text.trim()}${ANSI_RESET}`;
 }
 
 // ─── offset 계산 ─────────────────────────────────────────
@@ -202,6 +173,19 @@ function capitalize(text: string): string {
 	return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
+/** 캐리어 RGB를 배경색 ANSI 이스케이프로 변환 */
+function carrierBgEscape(rgb: readonly [number, number, number]): string {
+	const r = Math.round(rgb[0] * FOCUS_BG_FACTOR + FOCUS_BG_BASE);
+	const g = Math.round(rgb[1] * FOCUS_BG_FACTOR + FOCUS_BG_BASE);
+	const b = Math.round(rgb[2] * FOCUS_BG_FACTOR + FOCUS_BG_BASE);
+	return `\x1b[48;2;${r};${g};${b}m`;
+}
+
+/** ANSI 리셋 후 배경색 재적용 */
+function reapplyBg(text: string, bg: string): string {
+	return text.replace(/\x1b\[0m/g, `\x1b[0m${bg}`);
+}
+
 function formatJobTile(
 	job: PanelJobViewModel,
 	focused: boolean,
@@ -215,12 +199,11 @@ function formatJobTile(
 	const label = `${carrierName}·${kind}${trackCount}`;
 
 	if (focused) {
-		const focusedLabel = waveText(
-			label,
-			resolveCarrierRgb(job.ownerCarrierId) ?? PANEL_RGB,
-			frame,
-		);
-		return `${carrierColor}[${ANSI_RESET}${icon} ${focusedLabel}${ANSI_RESET}${carrierColor}]${ANSI_RESET}`;
+		const rgb = resolveCarrierRgb(job.ownerCarrierId) ?? PANEL_RGB;
+		const bg = carrierBgEscape(rgb);
+		const focusedLabel = waveText(label, rgb, frame);
+		const content = `${reapplyBg(icon, bg)} ${reapplyBg(focusedLabel, bg)} `;
+		return `${bg}${content}${ANSI_RESET}`;
 	}
 
 	return `${icon} ${carrierColor}${label}${ANSI_RESET}`;
@@ -252,9 +235,3 @@ function trackDisplayName(track: PanelTrackViewModel): string {
 	return track.displayName;
 }
 
-function trackStatsText(track: PanelTrackViewModel): string {
-	if (track.toolCallCount > 0) {
-		return ` ${PANEL_DIM_COLOR}[${track.toolCallCount} tool${track.toolCallCount > 1 ? "s" : ""}]${ANSI_RESET}`;
-	}
-	return "";
-}
