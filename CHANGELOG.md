@@ -5,6 +5,8 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-05-02
+
 ### Added
 - **Task Force Backend Whitelist Expansion (3 → 6)**: `carrier_taskforce` now accepts every CLI provider registered in `CLI_BACKENDS` (`claude`, `claude-zai`, `claude-kimi`, `codex`, `gemini`, `opencode-go`) instead of the previous hardcoded `claude / codex / gemini` trio. `TaskForceCliType` is now an alias of `CliType`, and `TASKFORCE_CLI_TYPES` is auto-derived via `Object.keys(CLI_BACKENDS) as CliType[]` in `packages/fleet-core/src/admiral/taskforce/types.ts`. Persona × CLI compatibility is allowed for all six providers.
 - **Dynamic Task Force Tool Prompts**: `TASKFORCE_CONFIGURE_HINT` and the `[carrier:result]` backend label list embedded in the `carrier_taskforce` tool description are now built from `TASKFORCE_CLI_TYPES × CLI_DISPLAY_NAMES`. Adding a new CLI provider to `CLI_BACKENDS` automatically expands both the configuration hint and the result-label examples without touching prompt strings.
