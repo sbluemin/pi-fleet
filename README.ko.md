@@ -15,11 +15,17 @@
 
 ---
 
+<div align="center">
+  <video src=".github/pi-fleet.mp4" width="640" controls></video>
+</div>
+
 ## 동기
 
-각 LLM CLI는 서로 다른 강점을 가지고 있습니다 — Claude는 추론, Codex는 빠른 코드 생성, Gemini는 대용량 컨텍스트 분석. 하지만 모두 독립적으로 실행됩니다. 하나의 작업에 여러 LLM의 강점을 조합하려면 별도의 터미널을 오가며 컨텍스트를 복사하고, 결과를 수동으로 조율해야 합니다.
+Claude Code, Codex, Gemini, OpenCode와 같은 모든 프론티어 CLI는 각자의 기반 모델에 최적화된 에이전트 루프를 탑재하고 있습니다. Claude의 루프는 심층 추론과 도구 오케스트레이션을 위해 설계되었고, Codex는 빠른 코드 생성과 반복 실행에 최적화되어 있습니다. Gemini는 방대한 컨텍스트 윈도우를 활용한 리서치와 종합에 특화되어 있으며, OpenCode는 여러 모델을 하나의 적응형 루프 아래 통합합니다. 이들은 얇은 API 래퍼가 아니라, 각 제작사가 세밀하게 다듬은 완전한 모델-네이티브 에이전트 런타임입니다.
 
-pi-fleet는 LLM 에이전트를 해군 **함대(Fleet)** 내의 **항공모함(Carrier)**으로 다루어 이 문제를 해결합니다. 중앙의 Admiral이 여러 Carrier를 병렬로 지휘하며, 각 Carrier는 전문화된 Captain 페르소나의 명령을 받습니다. 한 번의 명령으로 함대 전체가 함께 실행됩니다.
+문제는 이 모든 도구가 별도의 터미널에 존재한다는 점입니다. 하나의 작업에 여러 CLI의 강점을 조합하려면 창 사이로 컨텍스트를 복사하고, 상태를 수동으로 동기화하며, 각기 다른 상호작용 패턴 사이를 오가야 합니다. 다중 도구 조율의 마찰은 결국 단일 CLI에 만족하게 만들고, 나머지 도구의 고유한 능력은 활용하지 못한 채 남겨두게 됩니다.
+
+pi-fleet는 이런 마찰을 제거하면서도 각 CLI의 본질을 훼손하지 않기 위해 만들어졌습니다. 모든 네이티브 에이전트 런타임을 해군 **함대(Fleet)** 내의 **항공모함(Carrier)**으로 대우하고, 중앙의 Admiral이 공식 프로토콜을 통해 여러 Carrier를 병렬로 지휘합니다. 각 모델의 네이티브 루프는 설계 그대로 실행되되, 단일 명령 아래 조율됩니다. 한 번의 명령으로 함대 전체가 함께 실행되며, 각 Carrier가 자신만의 강점을 기여합니다.
 
 ## 해군 함대 계층 구조
 
@@ -51,45 +57,46 @@ pi-fleet는 LLM 에이전트를 해군 **함대(Fleet)** 내의 **항공모함(C
 
 ### 멀티 LLM 오케스트레이션
 
-- 통합 진행 상황 추적과 함께하는 병렬 Carrier 실행
-- Carrier별 모델 및 추론 레벨 설정
-- 다양한 운용 모드를 위한 프로토콜 시스템 (Fleet Action, Positive Control)
+pi-fleet는 API를 래핑하거나 프록시를 운용하지 않습니다 — **프론티어 CLI 도구를 네이티브로 직접 오케스트레이션**합니다. 각 Carrier는 실제 CLI 바이너리를 실행하고 공식 프로토콜(ACP 또는 App Server)을 통해 통신하므로, 각 도구의 완전한 네이티브 기능을 통합된 명령 구조 안에서 그대로 사용할 수 있습니다.
 
-### HUD
+<img src=".github/handoff.png" alt="멀티 LLM 오케스트레이션" width="100%" />
 
-- 상태 바와 푸터를 갖춘 통합 에디터
-- 메타 프롬프팅 및 추론 레벨 컨트롤
-- 자동 세션 요약 및 씽킹 타이머
+| CLI | 제공자 | 프로토콜 | 주요 기능 |
+|-----|--------|----------|-----------|
+| **Claude Code** | Anthropic | ACP | 심층 추론, 아키텍처 판단 |
+| **Claude Code (Z.AI GLM)** | Z.AI | ACP | Claude 브리지를 통한 GLM-5 시리즈 |
+| **Claude Code (Moonshot Kimi)** | Moonshot | ACP | Claude 브리지를 통한 Kimi K2 시리즈 |
+| **Codex CLI** | OpenAI | App Server | 빠른 코드 생성, 다단계 실행 |
+| **Gemini CLI** | Google | ACP | 대용량 컨텍스트 분석, 리서치 |
+| **OpenCode Go** | OpenCode | ACP | DeepSeek, GLM, Kimi, MiMo, MiniMax, Qwen |
+
+모든 Carrier가 단일 명령 구조 아래 병렬로 실행되며, 통합된 진행 상황 추적을 통해 전체 함대의 상태를 한눈에 파악할 수 있습니다. Carrier별로 모델 선택과 추론 레벨을 독립적으로 세밀하게 조정할 수 있으며, 작업의 특성에 따라 Fleet Action의 자율 실행 모드와 Positive Control의 수동 관리 모드를 전환할 수 있습니다.
 
 ### Fleet Bridge
 
-- 모든 활성 Carrier의 실시간 스트리밍 UI
-- Carrier 슬롯 간 인라인 내비게이션
-- 집중 모니터링을 위한 상세 뷰 토글
+<img src=".github/hud.png" alt="Fleet Bridge HUD" width="100%" />
 
-### Carrier Sortie
+Fleet Bridge는 당신의 임무 통제 센터입니다. 통합 헤즈업 디스플레이는 모든 정보를 하나의 화면에 담습니다 — 풀기능 에디터, 실시간 상태 표시줄, 그리고 세션 상태와 토큰 사용량, 비용을 추적하는 컨텍스트 푸터까지. 메타포 기반 지시어 정제는 복잡한 요청을 명확한 작전 구역으로 나누어 주며, 자동 세션 요약과 내장 씽킹 타이머로 워크플로우를 투명하고 측정 가능하게 유지합니다.
 
-- 단일 또는 다중 Carrier에 대한 Fire-and-forget 위임
-- 단일 항모 출격은 물론 한 번의 호출로 병렬 다중 항모 출격까지 지원
-- 푸시 알림 및 `carrier_jobs` 조회를 통한 비동기 결과 전달
+모든 활성 Carrier의 실시간 스트리밍 결과를 감시하고, Carrier 슬롯 사이를 인라인으로 탐색하며, 특정 에이전트의 출력을 집중적으로 확인해야 할 때 상세 뷰를 전환할 수 있습니다. 단일 통합 인터페이스에서 모두 가능합니다.
 
-### Squadron
+### Carrier
 
-- 동일 Carrier 타입의 병렬 인스턴스로 독립 하위 작업 분산
-- 배치 분석 또는 파일 단위 처리를 위한 분할 정복 실행
-- 디스패치당 최대 10개의 동시 하위 작업 지원
+<img src=".github/carrier_status.png" alt="Carrier Status" width="100%" />
 
-### Task Force
+Carrier 계층은 함대의 실행 엔진입니다. 단일 에이전트가 필요한지, 조율된 편대가 필요한지, 아니면 교차 모델 태스크 포스가 필요한지 — 모든 작전을 통합된 디스패치 인터페이스를 통해 배치하고 제어합니다.
 
-- 단일 Carrier의 응답을 여러 CLI 백엔드에서 동시에 교차 검증
-- 접근 방식 비교, 사각지대 탐지, 멀티 모델 합의 도출
+#### Sortie
 
-### Fleet Wiki 실험 확장
+단일 Carrier나 전체 편대를 한 번의 명령으로 배치하세요. Sortie는 Fire-and-forget 위임, 한 번의 호출로 병렬 다중 Carrier를 출격시키는 기능, 그리고 푸시 알림이나 `carrier_jobs` 조회를 통한 비동기 결과 전달을 모두 지원합니다. 목표를 설정하고 함대를 출격시키면, 결과가 도착하는 대로 수집하면 됩니다.
 
-- raw source, wiki entry, schema/doctrine 공간, patch queue/archive, conflict record를 갖춘 워크스페이스 로컬 `.fleet/knowledge/` 저장소
-- 사람이 승인하는 wiki patch 흐름: ingest는 wiki 변경을 제안하고, approve가 병합하며, reject는 wiki를 변경하지 않음
-- `PI_EXPERIMENTAL=1`일 때만 관찰 가능한 검토를 위한 deterministic briefing, dry-dock lint, `fleet:wiki:*` slash command 제공
-- 승인 대기 wiki 패치를 생성하거나 preview-only 검토로 실행할 수 있는 단계형 `fleet:wiki:capture` 세션 캡처
+#### Squadron
+
+작업이 독립적인 조각으로 나뉠 때, Squadron은 동일한 Carrier의 병렬 인스턴스에 이를 분산합니다. 배치 분석, 파일 단위 처리, 분할 정복 워크로드에 최적화되어 있으며, 최대 10개의 동시 하위 작업을 단일 조율된 작전으로 디스패치하고 추적합니다.
+
+#### Task Force
+
+Task Force는 동일한 임무를 여러 CLI 백엔드에서 동시에 실행한 뒤 교차 모델 합의를 도출합니다. 중요한 결정의 검증, 동일한 문제에 대해 각 모델이 어떻게 접근하는지 비교, 그리고 단일 모델의 사각지대를 실행 전에 제거하는 데 활용하세요.
 
 ## 명령어
 

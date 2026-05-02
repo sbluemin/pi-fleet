@@ -15,11 +15,17 @@
 
 ---
 
+<div align="center">
+  <video src=".github/pi-fleet.mp4" width="640" controls></video>
+</div>
+
 ## Motivation
 
-Each LLM CLI excels at different things — Claude at reasoning, Codex at fast code generation, Gemini at large-context analysis. But they all run in isolation. Combining their strengths on a single task means juggling separate terminals, copy-pasting context, and manually coordinating results.
+Every frontier CLI — Claude Code, Codex, Gemini, OpenCode — ships with an agent loop tuned specifically for its underlying model. Claude's loop is built for deep reasoning and tool orchestration. Codex optimizes for rapid code generation and iterative execution. Gemini leverages enormous context windows for research and synthesis. OpenCode unifies multiple models under one adaptive loop. These are not thin API wrappers; they are full-fledged, model-native agent runtimes refined by their creators.
 
-pi-fleet solves this by treating LLM agents as **Carriers** within a naval **Fleet**. A central Admiral orchestrates multiple Carriers in parallel, each commanded by a specialized Captain persona. You give the order once; the fleet executes together.
+The problem is that they all live in separate terminals. To combine their strengths on a single task, you must copy context between windows, manually sync state, and context-switch across different interaction patterns. The friction of multi-tool coordination often forces you to settle for a single CLI, leaving the unique capabilities of the others on the table.
+
+pi-fleet was built to remove that friction without sacrificing what makes each CLI special. It treats every native agent runtime as a **Carrier** within a naval **Fleet**. A central Admiral orchestrates multiple Carriers in parallel through their official protocols, so each model's native loop runs exactly as designed — just coordinated under one command. You give the order once; the fleet executes together, with every Carrier contributing its distinct strengths.
 
 ## Naval Fleet Hierarchy
 
@@ -51,45 +57,46 @@ Eight built-in Carriers, each with a distinct operational role:
 
 ### Multi-LLM Orchestration
 
-- Parallel carrier execution with unified progress tracking
-- Per-carrier model and reasoning level configuration
-- Protocol system for different operational modes (Fleet Action, Positive Control)
+pi-fleet does not wrap APIs or run proxies — it orchestrates **native frontier CLI tools directly**. Each carrier spawns the actual CLI binary and communicates through its official protocol (ACP or App Server), giving you the full native capabilities of each tool within a unified command structure.
 
-### HUD
+<img src=".github/handoff.png" alt="Multi-LLM Orchestration" width="100%" />
 
-- Integrated editor with status bar and footer
-- Metaphor-based directive refinement (3-section) and session operation naming
-- Auto session summary and thinking timer
+| CLI | Provider | Protocol | Key Capabilities |
+|-----|----------|----------|------------------|
+| **Claude Code** | Anthropic | ACP | Deep reasoning, architecture judgment |
+| **Claude Code (Z.AI GLM)** | Z.AI | ACP | GLM-5 series via Claude bridge |
+| **Claude Code (Moonshot Kimi)** | Moonshot | ACP | Kimi K2 series via Claude bridge |
+| **Codex CLI** | OpenAI | App Server | Fast code generation, multi-wave execution |
+| **Gemini CLI** | Google | ACP | Large-context analysis, research |
+| **OpenCode Go** | OpenCode | ACP | DeepSeek, GLM, Kimi, MiMo, MiniMax, Qwen |
+
+Every carrier runs in parallel under a single command structure, with unified progress tracking so you always know the status of the entire fleet. Fine-tune each carrier independently — select models, set reasoning levels, and adjust parameters without leaving the fleet interface. Switch between operational modes like Fleet Action for autonomous execution or Positive Control for manual oversight, adapting the fleet's behavior to the task at hand.
 
 ### Fleet Bridge
 
-- Real-time streaming UI for all active carriers
-- Inline navigation between carrier slots
-- Detail view toggle for focused monitoring
+<img src=".github/hud.png" alt="Fleet Bridge HUD" width="100%" />
 
-### Carrier Sortie
+Fleet Bridge is your mission control center. The integrated heads-up display puts everything you need in one view — a full-featured editor, a real-time status bar, and a contextual footer that tracks session state, token usage, and cost. Metaphor-based directive refinement breaks complex requests into clear operational sections, while automatic session summaries and a built-in thinking timer keep your workflow transparent and measurable.
 
-- Fire-and-forget delegation to one or more carriers
-- Single-carrier dispatch as well as parallel multi-carrier dispatch in one call
-- Asynchronous result delivery via push notifications and `carrier_jobs` lookup
+Watch every active carrier stream results in real time, navigate between carrier slots inline, and toggle a detailed focus view when you need to drill down into a specific agent's output. All from a single, unified interface.
 
-### Squadron
+### Carrier
 
-- Fan out independent subtasks to parallel instances of the same carrier
-- Divide-and-conquer execution for batch analysis or per-file processing
-- Up to 10 concurrent subtasks per dispatch
+<img src=".github/carrier_status.png" alt="Carrier Status" width="100%" />
 
-### Task Force
+The Carrier layer is the fleet's execution engine. Whether you need a single agent, a coordinated squadron, or a cross-model task force, you deploy and control every operation through a unified dispatch interface.
 
-- Cross-validate a carrier's response across multiple CLI backends simultaneously
-- Compare approaches, detect blind spots, and build multi-model consensus
+#### Sortie
 
-### Fleet Wiki Experimental Extension
+Deploy one carrier or an entire wing with a single command. Sortie supports fire-and-forget delegation, parallel multi-carrier dispatch in one call, and asynchronous result delivery through push notifications or on-demand lookup via `carrier_jobs`. Set your objectives, launch the fleet, and collect results as they arrive.
 
-- Experimental workspace-local `.fleet/knowledge/` store with raw sources, wiki entries, schema/doctrine space, patch queue/archive, and conflict records
-- Human-gated wiki patches: ingest proposes wiki changes, approval merges them, and rejection leaves wiki untouched
-- Deterministic briefing, dry-dock lint, and `fleet:wiki:*` slash commands for observable review when `PI_EXPERIMENTAL=1`
-- Staged `fleet:wiki:capture` session capture that can create approval-gated wiki pending patches or run preview-only review
+#### Squadron
+
+When a task breaks into independent pieces, Squadron fans them out across parallel instances of the same carrier. Perfect for batch analysis, per-file processing, or divide-and-conquer workloads — with up to 10 concurrent subtasks dispatched and tracked as a single coordinated operation.
+
+#### Task Force
+
+Task Force runs the same mission across multiple CLI backends at once, then surfaces a cross-model consensus. Use it to validate critical decisions, compare how different models approach the same problem, and eliminate single-model blind spots before committing to a course of action.
 
 ## Commands
 
