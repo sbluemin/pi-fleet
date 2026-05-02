@@ -19,6 +19,7 @@ import {
   type CliType,
 } from "@sbluemin/unified-agent";
 import { disconnectClient, getSessionStore } from "../_shared/agent-runtime.js";
+import { TASKFORCE_CLI_TYPES, type TaskForceCliType } from "../taskforce/types.js";
 
 // ─── 타입 정의 ──────────────────────────────────────────
 
@@ -26,7 +27,6 @@ import { disconnectClient, getSessionStore } from "../_shared/agent-runtime.js";
 type PerCliSettings = {
   model?: string;
   effort?: string;
-  budgetTokens?: number;
   direct?: boolean;
 };
 
@@ -38,8 +38,6 @@ export interface ModelSelection {
   direct?: boolean;
   /** Reasoning effort (codex, claude — SDK의 reasoningEffort.levels 기반) */
   effort?: string;
-  /** Claude thinking budget_tokens (effort가 none이 아닐 때 사용) */
-  budgetTokens?: number;
   /** Task Force 백엔드별 커스텀 설정 (cliType → 모델 선택) */
   taskforce?: TaskForceConfig;
   /** CLI 변경 시 이전 설정 복원을 위한 CLI별 설정 캐시 */
@@ -49,7 +47,6 @@ export interface ModelSelection {
 /** states.json의 models 키 전체 구조 */
 export type SelectedModelsConfig = Record<string, ModelSelection>;
 
-type TaskForceCliType = "claude" | "codex" | "gemini";
 type TaskForceSelection = Omit<ModelSelection, "taskforce">;
 type TaskForceConfig = Partial<Record<TaskForceCliType, TaskForceSelection>>;
 
@@ -79,8 +76,6 @@ const FILENAME = "states.json";
 const LOCK_DIRNAME = "states.json.lock";
 
 const LOCK_OWNER_FILENAME = "owner.json";
-
-const TASKFORCE_CLI_TYPES: readonly CliType[] = ["claude", "codex", "gemini"];
 
 const CONTROL_CHAR_PATTERN = /[\u0000-\u001f\u007f]/;
 
@@ -195,7 +190,6 @@ export function reconcileActiveModelSelections(
         const next: ModelSelection = { model: resolved.model };
         if (resolved.direct !== undefined) next.direct = resolved.direct;
         if (resolved.effort !== undefined) next.effort = resolved.effort;
-        if (resolved.budgetTokens !== undefined) next.budgetTokens = resolved.budgetTokens;
         if (current.taskforce) next.taskforce = current.taskforce;
         if (current.perCliSettings) next.perCliSettings = current.perCliSettings;
         models[carrierId] = next;
@@ -236,7 +230,6 @@ export function savePerCliSettings(
   if (
     settings.model === undefined &&
     settings.effort === undefined &&
-    settings.budgetTokens === undefined &&
     settings.direct === undefined
   ) {
     return;
@@ -254,7 +247,6 @@ export function savePerCliSettings(
     carrier.perCliSettings[sanitizedKey] = {
       model: settings.model,
       effort: settings.effort,
-      budgetTokens: settings.budgetTokens,
       direct: settings.direct,
     };
   });
@@ -609,11 +601,6 @@ function sanitizeModelSelection(value: unknown): ModelSelection | null {
     result.effort = effort;
   }
 
-  const budgetTokens = sanitizeBudgetTokens(value.budgetTokens);
-  if (budgetTokens !== undefined) {
-    result.budgetTokens = budgetTokens;
-  }
-
   if (taskforce) {
     result.taskforce = taskforce;
   }
@@ -635,9 +622,6 @@ function sanitizePerCliSettings(value: unknown): PerCliSettings | undefined {
 
   const effort = sanitizeFreeformText(value.effort);
   if (effort) { result.effort = effort; hasField = true; }
-
-  const budgetTokens = sanitizeBudgetTokens(value.budgetTokens);
-  if (budgetTokens !== undefined) { result.budgetTokens = budgetTokens; hasField = true; }
 
   if (typeof value.direct === "boolean") { result.direct = value.direct; hasField = true; }
 
@@ -720,12 +704,6 @@ function resolveSelectionForCliType(
 
     if (effort) {
       result.effort = effort;
-      if (cliType === "claude" && effort !== "none") {
-        const budgetTokens = current.budgetTokens ?? saved?.budgetTokens;
-        if (budgetTokens !== undefined) {
-          result.budgetTokens = budgetTokens;
-        }
-      }
     }
   }
 
@@ -744,7 +722,6 @@ function isSameResolvedSelection(
 ): boolean {
   return current.model === resolved.model
     && current.effort === resolved.effort
-    && current.budgetTokens === resolved.budgetTokens
     && current.direct === resolved.direct;
 }
 
@@ -785,12 +762,6 @@ function sanitizeTaskForceSelection(cliType: CliType, value: unknown): TaskForce
 
   if (effortLevels && effort && effortLevels.includes(effort)) {
     result.effort = effort;
-    if (cliType === "claude" && effort !== "none") {
-      const budgetTokens = sanitizeBudgetTokens(value.budgetTokens);
-      if (budgetTokens !== undefined) {
-        result.budgetTokens = budgetTokens;
-      }
-    }
   }
 
   return result;
@@ -839,10 +810,6 @@ function sanitizeFreeformText(value: unknown): string | null {
   const trimmed = value.trim();
   if (!trimmed || CONTROL_CHAR_PATTERN.test(trimmed)) return null;
   return trimmed;
-}
-
-function sanitizeBudgetTokens(value: unknown): number | undefined {
-  return Number.isInteger(value) && (value as number) > 0 ? (value as number) : undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

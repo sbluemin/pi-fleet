@@ -18,6 +18,48 @@ const mockState = vi.hoisted(() => {
 
   return {
     client,
+    providers: {
+      claude: {
+        name: "Anthropic Claude Code",
+        defaultModel: "opus",
+        models: [{ modelId: "opus", name: "Claude Opus" }],
+        reasoningEffort: { supported: false },
+      },
+      "claude-zai": {
+        name: "Claude ZAI",
+        defaultModel: "zai-coding-plan/glm-5.1",
+        models: [{ modelId: "zai-coding-plan/glm-5.1", name: "GLM-5.1" }],
+        reasoningEffort: { supported: false },
+      },
+      "claude-kimi": {
+        name: "Claude Kimi",
+        defaultModel: "kimi-for-coding/k2p6",
+        models: [{ modelId: "kimi-for-coding/k2p6", name: "Kimi K2P6" }],
+        reasoningEffort: { supported: false },
+      },
+      codex: {
+        name: "OpenAI Codex CLI",
+        defaultModel: "gpt-5.4",
+        models: [{ modelId: "gpt-5.4", name: "GPT-5.4" }],
+        reasoningEffort: {
+          supported: true,
+          levels: ["none", "low", "medium", "high", "xhigh"],
+          default: "high",
+        },
+      },
+      gemini: {
+        name: "Google Gemini CLI",
+        defaultModel: "gemini-2.5-flash",
+        models: [{ modelId: "gemini-2.5-flash", name: "Gemini 2.5 Flash" }],
+        reasoningEffort: { supported: false },
+      },
+      "opencode-go": {
+        name: "OpenCode Go",
+        defaultModel: "opencode-go/glm-5.1",
+        models: [{ modelId: "opencode-go/glm-5.1", name: "GLM-5.1" }],
+        reasoningEffort: { supported: false },
+      },
+    },
     buildArgs: [] as unknown[],
     lastMapper: null as any,
     routerCalls: [] as Array<[string, unknown]>,
@@ -46,26 +88,8 @@ vi.mock("@sbluemin/unified-agent", () => ({
     mockState.buildArgs.push(opts);
     return mockState.client;
   }),
-  getModelsRegistry: () => ({
-    providers: {
-      claude: {
-        models: [{ modelId: "opus", name: "Claude Opus" }],
-        reasoningEffort: { supported: false },
-      },
-      codex: {
-        models: [{ modelId: "gpt-5.4", name: "GPT-5.4" }],
-        reasoningEffort: {
-          supported: true,
-          levels: ["none", "low", "medium", "high", "xhigh"],
-          default: "high",
-        },
-      },
-      gemini: {
-        models: [{ modelId: "gemini-2.5-flash", name: "Gemini 2.5 Flash" }],
-        reasoningEffort: { supported: false },
-      },
-    },
-  }),
+  getModelsRegistry: () => ({ providers: mockState.providers }),
+  getProviderModels: vi.fn((cli: keyof typeof mockState.providers) => mockState.providers[cli]),
   CLI_BACKENDS: {
     claude: {
       id: "claude",

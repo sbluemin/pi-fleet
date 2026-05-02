@@ -4,9 +4,9 @@
  * BackendProgress, TaskForceResult, TaskForceState를 정의합니다.
  */
 
-import type { CliType } from "@sbluemin/unified-agent";
+import { CLI_BACKENDS, type CliType } from "@sbluemin/unified-agent";
 
-export type TaskForceCliType = "claude" | "codex" | "gemini";
+export type TaskForceCliType = CliType;
 
 export interface BackendProgress {
   status: "queued" | "connecting" | "streaming" | "done" | "error";
@@ -32,4 +32,4 @@ export interface TaskForceState {
   finishedAt?: number;
 }
 
-export const TASKFORCE_CLI_TYPES = ["claude", "codex", "gemini"] as const satisfies readonly CliType[];
+export const TASKFORCE_CLI_TYPES = Object.keys(CLI_BACKENDS) as CliType[];

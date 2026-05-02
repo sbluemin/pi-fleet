@@ -328,7 +328,7 @@ async function runSquadronInstance(
     ports: SquadronToolPorts;
     carrierId: string;
     cliType: string;
-    modelConfig: { model?: string; effort?: string; budgetTokens?: number } | undefined;
+    modelConfig: { model?: string; effort?: string } | undefined;
     state: SquadronState;
     signal: AbortSignal | undefined;
     cwd: string;

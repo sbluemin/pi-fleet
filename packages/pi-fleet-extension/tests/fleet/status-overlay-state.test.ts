@@ -35,7 +35,6 @@ function makeEntry(): CarrierStatusEntry {
     model: "claude-a",
     isDefault: false,
     effort: "high",
-    budgetTokens: 8000,
     role: null,
     roleDescription: null,
     isSortieEnabled: true,
@@ -86,7 +85,6 @@ function createOverlay(options?: {
       model: "codex-a",
       effort: "medium",
       isDefault: true,
-      budgetTokens: null,
     })),
     changeCliTypes: vi.fn(async () => []),
     resetCliTypesToDefault: vi.fn(async () => []),
@@ -174,7 +172,6 @@ describe("CarrierStatusOverlay state transitions", () => {
         defaultCliType: "gemini",
         model: "gemini-a",
         effort: null,
-        budgetTokens: null,
       }],
       saveModelSelection: vi.fn(() => deferred.promise),
     });

@@ -139,7 +139,7 @@ describe.skipIf(!installed)('E2E: OpenCode ACP', () => {
 
   describe('OpenCode capability', () => {
     for (const provider of OPEN_CODE_PROVIDERS) {
-      it(`CLI: ${provider.label} list-models JSON에서 reasoning effort 지원으로 노출된다`, async () => {
+      it(`CLI: ${provider.label} list-models JSON에서 reasoning effort 미지원으로 노출된다`, async () => {
         const { stdout, exitCode } = await runCli(
           ['--json', '--list-models', '-c', provider.cli],
         );
@@ -148,7 +148,7 @@ describe.skipIf(!installed)('E2E: OpenCode ACP', () => {
         const result = JSON.parse(stdout.trim()) as Record<string, {
           reasoningEffort: { supported: boolean };
         }>;
-        expect(result[provider.cli]?.reasoningEffort.supported).toBe(true);
+        expect(result[provider.cli]?.reasoningEffort.supported).toBe(false);
       }, 180_000);
     }
   });

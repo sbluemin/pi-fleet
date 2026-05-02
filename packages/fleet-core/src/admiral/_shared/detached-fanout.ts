@@ -84,7 +84,7 @@ interface RunDetachedFanoutTrackOptions<TResult> {
   cliType: string;
   request: string;
   cwd: string;
-  modelConfig: { model?: string; effort?: string; budgetTokens?: number } | undefined;
+  modelConfig: { model?: string; effort?: string } | undefined;
   signal: AbortSignal | undefined;
   progress: DetachedFanoutProgress;
   connectSystemPrompt: string;
@@ -150,7 +150,6 @@ export async function runDetachedFanoutTrack<TResult>(options: RunDetachedFanout
     cwd: options.cwd,
     model: options.modelConfig?.model,
     effort: options.modelConfig?.effort,
-    budgetTokens: options.modelConfig?.budgetTokens,
     connectSystemPrompt: options.connectSystemPrompt,
     signal: options.signal,
     onStatusChange: (status) => {

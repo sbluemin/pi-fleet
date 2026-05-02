@@ -14,7 +14,6 @@ import type {
   Context,
   Model,
   SimpleStreamOptions,
-  ThinkingBudgets,
   Tool as PiTool,
 } from "../provider.js";
 import crypto from "crypto";
@@ -307,25 +306,15 @@ function extractMessageText(content: unknown): string {
   return "";
 }
 
-/**
- * PI SimpleStreamOptions의 reasoning/thinkingBudgets를 ACP effort/budgetTokens로 변환.
- * PI "minimal" → ACP "none" 매핑. ThinkingBudgets에 "xhigh" 키가 없으므로 "high"로 폴백.
- */
+/** PI SimpleStreamOptions의 reasoning을 ACP effort로 변환한다. */
 function resolveEffortFromOptions(
   options?: SimpleStreamOptions,
-): { effort?: string; budgetTokens?: number } | undefined {
+): { effort?: string } | undefined {
   const reasoning = options?.reasoning;
   if (!reasoning) return undefined;
 
   const effort = reasoning === "minimal" ? "none" : reasoning;
-
-  let budgetTokens: number | undefined;
-  if (options?.thinkingBudgets) {
-    const budgetKey: keyof ThinkingBudgets = reasoning === "xhigh" ? "high" : reasoning;
-    budgetTokens = options.thinkingBudgets[budgetKey];
-  }
-
-  return { effort, budgetTokens };
+  return { effort };
 }
 
 /**
@@ -579,7 +568,7 @@ async function ensureSession(
   systemPrompt: string | undefined,
   systemPromptHash: string,
   tools?: PiTool[],
-  effortOverrides?: { effort?: string; budgetTokens?: number },
+  effortOverrides?: { effort?: string },
 ): Promise<AcpSessionState> {
   const state = getOrInitState();
   const key = getSessionKey(cli, scopeKey);
@@ -643,7 +632,7 @@ async function ensureSession(
       }
     }
     if (session) {
-      if (effortOverrides?.effort || effortOverrides?.budgetTokens) {
+      if (effortOverrides?.effort) {
         await applyPostConnectConfig(session.client!, session.cli, effortOverrides);
       }
       installToolCallRouter(state, session);
@@ -652,7 +641,6 @@ async function ensureSession(
       setSessionLaunchConfig(session.sessionKey, {
         modelId: buildModelId(cli, session.currentModel),
         ...(effortOverrides?.effort ? { effort: effortOverrides.effort } : {}),
-        ...(effortOverrides?.budgetTokens ? { budgetTokens: effortOverrides.budgetTokens } : {}),
       });
       debug(`기존 세션 재사용: session=${formatSessionPrefix(session.sessionId!)}`);
       return session;
@@ -758,7 +746,6 @@ async function ensureSession(
     setSessionLaunchConfig(newSession.sessionKey, {
       modelId: buildModelId(cli, backendModel),
       ...(effortOverrides?.effort ? { effort: effortOverrides.effort } : {}),
-      ...(effortOverrides?.budgetTokens ? { budgetTokens: effortOverrides.budgetTokens } : {}),
     });
     if (newSession.sessionId) {
       debug(`세션 생성 완료: session=${formatSessionPrefix(newSession.sessionId)}`);
@@ -1288,11 +1275,11 @@ function extractAllToolResults(
   return results;
 }
 
-/** 연결 후 reasoning/budget 설정을 세션에 적용한다. */
+/** 연결 후 reasoning 설정을 세션에 적용한다. */
 async function applyPostConnectConfig(
   client: Pick<IUnifiedAgentClient, "setConfigOption">,
   cli: CliType,
-  overrides?: { effort?: string; budgetTokens?: number },
+  overrides?: { effort?: string },
 ): Promise<void> {
   if (overrides?.effort && getReasoningEffortLevels(cli)) {
     try {
@@ -1302,13 +1289,6 @@ async function applyPostConnectConfig(
     }
   }
 
-  if (cli === "claude" && overrides?.budgetTokens) {
-    try {
-      await client.setConfigOption("budget_tokens", String(overrides.budgetTokens));
-    } catch (err) {
-      console.warn(`[acp] setConfigOption 실패 (cli=${cli}, option=budget_tokens)`, err);
-    }
-  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

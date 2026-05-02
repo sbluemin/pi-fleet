@@ -5,7 +5,6 @@ export type CarrierCliType = ProviderKey;
 export interface ModelSelection {
   model: string;
   effort?: string;
-  budgetTokens?: number;
 }
 
 export interface CliModelInfo {
@@ -16,7 +15,6 @@ export interface CliModelInfo {
     levels?: string[];
     default?: string;
   };
-  defaultBudgetTokens?: Record<string, number>;
 }
 
 export interface CliServiceSnapshot {
@@ -27,7 +25,6 @@ export interface ResolvedCliSelection {
   model: string;
   effort: string | null;
   isDefault: boolean;
-  budgetTokens: number | null;
 }
 
 export interface CliTypeChangeResult {
@@ -45,7 +42,6 @@ export interface CarrierStatusEntry {
   model: string;
   isDefault: boolean;
   effort: string | null;
-  budgetTokens: number | null;
   role: string | null;
   roleDescription: string | null;
   isSortieEnabled: boolean;

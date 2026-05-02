@@ -10,7 +10,7 @@
 import type { Component, Focusable, TUI } from "@mariozechner/pi-tui";
 import { Key, matchesKey } from "@mariozechner/pi-tui";
 import type { Theme } from "@mariozechner/pi-coding-agent";
-import { CARRIER_BG_COLORS, CLI_DISPLAY_NAMES } from "@sbluemin/fleet-core/constants";
+import { CARRIER_BG_COLORS, CARRIER_COLORS, CLI_DISPLAY_NAMES } from "@sbluemin/fleet-core/constants";
 import type { ProviderModelInfo } from "@sbluemin/unified-agent";
 import {
   TASKFORCE_CLI_TYPES,
@@ -41,7 +41,7 @@ interface TaskForceOverlayProps {
   /** 백엔드 설정 저장 */
   updateBackendConfig: (
     cliType: string,
-    selection: { model: string; effort?: string; budgetTokens?: number },
+    selection: { model: string; effort?: string },
   ) => Promise<void>;
   /** 백엔드 설정 초기화 (origin으로) */
   resetBackendConfig: (cliType: string) => void;
@@ -54,12 +54,6 @@ type OverlayMode = "browse" | "model" | "effort" | "saving";
 const ANSI_RESET = "\x1b[0m";
 const ANSI_DIM = "\x1b[38;2;120;120;120m";
 const ANSI_ACCENT = "\x1b[38;2;100;180;255m";
-
-const CLI_COLORS: Record<string, string> = {
-  claude: "\x1b[38;2;255;149;0m",
-  codex: "\x1b[38;2;169;169;169m",
-  gemini: "\x1b[38;2;66;133;244m",
-};
 
 // ─── 컴포넌트 ────────────────────────────────────────────
 
@@ -226,7 +220,7 @@ export class TaskForceConfigOverlay implements Component, Focusable {
       return {
         cliType,
         displayName: CLI_DISPLAY_NAMES[cliType] ?? cliType,
-        color: CLI_COLORS[cliType] ?? "",
+        color: CARRIER_COLORS[cliType] ?? "",
         model: config.model,
         effort: config.effort,
         isCustom: config.isCustom,
@@ -313,7 +307,7 @@ export class TaskForceConfigOverlay implements Component, Focusable {
     const selectedEffort = effortLevels[this.editCursor];
     if (!selectedEffort) return;
 
-    const selection: { model: string; effort?: string; budgetTokens?: number } = {
+    const selection: { model: string; effort?: string } = {
       model: this.pendingModelId,
       effort: selectedEffort,
     };
@@ -343,7 +337,7 @@ export class TaskForceConfigOverlay implements Component, Focusable {
 
   private async commitSelection(
     entry: BackendEntry,
-    selection: { model: string; effort?: string; budgetTokens?: number },
+    selection: { model: string; effort?: string },
   ): Promise<void> {
     const cliType = toTaskForceCliType(entry.cliType);
     if (!cliType) {
@@ -365,9 +359,6 @@ export class TaskForceConfigOverlay implements Component, Focusable {
 
     if (!effortLevels) {
       delete selection.effort;
-      delete selection.budgetTokens;
-    } else if (cliType !== "claude") {
-      delete selection.budgetTokens;
     }
 
     this.mode = "saving";

@@ -5,6 +5,20 @@ This format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ## [Unreleased]
 
+### Added
+- **Task Force Backend Whitelist Expansion (3 → 6)**: `carrier_taskforce` now accepts every CLI provider registered in `CLI_BACKENDS` (`claude`, `claude-zai`, `claude-kimi`, `codex`, `gemini`, `opencode-go`) instead of the previous hardcoded `claude / codex / gemini` trio. `TaskForceCliType` is now an alias of `CliType`, and `TASKFORCE_CLI_TYPES` is auto-derived via `Object.keys(CLI_BACKENDS) as CliType[]` in `packages/fleet-core/src/admiral/taskforce/types.ts`. Persona × CLI compatibility is allowed for all six providers.
+- **Dynamic Task Force Tool Prompts**: `TASKFORCE_CONFIGURE_HINT` and the `[carrier:result]` backend label list embedded in the `carrier_taskforce` tool description are now built from `TASKFORCE_CLI_TYPES × CLI_DISPLAY_NAMES`. Adding a new CLI provider to `CLI_BACKENDS` automatically expands both the configuration hint and the result-label examples without touching prompt strings.
+- **Auto-Derived Task Force Overlay Colors**: The `taskforce-config-overlay` now reads per-CLI swatch colors from `CARRIER_COLORS` (auto-derived from `CLI_BACKENDS.colorRgb`) instead of a local hardcoded color map, so new providers receive overlay colors automatically.
+
+### Removed
+- **`budgetTokens` Field (Breaking)**: Removed `budgetTokens` from every model selection surface across the stack:
+  - `ModelSelection`, `PerCliSettings`, and `TaskForceSelection` in `fleet-core/admiral/store/fleet-store.ts` no longer carry `budgetTokens`; the `sanitizeBudgetTokens` helper, the `claude` + `effort != "none"` auto-fill branch in `resolveSelectionForCliType`, and the equality check in `isSameResolvedSelection` are deleted accordingly.
+  - `agent-runtime`, `_shared/detached-fanout`, and `admiral/squadron/tool-spec` runner contracts drop `budgetTokens` from their `modelConfig` shape.
+  - Carrier-control bridge DTOs (`status-overlay-controller`, `carrier-control/types`) and the `taskforce-config-overlay.commitSelection` payload no longer carry or clamp `budgetTokens`.
+  - Pi-side adapters drop the field from streaming/state contracts: `model-ui`, `alt-o-status-overlay`, `carrier-ui/status-overlay`, `provider-stream`, `runner`, `tool-registry`, and `provider-internal/state`.
+- **Claude-Specific Reasoning Budget UI**: The `taskforce-config-overlay` no longer renders or persists a Claude-only `budgetTokens` input. New providers without supported reasoning effort follow the existing Gemini pattern (`reasoningEffort.supported = false`) and surface no effort/budget controls.
+- **Local `CLI_COLORS` Hardcode in Task Force Overlay**: Dropped the inline `CLI_COLORS` map (`claude` / `codex` / `gemini` only) from `taskforce-config-overlay.ts`; the overlay now imports `CARRIER_COLORS` from `@sbluemin/fleet-core/constants`.
+
 ## [0.8.1] - 2026-05-01
 
 Release v0.8.1

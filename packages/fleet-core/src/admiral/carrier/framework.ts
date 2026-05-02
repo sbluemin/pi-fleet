@@ -285,11 +285,7 @@ export function updateCarrierCliType(carrierId: string, newType: CliType): void 
   notifyStatusUpdate();
 }
 
-/**
- * registeredOrder를 CliType 우선순위(claude→codex→gemini)로 재정렬합니다.
- * 같은 CliType 내에서는 slot 순서를 유지합니다.
- * registerSingleCarrier 호출 시점마다 자동으로 실행됩니다.
- */
+/** registeredOrder를 SSoT 기반 CliType 우선순위로 재정렬합니다. */
 export function reorderRegisteredByCliType(): void {
   const gs = getState();
   gs.registeredOrder.sort((a, b) => {

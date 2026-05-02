@@ -322,7 +322,6 @@ async function runAgentRequestBackground(options: {
     cwd: options.cwd,
     model: cliConfig?.model,
     effort: cliConfig?.effort,
-    budgetTokens: cliConfig?.budgetTokens,
     connectSystemPrompt: options.connectSystemPrompt,
     signal: options.signal,
     onMessageChunk: options.onMessageChunk,

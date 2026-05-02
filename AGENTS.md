@@ -93,6 +93,24 @@ PI is the **host agent** (orchestrator). Registered Carriers are **sub-agents** 
 | **Tool delegation** | PI's own judgment | PI → tool_call(any carrier) → sub-agent result → PI synthesizes |
 | **Bridge (single)** | Alt+T | User → single sub-agent shell (PI acts as router only, no synthesis) |
 
+### Task Force Backend Whitelist
+
+`carrier_taskforce` accepts every CLI provider registered in `CLI_BACKENDS` (Single Source of Truth). The current whitelist contains **6 backends**:
+
+| CLI Type | Display Name | Notes |
+|----------|--------------|-------|
+| `claude` | Claude Code | Anthropic-hosted Claude (default) |
+| `claude-zai` | Claude Code with Z.AI GLM | Claude bridge with Z.AI base URL |
+| `claude-kimi` | Claude Code with Moonshot Kimi | Claude bridge with Moonshot base URL |
+| `codex` | Codex | OpenAI Codex (`codex-app-server`) |
+| `gemini` | Gemini | Google Gemini CLI |
+| `opencode-go` | OpenCode | OpenCode Go CLI |
+
+- `TaskForceCliType` is an alias of `CliType`; `TASKFORCE_CLI_TYPES` is auto-derived via `Object.keys(CLI_BACKENDS) as CliType[]` in `packages/fleet-core/src/admiral/taskforce/types.ts`.
+- Tool description copy (`TASKFORCE_CONFIGURE_HINT`, `[carrier:result]` backend label examples) and overlay colors (`CARRIER_COLORS`) are derived from `CLI_BACKENDS × CLI_DISPLAY_NAMES`. Adding a new entry to `CLI_BACKENDS` automatically extends Task Force without touching prompts or the overlay.
+- **Persona × CLI compatibility is allowed**: any registered carrier persona may pair with any of the six CLI backends. Configure pairings via Carrier Status (Alt+O → T) per carrier.
+- Providers without supported reasoning effort follow the existing Gemini pattern (`reasoningEffort.supported = false`) and surface no effort/budget controls in the configuration overlay.
+
 ## Operational Protocols & Standing Orders
 
 The Admiral extension implements a modular prompt policy system that governs how the host agent (PI) operates. This system is composed of **Standing Orders** and **Protocols**.

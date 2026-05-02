@@ -63,7 +63,6 @@ export interface PendingToolCallState {
 export interface AcpSessionLaunchConfig {
   modelId: string;
   effort?: string;
-  budgetTokens?: number;
 }
 
 export interface CliCapability {

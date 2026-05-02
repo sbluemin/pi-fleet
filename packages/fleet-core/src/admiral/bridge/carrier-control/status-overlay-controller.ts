@@ -12,7 +12,6 @@ import type {
 interface StoredCliSelection {
   model?: string;
   effort?: string;
-  budgetTokens?: number;
   direct?: boolean;
 }
 
@@ -38,8 +37,6 @@ interface StatusOverlayControllerDeps {
     defaultCliType: CarrierCliType,
   ) => void;
 }
-
-const CLAUDE_CLI_TYPE: CarrierCliType = "claude";
 
 export class StatusOverlayController implements Pick<
   CarrierOverlayCallbacks,
@@ -99,7 +96,6 @@ export class StatusOverlayController implements Pick<
           this.deps.savePerCliSettings(carrierId, currentCliType, {
             model: currentSelection.model,
             effort: currentSelection.effort,
-            budgetTokens: currentSelection.budgetTokens,
             direct: currentSelection.direct,
           });
         }
@@ -114,7 +110,6 @@ export class StatusOverlayController implements Pick<
       await this.deps.updateModelSelection(carrierId, {
         model: resolved.model,
         effort: resolved.effort ?? undefined,
-        budgetTokens: resolved.budgetTokens ?? undefined,
         direct: this.deps.getPerCliSettings(carrierId, newCliType)?.direct,
       });
       return {
@@ -143,15 +138,11 @@ export class StatusOverlayController implements Pick<
     const resolvedEffort = saved?.effort && effortLevels.includes(saved.effort)
       ? saved.effort
       : defaultEffort;
-    const resolvedBudgetTokens = cliType === CLAUDE_CLI_TYPE && resolvedEffort && resolvedEffort !== "none"
-      ? saved?.budgetTokens ?? provider.defaultBudgetTokens?.[resolvedEffort] ?? null
-      : null;
 
     return {
       model: hasSavedModel ? saved!.model! : provider.defaultModel,
       effort: resolvedEffort,
       isDefault: !hasSavedModel,
-      budgetTokens: resolvedBudgetTokens,
     };
   }
 

@@ -131,7 +131,6 @@ async function executeAgentRequest(
       cwd: cwd ?? process.cwd(),
       model: cliConfig?.model,
       effort: cliConfig?.effort,
-      budgetTokens: cliConfig?.budgetTokens,
       connectSystemPrompt: options.connectSystemPrompt,
       signal,
       onMessageChunk: (text) => {

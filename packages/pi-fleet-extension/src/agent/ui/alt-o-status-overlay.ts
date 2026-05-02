@@ -160,7 +160,6 @@ function buildStatusEntries(): CarrierStatusEntry[] {
       model: selection?.model || provider.defaultModel,
       isDefault: !selection?.model,
       effort: selection?.effort ?? null,
-      budgetTokens: selection?.budgetTokens ?? null,
       role: meta?.title ?? null,
       roleDescription: meta ? `${meta.title} — ${meta.summary}` : null,
       isSortieEnabled: isSortieCarrierEnabled(id),
@@ -255,7 +254,7 @@ function openTaskForceOverlay(carrierId: string, ctx: Parameters<Parameters<Retu
         isCustom,
       };
     },
-    updateBackendConfig: async (cliType: string, selection: { model: string; effort?: string; budgetTokens?: number }) => {
+    updateBackendConfig: async (cliType: string, selection: { model: string; effort?: string }) => {
       updateTaskForceModelSelection(
         carrierId,
         requireTaskForceCliType(cliType),

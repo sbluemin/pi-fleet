@@ -13,7 +13,7 @@ interface TestState {
   configs: Map<string, CarrierConfig>;
   currentSelections: Record<string, (ModelSelection & { direct?: boolean }) | undefined>;
   entries: CarrierStatusEntry[];
-  perCliSettings: Map<string, { model?: string; effort?: string; budgetTokens?: number; direct?: boolean }>;
+  perCliSettings: Map<string, { model?: string; effort?: string; direct?: boolean }>;
   providers: Record<CarrierCliType, CliModelInfo>;
 }
 
@@ -46,7 +46,6 @@ function makeEntry(
     model: `${cliType}-model`,
     isDefault: true,
     effort: null,
-    budgetTokens: null,
     role: null,
     roleDescription: null,
     isSortieEnabled: true,
@@ -67,10 +66,6 @@ function makeProviders(): Record<CarrierCliType, CliModelInfo> {
         supported: true,
         levels: ["low", "high"],
         default: "low",
-      },
-      defaultBudgetTokens: {
-        low: 4000,
-        high: 8000,
       },
     },
     codex: {
@@ -147,7 +142,6 @@ function createController(state: TestState) {
     if (entry) {
       entry.model = selection.model;
       entry.effort = selection.effort ?? null;
-      entry.budgetTokens = selection.budgetTokens ?? null;
     }
   });
   const refreshAgentPanel = vi.fn();
@@ -196,7 +190,7 @@ describe("StatusOverlayController", () => {
         ["gamma", makeCarrierConfig("gamma", "gemini", "claude")],
       ]),
       currentSelections: {
-        alpha: { model: "claude-current", effort: "high", budgetTokens: 9000, direct: true },
+        alpha: { model: "claude-current", effort: "high", direct: true },
         beta: { model: "codex-current", effort: "high" },
         gamma: { model: "gemini-current" },
       },
@@ -223,18 +217,15 @@ describe("StatusOverlayController", () => {
       model: "codex-saved",
       effort: "high",
       isDefault: false,
-      budgetTokens: null,
     });
     expect(spies.updateModelSelection).toHaveBeenCalledWith("alpha", {
       model: "codex-saved",
       effort: "high",
-      budgetTokens: undefined,
       direct: undefined,
     });
     expect(spies.savePerCliSettings).toHaveBeenCalledWith("alpha", "claude", {
       model: "claude-current",
       effort: "high",
-      budgetTokens: 9000,
       direct: true,
     });
   });
@@ -248,12 +239,10 @@ describe("StatusOverlayController", () => {
       model: "claude-default",
       effort: "low",
       isDefault: true,
-      budgetTokens: 4000,
     });
     expect(spies.updateModelSelection).toHaveBeenCalledWith("beta", {
       model: "claude-default",
       effort: "low",
-      budgetTokens: 4000,
       direct: undefined,
     });
   });
@@ -277,7 +266,6 @@ describe("StatusOverlayController", () => {
           model: "gemini-saved",
           effort: null,
           isDefault: false,
-          budgetTokens: null,
         },
       },
       {
@@ -287,7 +275,6 @@ describe("StatusOverlayController", () => {
           model: "claude-default",
           effort: "low",
           isDefault: true,
-          budgetTokens: 4000,
         },
       },
     ]);
@@ -299,7 +286,6 @@ describe("StatusOverlayController", () => {
     state.perCliSettings.set("gamma:claude", {
       model: "claude-saved",
       effort: "high",
-      budgetTokens: 8000,
     });
     const { controller, spies } = createController(state);
 
@@ -313,7 +299,6 @@ describe("StatusOverlayController", () => {
           model: "claude-saved",
           effort: "high",
           isDefault: false,
-          budgetTokens: 8000,
         },
       },
     ]);

@@ -131,7 +131,7 @@ export type AgentStreamEvent =
 export interface ExecuteOptions {
   /** 고유 carrier 식별자 — 풀 키, 세션 스토어 키 */
   carrierId: string;
-  /** CLI 바이너리 타입 (claude, codex, gemini) — 실제 연결 대상 */
+  /** CLI 바이너리 타입 — 실제 연결 대상 */
   cliType: CliType;
   /** 사용자 요청 텍스트 */
   request: string;
@@ -141,8 +141,6 @@ export interface ExecuteOptions {
   model?: string;
   /** Reasoning effort 레벨 */
   effort?: string;
-  /** 명시적 Claude thinking budget tokens */
-  budgetTokens?: number;
   /** 프롬프트 유휴 타임아웃 (ms, 미지정 시 SDK 기본값 사용) */
   promptIdleTimeout?: number;
   /** carrier 경로의 connect-time system prompt handoff */
@@ -227,7 +225,6 @@ interface PostConnectConfigClient {
 
 interface LaunchConfig {
   effort?: string;
-  budgetTokens?: number;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -513,7 +510,6 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
 
       await applyPostConnectConfig(client, cliType, resolveLaunchOverrides(carrierId, {
         effort: opts.effort,
-        budgetTokens: opts.budgetTokens,
       }));
     } else {
       const info = client.getConnectionInfo();
@@ -527,10 +523,9 @@ export async function executeWithPool(opts: ExecuteOptions): Promise<ExecuteResu
         store.set(carrierId, connectionInfo.sessionId);
       }
 
-      if (opts.effort || opts.budgetTokens) {
+      if (opts.effort) {
         await applyPostConnectConfig(client, cliType, {
           effort: opts.effort,
-          budgetTokens: opts.budgetTokens,
         });
       }
     }
@@ -668,7 +663,6 @@ export async function executeOneShot(opts: ExecuteOptions): Promise<ExecuteResul
     const connectResult = await raceAbort(client.connect(connectOpts), signal);
     await applyPostConnectConfig(client, cliType, {
       effort: opts.effort,
-      budgetTokens: opts.budgetTokens,
     });
 
     if (aborted) {
@@ -764,12 +758,12 @@ export async function executeOneShot(opts: ExecuteOptions): Promise<ExecuteResul
 
 /**
  * 연결 후 추론 설정을 세션에 적용합니다.
- * 호출자가 주입한 effort/budgetTokens 값을 그대로 사용합니다.
+ * 호출자가 주입한 effort 값을 그대로 사용합니다.
  */
 export async function applyPostConnectConfig(
   client: PostConnectConfigClient,
   cli: CliType,
-  overrides?: { effort?: string; budgetTokens?: number },
+  overrides?: { effort?: string },
 ): Promise<void> {
   if (overrides?.effort) {
     if (supportsReasoningEffort(cli)) {
@@ -781,13 +775,6 @@ export async function applyPostConnectConfig(
     }
   }
 
-  if (cli === "claude" && overrides?.budgetTokens) {
-    try {
-      await client.setConfigOption("budget_tokens", String(overrides.budgetTokens));
-    } catch (err) {
-      console.warn(`[acp] setConfigOption 실패 (cli=${cli}, option=budget_tokens)`, err);
-    }
-  }
 }
 
 /** 싱글턴 풀 반환 (globalThis에서 가져오거나 생성) */
@@ -1191,19 +1178,17 @@ function supportsReasoningEffort(cli: CliType): boolean {
 
 function resolveLaunchOverrides(
   key: string,
-  overrides?: { effort?: string; budgetTokens?: number },
-): { effort?: string; budgetTokens?: number } | undefined {
+  overrides?: { effort?: string },
+): { effort?: string } | undefined {
   const launchConfig = getLaunchConfig(key);
   const effort = overrides?.effort ?? launchConfig?.effort;
-  const budgetTokens = overrides?.budgetTokens ?? launchConfig?.budgetTokens;
 
-  if (!effort && !budgetTokens) {
+  if (!effort) {
     return overrides;
   }
 
   return {
     effort,
-    budgetTokens,
   };
 }
 

@@ -29,7 +29,6 @@ import type {
 } from "./types.js";
 
 interface EntrySnapshot {
-  budgetTokens: number | null;
   cliType: CarrierCliType;
   effort: string | null;
   isDefault: boolean;
@@ -580,10 +579,6 @@ export class CarrierStatusOverlay implements Component, Focusable {
     detailLine("model", `${modelLabel} [${entry.model}]`);
     detailLine("cli", `${this.getCliDisplayName(entry.cliType)} (${entry.cliType})`);
     detailLine("role", entry.role ?? "-");
-    if (entry.cliType === "claude") {
-      detailLine("budget", entry.budgetTokens != null ? String(entry.budgetTokens) : "-");
-    }
-
     const wrappedDescription = this.wrapText(description, valueWidth);
     for (let i = 0; i < wrappedDescription.length; i++) {
       const label = i === 0 ? "desc" : "";
@@ -630,7 +625,6 @@ export class CarrierStatusOverlay implements Component, Focusable {
 
   private async commitSelection(entry: CarrierStatusEntry, selection: ModelSelection): Promise<void> {
     const previous = {
-      budgetTokens: entry.budgetTokens,
       effort: entry.effort,
       isDefault: entry.isDefault,
       model: entry.model,
@@ -646,7 +640,6 @@ export class CarrierStatusOverlay implements Component, Focusable {
       entry.model = previous.model;
       entry.isDefault = previous.isDefault;
       entry.effort = previous.effort;
-      entry.budgetTokens = previous.budgetTokens;
       const message = error instanceof Error ? error.message : String(error);
       this.feedbackMessage = `저장 실패: ${message}`;
     } finally {
@@ -659,7 +652,6 @@ export class CarrierStatusOverlay implements Component, Focusable {
     entry.model = selection.model;
     entry.isDefault = false;
     entry.effort = selection.effort ?? null;
-    entry.budgetTokens = selection.budgetTokens ?? null;
   }
 
   private startBatchCliFromEdit(): void {
@@ -888,7 +880,6 @@ export class CarrierStatusOverlay implements Component, Focusable {
     entry.model = resolved.model;
     entry.effort = resolved.effort;
     entry.isDefault = resolved.isDefault;
-    entry.budgetTokens = resolved.budgetTokens;
   }
 
   private getDefaultResolvedCliSelection(cliType: CarrierCliType): ResolvedCliSelection {
@@ -897,13 +888,11 @@ export class CarrierStatusOverlay implements Component, Focusable {
       model: provider.defaultModel,
       effort: provider.reasoningEffort.default ?? null,
       isDefault: true,
-      budgetTokens: null,
     };
   }
 
   private captureEntrySnapshot(entry: CarrierStatusEntry): EntrySnapshot {
     return {
-      budgetTokens: entry.budgetTokens,
       cliType: entry.cliType,
       effort: entry.effort,
       isDefault: entry.isDefault,
@@ -916,7 +905,6 @@ export class CarrierStatusOverlay implements Component, Focusable {
     entry.model = snapshot.model;
     entry.effort = snapshot.effort;
     entry.isDefault = snapshot.isDefault;
-    entry.budgetTokens = snapshot.budgetTokens;
   }
 
   private getEntryById(carrierId: string): CarrierStatusEntry | null {

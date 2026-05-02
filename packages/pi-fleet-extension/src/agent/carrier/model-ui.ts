@@ -63,7 +63,6 @@ export function registerModelCommands(pi: ExtensionAPI): void {
         const displayName = resolveCarrierDisplayName(k);
         let s = `${displayName}=${v.model}`;
         if (v.effort) s += ` effort=${v.effort}`;
-        if (v.budgetTokens) s += ` budget=${v.budgetTokens}`;
         return s;
       }).join(", ");
       ctx.ui.notify(`모델 선택 저장 완료: ${summary}`, "info");

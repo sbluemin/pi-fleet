@@ -92,7 +92,7 @@ const mockState = vi.hoisted(() => {
     clientPlans: [] as MockClientPlan[],
     pool: new Map<string, { client: MockUnifiedAgentClient; busy: boolean; sessionId?: string }>(),
     sessionStoreState: {} as Record<string, string | undefined>,
-    launchConfigs: new Map<string, { modelId: string; effort?: string; budgetTokens?: number }>(),
+    launchConfigs: new Map<string, { modelId: string; effort?: string }>(),
     systemPrompt: null as string | null,
     reasoningEffortLevels: ["low", "medium", "high"] as string[] | null,
   };
@@ -140,7 +140,7 @@ vi.mock("../../src/admiral/_shared/agent-runtime.js", async (importOriginal) => 
       getAll: vi.fn(() => ({ ...mockState.sessionStoreState })),
     })),
     buildModelId: vi.fn((cli: string, model: string) => `acp:${cli}:${model}`),
-    setSessionLaunchConfig: vi.fn((key: string, config: { modelId: string; effort?: string; budgetTokens?: number }) => {
+    setSessionLaunchConfig: vi.fn((key: string, config: { modelId: string; effort?: string }) => {
       const previous = mockState.launchConfigs.get(key);
       mockState.launchConfigs.set(key, {
         ...previous,
