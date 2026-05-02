@@ -16,7 +16,7 @@
 ---
 
 <div align="center">
-  <video src=".github/pi-fleet.mp4" width="640" controls></video>
+  <img src=".github/pi-fleet.gif" alt="pi-fleet demo" width="640" />
 </div>
 
 ## 동기
